@@ -1,0 +1,143 @@
+from __future__ import annotations
+
+import json
+import random
+from pathlib import Path
+from typing import Iterator
+
+from vlm_anchor.utils import extract_first_number
+
+
+ALLOWED_NUMBER_EXTS = {".png", ".jpg", ".jpeg", ".webp"}
+
+
+def list_images(folder: str | Path) -> list[Path]:
+    folder = Path(folder)
+    items = [p for p in folder.iterdir() if p.suffix.lower() in ALLOWED_NUMBER_EXTS]
+    return sorted(items, key=lambda p: p.name)
+
+
+def _select_image_variants(images: list[Path], count: int, rng: random.Random) -> list[Path]:
+    if count < 1:
+        raise ValueError("variants_per_sample must be at least 1")
+
+    selected: list[Path] = []
+    pool = images.copy()
+    while len(selected) < count:
+        rng.shuffle(pool)
+        remaining = count - len(selected)
+        selected.extend(pool[:remaining])
+    return selected
+
+
+
+def load_number_vqa_samples(
+    dataset_path: str | Path,
+    max_samples: int | None,
+    require_single_numeric_gt: bool = True,
+) -> list[dict]:
+    dataset_path = Path(dataset_path)
+    questions_path = dataset_path / "questions.jsonl"
+    if not questions_path.exists():
+        raise FileNotFoundError(f"Could not find questions file at {questions_path}")
+
+    samples: list[dict] = []
+    with open(questions_path, "r", encoding="utf-8") as f:
+        rows = (json.loads(line) for line in f if line.strip())
+        for row in rows:
+            if row.get("answer_type") != "number":
+                continue
+            gt = extract_first_number(row.get("multiple_choice_answer", ""))
+            if not gt or not gt.lstrip("-").isdigit():
+                continue
+            answers = [extract_first_number(a["answer"]) for a in row.get("answers", [])]
+            answers = [a for a in answers if a]
+            if require_single_numeric_gt and not all(a.lstrip("-").isdigit() for a in answers if a):
+                continue
+
+            image_rel = row.get("image_file")
+            if not image_rel:
+                raise KeyError("Each question row must include an image_file field")
+            image_path = dataset_path / image_rel
+            if not image_path.exists():
+                raise FileNotFoundError(f"Missing local image for question {row.get('question_id')}: {image_path}")
+
+            samples.append(
+                {
+                    "question_id": row["question_id"],
+                    "image_id": row["image_id"],
+                    "question": row["question"],
+                    "image": image_path,
+                    "ground_truth": gt,
+                    "answers": answers,
+                    "question_type": row.get("question_type", ""),
+                }
+            )
+            if max_samples is not None and len(samples) >= max_samples:
+                break
+    return samples
+
+
+
+def assign_irrelevant_images(
+    samples: list[dict],
+    irrelevant_number_dir: str | Path,
+    irrelevant_neutral_dir: str | Path,
+    seed: int = 42,
+    variants_per_sample: int = 1,
+) -> list[dict]:
+    rng = random.Random(seed)
+    number_images = list_images(irrelevant_number_dir)[:10]
+    neutral_images = list_images(irrelevant_neutral_dir)
+    if not number_images:
+        raise FileNotFoundError(f"No number images found in {irrelevant_number_dir}")
+    if not neutral_images:
+        raise FileNotFoundError(f"No neutral images found in {irrelevant_neutral_dir}")
+
+    enriched = []
+    for sample in samples:
+        number_variants = _select_image_variants(number_images, variants_per_sample, rng)
+        neutral_variants = _select_image_variants(neutral_images, variants_per_sample, rng)
+        for variant_index, (num_img, neu_img) in enumerate(zip(number_variants, neutral_variants)):
+            anchor_value = extract_first_number(num_img.stem)
+            enriched.append(
+                {
+                    **sample,
+                    "sample_instance_id": f"{sample['question_id']}_{sample['image_id']}_set{variant_index:02d}",
+                    "sample_instance_index": variant_index,
+                    "irrelevant_number_image": str(num_img),
+                    "irrelevant_number_image_name": num_img.name,
+                    "irrelevant_neutral_image": str(neu_img),
+                    "irrelevant_neutral_image_name": neu_img.name,
+                    "anchor_value": anchor_value,
+                }
+            )
+    return enriched
+
+
+
+def build_conditions(sample: dict) -> Iterator[dict]:
+    yield {
+        **sample,
+        "condition": "target_only",
+        "input_images": [sample["image"]],
+        "anchor_value_for_metrics": None,
+        "irrelevant_type": "none",
+        "irrelevant_image": None,
+    }
+    yield {
+        **sample,
+        "condition": "target_plus_irrelevant_number",
+        "input_images": [sample["image"], sample["irrelevant_number_image"]],
+        "anchor_value_for_metrics": sample["anchor_value"],
+        "irrelevant_type": "number",
+        "irrelevant_image": sample["irrelevant_number_image"],
+    }
+    yield {
+        **sample,
+        "condition": "target_plus_irrelevant_neutral",
+        "input_images": [sample["image"], sample["irrelevant_neutral_image"]],
+        "anchor_value_for_metrics": None,
+        "irrelevant_type": "neutral",
+        "irrelevant_image": sample["irrelevant_neutral_image"],
+    }
