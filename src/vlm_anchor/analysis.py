@@ -32,6 +32,7 @@ DISTRACTOR_LABELS = {
 }
 DISTANCE_BIN_LABELS = ["[0,5)", "[5,10)", "[10,20)", "[20,50)", "[50,+)"]
 DISTANCE_BIN_EDGES = [0, 5, 10, 20, 50, np.inf]
+DEFAULT_OUTLIER_IQR_MULTIPLIER = 1.5
 
 
 def set_notebook_style() -> None:
@@ -271,6 +272,65 @@ def build_paired_dataframe(records_df: pd.DataFrame) -> pd.DataFrame:
         right=False,
     )
     return paired_df.sort_values(["model", "sample_instance_id"]).reset_index(drop=True)
+
+
+def summarize_anchor_distance_outliers(
+    paired_df: pd.DataFrame,
+    iqr_multiplier: float = DEFAULT_OUTLIER_IQR_MULTIPLIER,
+) -> tuple[pd.DataFrame, dict[str, float | int]]:
+    sample_distances = (
+        paired_df.loc[paired_df["anchor_gt_distance"].notna(), ["sample_instance_id", "question_id", "image_id", "question", "question_type", "anchor_gt_distance"]]
+        .sort_values(["sample_instance_id", "anchor_gt_distance"])
+        .drop_duplicates(subset=["sample_instance_id"], keep="first")
+        .reset_index(drop=True)
+    )
+
+    if sample_distances.empty:
+        empty_summary: dict[str, float | int] = {
+            "iqr_multiplier": float(iqr_multiplier),
+            "sample_count": 0,
+            "q1": float("nan"),
+            "q3": float("nan"),
+            "iqr": float("nan"),
+            "threshold": float("nan"),
+            "outlier_count": 0,
+            "kept_count": 0,
+        }
+        sample_distances["is_outlier"] = pd.Series(dtype=bool)
+        return sample_distances, empty_summary
+
+    q1 = float(sample_distances["anchor_gt_distance"].quantile(0.25))
+    q3 = float(sample_distances["anchor_gt_distance"].quantile(0.75))
+    iqr = float(q3 - q1)
+    threshold = float(q3 + (iqr_multiplier * iqr))
+    sample_distances["is_outlier"] = sample_distances["anchor_gt_distance"] > threshold
+
+    summary = {
+        "iqr_multiplier": float(iqr_multiplier),
+        "sample_count": int(sample_distances.shape[0]),
+        "q1": q1,
+        "q3": q3,
+        "iqr": iqr,
+        "threshold": threshold,
+        "outlier_count": int(sample_distances["is_outlier"].sum()),
+        "kept_count": int((~sample_distances["is_outlier"]).sum()),
+    }
+    return sample_distances, summary
+
+
+def filter_anchor_distance_outliers(
+    records_df: pd.DataFrame,
+    paired_df: pd.DataFrame,
+    iqr_multiplier: float = DEFAULT_OUTLIER_IQR_MULTIPLIER,
+) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, dict[str, float | int]]:
+    outlier_df, summary = summarize_anchor_distance_outliers(paired_df, iqr_multiplier=iqr_multiplier)
+    outlier_sample_ids = set(outlier_df.loc[outlier_df["is_outlier"], "sample_instance_id"].tolist())
+    if not outlier_sample_ids:
+        return records_df.copy(), paired_df.copy(), outlier_df, summary
+
+    filtered_records_df = records_df.loc[~records_df["sample_instance_id"].isin(outlier_sample_ids)].copy()
+    filtered_paired_df = paired_df.loc[~paired_df["sample_instance_id"].isin(outlier_sample_ids)].copy()
+    return filtered_records_df.reset_index(drop=True), filtered_paired_df.reset_index(drop=True), outlier_df, summary
 
 
 def summarize_run_overview(records_df: pd.DataFrame, paired_df: pd.DataFrame) -> pd.DataFrame:
@@ -551,9 +611,17 @@ def make_root_aggregate_summary(
     model_filter: Sequence[str] | None = None,
     bootstrap_samples: int = 1000,
     rng_seed: int = 42,
+    apply_outlier_filter: bool = True,
+    outlier_iqr_multiplier: float = DEFAULT_OUTLIER_IQR_MULTIPLIER,
 ) -> pd.DataFrame:
     records_df = load_experiment_records(experiment_root, model_filter=model_filter)
     paired_df = build_paired_dataframe(records_df)
+    if apply_outlier_filter:
+        records_df, paired_df, _, _ = filter_anchor_distance_outliers(
+            records_df,
+            paired_df,
+            iqr_multiplier=outlier_iqr_multiplier,
+        )
     effect_df = summarize_condition_effects(paired_df, bootstrap_samples=bootstrap_samples, rng_seed=rng_seed)
     anchor_df = summarize_anchor_behavior(paired_df, bootstrap_samples=bootstrap_samples, rng_seed=rng_seed)
     neutral_df = summarize_neutral_behavior(paired_df, bootstrap_samples=bootstrap_samples, rng_seed=rng_seed)
@@ -577,9 +645,18 @@ def summarize_compare_roots(
     model_filter: Sequence[str] | None = None,
     bootstrap_samples: int = 1000,
     rng_seed: int = 42,
+    apply_outlier_filter: bool = True,
+    outlier_iqr_multiplier: float = DEFAULT_OUTLIER_IQR_MULTIPLIER,
 ) -> pd.DataFrame:
     summaries = [
-        make_root_aggregate_summary(root, model_filter=model_filter, bootstrap_samples=bootstrap_samples, rng_seed=rng_seed)
+        make_root_aggregate_summary(
+            root,
+            model_filter=model_filter,
+            bootstrap_samples=bootstrap_samples,
+            rng_seed=rng_seed,
+            apply_outlier_filter=apply_outlier_filter,
+            outlier_iqr_multiplier=outlier_iqr_multiplier,
+        )
         for root in experiment_roots
     ]
     if not summaries:
@@ -988,11 +1065,13 @@ def plot_case_panel(case_row: pd.Series | dict[str, Any], show_attention_maps: b
 
 
 __all__ = [
+    "DEFAULT_OUTLIER_IQR_MULTIPLIER",
     "DISTANCE_BIN_LABELS",
     "build_case_gallery",
     "build_failure_stratification_df",
     "build_paired_dataframe",
     "bootstrap_mean_ci",
+    "filter_anchor_distance_outliers",
     "load_experiment_records",
     "make_anchor_distance_scatter",
     "make_anchor_scatter",
@@ -1013,6 +1092,7 @@ __all__ = [
     "set_notebook_style",
     "summarize_anchor_behavior",
     "summarize_anchor_distance_response",
+    "summarize_anchor_distance_outliers",
     "summarize_compare_roots",
     "summarize_condition_effects",
     "summarize_condition_metrics",
