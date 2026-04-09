@@ -15,7 +15,7 @@ if str(SRC_ROOT) not in sys.path:
 from vlm_anchor.data import assign_irrelevant_images, build_conditions, load_number_vqa_samples
 from vlm_anchor.metrics import evaluate_sample, summarize_experiment
 from vlm_anchor.models import AttentionVisualizationConfig, InferenceConfig, build_model_runner
-from vlm_anchor.utils import dump_json, dump_jsonl, ensure_dir, load_yaml, resolve_path, set_seed
+from vlm_anchor.utils import dump_csv, dump_json, dump_jsonl, ensure_dir, load_yaml, resolve_path, set_seed
 from vlm_anchor.visualization import save_attention_panel, save_experiment_analysis_figures
 
 
@@ -203,6 +203,7 @@ def main() -> None:
 
         summary = summarize_experiment(records)
         dump_jsonl(records, model_out_dir / "predictions.jsonl")
+        dump_csv(records, model_out_dir / "predictions.csv")
         dump_json(summary, model_out_dir / "summary.json")
         all_records.extend(records)
         print(summary)

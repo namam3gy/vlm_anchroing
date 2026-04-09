@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import csv
 import json
 import random
 import re
@@ -79,6 +80,37 @@ def dump_jsonl(rows: list[dict[str, Any]], path: str | Path) -> None:
     with open(path, "w", encoding="utf-8") as f:
         for row in rows:
             f.write(json.dumps(row, ensure_ascii=False) + "\n")
+
+
+def dump_csv(rows: list[dict[str, Any]], path: str | Path) -> None:
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+
+    fieldnames: list[str] = []
+    seen: set[str] = set()
+    for row in rows:
+        for key in row:
+            if key not in seen:
+                seen.add(key)
+                fieldnames.append(key)
+
+    with open(path, "w", encoding="utf-8", newline="") as f:
+        if not fieldnames:
+            return
+
+        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        writer.writeheader()
+        for row in rows:
+            writer.writerow(
+                {
+                    key: json.dumps(value, ensure_ascii=False)
+                    if isinstance(value, (dict, list, tuple))
+                    else str(value)
+                    if isinstance(value, Path)
+                    else value
+                    for key, value in row.items()
+                }
+            )
 
 
 def normalize_numeric_text(text: str | None) -> str:
