@@ -87,7 +87,7 @@ def assign_irrelevant_images(
     variants_per_sample: int = 1,
 ) -> list[dict]:
     rng = random.Random(seed)
-    number_images = list_images(irrelevant_number_dir)[:10]
+    number_images = list_images(irrelevant_number_dir)
     neutral_images = list_images(irrelevant_neutral_dir)
     if not number_images:
         raise FileNotFoundError(f"No number images found in {irrelevant_number_dir}")
