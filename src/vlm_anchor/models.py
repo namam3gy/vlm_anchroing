@@ -192,10 +192,10 @@ class HFAttentionRunner:
             dtype=dtype,
             trust_remote_code=True,
             device_map=self.device,
-            attn_implementation="eager",
+            attn_implementation="sdpa",
         )
         if hasattr(self.model.config, "_attn_implementation"):
-            self.model.config._attn_implementation = "eager"
+            self.model.config._attn_implementation = "sdpa"
         self.model.eval()
         self._output_projection_cache: dict[int, tuple[torch.Tensor, float]] = {}
 
