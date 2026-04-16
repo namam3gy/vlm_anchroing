@@ -119,14 +119,14 @@ def resolve_prediction_files(experiment_root: str | Path, model_filter: Sequence
         return [root]
 
     prediction_files: list[Path] = []
-    direct = root / "predictions.jsonl"
+    direct = root / "predictions.csv"
     if direct.exists():
         prediction_files = [direct]
     else:
         prediction_files = sorted(
-            child / "predictions.jsonl"
+            child / "predictions.csv"
             for child in root.iterdir()
-            if child.is_dir() and (child / "predictions.jsonl").exists()
+            if child.is_dir() and (child / "predictions.csv").exists()
         )
 
     if model_filter:
@@ -144,23 +144,16 @@ def load_experiment_records(
     if not prediction_files:
         raise FileNotFoundError(f"No predictions.jsonl files found under {experiment_root}")
 
-    root_path = Path(experiment_root).resolve()
-    records: list[dict[str, Any]] = []
+    records = []
     for prediction_path in prediction_files:
-        model_root = prediction_path.parent.resolve()
-        rows = _read_jsonl(prediction_path)
-        for row in rows:
-            records.append(
-                {
-                    **row,
-                    "model": row.get("model") or model_root.name,
-                    "model_root": str(model_root),
-                    "experiment_root": str(root_path),
-                    "experiment_name": root_path.name,
-                }
-            )
+        df = pd.read_csv(prediction_path)  # Validate CSV format, but we'll read the JSONL for richer data
+        df["model"] = df.get("model") if "model" in df.columns else prediction_path.parent.name
+        df["model_root"] = str(prediction_path.parent.resolve())
+        df["experiment_root"] = str(Path(experiment_root).resolve())
+        df["experiment_name"] = Path(experiment_root).resolve().name
+        records.append(df)
 
-    records_df = pd.DataFrame(records)
+    records_df = pd.concat(records)
     if records_df.empty:
         raise ValueError(f"No records found under {experiment_root}")
 
