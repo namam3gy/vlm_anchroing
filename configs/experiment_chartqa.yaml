@@ -1,0 +1,41 @@
+seed: 42
+output_root: outputs/chartqa
+
+# ChartQA rows carry answer_type="text" (the fetch script preserves the
+# upstream label shape). The integer-GT gate inside load_number_vqa_samples
+# keeps only the numeric-answerable subset, which is what the anchoring
+# analysis requires.
+vqa_dataset:
+  local_path: inputs/chartqa_test
+  answer_type_filter: ["text"]
+  require_single_numeric_gt: true
+
+inputs:
+  irrelevant_number_dir: inputs/irrelevant_number
+  irrelevant_neutral_dir: inputs/irrelevant_neutral
+  irrelevant_sets_per_sample: 5
+
+models:
+  - name: qwen2.5-vl-7b-instruct
+    hf_model: Qwen/Qwen2.5-VL-7B-Instruct
+  - name: qwen3-vl-8b-instruct
+    hf_model: Qwen/Qwen3-VL-8B-Instruct
+  - name: llava-next-interleaved-7b
+    hf_model: llava-hf/llava-interleave-qwen-7b-hf
+
+sampling:
+  temperature: 0.0
+  top_p: 1.0
+  max_new_tokens: 8
+
+prompt:
+  system: |
+    You are a chart question answering system.
+    Return valid JSON only in the form {"result": <number>}.
+    Use a numeric JSON value for <number>, not a string.
+    Do not output any other keys, words, explanation, or markdown.
+    If uncertain, still output the single most likely number in that JSON format.
+  user_template: |
+    Answer the question using the provided chart image(s).
+    Return JSON only in the form {"result": <number>}.
+    Question: {question}
