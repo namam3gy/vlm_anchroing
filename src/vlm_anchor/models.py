@@ -85,6 +85,7 @@ class HFAttentionRunner:
             "max_new_tokens": max_new_tokens,
             "do_sample": do_sample,
             "return_dict_in_generate": True,
+            "output_scores": True,
         }
         if do_sample:
             generate_kwargs["temperature"] = self.cfg.temperature
@@ -93,8 +94,39 @@ class HFAttentionRunner:
         out = self.model.generate(**inputs, **generate_kwargs)
         generated = out.sequences[:, seq_len:]
         decoded = self.processor.batch_decode(generated, skip_special_tokens=True)[0].strip()
+
+        tokenizer = getattr(self.processor, "tokenizer", self.processor)
+        gen_ids = generated[0].tolist()
+        token_info: list[dict[str, Any]] = []
+        scores = getattr(out, "scores", None) or ()
+        for step, step_logits in enumerate(scores):
+            if step >= len(gen_ids):
+                break
+            token_id = int(gen_ids[step])
+            logits_vec = step_logits[0].float()
+            probs = torch.softmax(logits_vec, dim=-1)
+            token_info.append(
+                {
+                    "token_id": token_id,
+                    "token_text": tokenizer.decode([token_id], skip_special_tokens=False),
+                    "logit": float(logits_vec[token_id].item()),
+                    "probability": float(probs[token_id].item()),
+                }
+            )
+
+        answer_number = extract_first_number(decoded)
+        answer_token = next(
+            (t for t in token_info if extract_first_number(t["token_text"]) == answer_number and answer_number),
+            None,
+        )
+
         return {
             "raw_text": decoded,
-            "parsed_number": extract_first_number(decoded),
+            "parsed_number": answer_number,
             "backend": "huggingface",
+            "token_info": token_info,
+            "answer_token_logit": answer_token["logit"] if answer_token else None,
+            "answer_token_probability": answer_token["probability"] if answer_token else None,
+            "answer_token_id": answer_token["token_id"] if answer_token else None,
+            "answer_token_text": answer_token["token_text"] if answer_token else None,
         }
