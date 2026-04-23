@@ -45,6 +45,7 @@ def main() -> None:
         require_single_numeric_gt=ds_cfg.get("require_single_numeric_gt", True),
         answer_range=ds_cfg.get("answer_range"),
         samples_per_answer=ds_cfg.get("samples_per_answer"),
+        answer_type_filter=ds_cfg.get("answer_type_filter"),
     )
     samples = assign_irrelevant_images(
         samples,
