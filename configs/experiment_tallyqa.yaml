@@ -1,5 +1,5 @@
 seed: 42
-output_root: outputs/tallyqa
+output_root: outputs
 
 vqa_dataset:
   local_path: inputs/tallyqa_test

@@ -1,5 +1,5 @@
 seed: 42
-output_root: outputs/mathvista
+output_root: outputs
 
 # MathVista rows carry answer_type in {"integer", "float", "text"}. The
 # anchoring experiment works on integer-answerable questions, so we accept
