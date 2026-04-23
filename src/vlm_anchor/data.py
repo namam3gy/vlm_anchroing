@@ -35,13 +35,21 @@ def load_number_vqa_samples(
     dataset_path: str | Path,
     max_samples: int | None,
     require_single_numeric_gt: bool = True,
+    answer_range: int | None = None,
+    samples_per_answer: int | None = None,
 ) -> list[dict]:
+    if answer_range is not None and answer_range < 0:
+        raise ValueError("answer_range must be >= 0")
+    if samples_per_answer is not None and samples_per_answer <= 0:
+        raise ValueError("samples_per_answer must be > 0")
+
     dataset_path = Path(dataset_path)
     questions_path = dataset_path / "questions.jsonl"
     if not questions_path.exists():
         raise FileNotFoundError(f"Could not find questions file at {questions_path}")
 
     samples: list[dict] = []
+    answer_counts: dict[int, int] = {}
     with open(questions_path, "r", encoding="utf-8") as f:
         rows = (json.loads(line) for line in f if line.strip())
         for row in rows:
@@ -49,6 +57,11 @@ def load_number_vqa_samples(
                 continue
             gt = extract_first_number(row.get("multiple_choice_answer", ""))
             if not gt or not gt.lstrip("-").isdigit():
+                continue
+            gt_value = int(gt)
+            if answer_range is not None and not 0 <= gt_value <= answer_range:
+                continue
+            if samples_per_answer is not None and answer_counts.get(gt_value, 0) >= samples_per_answer:
                 continue
             answers = [extract_first_number(a["answer"]) for a in row.get("answers", [])]
             answers = [a for a in answers if a]
@@ -73,6 +86,8 @@ def load_number_vqa_samples(
                     "question_type": row.get("question_type", ""),
                 }
             )
+            if samples_per_answer is not None:
+                answer_counts[gt_value] = answer_counts.get(gt_value, 0) + 1
             if max_samples is not None and len(samples) >= max_samples:
                 break
     return samples
