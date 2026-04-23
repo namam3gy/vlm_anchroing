@@ -2,14 +2,15 @@ seed: 42
 output_root: outputs
 
 vqa_dataset:
-  local_path: inputs/vqav2_number_val_300
-  max_samples: 300
+  local_path: inputs/vqav2_number_val
+  answer_range: 8
+  samples_per_answer: 400
   require_single_numeric_gt: true
 
 inputs:
   irrelevant_number_dir: inputs/irrelevant_number
   irrelevant_neutral_dir: inputs/irrelevant_neutral
-  irrelevant_sets_per_sample: 3
+  irrelevant_sets_per_sample: 5
 
 models:
   - name: qwen3-vl-8b-instruct

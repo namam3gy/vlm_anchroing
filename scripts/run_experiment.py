@@ -71,11 +71,13 @@ def main() -> None:
     ensure_dir(output_root)
 
     ds_cfg = cfg["vqa_dataset"]
-    max_samples = args.max_samples or ds_cfg["max_samples"]
+    max_samples = args.max_samples if args.max_samples is not None else ds_cfg.get("max_samples")
     samples = load_number_vqa_samples(
         dataset_path=resolve_path(ds_cfg["local_path"], base_dir=project_root),
         max_samples=max_samples,
         require_single_numeric_gt=ds_cfg.get("require_single_numeric_gt", True),
+        answer_range=ds_cfg.get("answer_range"),
+        samples_per_answer=ds_cfg.get("samples_per_answer"),
     )
     samples = assign_irrelevant_images(
         samples,
