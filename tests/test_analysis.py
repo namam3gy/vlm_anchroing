@@ -1,18 +1,11 @@
 from __future__ import annotations
 
-import json
-import sys
+import csv
 import tempfile
 import unittest
 from pathlib import Path
 
 import pandas as pd
-
-
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
-SRC_ROOT = PROJECT_ROOT / "src"
-if str(SRC_ROOT) not in sys.path:
-    sys.path.insert(0, str(SRC_ROOT))
 
 from vlm_anchor.analysis import (
     build_paired_dataframe,
@@ -326,9 +319,11 @@ class LoadExperimentRecordsTest(unittest.TestCase):
                     "input_image_paths": ["/tmp/target.png"],
                 }
             ]
-            with open(model_dir / "predictions.jsonl", "w", encoding="utf-8") as handle:
+            with open(model_dir / "predictions.csv", "w", encoding="utf-8", newline="") as handle:
+                writer = csv.DictWriter(handle, fieldnames=list(rows[0].keys()))
+                writer.writeheader()
                 for row in rows:
-                    handle.write(json.dumps(row) + "\n")
+                    writer.writerow(row)
 
             records_df = load_experiment_records(root)
             self.assertEqual(records_df["model"].tolist(), ["demo-model"])

@@ -6,9 +6,7 @@ from typing import Any
 
 import matplotlib.pyplot as plt
 import numpy as np
-from PIL import Image
 
-from vlm_anchor.models import _to_pil
 from vlm_anchor.utils import dump_json, ensure_dir, extract_first_number, normalize_numeric_text
 
 
@@ -27,64 +25,6 @@ CONDITION_COLORS = {
     "target_plus_irrelevant_number": "#d97706",
     "target_plus_irrelevant_neutral": "#0f766e",
 }
-
-
-def overlay_attention_on_image(
-    image_like: Any,
-    heatmap: np.ndarray,
-    alpha: float = 0.45,
-) -> np.ndarray:
-    image = np.asarray(_to_pil(image_like)).astype(np.float32) / 255.0
-    heat_uint8 = np.clip(heatmap, 0.0, 1.0)
-    heat_uint8 = (heat_uint8 * 255).astype(np.uint8)
-    heat_image = Image.fromarray(heat_uint8, mode="L")
-    heat_image = heat_image.resize((image.shape[1], image.shape[0]), resample=Image.Resampling.BILINEAR)
-    resized = np.asarray(heat_image).astype(np.float32) / 255.0
-    cmap = plt.get_cmap("jet")
-    colored = cmap(resized)[..., :3]
-    overlay = (1 - alpha) * image + alpha * colored
-    overlay = np.clip(overlay, 0, 1)
-    return overlay
-
-
-def save_attention_panel(
-    sample_id: str,
-    question: str,
-    images: list[Any],
-    heatmaps: list[np.ndarray],
-    prediction: str,
-    output_path: str | Path,
-    attention_tokens: list[str] | None = None,
-) -> None:
-    output_path = Path(output_path)
-    ensure_dir(output_path.parent)
-
-    cols = len(images)
-    fig, axes = plt.subplots(2, cols, figsize=(6 * cols, 8), squeeze=False)
-
-    for idx, img in enumerate(images):
-        pil = _to_pil(img)
-        axes[0, idx].imshow(pil)
-        axes[0, idx].axis("off")
-        axes[0, idx].set_title(f"Input image {idx + 1}")
-
-    for idx, (img, heat) in enumerate(zip(images, heatmaps)):
-        pil = _to_pil(img)
-        overlay = overlay_attention_on_image(
-            pil,
-            heat,
-        )
-        axes[1, idx].imshow(overlay)
-        axes[1, idx].axis("off")
-        axes[1, idx].set_title(f"Answer-token TAM {idx + 1}")
-
-    title = f"Sample {sample_id}\nQ: {question}\nPred: {prediction}"
-    if attention_tokens:
-        title += f"\nAttention tokens: {' '.join(attention_tokens)}"
-    fig.suptitle(title, fontsize=12)
-    plt.tight_layout()
-    plt.savefig(output_path, dpi=200, bbox_inches="tight")
-    plt.close(fig)
 
 
 def save_experiment_analysis_figures(records: list[dict], output_dir: str | Path) -> None:
