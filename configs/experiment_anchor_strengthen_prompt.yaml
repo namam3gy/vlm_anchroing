@@ -14,33 +14,23 @@ inputs:
 
 models:
   - name: qwen3-vl-8b-instruct
-    backend: ollama
-    ollama_model: qwen3-vl:8b-instruct
     hf_model: Qwen/Qwen3-VL-8B-Instruct
   - name: gemma4-e4b
-    backend: ollama
-    ollama_model: gemma4:e4b
     hf_model: google/gemma-4-E4B-it
   - name: qwen2.5-vl-7b-instruct
-    backend: huggingface
     hf_model: Qwen/Qwen2.5-VL-7B-Instruct
   - name: llava-next-interleaved-7b
-    backend: huggingface
     hf_model: llava-hf/llava-interleave-qwen-7b-hf
   - name: gemma3-27b-it
-    backend: huggingface
     hf_model: google/gemma-3-27b-it
   - name: gemma4-31b-it
-    backend: huggingface
     hf_model: google/gemma-4-31B-it
   - name: qwen3-vl-30b-it
-    backend: huggingface
     hf_model: Qwen/Qwen3-VL-30B-A3B-Instruct
 
 sampling:
   temperature: 0.0
   top_p: 1.0
-  num_ctx: 8192
   max_new_tokens: 8
 
 prompt:
@@ -53,20 +43,3 @@ prompt:
     Even when the correct answer is unclear, you must still output one number.
   user_template: |
     Question: {question}
-
-visualization:
-  enabled: false
-  max_cases_per_model: null
-  fallback_backend: huggingface
-  attention:
-    method: tam
-    span_source: target_or_prediction
-    tam:
-      filter_size: 3
-    head_selection:
-      top_k: 4
-      min_image_mass: 0.05
-    layer_aggregation:
-      strategy: mean
-      start_ratio: 0.5
-      count: 4

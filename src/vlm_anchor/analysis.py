@@ -142,11 +142,11 @@ def load_experiment_records(
 ) -> pd.DataFrame:
     prediction_files = resolve_prediction_files(experiment_root, model_filter=model_filter)
     if not prediction_files:
-        raise FileNotFoundError(f"No predictions.jsonl files found under {experiment_root}")
+        raise FileNotFoundError(f"No predictions.csv files found under {experiment_root}")
 
     records = []
     for prediction_path in prediction_files:
-        df = pd.read_csv(prediction_path)  # Validate CSV format, but we'll read the JSONL for richer data
+        df = pd.read_csv(prediction_path)
         df["model"] = df.get("model") if "model" in df.columns else prediction_path.parent.name
         df["model_root"] = str(prediction_path.parent.resolve())
         df["experiment_root"] = str(Path(experiment_root).resolve())
