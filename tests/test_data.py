@@ -1,13 +1,9 @@
 from __future__ import annotations
 
-import sys
+import json
 import tempfile
 import unittest
-import json
 from pathlib import Path
-
-
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from vlm_anchor.data import assign_irrelevant_images, load_number_vqa_samples
 
