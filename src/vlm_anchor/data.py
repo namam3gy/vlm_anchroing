@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import random
 from pathlib import Path
-from typing import Iterator
+from typing import Iterable, Iterator
 
 from vlm_anchor.utils import extract_first_number
 
@@ -37,11 +37,14 @@ def load_number_vqa_samples(
     require_single_numeric_gt: bool = True,
     answer_range: int | None = None,
     samples_per_answer: int | None = None,
+    answer_type_filter: Iterable[str] | None = None,
 ) -> list[dict]:
     if answer_range is not None and answer_range < 0:
         raise ValueError("answer_range must be >= 0")
     if samples_per_answer is not None and samples_per_answer <= 0:
         raise ValueError("samples_per_answer must be > 0")
+
+    allowed_answer_types = {str(t).strip() for t in answer_type_filter} if answer_type_filter else None
 
     dataset_path = Path(dataset_path)
     questions_path = dataset_path / "questions.jsonl"
@@ -53,7 +56,7 @@ def load_number_vqa_samples(
     with open(questions_path, "r", encoding="utf-8") as f:
         rows = (json.loads(line) for line in f if line.strip())
         for row in rows:
-            if row.get("answer_type") != "number":
+            if allowed_answer_types is not None and row.get("answer_type") not in allowed_answer_types:
                 continue
             gt = extract_first_number(row.get("multiple_choice_answer", ""))
             if not gt or not gt.lstrip("-").isdigit():
