@@ -1,13 +1,14 @@
 from __future__ import annotations
 
 import argparse
+from datetime import datetime
 from pathlib import Path
 
 from tqdm import tqdm
 
 from vlm_anchor.data import assign_irrelevant_images, build_conditions, load_number_vqa_samples
 from vlm_anchor.metrics import evaluate_sample, summarize_experiment
-from vlm_anchor.models import HFAttentionRunner, InferenceConfig
+from vlm_anchor.models import InferenceConfig, build_runner
 from vlm_anchor.utils import dump_csv, dump_json, dump_jsonl, ensure_dir, load_yaml, resolve_path, set_seed
 from vlm_anchor.visualization import save_experiment_analysis_figures
 
@@ -35,7 +36,8 @@ def main() -> None:
         if args.output_root
         else resolve_path(cfg["output_root"], base_dir=project_root)
     )
-    ensure_dir(output_root)
+    experiment_root = ensure_dir(output_root / config_path.stem)
+    timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
 
     ds_cfg = cfg["vqa_dataset"]
     max_samples = args.max_samples if args.max_samples is not None else ds_cfg.get("max_samples")
@@ -73,11 +75,11 @@ def main() -> None:
     for model_cfg in selected_models:
         model_name = model_cfg["name"]
         print(f"\n=== Running {model_name} ===")
-        model_out_dir = ensure_dir(output_root / model_name)
+        model_out_dir = ensure_dir(experiment_root / model_name / timestamp)
         hf_model = model_cfg.get("hf_model")
         if not hf_model:
             raise ValueError(f"Model {model_name} is missing `hf_model`, which is required for HF-only execution.")
-        runner = HFAttentionRunner(hf_model, inference_config=inf_cfg)
+        runner = build_runner(hf_model, inference_config=inf_cfg)
 
         records: list[dict] = []
 
@@ -110,6 +112,11 @@ def main() -> None:
                     "backend": result["backend"],
                     "raw_prediction": result["raw_text"],
                     "prediction": sample_eval.normalized_prediction,
+                    "answer_token_id": result.get("answer_token_id"),
+                    "answer_token_text": result.get("answer_token_text"),
+                    "answer_token_logit": result.get("answer_token_logit"),
+                    "answer_token_probability": result.get("answer_token_probability"),
+                    "token_info": result.get("token_info", []),
                     "anchor_value": cond["anchor_value_for_metrics"],
                     "standard_vqa_accuracy": sample_eval.standard_vqa_accuracy,
                     "exact_match": sample_eval.exact_match,
@@ -128,7 +135,7 @@ def main() -> None:
         print(summary)
 
     if all_records:
-        save_experiment_analysis_figures(all_records, output_root / "analysis")
+        save_experiment_analysis_figures(all_records, experiment_root / "analysis" / timestamp)
 
 
 if __name__ == "__main__":

@@ -1,5 +1,5 @@
 seed: 42
-output_root: outputs/chartqa
+output_root: outputs
 
 # ChartQA rows carry answer_type="text" (the fetch script preserves the
 # upstream label shape). The integer-GT gate inside load_number_vqa_samples
