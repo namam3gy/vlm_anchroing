@@ -1,6 +1,6 @@
 # Phase-A summary — what 17,730 samples × 7 models actually say
 
-**Source data:** `outputs/experiment/<model>/<run>/predictions.csv`, processed by `research/scripts/phase_a_data_mining.py`. Outlier filter from `analysis.filter_anchor_distance_outliers` applied (IQR×1.5 on per-sample anchor-GT distance, default settings). All numbers come from `research/insights/_data/*.csv`.
+**Source data:** `outputs/experiment/<model>/<run>/predictions.csv`, processed by `scripts/phase_a_data_mining.py`. Outlier filter from `analysis.filter_anchor_distance_outliers` applied (IQR×1.5 on per-sample anchor-GT distance, default settings). All numbers come from `docs/insights/_data/*.csv`.
 
 This file is the cross-cutting roll-up. Long-form discussion of the strongest individual findings lives in the per-insight files (`A1-…`, `A2-…`, `A7-…`).
 
@@ -34,7 +34,7 @@ These didn't earn their own insight markdowns — they're folded in here.
 
 - **A3** — VQAv2's `question_type` field is too coarse to slice meaningfully on this subset. The dominant types are "how many" and "what number". Numbers in `A3_question_type.csv` show the same pattern as the pooled per-model summary; no question-type-specific bias signature jumps out. Defer until we add ChartQA / TallyQA where the question taxonomy is richer.
 - **A4** — shift distribution is **strongly bimodal at "0" + a thin pull-toward-anchor tail**. ≥ 75 % of pairs don't change at all (gemma4-31b 85 %, qwen2.5-vl 85 %, qwen3-vl-8b 84 %; gemma4-e4b is the outlier at 56 %). Of the changes, the ±1 bin dominates and the negative side (away from anchor) is consistently lighter than the positive side. The visual signature matches a Mussweiler-Strack "selective accessibility" account — most items are unaffected, a fraction is dragged.
-- **A5** — strengthening the prompt ("must output a number") moves only one model meaningfully: **gemma3-27b** (adoption +17.4 pp, moved-closer +15.3 pp). All others change by < 6 pp. The strengthen prompt is **not** a universal anchor amplifier; it primarily breaks gemma3-27b. Cross-reference §3.5 of `RESEARCH_ROADMAP.md`: gemma3 in particular hallucinates large numbers under "no hedging" pressure, which the outlier filter trims but is worth flagging in the paper.
+- **A5** — strengthening the prompt ("must output a number") moves only one model meaningfully: **gemma3-27b** (adoption +17.4 pp, moved-closer +15.3 pp). All others change by < 6 pp. The strengthen prompt is **not** a universal anchor amplifier; it primarily breaks gemma3-27b. Cross-reference §3.5 of `references/roadmap.md`: gemma3 in particular hallucinates large numbers under "no hedging" pressure, which the outlier filter trims but is worth flagging in the paper.
 - **A6** — failure-mode taxonomy: across all 7 models, the partitioning is roughly { exact-anchor: 11–14 %, unchanged: 56–85 %, graded-toward-anchor: 6–19 %, orthogonal / away: 6–19 %, non-numeric parse failure: ~0 % }. The "graded toward" bucket is the new finding the paper will lean on; the "exact-anchor" and "orthogonal" buckets are roughly balanced and can be dismissed as noise.
 
 ## What this means for the paper
@@ -44,7 +44,7 @@ These didn't earn their own insight markdowns — they're folded in here.
 - **A2 is dangerous.** The per-digit pattern needs a chance-corrected analysis (subtract base-rate of `anchor == GT`) before any claim is published. Easy fix; do it before adding to the paper.
 - **A7's correlations are the bridge to mechanism.** They predict that an encoder ablation (E2 — ConvLLaVA full run) and an attention-mass analysis (E1) should both produce signal. Schedule both.
 
-## Decision triggers (per `RESEARCH_ROADMAP.md` §7)
+## Decision triggers (per `references/roadmap.md` §7)
 
 - After-A1 trigger fires **green**: asymmetry ≥ 10 pp on multiple models (gemma4-e4b, gemma3-27b, qwen3-vl-30b clear the bar; the rest are 6–9 pp). Headline holds.
 - E1 / E2 priority is **unchanged**. Same-family correlation in A7 (Qwen3-VL-30B ↔ Qwen3-VL-8B = 0.30) suggests architecture matters → encoder ablation is worth running.

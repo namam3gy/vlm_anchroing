@@ -1,10 +1,10 @@
 # A1 — Anchoring은 uncertainty-modulated graded pull, categorical capture가 아니다
 
-**Status:** Phase-A finding. 7개 모델 모두에서 robust. EMNLP write-up의 가장 강한 단일 hook. 원본 데이터: `_data/A1_asymmetric_long.csv`, `_data/A1_asymmetric_wide.csv`. 스크립트: `research/scripts/phase_a_data_mining.py::a1_asymmetric_on_wrong`. *(영문 canonical: `A1-asymmetric-on-wrong.md`)*
+**Status:** Phase-A finding. 7개 모델 모두에서 robust. EMNLP write-up의 가장 강한 단일 hook. 원본 데이터: `_data/A1_asymmetric_long.csv`, `_data/A1_asymmetric_wide.csv`. 스크립트: `scripts/phase_a_data_mining.py::a1_asymmetric_on_wrong`. *(영문 canonical: `A1-asymmetric-on-wrong.md`)*
 
 ## 질문
 
-`research_plan.md`가 "모델이 원래 틀린 item에서 더 강한 anchoring"을 paper의 가장 강한 hook으로 flag — LLM/VLM anchoring 문헌 어디도 prior correctness로 effect를 partition하지 않음. Mussweiler-Strack / Jacowitz-Kahneman 모두 anchoring이 주관적 불확실성에 비례한다고 예측. **이게 성립하는가?** 사전에 명시한 falsifier (`RESEARCH_ROADMAP.md` §2 H2): `adoption(wrong)` ≈ `adoption(correct)`이면 H2 fail.
+`references/project.md`가 "모델이 원래 틀린 item에서 더 강한 anchoring"을 paper의 가장 강한 hook으로 flag — LLM/VLM anchoring 문헌 어디도 prior correctness로 effect를 partition하지 않음. Mussweiler-Strack / Jacowitz-Kahneman 모두 anchoring이 주관적 불확실성에 비례한다고 예측. **이게 성립하는가?** 사전에 명시한 falsifier (`references/roadmap.md` §2 H2): `adoption(wrong)` ≈ `adoption(correct)`이면 H2 fail.
 
 ## 방법
 

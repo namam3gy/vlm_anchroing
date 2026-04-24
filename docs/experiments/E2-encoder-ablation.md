@@ -1,10 +1,10 @@
 # E2 — Vision-encoder ablation: ConvLLaVA vs CLIP-ViT VLMs
 
-**Status:** Pilot launched 2026-04-24 (`configs/experiment_encoder_pilot.yaml`, 4 models × 25 samples-per-answer = ~1,100 sample-instances each). Full run blocked on pilot success. Source: `RESEARCH_ROADMAP.md` §6 Tier 1 E2 + H3.
+**Status:** Pilot launched 2026-04-24 (`configs/experiment_encoder_pilot.yaml`, 4 models × 25 samples-per-answer = ~1,100 sample-instances each). Full run blocked on pilot success. Source: `references/roadmap.md` §6 Tier 1 E2 + H3.
 
 ## Hypothesis under test
 
-H3 from `RESEARCH_ROADMAP.md` §2: vision-encoder family modulates anchoring susceptibility. CLIP / SigLIP-ViT VLMs inherit a documented typographic-attack weakness (arXiv:2508.20570) — text in pixels activates concept neurons. ConvNeXt-encoder VLMs (and encoder-free models) lack the same training signal and should show a smaller cross-modal anchoring effect.
+H3 from `references/roadmap.md` §2: vision-encoder family modulates anchoring susceptibility. CLIP / SigLIP-ViT VLMs inherit a documented typographic-attack weakness (arXiv:2508.20570) — text in pixels activates concept neurons. ConvNeXt-encoder VLMs (and encoder-free models) lack the same training signal and should show a smaller cross-modal anchoring effect.
 
 **Falsifier:** if ConvLLaVA-7B's `moved_closer_rate` and `mean_anchor_pull` are statistically equivalent to CLIP/SigLIP-ViT VLMs at matched compute scale (±10 % relative on either metric, 95 % bootstrap CI), H3 fails and the encoder-architecture story drops out of the paper.
 
@@ -20,7 +20,7 @@ H3 from `RESEARCH_ROADMAP.md` §2: vision-encoder family modulates anchoring sus
 
 - Same 4 models, `samples_per_answer=400` → 17,730 sample-instances each, matching the existing 7 main runs.
 - Adds H3 evidence to the existing 7-model panel (now 11 models total spanning 4–5 vision-encoder families).
-- Also captures `token_info` (logits) on every record — opens the door to the deferred A1 logit-margin re-analysis without needing a separate run. *(See `research/insights/A1-asymmetric-on-wrong.md` "Concrete next steps".)*
+- Also captures `token_info` (logits) on every record — opens the door to the deferred A1 logit-margin re-analysis without needing a separate run. *(See `docs/insights/A1-asymmetric-on-wrong.md` "Concrete next steps".)*
 
 ### Comparison metric
 
@@ -54,7 +54,7 @@ The lineup is unbalanced (ConvNeXt has only 1 model), so the strongest claim pos
 
 - Pilot completes for all 4 models with ≥ 90 % numeric-parse rate and no pipeline crashes.
 - Either (a) ConvLLaVA's `moved_closer_rate(wrong)` lies clearly below the CLIP-ViT cluster (H3 supported, schedule full run with high priority) or (b) it doesn't (H3 falls — drop encoder-ablation framing, refocus on attention mass / mitigation).
-- Either way: write a 1-page result note and update `RESEARCH_ROADMAP.md` §3 status table.
+- Either way: write a 1-page result note and update `references/roadmap.md` §3 status table.
 
 ## Result
 

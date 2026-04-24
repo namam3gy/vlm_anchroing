@@ -1,6 +1,6 @@
 # E2 pilot results — encoder ablation, n=1,125 per model
 
-**Status:** Pilot complete 2026-04-24. 신규 통합된 4 모델 × 25 samples-per-answer × 9 answer value × 5 irrelevant-set variant × 3 condition = 모델당 1,125 sample-instance. Source: `outputs/experiment_encoder_pilot/<model>/<run>/summary.json`. Plan: `research/experiments/E2-encoder-ablation.md`. *(영문 canonical: `E2-pilot-results.md`)*
+**Status:** Pilot complete 2026-04-24. 신규 통합된 4 모델 × 25 samples-per-answer × 9 answer value × 5 irrelevant-set variant × 3 condition = 모델당 1,125 sample-instance. Source: `outputs/experiment_encoder_pilot/<model>/<run>/summary.json`. Plan: `docs/experiments/E2-encoder-ablation.md`. *(영문 canonical: `E2-pilot-results.md`)*
 
 ## 헤드라인 수치
 
@@ -24,7 +24,7 @@ Bold 행 = pilot 모델. Pilot n=1,125 vs main n=17,730 — pilot scale에서 ad
 
 ## H3에 대한 함의
 
-원래 H3 예측 (`RESEARCH_ROADMAP.md` §2): *ConvNeXt-encoder VLM이 CLIP/SigLIP-ViT VLM보다 anchor-susceptibility 낮다*.
+원래 H3 예측 (`references/roadmap.md` §2): *ConvNeXt-encoder VLM이 CLIP/SigLIP-ViT VLM보다 anchor-susceptibility 낮다*.
 
 Pilot 데이터는 이를 straightforwardly 지지하지 **않음**:
 
@@ -32,7 +32,7 @@ Pilot 데이터는 이를 straightforwardly 지지하지 **않음**:
 - LLaVA-1.5-7B (CLIP-ViT)가 전체 11-model panel에서 *최고* adoption (0.181), typographic-attack 상속과 일관.
 - ConvLLaVA의 adoption (0.156)이 LLaVA-1.5-7B의 (0.181)보다 낮지만 gap ~2.5 pp — pilot noise 안 (n=1,125 → SE ≈ 0.011, 95% CI ±0.022).
 
-**결정 발화 (`RESEARCH_ROADMAP.md` §7):** ConvLLaVA의 susceptibility가 pilot scale에서 CLIP/SigLIP cluster confidence interval *안*. 단순 "ConvNeXt < ViT" 형태의 H3는 **지지 안 됨**. 두 갈래:
+**결정 발화 (`references/roadmap.md` §7):** ConvLLaVA의 susceptibility가 pilot scale에서 CLIP/SigLIP cluster confidence interval *안*. 단순 "ConvNeXt < ViT" 형태의 H3는 **지지 안 됨**. 두 갈래:
 
 1. **ConvLLaVA + LLaVA-1.5 full 17,730 grid 돌려** tight CI 얻고 H3를 scale에서 정의적으로 reject (또는 accept). H200에서 모델당 ~1일. 부정적 finding ("ConvNeXt encoder가 anchoring을 escape 못함") 자체가 paper-worthy하고 문헌 가정에 challenge하므로 가치 있음.
 2. **Refocus.** Pilot의 actually-novel 패턴은 다른 것 — 다음 섹션 참조.

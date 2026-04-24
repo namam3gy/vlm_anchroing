@@ -1,6 +1,6 @@
 # E1 — 4개 encoder family에 걸친 attention-mass 결과 (각 n=200)
 
-**Status:** 4 모델 × 200 susceptibility-stratified question × 3 condition = 2,400 attention record. Main claim들이 cross-replication으로 결정됨. Plan: `research/experiments/E1-attention-mass.md`. 원본 데이터: `outputs/attention_analysis/{gemma4-e4b,qwen2.5-vl-7b-instruct,llava-1.5-7b,internvl3-8b}/<run>/per_step_attention.jsonl`. 분석: `research/scripts/analyze_attention_mass.py`. *(영문 canonical: `E1-preliminary-results.md`)*
+**Status:** 4 모델 × 200 susceptibility-stratified question × 3 condition = 2,400 attention record. Main claim들이 cross-replication으로 결정됨. Plan: `docs/experiments/E1-attention-mass.md`. 원본 데이터: `outputs/attention_analysis/{gemma4-e4b,qwen2.5-vl-7b-instruct,llava-1.5-7b,internvl3-8b}/<run>/per_step_attention.jsonl`. 분석: `scripts/analyze_attention_mass.py`. *(영문 canonical: `E1-preliminary-results.md`)*
 
 ## TL;DR — 4개 모델에서 각각 replicate되거나 깨끗하게 split되는 세 가지 발견
 

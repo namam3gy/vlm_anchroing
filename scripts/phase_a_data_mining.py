@@ -1,11 +1,11 @@
 """Phase-A re-analysis of the existing 7-model VQAv2 runs.
 
-Produces per-insight CSVs under research/insights/_data/. The accompanying
+Produces per-insight CSVs under docs/insights/_data/. The accompanying
 insight markdowns are then written by hand from those numbers (so the prose
 stays grounded in measured values, not paraphrase).
 
 Usage:
-    uv run python research/scripts/phase_a_data_mining.py
+    uv run python scripts/phase_a_data_mining.py
 """
 
 from __future__ import annotations

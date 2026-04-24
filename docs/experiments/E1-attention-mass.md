@@ -1,12 +1,12 @@
 # E1 — Attention-mass analysis: where does the anchor enter the computation?
 
-**Status:** Plan only. Implementation queued behind E2 pilot. Source: `RESEARCH_ROADMAP.md` §6 Tier 1 E1.
+**Status:** Plan only. Implementation queued behind E2 pilot. Source: `references/roadmap.md` §6 Tier 1 E1.
 
 ## Question
 
 When the model output shifts toward the anchor digit, do the language-model layers actually *attend* to the anchor-image tokens more than to the target-image tokens? Or does the anchor's influence enter via some other route (e.g. a generic "second image" prior in the LLM)?
 
-This is the cheapest mechanistic measurement available and directly addresses the "why does this happen" reviewer complaint flagged in `research_plan.md`.
+This is the cheapest mechanistic measurement available and directly addresses the "why does this happen" reviewer complaint flagged in `references/project.md`.
 
 ## Method
 
@@ -35,7 +35,7 @@ A7 showed item-level susceptibility correlates moderately across models. Therefo
 
 ## Implementation outline
 
-A new script `research/scripts/extract_attention_mass.py` that:
+A new script `scripts/extract_attention_mass.py` that:
 
 1. Loads one model via the existing `build_runner(...)` factory.
 2. Adds a thin `_run_with_attention(...)` method that mirrors `generate_number()` but passes `output_attentions=True, return_dict_in_generate=True` and unpacks `out.attentions` → list[layer] of tensors `[batch, heads, q_len, k_len]`.
@@ -50,9 +50,9 @@ Memory note: full attention tensors at 1024-token context × 28 layers × 32 hea
 
 ## Deliverable
 
-- `research/scripts/extract_attention_mass.py`
+- `scripts/extract_attention_mass.py`
 - `outputs/attention_analysis/<model>/<run>/per_layer_mass.parquet`
-- `research/insights/E1-attention-results.md` with: the per-stratum attention bar plot, the per-layer trace, the cross-susceptibility comparison.
+- `docs/insights/E1-attention-results.md` with: the per-stratum attention bar plot, the per-layer trace, the cross-susceptibility comparison.
 
 ## Linkage to mitigation E4
 

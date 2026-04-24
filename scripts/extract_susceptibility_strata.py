@@ -6,7 +6,7 @@ on hard cases) and any future paired analysis that wants
 "items where every model anchors" vs "items where no model anchors".
 
 Usage:
-    uv run python research/scripts/extract_susceptibility_strata.py
+    uv run python scripts/extract_susceptibility_strata.py
 """
 
 from __future__ import annotations

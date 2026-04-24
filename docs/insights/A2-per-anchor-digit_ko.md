@@ -1,6 +1,6 @@
 # A2 — Per-anchor-digit pull은 비대칭이고 모델별로 다르다
 
-**Status:** Phase-A finding. 원본 데이터: `_data/A2_per_anchor_value.csv`. 스크립트: `research/scripts/phase_a_data_mining.py::a2_per_anchor_value`. *(영문 canonical: `A2-per-anchor-digit.md`)*
+**Status:** Phase-A finding. 원본 데이터: `_data/A2_per_anchor_value.csv`. 스크립트: `scripts/phase_a_data_mining.py::a2_per_anchor_value`. *(영문 canonical: `A2-per-anchor-digit.md`)*
 
 ## 질문
 

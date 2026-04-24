@@ -1,6 +1,6 @@
 # A7 — Item susceptibility는 부분적으로 content-driven; same-family 모델이 더 강하게 correlate
 
-**Status:** Phase-A finding. 원본 데이터: `_data/A7_per_question.csv`, `_data/A7_model_correlation.csv`. 스크립트: `research/scripts/phase_a_data_mining.py::a7_cross_model_agreement`. *(영문 canonical: `A7-cross-model-agreement.md`)*
+**Status:** Phase-A finding. 원본 데이터: `_data/A7_per_question.csv`, `_data/A7_model_correlation.csv`. 스크립트: `scripts/phase_a_data_mining.py::a7_cross_model_agreement`. *(영문 canonical: `A7-cross-model-agreement.md`)*
 
 ## 질문
 
@@ -38,7 +38,7 @@ Positive-but-modest correlation (0.15 – 0.31)이 헤드라인. **Item suscepti
 - **Pure encoder story도 fit 안 함.** Qwen3-VL-8B와 Gemma4-e4b는 완전히 다른 vision stack (Qwen3은 custom ViT; Gemma는 SigLIP). Within-Qwen-family와 비슷한 0.27로 correlate. 일부 bias-susceptible item은 universally bias-susceptible.
 - **가장 일관된 읽기:** susceptibility = `f(content, encoder, LLM)`, 세 component 모두 weight. Component를 *분리*하는 paper에 적합한 setup — E1 (attention mass) + E2 (encoder ablation) + 추후 activation patching이 정확히 그 designed.
 
-## Experiment plan에 대한 함의 (`RESEARCH_ROADMAP.md` §6)
+## Experiment plan에 대한 함의 (`references/roadmap.md` §6)
 
 - **E2 (ConvLLaVA full run) well-motivated.** Pure-Conv encoder가 lineup에서 가장 깨끗한 counterfactual, modest cross-encoder correlation이 ConvLLaVA의 susceptibility profile이 model-pair correlation map에서 *다른* point에 land할 것을 예측. ~0.30으로 모두와 correlate (즉 ConvNeXt + LLaMA가 여전히 universal content-driven bias 생산)면 bias가 encoder-architecture-invariant. ~0.10으로 (훨씬 낮게) correlate면 encoder가 크게 영향.
 - **E1 attention mass는 `is_susceptible_item`으로 conditioning.** Cross-model moved-closer rate top-decile (universally susceptible) item과 bottom-decile (universally resistant) item을 골라 attention pattern 비교. Encoder의 역할에 직접적 read.
