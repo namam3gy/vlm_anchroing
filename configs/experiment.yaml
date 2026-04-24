@@ -27,6 +27,14 @@ models:
     hf_model: google/gemma-4-E4B-it
   - name: qwen2.5-vl-7b-instruct
     hf_model: Qwen/Qwen2.5-VL-7B-Instruct
+  - name: llava-1.5-7b
+    hf_model: llava-hf/llava-1.5-7b-hf
+  - name: internvl3-8b
+    hf_model: OpenGVLab/InternVL3-8B-hf
+  - name: fastvlm-7b
+    hf_model: apple/FastVLM-7B
+  - name: convllava-7b
+    hf_model: ConvLLaVA/ConvLLaVA-sft-1536
 
 sampling:
   temperature: 0.0

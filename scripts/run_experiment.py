@@ -8,7 +8,7 @@ from tqdm import tqdm
 
 from vlm_anchor.data import assign_irrelevant_images, build_conditions, load_number_vqa_samples
 from vlm_anchor.metrics import evaluate_sample, summarize_experiment
-from vlm_anchor.models import HFAttentionRunner, InferenceConfig
+from vlm_anchor.models import InferenceConfig, build_runner
 from vlm_anchor.utils import dump_csv, dump_json, dump_jsonl, ensure_dir, load_yaml, resolve_path, set_seed
 from vlm_anchor.visualization import save_experiment_analysis_figures
 
@@ -79,7 +79,7 @@ def main() -> None:
         hf_model = model_cfg.get("hf_model")
         if not hf_model:
             raise ValueError(f"Model {model_name} is missing `hf_model`, which is required for HF-only execution.")
-        runner = HFAttentionRunner(hf_model, inference_config=inf_cfg)
+        runner = build_runner(hf_model, inference_config=inf_cfg)
 
         records: list[dict] = []
 
