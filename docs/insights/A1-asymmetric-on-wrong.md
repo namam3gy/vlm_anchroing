@@ -1,10 +1,10 @@
 # A1 — Anchoring is uncertainty-modulated graded pull, not categorical capture
 
-**Status:** Phase-A finding. Robust across all 7 models. Strongest single hook for the EMNLP write-up. Source data: `_data/A1_asymmetric_long.csv`, `_data/A1_asymmetric_wide.csv`. Script: `research/scripts/phase_a_data_mining.py::a1_asymmetric_on_wrong`.
+**Status:** Phase-A finding. Robust across all 7 models. Strongest single hook for the EMNLP write-up. Source data: `_data/A1_asymmetric_long.csv`, `_data/A1_asymmetric_wide.csv`. Script: `scripts/phase_a_data_mining.py::a1_asymmetric_on_wrong`.
 
 ## The question
 
-`research_plan.md` flagged "stronger anchoring on items the model originally got wrong" as the paper's strongest intellectual hook — none of the LLM/VLM anchoring literature partitions effects by prior correctness, and Mussweiler-Strack / Jacowitz-Kahneman both predict that anchoring scales with subjective uncertainty. **Does it hold?** The pre-stated falsifier (in `RESEARCH_ROADMAP.md` §2 H2): if `adoption(wrong)` ≈ `adoption(correct)`, H2 fails.
+`references/project.md` flagged "stronger anchoring on items the model originally got wrong" as the paper's strongest intellectual hook — none of the LLM/VLM anchoring literature partitions effects by prior correctness, and Mussweiler-Strack / Jacowitz-Kahneman both predict that anchoring scales with subjective uncertainty. **Does it hold?** The pre-stated falsifier (in `references/roadmap.md` §2 H2): if `adoption(wrong)` ≈ `adoption(correct)`, H2 fails.
 
 ## Method
 

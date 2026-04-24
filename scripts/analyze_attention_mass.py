@@ -12,7 +12,7 @@ Addresses four gotchas flagged by review:
   4. Bootstrap 95 % CI on every delta that we might report.
 
 Usage:
-    uv run python research/scripts/analyze_attention_mass.py \\
+    uv run python scripts/analyze_attention_mass.py \\
         --attention-jsonl outputs/attention_analysis/<model>/<run>/per_step_attention.jsonl
 """
 
@@ -34,7 +34,7 @@ def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--attention-jsonl", type=str, required=True)
     parser.add_argument("--susceptibility-csv", type=str,
-                        default="research/insights/_data/susceptibility_strata.csv")
+                        default="docs/insights/_data/susceptibility_strata.csv")
     parser.add_argument("--out-dir", type=str, default=None)
     parser.add_argument("--bootstrap-n", type=int, default=2000)
     parser.add_argument("--rng-seed", type=int, default=42)

@@ -1,6 +1,6 @@
 # A2 — Per-anchor-digit pull is asymmetric and model-specific
 
-**Status:** Phase-A finding. Source data: `_data/A2_per_anchor_value.csv`. Script: `research/scripts/phase_a_data_mining.py::a2_per_anchor_value`.
+**Status:** Phase-A finding. Source data: `_data/A2_per_anchor_value.csv`. Script: `scripts/phase_a_data_mining.py::a2_per_anchor_value`.
 
 ## The question
 

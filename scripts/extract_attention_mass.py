@@ -16,7 +16,7 @@ ConvLLaVA use inputs_embeds and need a slightly different splice — handled lat
 on the standard models proves productive.
 
 Usage:
-    uv run python research/scripts/extract_attention_mass.py \\
+    uv run python scripts/extract_attention_mass.py \\
         --model qwen2.5-vl-7b-instruct \\
         --hf-model Qwen/Qwen2.5-VL-7B-Instruct \\
         --max-samples 100
@@ -81,7 +81,7 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--hf-model", type=str, required=True, help="HuggingFace repo id.")
     parser.add_argument("--config", type=str, default="configs/experiment.yaml")
     parser.add_argument("--susceptibility-csv", type=str,
-                        default="research/insights/_data/susceptibility_strata.csv")
+                        default="docs/insights/_data/susceptibility_strata.csv")
     parser.add_argument("--top-decile-n", type=int, default=200,
                         help="Sample N from top-decile susceptibility questions.")
     parser.add_argument("--bottom-decile-n", type=int, default=200,

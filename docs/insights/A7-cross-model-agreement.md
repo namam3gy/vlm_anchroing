@@ -1,6 +1,6 @@
 # A7 — Item susceptibility is partly content-driven; same-family models correlate more
 
-**Status:** Phase-A finding. Source data: `_data/A7_per_question.csv`, `_data/A7_model_correlation.csv`. Script: `research/scripts/phase_a_data_mining.py::a7_cross_model_agreement`.
+**Status:** Phase-A finding. Source data: `_data/A7_per_question.csv`, `_data/A7_model_correlation.csv`. Script: `scripts/phase_a_data_mining.py::a7_cross_model_agreement`.
 
 ## The question
 
@@ -38,7 +38,7 @@ The positive-but-modest correlations (0.15 – 0.31) are the headline. **Item su
 - **A pure encoder story doesn't fit either.** Qwen3-VL-8B and Gemma4-e4b run completely different vision stacks (Qwen3 uses a custom ViT; Gemma uses SigLIP). They correlate at 0.27, comparable to the within-Qwen-family figure. Some bias-susceptible items are universally bias-susceptible.
 - **The most coherent reading:** susceptibility = `f(content, encoder, LLM)`, and all three components carry weight. This is the right setup for a paper that *separates* the components — exactly what E1 (attention mass) + E2 (encoder ablation) + later activation patching are designed to do.
 
-## Implications for the experiment plan (`RESEARCH_ROADMAP.md` §6)
+## Implications for the experiment plan (`references/roadmap.md` §6)
 
 - **E2 (ConvLLaVA full run) is well-motivated.** A pure-Conv encoder is the cleanest counterfactual the lineup affords, and the modest cross-encoder correlations predict that ConvLLaVA's susceptibility profile will land at a *different* point on the model-pair correlation map. If it correlates at ~0.30 with everyone (i.e. ConvNeXt + LLaMA still produces the universal content-driven bias), the bias is encoder-architecture-invariant. If it correlates at ~0.10 (much lower), the encoder matters a lot.
 - **E1 attention mass should be conditioned on `is_susceptible_item`.** Pick the top-decile items by cross-model moved-closer rate (universally susceptible) and the bottom-decile items (universally resistant) and compare attention patterns. This is a direct read on the encoder's role.

@@ -1,6 +1,6 @@
 # E2 pilot results — encoder ablation, n=1,125 per model
 
-**Status:** Pilot complete 2026-04-24. 4 newly-integrated models × 25 samples-per-answer × 9 answer values × 5 irrelevant-set variants × 3 conditions = 1,125 sample-instances per model. Source: `outputs/experiment_encoder_pilot/<model>/<run>/summary.json`. Plan: `research/experiments/E2-encoder-ablation.md`.
+**Status:** Pilot complete 2026-04-24. 4 newly-integrated models × 25 samples-per-answer × 9 answer values × 5 irrelevant-set variants × 3 conditions = 1,125 sample-instances per model. Source: `outputs/experiment_encoder_pilot/<model>/<run>/summary.json`. Plan: `docs/experiments/E2-encoder-ablation.md`.
 
 ## Headline numbers
 
@@ -24,7 +24,7 @@ Bold rows = pilot models. Pilot n=1,125 vs. main n=17,730 — error bars on adop
 
 ## What this changes about H3
 
-The original H3 prediction (`RESEARCH_ROADMAP.md` §2): *ConvNeXt-encoder VLMs should be less anchor-susceptible than CLIP/SigLIP-ViT VLMs*.
+The original H3 prediction (`references/roadmap.md` §2): *ConvNeXt-encoder VLMs should be less anchor-susceptible than CLIP/SigLIP-ViT VLMs*.
 
 The pilot data does **not** straightforwardly support this:
 
@@ -32,7 +32,7 @@ The pilot data does **not** straightforwardly support this:
 - LLaVA-1.5-7B (CLIP-ViT) has the *highest* adoption in the entire 11-model panel (0.181), consistent with typographic-attack inheritance.
 - ConvLLaVA's adoption (0.156) is below LLaVA-1.5-7B's (0.181), but the gap is ~2.5 pp — well within pilot noise (n=1,125 means SE ≈ 0.011, 95% CI ±0.022).
 
-**Decision triggered (per `RESEARCH_ROADMAP.md` §7):** ConvLLaVA's susceptibility falls *inside* the CLIP/SigLIP cluster confidence interval at pilot scale. H3 in its simple "ConvNeXt < ViT" form is **not supported**. Two paths:
+**Decision triggered (per `references/roadmap.md` §7):** ConvLLaVA's susceptibility falls *inside* the CLIP/SigLIP cluster confidence interval at pilot scale. H3 in its simple "ConvNeXt < ViT" form is **not supported**. Two paths:
 
 1. **Run the full 17,730 ConvLLaVA + LLaVA-1.5 grid** to get tight CIs and definitively reject (or accept) H3 at scale. ~1 day per model on H200. Worth it because the negative finding ("ConvNeXt encoder doesn't escape anchoring") is itself paper-worthy and challenges a literature assumption.
 2. **Refocus.** The actually-novel pattern in the pilot is something else — see next section.

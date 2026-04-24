@@ -1,10 +1,10 @@
 # E2 — Vision-encoder ablation: ConvLLaVA vs CLIP-ViT VLMs
 
-**Status:** Pilot launched 2026-04-24 (`configs/experiment_encoder_pilot.yaml`, 4 모델 × 25 samples-per-answer = ~1,100 sample-instance/모델). Full run은 pilot 성공에 blocked. Source: `RESEARCH_ROADMAP.md` §6 Tier 1 E2 + H3. *(영문 canonical: `E2-encoder-ablation.md`)*
+**Status:** Pilot launched 2026-04-24 (`configs/experiment_encoder_pilot.yaml`, 4 모델 × 25 samples-per-answer = ~1,100 sample-instance/모델). Full run은 pilot 성공에 blocked. Source: `references/roadmap.md` §6 Tier 1 E2 + H3. *(영문 canonical: `E2-encoder-ablation.md`)*
 
 ## 검증할 가설
 
-`RESEARCH_ROADMAP.md` §2의 H3: vision-encoder family가 anchoring susceptibility를 modulate. CLIP/SigLIP-ViT VLM은 documented typographic-attack 약점 (arXiv:2508.20570)을 상속 — pixel 안 텍스트가 concept neuron 활성화. ConvNeXt-encoder VLM (그리고 encoder-free 모델)은 같은 학습 신호가 없어 cross-modal anchoring effect가 더 작아야 함.
+`references/roadmap.md` §2의 H3: vision-encoder family가 anchoring susceptibility를 modulate. CLIP/SigLIP-ViT VLM은 documented typographic-attack 약점 (arXiv:2508.20570)을 상속 — pixel 안 텍스트가 concept neuron 활성화. ConvNeXt-encoder VLM (그리고 encoder-free 모델)은 같은 학습 신호가 없어 cross-modal anchoring effect가 더 작아야 함.
 
 **Falsifier:** 매칭된 compute scale에서 ConvLLaVA-7B의 `moved_closer_rate`와 `mean_anchor_pull`이 CLIP/SigLIP-ViT VLM과 통계적으로 동등 (둘 중 하나 metric에 95 % bootstrap CI 기준 ±10 % relative)이면 H3 fail, encoder-architecture story가 paper에서 drop.
 
@@ -20,7 +20,7 @@
 
 - 같은 4 모델, `samples_per_answer=400` → 모델당 17,730 sample-instance, 기존 7 main run과 매칭.
 - 기존 7-model panel에 H3 evidence 추가 (총 11 모델, 4–5 vision-encoder family span).
-- 모든 record에 `token_info` (logit) 캡처 — separate run 없이 deferred A1 logit-margin 재분석 가능. *(`research/insights/A1-asymmetric-on-wrong.md` "Concrete next steps" 참조.)*
+- 모든 record에 `token_info` (logit) 캡처 — separate run 없이 deferred A1 logit-margin 재분석 가능. *(`docs/insights/A1-asymmetric-on-wrong.md` "Concrete next steps" 참조.)*
 
 ### 비교 metric
 
@@ -54,7 +54,7 @@ Lineup이 unbalanced (ConvNeXt 1 모델만)이라 가장 강한 가능 claim은 
 
 - Pilot이 4 모델 모두 ≥ 90 % numeric-parse rate, pipeline crash 없이 완료.
 - 둘 중 하나: (a) ConvLLaVA `moved_closer_rate(wrong)`가 CLIP-ViT 클러스터 명확히 아래 (H3 supported, full run high priority schedule) 또는 (b) 그렇지 않음 (H3 falls — encoder-ablation framing drop, attention mass / mitigation으로 refocus).
-- 어느 쪽이든: 1-page result note 작성하고 `RESEARCH_ROADMAP.md` §3 status table 갱신.
+- 어느 쪽이든: 1-page result note 작성하고 `references/roadmap.md` §3 status table 갱신.
 
 ## 결과
 

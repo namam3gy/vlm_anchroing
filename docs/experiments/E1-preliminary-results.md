@@ -1,6 +1,6 @@
 # E1 — attention-mass results across 4 encoder families (n=200 each)
 
-**Status:** 4 models × 200 susceptibility-stratified questions × 3 conditions each = 2,400 attention records. Cross-replication settled on the main claims. Plan: `research/experiments/E1-attention-mass.md`. Raw data: `outputs/attention_analysis/{gemma4-e4b,qwen2.5-vl-7b-instruct,llava-1.5-7b,internvl3-8b}/<run>/per_step_attention.jsonl`. Analysis: `research/scripts/analyze_attention_mass.py`.
+**Status:** 4 models × 200 susceptibility-stratified questions × 3 conditions each = 2,400 attention records. Cross-replication settled on the main claims. Plan: `docs/experiments/E1-attention-mass.md`. Raw data: `outputs/attention_analysis/{gemma4-e4b,qwen2.5-vl-7b-instruct,llava-1.5-7b,internvl3-8b}/<run>/per_step_attention.jsonl`. Analysis: `scripts/analyze_attention_mass.py`.
 
 ## TL;DR — three findings, each replicated or cleanly split across 4 models
 
