@@ -77,7 +77,7 @@ The `correct × top_decile_susceptible` cell is the largest positive cell in 3/4
 
 **Does not say:**
 - That anchor attention *causes* anchor pull. Mean attention mass is a correlational measure; causal mediation (ablate anchor tokens, measure output shift) hasn't been done.
-- That the pattern generalises to ConvLLaVA (ConvNeXt) or FastVLM (FastViT). Both need the inputs_embeds-path extension to the extraction script.
+- ~~That the pattern generalises to ConvLLaVA (ConvNeXt) or FastVLM (FastViT).~~ **Updated 2026-04-24:** extraction script extended with `inputs_embeds` / -200-expand paths; both models are now in the 6-model panel (see `docs/experiments/E1b-per-layer-localisation.md`). ConvLLaVA replicates the CLIP-ViT mid-stack profile almost exactly; FastVLM is a new archetype (late + text-stealing + large + strongest A7 gating).
 - That the pattern is stable across prompt phrasings or decoding settings. These are fixed in this run.
 - That the 4-model A7 holds at the same size across different susceptibility definitions. We used the `moved_closer_rate` cross-model susceptibility; using a different per-model susceptibility would give slightly different strata.
 
@@ -92,11 +92,11 @@ What the 4-model data *does* support:
 
 The per-family result is now strong enough to state the E4 design constraint directly: **a single universal mitigation will not serve; the paper should either evaluate both interventions side-by-side or pick the ViT-family intervention and explicitly exclude SigLIP from the E4 evaluation, explaining why.**
 
-Remaining blocker before writing E4 code: verify the per-family pattern extends to ConvLLaVA (ConvNeXt) and FastVLM (FastViT). Both use the inputs_embeds path and need an extension to the extraction script. Once done we'll have a 6-model picture on the attention side and can commit to the E4 design.
+**Update 2026-04-24:** ConvLLaVA and FastVLM now integrated (n=200 each; FastVLM n=75 at answer step due to prose-hallucination). The 6-model picture is in `docs/experiments/E1b-per-layer-localisation.md`. The per-family pattern revises to 4 archetypes; E4 design can now proceed.
 
 ## Open questions to answer before E4
 
-1. **Does the per-family pattern hold on ConvLLaVA / FastVLM?** Both use inputs_embeds — need to extend the extraction script to handle that path, then run ~10 min each.
+1. ~~Does the per-family pattern hold on ConvLLaVA / FastVLM?~~ **Closed 2026-04-24.** See `docs/experiments/E1b-per-layer-localisation.md`. ConvLLaVA = mid-stack cluster member; FastVLM = new archetype (late + text-stealing + large).
 2. **Is the attention gap concentrated in specific layers?** Per-layer data captured; focused analysis pending. If Qwen's answer-step signal lives in layers 10–20 vs. 20–28, that narrows E4 intervention.
 3. **Does the per-step attention profile show a spike at `answer−1` (the step just before the digit is emitted)?** If yes, intervention at `answer−1` may be more effective than at `answer`.
 4. **Causal test.** Ablate anchor-image tokens at the identified layer/step and measure output shift. This is the actual mechanism claim and turns attention correlations into causal evidence.

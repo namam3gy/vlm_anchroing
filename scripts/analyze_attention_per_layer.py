@@ -36,12 +36,16 @@ import pandas as pd
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 ATT_ROOT = PROJECT_ROOT / "outputs" / "attention_analysis"
 
-# Canonical runs identified in docs/experiments/E1-preliminary-results.md.
+# Canonical runs identified in docs/experiments/E1-preliminary-results.md
+# and docs/experiments/E1b-per-layer-localisation.md (after ConvLLaVA + FastVLM
+# inputs_embeds-path extension).
 CANONICAL_RUNS: dict[str, str] = {
     "gemma4-e4b": "20260424-115147",
     "qwen2.5-vl-7b-instruct": "20260424-120026",
     "llava-1.5-7b": "20260424-121139",
     "internvl3-8b": "20260424-121334",
+    "convllava-7b": "20260424-134840",
+    "fastvlm-7b": "20260424-135205",
 }
 
 _DIGIT_RE = re.compile(r"\d")
@@ -273,7 +277,10 @@ def _plot_grid(
     out_path: Path,
     model_order: list[str],
 ) -> None:
-    fig, axes = plt.subplots(2, 2, figsize=(12, 7.5), sharex=False)
+    n_models = len(model_order)
+    n_cols = 2
+    n_rows = (n_models + n_cols - 1) // n_cols
+    fig, axes = plt.subplots(n_rows, n_cols, figsize=(12, 3.5 * n_rows), sharex=False)
     axes = axes.flatten()
     for ax, model in zip(axes, model_order):
         sub = per_layer_df.loc[
@@ -304,6 +311,8 @@ def _plot_grid(
         ax.set_xlabel("layer")
         ax.set_ylabel("delta(anchor mass)  number − neutral")
         ax.legend(fontsize=8, loc="best")
+    for extra in axes[len(model_order):]:
+        extra.set_visible(False)
     fig.suptitle(f"Per-layer anchor-attention delta — {step_kind} step", fontsize=12)
     fig.tight_layout(rect=(0, 0, 1, 0.96))
     out_path.parent.mkdir(parents=True, exist_ok=True)
@@ -343,6 +352,9 @@ def main() -> None:
 
     for model, run_id in CANONICAL_RUNS.items():
         jsonl = ATT_ROOT / model / run_id / "per_step_attention.jsonl"
+        if not jsonl.exists():
+            print(f"[{model}] skipping — run {run_id} not present at {jsonl}")
+            continue
         print(f"[{model}] loading {jsonl.relative_to(PROJECT_ROOT)}")
         records = _load_records(jsonl)
         print(f"  records={len(records)}")
