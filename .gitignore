@@ -22,3 +22,6 @@ venv/
 # Data and run artifacts (not tracked in git)
 inputs/
 outputs/
+
+# Claude Code local settings
+.claude/

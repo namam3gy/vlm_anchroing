@@ -5,10 +5,22 @@ import random
 from pathlib import Path
 from typing import Iterable, Iterator
 
+from PIL import Image, UnidentifiedImageError
+
 from vlm_anchor.utils import extract_first_number
 
 
 ALLOWED_NUMBER_EXTS = {".png", ".jpg", ".jpeg", ".webp"}
+
+
+def _image_is_decodable(path: Path) -> bool:
+    """Return True if PIL can decode the file without raising."""
+    try:
+        with Image.open(path) as image:
+            image.verify()
+    except (UnidentifiedImageError, OSError, ValueError):
+        return False
+    return True
 
 
 def list_images(folder: str | Path) -> list[Path]:
@@ -77,6 +89,11 @@ def load_number_vqa_samples(
             image_path = dataset_path / image_rel
             if not image_path.exists():
                 raise FileNotFoundError(f"Missing local image for question {row.get('question_id')}: {image_path}")
+            if not _image_is_decodable(image_path):
+                # Skip silently — corrupt files are rare but a single one
+                # crashes a multi-day run; quarantine in inputs/ if you want
+                # to see how many were dropped.
+                continue
 
             samples.append(
                 {
