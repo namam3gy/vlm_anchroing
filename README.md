@@ -69,5 +69,5 @@ Aggregate figures land in `outputs/analysis/`.
 
 ## More
 
-See [AGENTS.md](AGENTS.md) for architecture, data flow, conventions, and the
-commands contributors and coding agents should use.
+See [references/AGENTS.md](references/AGENTS.md) for architecture, data flow, conventions, and the
+commands contributors and coding agents should use. See [references/project.md](references/project.md) and [references/roadmap.md](references/roadmap.md) for the research plan and active roadmap.
