@@ -1,0 +1,12 @@
+{
+  "A1": "/mnt/ddn/prod-runs/thyun.park/src/vlm_anchroing/research/insights/_data/A1_asymmetric_wide.csv",
+  "A2": "/mnt/ddn/prod-runs/thyun.park/src/vlm_anchroing/research/insights/_data/A2_per_anchor_value.csv",
+  "A3": "/mnt/ddn/prod-runs/thyun.park/src/vlm_anchroing/research/insights/_data/A3_question_type.csv",
+  "A4_summary": "/mnt/ddn/prod-runs/thyun.park/src/vlm_anchroing/research/insights/_data/A4_shift_summary.csv",
+  "A4_hist": "/mnt/ddn/prod-runs/thyun.park/src/vlm_anchroing/research/insights/_data/A4_shift_histogram.csv",
+  "A5": "/mnt/ddn/prod-runs/thyun.park/src/vlm_anchroing/research/insights/_data/A5_prompt_comparison_wide.csv",
+  "A6": "/mnt/ddn/prod-runs/thyun.park/src/vlm_anchroing/research/insights/_data/A6_failure_modes.csv",
+  "A7_per_question": "/mnt/ddn/prod-runs/thyun.park/src/vlm_anchroing/research/insights/_data/A7_per_question.csv",
+  "A7_corr": "/mnt/ddn/prod-runs/thyun.park/src/vlm_anchroing/research/insights/_data/A7_model_correlation.csv",
+  "anchor_distance": "/mnt/ddn/prod-runs/thyun.park/src/vlm_anchroing/research/insights/_data/A_extra_anchor_distance_response.csv"
+}
