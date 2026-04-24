@@ -11,9 +11,12 @@ to each input region:
 
 Output: per-record JSONL under outputs/attention_analysis/<model>/<run>/.
 
-Scope (Phase B / E1): start with HFAttentionRunner-compatible models. FastVLM and
-ConvLLaVA use inputs_embeds and need a slightly different splice — handled later if E1
-on the standard models proves productive.
+Dispatches on HF model id:
+  - HFAttentionRunner-compatible models (Gemma-SigLIP, Qwen-VL, LLaVA-1.5, InternVL3,
+    LLaVA-Interleave): scan input_ids for the processor's image-token id.
+  - ConvLLaVA: inputs_embeds path — image spans tracked during splice.
+  - FastVLM: input_ids with -200 markers expanded internally — spans back-computed from
+    the first attention tensor's shape.
 
 Usage:
     uv run python scripts/extract_attention_mass.py \\
@@ -40,11 +43,23 @@ from vlm_anchor.data import (
     build_conditions,
     load_number_vqa_samples,
 )
-from vlm_anchor.models import HFAttentionRunner, InferenceConfig, _BaseRunner
+from vlm_anchor.models import (
+    FASTVLM_IMAGE_TOKEN_INDEX,
+    ConvLLaVARunner,
+    FastVLMRunner,
+    HFAttentionRunner,
+    InferenceConfig,
+    _BaseRunner,
+    _to_pil,
+)
 from vlm_anchor.utils import set_seed
 
 
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+
+# Set by main() from --max-new-tokens. Module-global so _process_sample_* helpers use it
+# without threading an extra arg through the dispatcher.
+MAX_NEW_TOKENS: int = 8
 
 
 class EagerAttentionRunner(HFAttentionRunner):
@@ -75,6 +90,105 @@ class EagerAttentionRunner(HFAttentionRunner):
         self.model.eval()
 
 
+class EagerConvLLaVARunner(ConvLLaVARunner):
+    """ConvLLaVA variant that loads the LLaMA backbone with attn_implementation='eager'.
+
+    ConvLLaVA builds inputs_embeds directly (no image-token id in input_ids), so image
+    spans are tracked at splice time rather than scanned.
+    """
+
+    def __init__(self, model_name: str, inference_config=None, device=None):
+        from transformers import (
+            AutoConfig,
+            AutoTokenizer,
+            CLIPImageProcessor,
+            ConvNextModel,
+            LlamaForCausalLM,
+        )
+        import torch.nn as nn
+
+        # Re-implement parent __init__ with eager-attn on the LLaMA backbone.
+        self.model_name = model_name
+        self.cfg = inference_config
+        self.device = self._resolve_device(device)
+        dtype = self._resolve_dtype()
+
+        ckpt_cfg = AutoConfig.from_pretrained(model_name, trust_remote_code=True)
+        vt_name = getattr(ckpt_cfg, "mm_vision_tower", None)
+        if vt_name is None:
+            raise ValueError(f"{model_name} config missing mm_vision_tower")
+
+        self.tokenizer = AutoTokenizer.from_pretrained(model_name, use_fast=False)
+        self.model = LlamaForCausalLM.from_pretrained(
+            model_name,
+            dtype=dtype,
+            device_map=self.device,
+            low_cpu_mem_usage=True,
+            attn_implementation="eager",
+        )
+        if hasattr(self.model.config, "_attn_implementation"):
+            self.model.config._attn_implementation = "eager"
+        self.model.eval()
+
+        self.vision_tower = ConvNextModel.from_pretrained(vt_name, dtype=dtype).to(self.device)
+        self.vision_tower.eval()
+        self.image_processor = CLIPImageProcessor.from_pretrained(vt_name)
+
+        hidden = ckpt_cfg.hidden_size
+        mm_hidden = ckpt_cfg.mm_hidden_size
+        projector = nn.Sequential(
+            nn.Linear(mm_hidden, hidden),
+            nn.GELU(),
+            nn.Linear(hidden, hidden),
+        ).to(device=self.device, dtype=dtype)
+        self._load_vision_and_projector(projector)
+        self.mm_projector = projector
+        self.mm_projector.eval()
+
+
+class EagerFastVLMRunner(FastVLMRunner):
+    """FastVLM variant that asks for eager attention on the wrapped Qwen LLM.
+
+    FastVLM's custom LlavaQwen2ForCausalLM expands -200 markers into visual features
+    during forward. To see attention weights we must (a) load with eager, and (b)
+    back-compute the expanded image spans from the first attention tensor's shape.
+    """
+
+    def __init__(self, model_name: str, inference_config=None, device=None):
+        from transformers import AutoTokenizer, AutoModelForCausalLM
+
+        self.model_name = model_name
+        self.cfg = inference_config
+        self.device = self._resolve_device(device)
+        dtype = self._resolve_dtype()
+        self.tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True)
+        self.model = AutoModelForCausalLM.from_pretrained(
+            model_name,
+            dtype=dtype,
+            trust_remote_code=True,
+            device_map=self.device,
+            attn_implementation="eager",
+        )
+        if hasattr(self.model.config, "_attn_implementation"):
+            self.model.config._attn_implementation = "eager"
+        self.model.eval()
+        self.image_processor = self.model.get_vision_tower().image_processor
+
+
+def build_eager_runner(
+    hf_model: str,
+    inference_config: InferenceConfig,
+    device: str | None = None,
+) -> _BaseRunner:
+    """Dispatch same as models.build_runner, but loading each backbone with eager attention."""
+    lower = hf_model.lower()
+    if "fastvlm" in lower or "llava-qwen" in lower:
+        return EagerFastVLMRunner(hf_model, inference_config=inference_config, device=device)
+    if "convllava" in lower:
+        return EagerConvLLaVARunner(hf_model, inference_config=inference_config, device=device)
+    return EagerAttentionRunner(hf_model, inference_config=inference_config, device=device)
+
+
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--model", type=str, required=True, help="Local label for the model (used as output dir name).")
@@ -88,6 +202,9 @@ def _parse_args() -> argparse.Namespace:
                         help="Sample N from bottom-decile susceptibility questions.")
     parser.add_argument("--max-samples", type=int, default=None,
                         help="Override total sample cap (for quick smoke). Sums top+bottom if not set.")
+    parser.add_argument("--max-new-tokens", type=int, default=8,
+                        help="Generation length cap. Default 8 matches the 4-model E1 runs. "
+                             "Bump for FastVLM (emits prose before the digit under JSON prompt).")
     parser.add_argument("--seed", type=int, default=42)
     return parser.parse_args()
 
@@ -169,22 +286,18 @@ def _compute_region_mass(
     return out
 
 
-def _process_sample(
-    runner: HFAttentionRunner,
-    image_token_id: int,
-    sample: dict,
-) -> dict[str, Any]:
-    """Run one (sample, condition) tuple with output_attentions=True and compute region mass."""
-    images = sample["input_images"]
-    seq_len, inputs = runner._prepare_inputs(question=sample["question"], images=images)
+def _build_per_step_records(
+    attentions: tuple,
+    seq_len: int,
+    image_spans: list[tuple[int, int]],
+) -> list[dict[str, Any]]:
+    """Assemble per-step, per-layer attention-mass records from generate output.
 
-    image_spans = _find_image_token_spans(inputs["input_ids"], image_token_id)
-    n_images = len(images)
-    if len(image_spans) != n_images:
-        # Some processors split image_pad tokens around vision_start/vision_end markers;
-        # if our naive scan fails to match expected count, log and continue with what we found.
-        pass
-
+    Shared across all three extraction paths (HF / ConvLLaVA / FastVLM) because the
+    structure of `attentions` (a tuple over steps, each a tuple over layers of
+    [batch, heads, q_len, k_len] tensors) is identical once spans are known.
+    """
+    n_layers = len(attentions[0])
     region_specs: list[tuple[str, int, int]] = []
     if image_spans:
         region_specs.append(("image_target", image_spans[0][0], image_spans[0][1]))
@@ -196,45 +309,14 @@ def _process_sample(
         region_specs.append(("image_target", 0, 0))
         region_specs.append(("image_anchor", 0, 0))
 
-    # Prompt-text tokens = everything in the prompt that is NOT an image token
-    image_positions = set()
-    for s, e in image_spans:
-        for i in range(s, e):
-            image_positions.add(i)
-    text_positions = [i for i in range(seq_len) if i not in image_positions]
-    if text_positions:
-        # Use slice form via min/max — text positions are NOT contiguous (they wrap around image spans).
-        # We aggregate by building a boolean mask later. For now, store as a list of contiguous
-        # runs and the total count.
-        pass
-    n_text_tokens = len(text_positions)
-
-    generate_kwargs = runner._build_generate_kwargs(max_new_tokens=8)
-    generate_kwargs["output_attentions"] = True
-
-    with torch.no_grad():
-        out = runner.model.generate(**inputs, **generate_kwargs)
-
-    attentions = getattr(out, "attentions", None)
-    if not attentions:
-        return {"error": "no attentions returned"}
-    n_layers = len(attentions[0])
-    n_steps = len(attentions)
-
-    # Per generated step: collect mass to each region. For text we compute mass = total - image_target - image_anchor - generated.
     per_step_records: list[dict[str, Any]] = []
     for step_idx, step_attn in enumerate(attentions):
-        # last query position attends to: prompt + generated[0..step_idx-1]
-        # For step_idx > 0, we want the LAST generated token's attention pattern.
         step_specs = list(region_specs)
         if step_idx > 0:
             step_specs.append(("generated", seq_len, seq_len + step_idx))
         else:
             step_specs.append(("generated", 0, 0))
-
         masses = _compute_region_mass(step_attn, step_specs, query_idx=None)
-
-        # text mass = 1 - sum(image_target + image_anchor + generated) per layer (sum should be 1.0)
         text_mass = []
         for layer_idx in range(n_layers):
             sum_other = (
@@ -243,7 +325,6 @@ def _process_sample(
                 + masses["generated"][layer_idx]
             )
             text_mass.append(max(0.0, 1.0 - sum_other))
-
         per_step_records.append({
             "step": step_idx,
             "n_layers": n_layers,
@@ -252,40 +333,238 @@ def _process_sample(
             "generated": masses["generated"],
             "text": text_mass,
         })
+    return per_step_records
 
-    # Decode the prediction so we can join with the existing experiment data
-    generated = out.sequences[:, seq_len:]
-    tokenizer = getattr(runner.processor, "tokenizer", runner.processor)
-    decoded = runner.processor.batch_decode(generated, skip_special_tokens=True)[0].strip()
 
-    # Per-step tokens — needed by downstream analysis to find the "answer-digit step"
-    # (not step 0, which is usually the opening JSON brace `{`).
-    gen_ids = generated[0].tolist()
-    per_step_tokens = []
+def _per_step_tokens_from_sequences(
+    generated_ids: torch.LongTensor,
+    n_steps: int,
+    tokenizer: Any,
+) -> list[dict[str, Any]]:
+    gen_ids = generated_ids[0].tolist()
+    out = []
     for step_idx in range(min(n_steps, len(gen_ids))):
         tid = int(gen_ids[step_idx])
-        per_step_tokens.append({
+        out.append({
             "step": step_idx,
             "token_id": tid,
             "token_text": tokenizer.decode([tid], skip_special_tokens=False),
         })
+    return out
 
+
+def _process_sample_hf(
+    runner: EagerAttentionRunner,
+    image_token_id: int,
+    sample: dict,
+) -> dict[str, Any]:
+    """HFAttentionRunner path: scan input_ids for image-token id."""
+    images = sample["input_images"]
+    seq_len, inputs = runner._prepare_inputs(question=sample["question"], images=images)
+
+    image_spans = _find_image_token_spans(inputs["input_ids"], image_token_id)
+    n_images = len(images)
+
+    generate_kwargs = runner._build_generate_kwargs(max_new_tokens=MAX_NEW_TOKENS)
+    generate_kwargs["output_attentions"] = True
+
+    with torch.no_grad():
+        out = runner.model.generate(**inputs, **generate_kwargs)
+
+    attentions = getattr(out, "attentions", None)
+    if not attentions:
+        return {"error": "no attentions returned"}
+
+    per_step_records = _build_per_step_records(attentions, seq_len, image_spans)
+    generated = out.sequences[:, seq_len:]
+    tokenizer = getattr(runner.processor, "tokenizer", runner.processor)
+    decoded = runner.processor.batch_decode(generated, skip_special_tokens=True)[0].strip()
+    per_step_tokens = _per_step_tokens_from_sequences(generated, len(attentions), tokenizer)
+
+    image_positions = {i for s, e in image_spans for i in range(s, e)}
+    n_text_tokens = seq_len - len(image_positions)
     return {
         "n_images": n_images,
         "image_spans": image_spans,
         "n_text_tokens": n_text_tokens,
         "seq_len": seq_len,
-        "n_steps": n_steps,
-        "n_layers": n_layers,
+        "n_steps": len(attentions),
+        "n_layers": len(attentions[0]),
         "decoded": decoded,
         "per_step": per_step_records,
         "per_step_tokens": per_step_tokens,
     }
 
 
+def _process_sample_convllava(
+    runner: "EagerConvLLaVARunner",
+    sample: dict,
+) -> dict[str, Any]:
+    """ConvLLaVA path: build inputs_embeds manually, track spans at splice time."""
+    pil_images = [_to_pil(i) for i in sample["input_images"]]
+    question = sample["question"]
+
+    prompt = runner._build_prompt(question, num_images=len(pil_images))
+    text_chunks = runner._tokenize_with_image_placeholders(prompt, num_images=len(pil_images))
+    image_embeds = runner._encode_images(pil_images) if pil_images else None  # (N, T, hidden)
+
+    embed_layer = runner.model.get_input_embeddings()
+    parts: list[torch.Tensor] = []
+    image_spans: list[tuple[int, int]] = []
+    offset = 0
+    for idx, chunk in enumerate(text_chunks):
+        chunk_ids = torch.tensor(chunk, device=runner.device, dtype=torch.long)
+        parts.append(embed_layer(chunk_ids))
+        offset += len(chunk)
+        if idx < len(text_chunks) - 1 and image_embeds is not None:
+            img_emb = image_embeds[idx]
+            parts.append(img_emb)
+            image_spans.append((offset, offset + img_emb.shape[0]))
+            offset += img_emb.shape[0]
+
+    inputs_embeds = torch.cat(parts, dim=0).unsqueeze(0).to(runner.model.dtype)
+    seq_len = inputs_embeds.shape[1]
+    attention_mask = torch.ones(inputs_embeds.shape[:2], dtype=torch.long, device=runner.device)
+
+    generate_kwargs = runner._build_generate_kwargs(max_new_tokens=MAX_NEW_TOKENS)
+    generate_kwargs["output_attentions"] = True
+
+    with torch.no_grad():
+        out = runner.model.generate(
+            inputs_embeds=inputs_embeds,
+            attention_mask=attention_mask,
+            **generate_kwargs,
+        )
+
+    attentions = getattr(out, "attentions", None)
+    if not attentions:
+        return {"error": "no attentions returned (ConvLLaVA)"}
+
+    per_step_records = _build_per_step_records(attentions, seq_len, image_spans)
+    generated = out.sequences  # inputs_embeds path -> only new tokens
+    decoded = runner.tokenizer.batch_decode(generated, skip_special_tokens=True)[0].strip()
+    per_step_tokens = _per_step_tokens_from_sequences(generated, len(attentions), runner.tokenizer)
+
+    n_text_tokens = seq_len - sum(e - s for s, e in image_spans)
+    return {
+        "n_images": len(pil_images),
+        "image_spans": image_spans,
+        "n_text_tokens": n_text_tokens,
+        "seq_len": seq_len,
+        "n_steps": len(attentions),
+        "n_layers": len(attentions[0]),
+        "decoded": decoded,
+        "per_step": per_step_records,
+        "per_step_tokens": per_step_tokens,
+    }
+
+
+def _process_sample_fastvlm(
+    runner: "EagerFastVLMRunner",
+    sample: dict,
+) -> dict[str, Any]:
+    """FastVLM path: -200 markers expand inside model; back-compute spans from attention shape."""
+    pil_images = [_to_pil(i) for i in sample["input_images"]]
+    question = sample["question"]
+
+    rendered = runner._render_chat(question, num_images=len(pil_images))
+    input_ids = runner._splice_image_tokens(rendered, num_images=len(pil_images)).to(
+        runner.model.device
+    )
+    attention_mask = torch.ones_like(input_ids, device=runner.model.device)
+
+    pixel_values = runner.image_processor(images=pil_images, return_tensors="pt")["pixel_values"]
+    pixel_values = pixel_values.to(runner.model.device, dtype=runner.model.dtype)
+
+    generate_kwargs = runner._build_generate_kwargs(max_new_tokens=MAX_NEW_TOKENS)
+    generate_kwargs["output_attentions"] = True
+
+    with torch.no_grad():
+        out = runner.model.generate(
+            inputs=input_ids,
+            attention_mask=attention_mask,
+            images=pixel_values,
+            **generate_kwargs,
+        )
+
+    attentions = getattr(out, "attentions", None)
+    if not attentions:
+        return {"error": "no attentions returned (FastVLM)"}
+
+    # Back-compute the per-image expanded patch count from step-0 attention k_len.
+    expanded_seq_len = int(attentions[0][0].shape[-1])
+    input_ids_list = input_ids[0].tolist()
+    num_images = len(pil_images)
+    text_ids_len = len(input_ids_list) - num_images  # -200 markers get replaced, not kept
+    if num_images > 0:
+        expansion_total = expanded_seq_len - text_ids_len
+        if expansion_total % num_images != 0:
+            return {
+                "error": (
+                    f"FastVLM expansion not evenly divisible: expanded={expanded_seq_len}, "
+                    f"text_ids={text_ids_len}, num_images={num_images}"
+                )
+            }
+        n_img_per_image = expansion_total // num_images
+    else:
+        n_img_per_image = 0
+
+    image_spans: list[tuple[int, int]] = []
+    offset = 0
+    for tok in input_ids_list:
+        if tok == FASTVLM_IMAGE_TOKEN_INDEX:
+            image_spans.append((offset, offset + n_img_per_image))
+            offset += n_img_per_image
+        else:
+            offset += 1
+    if offset != expanded_seq_len:
+        return {
+            "error": (
+                f"FastVLM span reconstruction mismatch: offset={offset} vs expanded={expanded_seq_len}"
+            )
+        }
+
+    per_step_records = _build_per_step_records(attentions, expanded_seq_len, image_spans)
+    generated = out.sequences  # only new tokens per FastVLMRunner convention
+    decoded = runner.tokenizer.batch_decode(generated, skip_special_tokens=True)[0].strip()
+    per_step_tokens = _per_step_tokens_from_sequences(generated, len(attentions), runner.tokenizer)
+
+    n_text_tokens = expanded_seq_len - sum(e - s for s, e in image_spans)
+    return {
+        "n_images": num_images,
+        "image_spans": image_spans,
+        "n_text_tokens": n_text_tokens,
+        "seq_len": expanded_seq_len,
+        "n_steps": len(attentions),
+        "n_layers": len(attentions[0]),
+        "decoded": decoded,
+        "per_step": per_step_records,
+        "per_step_tokens": per_step_tokens,
+        "n_img_per_image": n_img_per_image,
+    }
+
+
+def _process_sample(
+    runner: _BaseRunner,
+    image_token_id: int | None,
+    sample: dict,
+) -> dict[str, Any]:
+    """Dispatch on runner type."""
+    if isinstance(runner, EagerConvLLaVARunner):
+        return _process_sample_convllava(runner, sample)
+    if isinstance(runner, EagerFastVLMRunner):
+        return _process_sample_fastvlm(runner, sample)
+    if image_token_id is None:
+        raise RuntimeError("HF path requires image_token_id")
+    return _process_sample_hf(runner, image_token_id, sample)
+
+
 def main() -> None:
     args = _parse_args()
     set_seed(args.seed)
+    global MAX_NEW_TOKENS
+    MAX_NEW_TOKENS = args.max_new_tokens
+    print(f"[setup] max_new_tokens = {MAX_NEW_TOKENS}")
 
     config_path = PROJECT_ROOT / args.config
     config = yaml.safe_load(config_path.read_text())
@@ -333,9 +612,14 @@ def main() -> None:
         max_new_tokens=sampling["max_new_tokens"],
     )
     print(f"[setup] loading runner for {args.hf_model} with eager attention")
-    runner = EagerAttentionRunner(args.hf_model, inference_config=inference_cfg)
-    image_token_id = _resolve_image_token_id(runner.processor)
-    print(f"[setup] image_token_id = {image_token_id}")
+    runner = build_eager_runner(args.hf_model, inference_config=inference_cfg)
+    image_token_id: int | None = None
+    if isinstance(runner, EagerAttentionRunner):
+        image_token_id = _resolve_image_token_id(runner.processor)
+        print(f"[setup] image_token_id = {image_token_id}")
+    else:
+        path_kind = "ConvLLaVA (inputs_embeds)" if isinstance(runner, EagerConvLLaVARunner) else "FastVLM (-200 + expand)"
+        print(f"[setup] non-HF path: {path_kind}")
 
     # Output dir
     run_id = datetime.now().strftime("%Y%m%d-%H%M%S")
