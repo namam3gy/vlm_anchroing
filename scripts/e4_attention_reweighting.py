@@ -81,6 +81,38 @@ def _parse_args() -> argparse.Namespace:
     return args
 
 
+def _output_path(args: argparse.Namespace) -> Path:
+    """Canonical output path per (model, phase). Single file accumulates across resumes."""
+    sub = "sweep_n200" if args.phase == "sweep" else "full_n17730"
+    return PROJECT_ROOT / "outputs" / "e4_mitigation" / args.model / sub / "predictions.jsonl"
+
+
+def _load_completed_keys(path: Path) -> set[tuple[str, str, float]]:
+    """Read existing JSONL, return set of completed (sample_instance_id, condition, strength)
+    tuples. Robust to missing file, empty file, and a truncated trailing line."""
+    if not path.exists():
+        return set()
+    completed: set[tuple[str, str, float]] = set()
+    with path.open() as fh:
+        for line in fh:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                r = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            try:
+                completed.add((
+                    str(r["sample_instance_id"]),
+                    str(r["condition"]),
+                    float(r["mask_strength"]),
+                ))
+            except (KeyError, TypeError, ValueError):
+                continue
+    return completed
+
+
 def _load_samples(args: argparse.Namespace, config: dict) -> list[dict]:
     """Load and enrich samples per phase.
 
