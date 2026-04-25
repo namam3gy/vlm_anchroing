@@ -98,9 +98,35 @@ flat 하며 포화값이 상승. `em_target_only` 0.500으로 불변 (정합 통
 `mean_distance_to_anchor`이 strength 전 범위에서 3.18 → 3.46, ≤ 0.3 unit drift, E1d
 convllava upper-half ablation의 "no fluency hit" 발견과 일치.
 
-### internvl3-8b (대기)
+### internvl3-8b (진행 중)
 
-convllava-7b 완료 즉시 Phase 1 sweep 시작 (동일한 격자).
+본 문서 작성 시점 GPU 0에서 sweep 실행 중; rate ~0.07 sample-instances/sec
+(convllava 0.21, llava 비슷한 속도보다 느림; 슬로다운은 부분적으로 InternVL3 forward
+pass의 다중-해상도 image-tiling 오버헤드, 부분적으로 같은 물리 GPU의
+`physical_mode_activation`와 경합). 80/200 progress milestone에서 ETA ~30 min.
+_(n=200 sweep 완료 후 표 갱신.)_
+
+### 교차-모델 요약 (draft, internvl3 대기)
+
+| model | layers | upper_half 범위 | 베이스라인 df | s* | s*에서 df | df 감소 (상대) | s*의 em 델타 | em(target_only) 베이스라인 | em(target_only) 불변? |
+|---|:---:|:---:|---:|---:|---:|---:|---:|---:|:---:|
+| llava-1.5-7b | 32 | 16..31 | 0.305 | −3.0 | 0.265 | −13 % | +0.5 pp | 0.435 | ✓ |
+| convllava-7b | 32 | 16..31 | 0.290 | −2.0 | 0.260 | −10 % | +0 pp | 0.500 | ✓ |
+| internvl3-8b | 28 | 14..27 | _대기_ | _대기_ | _대기_ | _대기_ | _대기_ | _대기_ | _대기_ |
+
+**현재까지 읽기 (2/3 모델 완료):**
+
+1. mid-stack-cluster 완화가 테스트된 두 모델에서 작동, E1d로 식별된 패널-공유
+   `ablate_upper_half` 위치에서, 적당한 soft strength 하에 (hard masking 불필요).
+   두 모델 모두 `exact_match` 손실 없이 ≥ 10 % `direction_follow_rate` 감소 타깃 만족.
+2. `s*`가 모델 간 다름 (LLaVA −3.0, ConvLLaVA −2.0) 하지만 둘 다 같은 대역 (−5, −1)에
+   위치. 공유 `s* = −2.5`도 두 모델 모두 타깃 만족, 단일 숫자로 — 본 writeup에서는
+   per-model 유지하지만 이 선택이 Phase 2 입력을 load-bearing하게 바꾸지는 않음.
+3. Hook이 구조적으로 anchor-condition-specific (target_only에 no-op)이며, 모든 strength에서
+   불변하는 `em(target_only)` 컬럼으로 경험적 확인.
+4. Strength 축 단조성이 robust: `s = 0`부터 `s = −10⁴`까지 모든 단계가
+   `direction_follow_rate`을 감소시키거나 유지하고, `exact_match`은 유지하거나 상승.
+   과-완화가 hallucination로 전환되는 "U-shape" 재앙 없음.
 
 ## Phase 2 — 풀 검증 (대기)
 
