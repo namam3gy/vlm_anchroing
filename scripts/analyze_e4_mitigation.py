@@ -163,6 +163,24 @@ def select_optimal_strength(per_strength: dict, baseline_df: float,
     return min(candidates, key=abs)
 
 
+def _per_condition_em(df: pd.DataFrame) -> dict:
+    """Per (mask_strength, condition) exact_match — used to verify the hook is
+    anchor-condition-specific (target_only should be invariant, neutral should
+    barely move, number should drop or stay)."""
+    out: dict = {}
+    for s in sorted(df["mask_strength"].unique()):
+        for cond in ("target_only", "target_plus_irrelevant_neutral",
+                     "target_plus_irrelevant_number"):
+            sub = df[(df["mask_strength"] == s) & (df["condition"] == cond)]
+            parsed = sub["parsed_number"].map(_to_int)
+            gt = sub["ground_truth"].map(_to_int)
+            valid = parsed.notna() & gt.notna()
+            n = int(valid.sum())
+            em = float((parsed[valid] == gt[valid]).mean()) if n else np.nan
+            out[(float(s), cond)] = {"n": n, "em": em}
+    return out
+
+
 def _summarise_phase(phase: str) -> pd.DataFrame:
     rows = []
     for model in PANEL_MODELS:
@@ -171,15 +189,21 @@ def _summarise_phase(phase: str) -> pd.DataFrame:
             print(f"[{model}] skipping — no {phase} run")
             continue
         triplets = _build_triplets(df)
+        em_by_cond = _per_condition_em(df)
         for s in sorted(triplets["mask_strength"].unique()):
             sub = triplets[triplets["mask_strength"] == s]
             stats = _metrics(sub)
             ci_df_lo, ci_df_hi = _bootstrap(sub, "df_num")
             ci_em_lo, ci_em_hi = _bootstrap(sub, "em_num")
+            em_target_only = em_by_cond.get((float(s), "target_only"), {}).get("em", np.nan)
+            em_neutral = em_by_cond.get((float(s), "target_plus_irrelevant_neutral"),
+                                         {}).get("em", np.nan)
             rows.append({
                 "model": model, "mask_strength": float(s), **stats,
                 "df_ci_low": ci_df_lo, "df_ci_high": ci_df_hi,
                 "em_ci_low": ci_em_lo, "em_ci_high": ci_em_hi,
+                "em_target_only": em_target_only,
+                "em_neutral": em_neutral,
             })
     return pd.DataFrame(rows)
 
