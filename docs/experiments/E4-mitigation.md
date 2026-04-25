@@ -76,13 +76,28 @@ em delta of +0.5 pp, well within budget).
 single-image inputs). `em_neutral` is also invariant at 0.355–0.365 — the hook fires on the
 neutral image too but, lacking a legible digit there, doesn't change predictions.
 
-### convllava-7b (in flight)
+### convllava-7b (baseline df=0.290)
 
-Sweep running on GPU 0; rate ≈ 0.22 sample-instances/sec; ETA ~15 min from kick-off.
-Initial partial table (n=26, all in `target_only` / no-shift cases) shows the hook is a
-no-op on target_only as expected (em_target_only=0.731 across all strengths).
+| strength | n | df_num | adopt_num | em_num | em_target_only | em_neutral | mean_dist |
+|---:|---:|---:|---:|---:|---:|---:|---:|
+| 0 | 200 | 0.290 [0.23, 0.36] | 0.175 | 0.375 [0.31, 0.45] | 0.500 | 0.380 | 3.18 |
+| −0.5 | 200 | 0.285 [0.23, 0.35] | 0.180 | 0.370 [0.31, 0.44] | 0.500 | 0.375 | 3.19 |
+| −1.0 | 200 | 0.275 [0.22, 0.34] | 0.165 | 0.370 [0.30, 0.44] | 0.500 | 0.380 | 3.25 |
+| **−2.0** | 200 | **0.260 [0.20, 0.32]** | **0.160** | **0.375 [0.31, 0.45]** | 0.500 | 0.375 | 3.30 |
+| −3.0 | 200 | 0.255 [0.20, 0.32] | 0.155 | 0.375 [0.31, 0.44] | 0.500 | 0.390 | 3.32 |
+| −5.0 | 200 | 0.240 [0.19, 0.30] | 0.125 | 0.400 [0.33, 0.47] | 0.500 | 0.390 | 3.44 |
+| −10⁴ | 200 | 0.235 [0.18, 0.30] | 0.120 | 0.405 [0.34, 0.47] | 0.500 | 0.385 | 3.46 |
 
-_(Table will be filled in once n=200 sweep completes.)_
+**Selection:** `s* = −2.0` (smallest |s| meeting both targets — df drop of 10.3 % relative,
+em delta 0 pp, comfortable accuracy headroom).
+
+**Notable:** `em_num` again does not drop at any strength — it's flat at 0.370–0.405 with
+saturation values rising. `em_target_only` invariant at 0.500 (sanity check passes).
+ConvLLaVA's baseline df is identical to its E1d baseline (0.29), confirming the eager
+attention pipeline replicates exactly across runs. The strength response is monotonic and
+fluency-clean — `mean_distance_to_anchor` rises from 3.18 to 3.46 across the full strength
+range, ≤ 0.3 unit drift, which matches E1d's "no fluency hit" finding for upper-half
+ablation on convllava.
 
 ### internvl3-8b (queued)
 

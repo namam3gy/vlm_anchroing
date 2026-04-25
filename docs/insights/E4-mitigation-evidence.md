@@ -20,7 +20,7 @@ with ≤ 2 pp drop in standard VQA accuracy.
 | model | baseline df | s* | df at s* | em(num) at s=0 | em(num) at s* | em(target_only) invariant? |
 |---|---:|---:|---:|---:|---:|:---:|
 | llava-1.5-7b | 0.305 | **−3.0** | 0.265 (−13 %) | 0.365 | 0.370 (+0.5 pp) | ✓ (0.435) |
-| convllava-7b | _pending_ | _pending_ | _pending_ | _pending_ | _pending_ | _pending_ |
+| convllava-7b | 0.290 | **−2.0** | 0.260 (−10 %) | 0.375 | 0.375 (+0.0 pp) | ✓ (0.500) |
 | internvl3-8b | _pending_ | _pending_ | _pending_ | _pending_ | _pending_ | _pending_ |
 
 **Headline (so far):** the mitigation works on llava-1.5-7b at n=200 and meets the roadmap

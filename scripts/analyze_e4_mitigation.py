@@ -208,7 +208,8 @@ def _summarise_phase(phase: str) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
-def _pareto_plot(df_summary: pd.DataFrame, out_path: Path) -> None:
+def _pareto_plot(df_summary: pd.DataFrame, out_path: Path,
+                 chosen: dict | None = None) -> None:
     fig, axes = plt.subplots(1, len(PANEL_MODELS), figsize=(5 * len(PANEL_MODELS), 4),
                              sharey=False)
     if len(PANEL_MODELS) == 1:
@@ -229,6 +230,19 @@ def _pareto_plot(df_summary: pd.DataFrame, out_path: Path) -> None:
         ax2.fill_between(x, sub["em_ci_low"], sub["em_ci_high"], color="tab:blue", alpha=0.2)
         ax2.set_ylabel("exact_match (target_plus_irrelevant_number)", color="tab:blue")
         ax2.tick_params(axis="y", labelcolor="tab:blue")
+        # Mark chosen strength with a vertical guide
+        if chosen is not None and chosen.get(model) is not None:
+            s_star = float(chosen[model])
+            ax.axvline(s_star, color="black", linestyle=":", linewidth=1.0, alpha=0.7)
+            row = sub[sub["mask_strength"] == s_star]
+            if not row.empty:
+                df_at_star = float(row.iloc[0]["df_num"])
+                em_at_star = float(row.iloc[0]["em_num"])
+                ax.annotate(f"s*={s_star:g}\ndf={df_at_star:.3f}\nem={em_at_star:.3f}",
+                            xy=(s_star, df_at_star), xytext=(8, -8),
+                            textcoords="offset points", fontsize=8,
+                            bbox=dict(boxstyle="round,pad=0.3",
+                                       fc="white", ec="black", alpha=0.7))
         ax.set_title(model)
         ax.set_xscale("symlog", linthresh=0.5)
     fig.suptitle("E4 strength sweep — direction-follow vs exact-match")
@@ -249,8 +263,6 @@ def main() -> None:
         out_csv = SUMMARY_DIR / "sweep_pareto.csv"
         df_summary.to_csv(out_csv, index=False)
         print(f"[write] {out_csv}")
-        _pareto_plot(df_summary, SUMMARY_DIR / "sweep_pareto.png")
-        print(f"[write] {SUMMARY_DIR / 'sweep_pareto.png'}")
 
         chosen: dict = {}
         for model in PANEL_MODELS:
@@ -272,6 +284,8 @@ def main() -> None:
         out_json = SUMMARY_DIR / "chosen_strength.json"
         out_json.write_text(json.dumps(chosen, indent=2))
         print(f"[write] {out_json}")
+        _pareto_plot(df_summary, SUMMARY_DIR / "sweep_pareto.png", chosen=chosen)
+        print(f"[write] {SUMMARY_DIR / 'sweep_pareto.png'}")
         print("=== chosen strengths ===")
         for k, v in chosen.items():
             print(f"  {k}: {v}")
