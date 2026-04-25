@@ -81,10 +81,54 @@ def _parse_args() -> argparse.Namespace:
     return args
 
 
+def _load_samples(args: argparse.Namespace, config: dict) -> list[dict]:
+    """Load and enrich samples per phase.
+
+    sweep: same n=200 stratified set as E1b/E1d (top decile susceptible × 100 +
+           bottom decile resistant × 100), 1 irrelevant variant per sample.
+    full:  full VQAv2 number subset per configs/experiment.yaml; uses the
+           configured `irrelevant_sets_per_sample`.
+    """
+    vqa_cfg = config["vqa_dataset"]
+    inputs_cfg = config["inputs"]
+    samples = load_number_vqa_samples(
+        dataset_path=PROJECT_ROOT / vqa_cfg["local_path"],
+        max_samples=None,
+        require_single_numeric_gt=vqa_cfg.get("require_single_numeric_gt", True),
+        answer_range=vqa_cfg.get("answer_range"),
+        samples_per_answer=vqa_cfg.get("samples_per_answer"),
+        answer_type_filter=vqa_cfg.get("answer_type_filter"),
+    )
+    if args.phase == "sweep":
+        susc_path = PROJECT_ROOT / args.susceptibility_csv
+        target_qids = _select_susceptibility_strata(
+            susc_path, args.top_decile_n, args.bottom_decile_n, args.seed
+        )
+        samples = [s for s in samples if int(s["question_id"]) in target_qids]
+        variants = 1
+    else:  # full
+        variants = inputs_cfg.get("irrelevant_sets_per_sample", 5)
+
+    enriched = assign_irrelevant_images(
+        samples,
+        irrelevant_number_dir=PROJECT_ROOT / inputs_cfg["irrelevant_number_dir"],
+        irrelevant_neutral_dir=PROJECT_ROOT / inputs_cfg["irrelevant_neutral_dir"],
+        seed=args.seed,
+        variants_per_sample=variants,
+    )
+    if args.max_samples:
+        enriched = enriched[: args.max_samples]
+    return enriched
+
+
 def main() -> None:
     args = _parse_args()
     set_seed(args.seed)
-    print(f"[setup] phase={args.phase} model={args.model} strength={args.strength}")
+
+    config = yaml.safe_load((PROJECT_ROOT / args.config).read_text())
+    enriched = _load_samples(args, config)
+    print(f"[setup] phase={args.phase} model={args.model} "
+          f"sample_instances={len(enriched)} strength={args.strength}")
 
 
 if __name__ == "__main__":
