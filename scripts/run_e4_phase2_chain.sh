@@ -11,7 +11,10 @@
 # Usage:
 #   bash scripts/run_e4_phase2_chain.sh > outputs/e4_mitigation/phase2_chain.log 2>&1 &
 
-set -euo pipefail
+# Note: do NOT use `set -e` here — if one model errors out (OOM, kernel
+# panic, anything), we still want the chain to attempt the remaining
+# models. Resumability handles a re-launch after the session ends.
+set -uo pipefail
 
 cd "$(dirname "$0")/.."
 
@@ -35,7 +38,8 @@ run_phase2() {
     echo "[chain] >>> launching Phase 2 for ${model} at strength=${strength}, $(date)"
     CUDA_VISIBLE_DEVICES=0 uv run python scripts/e4_attention_reweighting.py \
         --model "${model}" --hf-model "${hf}" \
-        --phase full --strength "${strength}"
+        --phase full --strength "${strength}" \
+        || echo "[chain] WARN ${model} exited non-zero — continuing chain"
     echo "[chain] <<< ${model} Phase 2 finished at $(date)"
 }
 
