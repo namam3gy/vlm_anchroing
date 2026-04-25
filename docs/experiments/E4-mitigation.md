@@ -193,13 +193,20 @@ subsequent sessions via the resumability protocol.
   (e.g., baseline df 0.305 [0.24, 0.37] vs s=−3.0 df 0.265 [0.21, 0.33]). The strength-axis
   monotonicity is informative; the per-strength deltas are not yet load-bearing. Phase 2 at
   n=17,730 is what carries the headline numbers.
-- **InternVL3 prose-leak parse loss.** InternVL3's free-form prose ("based on…") leaks
-  through `parsed_number` as a non-numeric string ("based"), which the analysis-side
-  `_to_int` then drops. ~30 % of records fall out of the valid-triplet count, leaving
-  n ∈ [112, 137] per cell instead of 200. Comparison-internally consistent (baseline and
-  treated share the same noise floor) but the absolute n is small; Phase 2 at full scale
-  + a parse-rescue patch (regex `extract_first_number`, already exists in `vlm_anchor.utils`)
-  will resolve. CIs reported here are honest given the smaller n.
+- **InternVL3 prose-leak parse loss is driver-side, not parser-side.** InternVL3's free-form
+  prose ("Based on the image…") gets truncated at `max_new_tokens=8` before any digit is
+  generated; the parser already uses `extract_first_number` and behaves correctly on the
+  empty input. So an analysis-layer rescue does *not* recover dropped triplets — they
+  contain no number to rescue. ~30 % of records fall out, leaving n ∈ [112, 137] per cell
+  instead of 200 in the within-condition view; the paired (intersection-of-valid-cells)
+  view drops to n=109. Within-model strength deltas are still legitimate (baseline and
+  treated share the same surviving subset). The fix is driver-side: longer
+  `max_new_tokens` (16–32) so InternVL3's prose finishes into a digit, or an
+  InternVL3-specific JSON-strict prompt. Tracked for Phase 2 in §"open follow-ups".
+- **InternVL3 paired-set bias.** The paired set (n=109) has em(target_only) = 0.734, far
+  above the unpaired 0.567 — parse-failing items are systematically the model's harder
+  cases. Treat the InternVL3 row of any cross-condition em comparison as "mitigation
+  behaviour on the parse-tractable subset" rather than "InternVL3 overall".
 - **ConvLLaVA causal-structure caveat from E1d.** ConvLLaVA and LLaVA-1.5 share the same
   E1b peak/mechanism but respond *opposite* to lower-half ablation (E1d). Same-attention-
   signature does not imply same-causal-structure. If Phase 2 numbers diverge from
