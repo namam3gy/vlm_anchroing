@@ -153,14 +153,127 @@ def _load_samples(args: argparse.Namespace, config: dict) -> list[dict]:
     return enriched
 
 
+def _resolve_upper_half_layers(n_layers: int) -> list[int]:
+    return list(range(n_layers // 2, n_layers))
+
+
+def _exact_match(parsed, ground_truth) -> int:
+    if parsed is None or ground_truth is None:
+        return 0
+    try:
+        return int(int(parsed) == int(str(ground_truth).strip()))
+    except (ValueError, TypeError):
+        return 0
+
+
+def _generate_one(runner, sample: dict, image_token_id, layers,
+                  layer_indices: list[int], strength: float,
+                  max_new_tokens: int) -> dict[str, Any]:
+    anchor_span = _resolve_anchor_span(runner, sample, image_token_id)
+    install_indices = layer_indices if strength != 0 else []
+    handles = _install_hooks(layers, install_indices, anchor_span, strength=strength) \
+        if install_indices else []
+    try:
+        out = runner.generate_number(
+            question=sample["question"],
+            images=sample["input_images"],
+            max_new_tokens=max_new_tokens,
+        )
+    finally:
+        for h in handles:
+            h.remove()
+    return {
+        "anchor_span": list(anchor_span),
+        "decoded": out["raw_text"],
+        "parsed_number": out["parsed_number"],
+    }
+
+
 def main() -> None:
     args = _parse_args()
     set_seed(args.seed)
 
     config = yaml.safe_load((PROJECT_ROOT / args.config).read_text())
     enriched = _load_samples(args, config)
+
+    out_path = _output_path(args)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    completed = _load_completed_keys(out_path)
     print(f"[setup] phase={args.phase} model={args.model} "
-          f"sample_instances={len(enriched)} strength={args.strength}")
+          f"sample_instances={len(enriched)} resuming_from={len(completed)}")
+
+    sampling = config["sampling"]
+    prompt = config["prompt"]
+    inference_cfg = InferenceConfig(
+        system_prompt=prompt["system"],
+        user_template=prompt["user_template"],
+        temperature=sampling["temperature"],
+        top_p=sampling["top_p"],
+        max_new_tokens=sampling["max_new_tokens"],
+    )
+    print(f"[setup] loading {args.hf_model} (eager attention)")
+    runner = build_eager_runner(args.hf_model, inference_config=inference_cfg)
+    image_token_id = None
+    if isinstance(runner, EagerAttentionRunner):
+        image_token_id = _resolve_image_token_id(runner.processor)
+    layers = _get_llm_layers(runner.model)
+    n_layers = len(layers)
+    upper_half = _resolve_upper_half_layers(n_layers)
+    print(f"[setup] LLM layers={n_layers}; upper_half={upper_half[0]}..{upper_half[-1]}")
+
+    if args.phase == "sweep":
+        strengths = SWEEP_STRENGTHS
+    else:
+        strengths = [0.0, args.strength]
+    print(f"[setup] strengths={strengths}")
+    print(f"[setup] writing to {out_path}")
+
+    n_done = 0
+    n_skipped = 0
+    t0 = time.time()
+    with out_path.open("a") as fh:
+        for sample in enriched:
+            for cond in build_conditions(sample):
+                for strength in strengths:
+                    key = (str(cond["sample_instance_id"]), cond["condition"], float(strength))
+                    if key in completed:
+                        n_skipped += 1
+                        continue
+                    try:
+                        gen = _generate_one(
+                            runner, cond, image_token_id, layers,
+                            upper_half, strength, args.max_new_tokens,
+                        )
+                    except Exception as exc:
+                        gen = {"error": str(exc), "decoded": None, "parsed_number": None,
+                               "anchor_span": None}
+                    record = {
+                        "model": args.model,
+                        "sample_instance_id": cond["sample_instance_id"],
+                        "question_id": cond["question_id"],
+                        "image_id": cond["image_id"],
+                        "ground_truth": cond["ground_truth"],
+                        "condition": cond["condition"],
+                        "irrelevant_type": cond["irrelevant_type"],
+                        "anchor_value": cond.get("anchor_value_for_metrics"),
+                        "mask_strength": float(strength),
+                        "n_llm_layers": n_layers,
+                        "exact_match": _exact_match(gen.get("parsed_number"),
+                                                    cond["ground_truth"]),
+                        **gen,
+                    }
+                    fh.write(json.dumps(record, default=str) + "\n")
+                    fh.flush()
+            n_done += 1
+            if n_done % 10 == 0:
+                elapsed = time.time() - t0
+                rate = n_done / elapsed if elapsed > 0 else 0
+                remaining = (len(enriched) - n_done) / rate if rate > 0 else 0
+                print(f"[progress] {n_done}/{len(enriched)} "
+                      f"({rate:.2f}/s, ~{remaining:.0f}s left, skipped={n_skipped})")
+
+    print(f"[done] {n_done} samples processed in {time.time() - t0:.1f}s; "
+          f"skipped {n_skipped} pre-completed")
 
 
 if __name__ == "__main__":
