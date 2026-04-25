@@ -99,9 +99,38 @@ fluency-clean — `mean_distance_to_anchor` rises from 3.18 to 3.46 across the f
 range, ≤ 0.3 unit drift, which matches E1d's "no fluency hit" finding for upper-half
 ablation on convllava.
 
-### internvl3-8b (queued)
+### internvl3-8b (in flight)
 
-Will kick off as soon as convllava-7b finishes; same Phase 1 sweep.
+Sweep running on GPU 0 at the time of this writeup; rate ~0.07 sample-instances/sec
+(slower than convllava's 0.21 and llava's similar; the slowdown is partly tracking the
+multi-resolution image-tiling overhead in the InternVL3 forward pass and partly GPU
+contention with `physical_mode_activation` on the same physical GPU). ETA ~30 min from
+the 80/200 progress milestone. _(Table will be filled in once n=200 sweep completes.)_
+
+### Cross-model summary (draft, pending internvl3)
+
+| model | layers | upper_half range | baseline df | s* | df at s* | df drop (rel) | em delta at s* | em(target_only) baseline | em(target_only) invariant? |
+|---|:---:|:---:|---:|---:|---:|---:|---:|---:|:---:|
+| llava-1.5-7b | 32 | 16..31 | 0.305 | −3.0 | 0.265 | −13 % | +0.5 pp | 0.435 | ✓ |
+| convllava-7b | 32 | 16..31 | 0.290 | −2.0 | 0.260 | −10 % | +0 pp | 0.500 | ✓ |
+| internvl3-8b | 28 | 14..27 | _pending_ | _pending_ | _pending_ | _pending_ | _pending_ | _pending_ | _pending_ |
+
+**Reading so far (2/3 models done):**
+
+1. The mid-stack-cluster mitigation works on the two models tested, on the panel-shared
+   `ablate_upper_half` locus identified by E1d, and at moderate soft strength (no need for
+   hard masking). Both models meet the ≥ 10 % `direction_follow_rate` reduction target
+   without any drop in `exact_match`.
+2. `s*` differs between models (LLaVA −3.0, ConvLLaVA −2.0) but both sit in the same band
+   (−5, −1). A single shared `s* = −2.5` would meet target on both with one number — kept
+   per-model in this writeup but the choice would not change Phase 2 inputs in any
+   load-bearing way.
+3. The hook is anchor-condition-specific by construction (no-op on `target_only`) and
+   confirmed empirically by the invariant `em(target_only)` column on every strength
+   tested.
+4. The strength-axis monotonicity is robust: every step from `s = 0` to `s = −10⁴` either
+   reduces or holds `direction_follow_rate`, and `exact_match` either holds or rises.
+   No "U-shape" disasters where over-mitigation tips into hallucination.
 
 ## Phase 2 — full validation (pending)
 
