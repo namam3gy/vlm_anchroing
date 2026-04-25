@@ -208,22 +208,28 @@ def select_optimal_strength(per_strength: dict, baseline_df: float,
 def _paired_anchor_damage(df: pd.DataFrame, s_star: float | None) -> dict | None:
     """Anchor-damage / partial-recovery on the *intersection* of valid samples.
 
-    For a given model, computes em(target_only @ 0), em(num @ 0), em(num @ s*),
-    em(num @ -1e4) on the same set of sample_instance_ids — the only fair way
-    to compare em across conditions.
+    For a given model, computes em(target_only @ 0), em(num @ 0), em(num @ s*)
+    on the same set of sample_instance_ids — the only fair way to compare em
+    across conditions. The saturation cell (s = −10⁴) is included when
+    available (Phase 1 sweep) and dropped when not (Phase 2 only runs
+    {0, s*}).
 
     Returns None if s_star is missing or any required cell is empty."""
     if s_star is None:
         return None
-    cells = {
+    required_cells = {
         "to_0": ("target_only", 0.0),
         "num_0": ("target_plus_irrelevant_number", 0.0),
         "num_s": ("target_plus_irrelevant_number", float(s_star)),
+    }
+    optional_cells = {
         "num_sat": ("target_plus_irrelevant_number", -1e4),
     }
     per_cell: dict[str, dict[str, tuple[int, int]]] = {}
-    for key, (cond, strength) in cells.items():
+    for key, (cond, strength) in {**required_cells, **optional_cells}.items():
         sub = df[(df["condition"] == cond) & (df["mask_strength"] == strength)]
+        if sub.empty:
+            continue
         parsed = _to_int_series(sub["parsed_number"], sub.get("decoded"))
         gt = _to_int_series(sub["ground_truth"])
         bag: dict[str, tuple[int, int]] = {}
@@ -232,6 +238,8 @@ def _paired_anchor_damage(df: pd.DataFrame, s_star: float | None) -> dict | None
                 continue
             bag[str(sid)] = (int(p), int(g))
         per_cell[key] = bag
+    if not all(k in per_cell and per_cell[k] for k in required_cells):
+        return None
     common = set.intersection(*(set(per_cell[k]) for k in per_cell))
     if not common:
         return None
@@ -240,24 +248,35 @@ def _paired_anchor_damage(df: pd.DataFrame, s_star: float | None) -> dict | None
                    == per_cell[key][sid][1]) / n
           for key in per_cell}
     damage_pp = (em["num_0"] - em["to_0"]) * 100.0
-    recover_pp_sat = (em["num_sat"] - em["num_0"]) * 100.0
     recover_pp_s = (em["num_s"] - em["num_0"]) * 100.0
-    pct_loss_recovered_sat = (
-        100.0 * (em["num_sat"] - em["num_0"]) / (em["to_0"] - em["num_0"])
+    pct_loss_recovered_s = (
+        100.0 * (em["num_s"] - em["num_0"]) / (em["to_0"] - em["num_0"])
         if em["to_0"] > em["num_0"] else None
     )
-    return {
+    out = {
         "n_paired": n,
         "em_target_only": round(em["to_0"], 4),
         "em_num_at_0": round(em["num_0"], 4),
         "em_num_at_s_star": round(em["num_s"], 4),
-        "em_num_at_saturation": round(em["num_sat"], 4),
         "anchor_damage_pp": round(damage_pp, 2),
         "recovery_at_s_star_pp": round(recover_pp_s, 2),
-        "recovery_at_saturation_pp": round(recover_pp_sat, 2),
-        "fraction_of_damage_recovered_at_saturation_pct":
-            round(pct_loss_recovered_sat, 1) if pct_loss_recovered_sat is not None else None,
+        "fraction_of_damage_recovered_at_s_star_pct":
+            round(pct_loss_recovered_s, 1) if pct_loss_recovered_s is not None else None,
     }
+    if "num_sat" in em:
+        recover_pp_sat = (em["num_sat"] - em["num_0"]) * 100.0
+        pct_loss_recovered_sat = (
+            100.0 * (em["num_sat"] - em["num_0"]) / (em["to_0"] - em["num_0"])
+            if em["to_0"] > em["num_0"] else None
+        )
+        out.update({
+            "em_num_at_saturation": round(em["num_sat"], 4),
+            "recovery_at_saturation_pp": round(recover_pp_sat, 2),
+            "fraction_of_damage_recovered_at_saturation_pct":
+                round(pct_loss_recovered_sat, 1)
+                if pct_loss_recovered_sat is not None else None,
+        })
+    return out
 
 
 def _per_condition_em(df: pd.DataFrame) -> dict:
