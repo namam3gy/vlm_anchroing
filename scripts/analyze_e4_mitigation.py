@@ -294,8 +294,98 @@ def main() -> None:
         out_csv = SUMMARY_DIR / "full_validation.csv"
         df_summary.to_csv(out_csv, index=False)
         print(f"[write] {out_csv}")
-        print("=== full-scale validation ===")
+
+        # Side-by-side baseline (s=0) vs treated (s=s*) comparison rows.
+        # Phase 2 may be partial mid-session; report completion counter so
+        # partial runs are interpretable.
+        try:
+            chosen = json.loads((SUMMARY_DIR / "chosen_strength.json").read_text())
+        except FileNotFoundError:
+            chosen = {}
+
+        compare_rows = []
+        if df_summary.empty:
+            print("(no Phase 2 data yet)")
+            return
+        for model in PANEL_MODELS:
+            sub = df_summary[df_summary["model"] == model]
+            if sub.empty:
+                continue
+            s_star = chosen.get(model)
+            if s_star is None:
+                continue
+            base = sub[sub["mask_strength"] == 0.0]
+            treat = sub[sub["mask_strength"] == float(s_star)]
+            if base.empty or treat.empty:
+                continue
+            b = base.iloc[0]
+            t = treat.iloc[0]
+            # Completion counter: expected = n_questions × n_variants × n_conds
+            # × n_modes (after target_only-skip). For Phase 2 sweep_n=17730
+            # variants and condition layout, the canonical number is
+            # 17730 × (1 + 2 + 2) = 88,650 records per model.
+            df_path = E4_ROOT / model / "full_n17730" / "predictions.jsonl"
+            n_records = 0
+            if df_path.exists():
+                with df_path.open() as fh:
+                    for line in fh:
+                        if line.strip():
+                            n_records += 1
+            expected = 88_650
+            completion = (n_records / expected) if expected else 0.0
+            compare_rows.append({
+                "model": model,
+                "s*": float(s_star),
+                "n_records": n_records,
+                "expected_records": expected,
+                "completion_pct": round(100.0 * completion, 1),
+                "df_baseline": float(b["df_num"]),
+                "df_baseline_ci": [float(b["df_ci_low"]), float(b["df_ci_high"])],
+                "df_treated": float(t["df_num"]),
+                "df_treated_ci": [float(t["df_ci_low"]), float(t["df_ci_high"])],
+                "df_drop_pp": round(100.0 * (float(t["df_num"]) - float(b["df_num"])), 2),
+                "df_drop_relative_pct": round(
+                    100.0 * (float(t["df_num"]) - float(b["df_num"])) / float(b["df_num"])
+                    if float(b["df_num"]) else 0.0, 2),
+                "em_baseline": float(b["em_num"]),
+                "em_baseline_ci": [float(b["em_ci_low"]), float(b["em_ci_high"])],
+                "em_treated": float(t["em_num"]),
+                "em_treated_ci": [float(t["em_ci_low"]), float(t["em_ci_high"])],
+                "em_delta_pp": round(100.0 * (float(t["em_num"]) - float(b["em_num"])), 2),
+                "em_target_only_baseline": float(b["em_target_only"])
+                    if not pd.isna(b["em_target_only"]) else None,
+                "em_target_only_treated": float(t["em_target_only"])
+                    if not pd.isna(t["em_target_only"]) else None,
+                "em_neutral_baseline": float(b["em_neutral"])
+                    if not pd.isna(b["em_neutral"]) else None,
+                "em_neutral_treated": float(t["em_neutral"])
+                    if not pd.isna(t["em_neutral"]) else None,
+            })
+
+        if compare_rows:
+            compare_df = pd.DataFrame(compare_rows)
+            out_compare_csv = SUMMARY_DIR / "full_validation_compare.csv"
+            compare_df.to_csv(out_compare_csv, index=False)
+            print(f"[write] {out_compare_csv}")
+
+        print("=== full-scale validation (raw per-strength) ===")
         print(df_summary.to_string())
+        if compare_rows:
+            print()
+            print("=== baseline vs treated comparison (Phase 2 headline) ===")
+            for r in compare_rows:
+                print(f"\n{r['model']} @ s*={r['s*']}, "
+                      f"completed {r['n_records']:,} / {r['expected_records']:,} "
+                      f"({r['completion_pct']:.1f}%)")
+                print(f"  df_num: {r['df_baseline']:.4f} -> {r['df_treated']:.4f} "
+                      f"(Δ {r['df_drop_pp']:+.2f} pp, {r['df_drop_relative_pct']:+.1f}% rel)")
+                print(f"  em_num: {r['em_baseline']:.4f} -> {r['em_treated']:.4f} "
+                      f"(Δ {r['em_delta_pp']:+.2f} pp)  "
+                      f"<-- 'mitigation safe for / improves accuracy?' check")
+                if r['em_target_only_baseline'] is not None:
+                    print(f"  em(target_only) baseline: {r['em_target_only_baseline']:.4f}"
+                          f"  (sanity — should be invariant; treated row is skipped"
+                          f" by Phase 2 design)")
 
 
 if __name__ == "__main__":
