@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import json
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -45,6 +47,49 @@ class AnchorMaskHookStrengthTests(unittest.TestCase):
 
     def test_empty_anchor_span_returns_none(self) -> None:
         self.assertIsNone(_make_anchor_mask_hook((0, 0), strength=-1.0))
+
+
+class ResumeKeyLoaderTests(unittest.TestCase):
+    def _write_jsonl(self, path: Path, rows: list[dict]) -> None:
+        with path.open("w") as fh:
+            for r in rows:
+                fh.write(json.dumps(r) + "\n")
+
+    def test_returns_empty_set_for_missing_file(self) -> None:
+        from e4_attention_reweighting import _load_completed_keys
+
+        with tempfile.TemporaryDirectory() as d:
+            path = Path(d) / "nope.jsonl"
+            self.assertEqual(_load_completed_keys(path), set())
+
+    def test_loads_complete_records(self) -> None:
+        from e4_attention_reweighting import _load_completed_keys
+
+        with tempfile.TemporaryDirectory() as d:
+            path = Path(d) / "out.jsonl"
+            self._write_jsonl(path, [
+                {"sample_instance_id": "a-0", "condition": "target_only", "mask_strength": -1.0},
+                {"sample_instance_id": "a-0", "condition": "target_plus_irrelevant_number",
+                 "mask_strength": -1.0},
+                {"sample_instance_id": "b-1", "condition": "target_only", "mask_strength": 0.0},
+            ])
+            self.assertEqual(_load_completed_keys(path), {
+                ("a-0", "target_only", -1.0),
+                ("a-0", "target_plus_irrelevant_number", -1.0),
+                ("b-1", "target_only", 0.0),
+            })
+
+    def test_skips_malformed_trailing_line(self) -> None:
+        from e4_attention_reweighting import _load_completed_keys
+
+        with tempfile.TemporaryDirectory() as d:
+            path = Path(d) / "out.jsonl"
+            with path.open("w") as fh:
+                fh.write(json.dumps({
+                    "sample_instance_id": "a", "condition": "target_only", "mask_strength": 0.0
+                }) + "\n")
+                fh.write('{"sample_instance_id": "b", "condition":')
+            self.assertEqual(_load_completed_keys(path), {("a", "target_only", 0.0)})
 
 
 if __name__ == "__main__":
