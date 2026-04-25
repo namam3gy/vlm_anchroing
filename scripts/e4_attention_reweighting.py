@@ -235,6 +235,16 @@ def main() -> None:
         for sample in enriched:
             for cond in build_conditions(sample):
                 for strength in strengths:
+                    # Phase 2 optimisation: target_only's anchor span is empty,
+                    # so the hook is a guaranteed no-op for any non-zero strength.
+                    # Phase 1 already verified em_target_only is invariant across
+                    # strengths; skip the redundant generations in Phase 2 to
+                    # save ~17 % wall time. Phase 1 still runs the full grid for
+                    # the sanity check.
+                    if (args.phase == "full"
+                            and cond["condition"] == "target_only"
+                            and strength != 0.0):
+                        continue
                     key = (str(cond["sample_instance_id"]), cond["condition"], float(strength))
                     if key in completed:
                         n_skipped += 1
