@@ -41,6 +41,24 @@ hook fires but the second image carries no legible digit. Phase 1 confirms:
 - `em(target_plus_irrelevant_number)`: 0.365 → 0.395 (+3 pp) — the only condition where
   predictions move under the hook, and they move toward correct answers.
 
+## A stronger framing — anchor damage and partial recovery
+
+The em columns invite a sharper claim than "mitigation is safe for accuracy". Reading
+the `em_target_only` column as the un-anchored ceiling:
+
+| model | em(target_only) | em(num) at s=0 | anchor-induced em loss | em(num) at saturation s=−10⁴ | recovery from saturation |
+|---|---:|---:|---:|---:|---:|
+| llava-1.5-7b | 0.435 | 0.365 | −0.070 (16 % rel) | 0.395 | +0.030 (recovers 43 % of loss) |
+| convllava-7b | 0.500 | 0.375 | −0.125 (25 % rel) | 0.405 | +0.030 (recovers 24 % of loss) |
+
+The anchor demonstrably *damages* accuracy on this stratified set (em(num) sits well below
+em(target_only) on both models). Upper-half attention re-weighting recovers a
+non-trivial slice of that damage — partial, not full. At the chosen working point `s*` the
+recovery is smaller (em delta ≈ 0 pp at s*=−3.0 / s*=−2.0); the visible recovery is at
+saturation. Phase 2 will tell us whether (a) `s*` is undersized and the working point
+should sit deeper into the strength axis, or (b) saturation is over-aggressive and the
+modest df reduction at `s*` is the right operating point.
+
 ## Why this matters
 
 E1d closed one open question (the per-layer attention peak from E1b is correlational; the
