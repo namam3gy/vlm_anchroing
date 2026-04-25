@@ -166,10 +166,12 @@ def _exact_match(parsed, ground_truth) -> int:
         return 0
 
 
-def _generate_one(runner, sample: dict, image_token_id, layers,
+def _generate_one(runner, sample: dict, anchor_span: tuple[int, int], layers,
                   layer_indices: list[int], strength: float,
                   max_new_tokens: int) -> dict[str, Any]:
-    anchor_span = _resolve_anchor_span(runner, sample, image_token_id)
+    """Generate one prediction. anchor_span is precomputed by the caller and
+    cached across the strength axis (it depends only on the sample/condition,
+    not on the strength)."""
     install_indices = layer_indices if strength != 0 else []
     handles = _install_hooks(layers, install_indices, anchor_span, strength=strength) \
         if install_indices else []
@@ -234,6 +236,16 @@ def main() -> None:
     with out_path.open("a") as fh:
         for sample in enriched:
             for cond in build_conditions(sample):
+                # Anchor span depends only on the (sample, condition) pair, not
+                # on strength — compute once per condition and reuse across the
+                # strength loop. Saves ~6 redundant `_resolve_anchor_span`
+                # calls per condition (Phase 1) and ~1 per condition (Phase 2);
+                # the call invokes processor + tokenizer + image preprocessing,
+                # which is non-trivial for InternVL3 / FastVLM.
+                try:
+                    cached_anchor_span = _resolve_anchor_span(runner, cond, image_token_id)
+                except Exception:
+                    cached_anchor_span = (0, 0)
                 for strength in strengths:
                     # Phase 2 optimisation: target_only's anchor span is empty,
                     # so the hook is a guaranteed no-op for any non-zero strength.
@@ -251,7 +263,7 @@ def main() -> None:
                         continue
                     try:
                         gen = _generate_one(
-                            runner, cond, image_token_id, layers,
+                            runner, cond, cached_anchor_span, layers,
                             upper_half, strength, args.max_new_tokens,
                         )
                     except Exception as exc:
