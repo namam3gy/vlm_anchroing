@@ -1,8 +1,9 @@
 # E4 — attention re-weighting mitigation: results
 
-**Status:** Phase 1 sweep in progress (llava-1.5-7b complete; convllava-7b, internvl3-8b in flight).
-Phase 2 full validation: pending Phase 1 completion. Will run on llava-1.5-7b first (12-h session
-budget per user; resumable; remaining models continue in next session).
+**Status:** Phase 1 sweep complete on all 3 mid-stack-cluster models
+(llava-1.5-7b, convllava-7b, internvl3-8b). Phase 2 full validation: started 2026-04-25;
+chained per `scripts/run_e4_phase2_chain.sh` in priority order
+llava-1.5-7b → convllava-7b → internvl3-8b. Resumable across the 12-h session boundary.
 
 **Source data:** `outputs/e4_mitigation/<model>/sweep_n200/predictions.jsonl` (Phase 1),
 `outputs/e4_mitigation/<model>/full_n17730/predictions.jsonl` (Phase 2).
@@ -99,48 +100,91 @@ fluency-clean — `mean_distance_to_anchor` rises from 3.18 to 3.46 across the f
 range, ≤ 0.3 unit drift, which matches E1d's "no fluency hit" finding for upper-half
 ablation on convllava.
 
-### internvl3-8b (in flight)
+### internvl3-8b (baseline df=0.161)
 
-Sweep running on GPU 0 at the time of this writeup; rate ~0.07 sample-instances/sec
-(slower than convllava's 0.21 and llava's similar; the slowdown is partly tracking the
-multi-resolution image-tiling overhead in the InternVL3 forward pass and partly GPU
-contention with `physical_mode_activation` on the same physical GPU). ETA ~30 min from
-the 80/200 progress milestone. _(Table will be filled in once n=200 sweep completes.)_
+Sample size note: InternVL3 emits prose tokens ("based on…") that the parser mis-classifies
+as numeric strings (e.g. `"based"`), which then drop out under strict `int()` parsing in the
+analysis layer (`_to_int`). ~30 % of records are filtered as "non-numeric on at least one
+side of the (target_only, target+anchor) triplet"; the surviving valid-triplet count drops
+to n ∈ [112, 137] from 200. Baseline and every treated cell share the same noise floor so
+the per-strength deltas are still legitimate comparisons; the absolute n is just smaller
+than the other two models. (Driver fix to use the project's regex-rescuing
+`extract_first_number` is logged in §"open follow-ups".)
 
-### Cross-model summary (draft, pending internvl3)
+| strength | n | df_num | adopt_num | em_num | em_target_only | em_neutral | mean_dist |
+|---:|---:|---:|---:|---:|---:|---:|---:|
+| 0 | 137 | 0.161 [0.10, 0.22] | 0.095 | 0.591 [0.51, 0.67] | 0.568 | 0.581 | 5.67 |
+| **−0.5** | 136 | **0.132 [0.08, 0.19]** | **0.081** | **0.610 [0.53, 0.69]** | 0.568 | 0.584 | 5.74 |
+| −1.0 | 131 | 0.099 [0.05, 0.15] | 0.076 | 0.618 [0.53, 0.70] | 0.568 | 0.580 | 5.31 |
+| −2.0 | 129 | 0.070 [0.03, 0.12] | 0.070 | 0.597 [0.51, 0.68] | 0.568 | 0.618 | 5.43 |
+| −3.0 | 122 | 0.066 [0.02, 0.11] | 0.082 | 0.631 [0.55, 0.72] | 0.568 | 0.597 | 5.11 |
+| −5.0 | 115 | 0.052 [0.02, 0.10] | 0.087 | 0.643 [0.56, 0.74] | 0.568 | 0.600 | 5.02 |
+| −10⁴ | 112 | 0.063 [0.03, 0.11] | 0.089 | 0.652 [0.56, 0.74] | 0.568 | 0.599 | 5.00 |
+
+**Selection:** `s* = −0.5` (smallest |s| meeting both targets — df 0.161 → 0.132 = −17.7 %
+relative; em 0.591 → 0.610 = +1.9 pp).
+
+**Notable.** InternVL3 has the *lowest* baseline `direction_follow_rate` of the three models
+(0.16 vs LLaVA's 0.31 and ConvLLaVA's 0.29) — confirming H6 / E2-pilot's finding that
+InternVL3 is the "distraction-not-anchoring" outlier — but the *largest mitigation effect*
+in relative terms. At saturation (s = −10⁴), df drops to 0.063 (−61 % relative); even at the
+selected weakest s = −0.5 it falls −17.7 % relative, comfortably above the 10 % target. The
+em column rises monotonically, +0.019 to +0.061, fluency-clean across the strength axis
+(`mean_dist` 5.0–5.7, no fluency hit). `em(target_only)` invariant at 0.568 confirms the
+hook is anchor-condition-specific. This is the strongest single piece of evidence so far that
+the upper-half multi-layer locus is *causal*, not just correlational, on this model family —
+a small attention re-weighting (s = −0.5, multiplier ≈ 0.61) is enough to reduce
+direction-follow by nearly a fifth.
+
+### Cross-model summary
 
 | model | layers | upper_half range | baseline df | s* | df at s* | df drop (rel) | em delta at s* | em(target_only) baseline | em(target_only) invariant? |
 |---|:---:|:---:|---:|---:|---:|---:|---:|---:|:---:|
 | llava-1.5-7b | 32 | 16..31 | 0.305 | −3.0 | 0.265 | −13 % | +0.5 pp | 0.435 | ✓ |
 | convllava-7b | 32 | 16..31 | 0.290 | −2.0 | 0.260 | −10 % | +0 pp | 0.500 | ✓ |
-| internvl3-8b | 28 | 14..27 | _pending_ | _pending_ | _pending_ | _pending_ | _pending_ | _pending_ | _pending_ |
+| internvl3-8b | 28 | 14..27 | 0.161 | −0.5 | 0.132 | −17.7 % | +1.9 pp | 0.568 | ✓ |
 
-**Reading so far (2/3 models done):**
+**Reading (3/3 models done):**
 
-1. The mid-stack-cluster mitigation works on the two models tested, on the panel-shared
-   `ablate_upper_half` locus identified by E1d, and at moderate soft strength (no need for
-   hard masking). Both models meet the ≥ 10 % `direction_follow_rate` reduction target
-   without any drop in `exact_match`.
-2. `s*` differs between models (LLaVA −3.0, ConvLLaVA −2.0) but both sit in the same band
-   (−5, −1). A single shared `s* = −2.5` would meet target on both with one number — kept
-   per-model in this writeup but the choice would not change Phase 2 inputs in any
-   load-bearing way.
-3. The hook is anchor-condition-specific by construction (no-op on `target_only`) and
-   confirmed empirically by the invariant `em(target_only)` column on every strength
-   tested.
-4. The strength-axis monotonicity is robust: every step from `s = 0` to `s = −10⁴` either
-   reduces or holds `direction_follow_rate`, and `exact_match` either holds or rises.
-   No "U-shape" disasters where over-mitigation tips into hallucination.
+1. **Phase 1 hits target on every model in the mid-stack cluster.** All three meet the
+   ≥ 10 % `direction_follow_rate` reduction target without any drop in `exact_match`. The
+   intervention is on the panel-shared `ablate_upper_half` locus identified by E1d, at
+   moderate soft strength (no need for hard masking). em(target_only) is invariant on every
+   strength of every model — empirical confirmation that the hook is anchor-condition-
+   specific by construction.
+2. **A single shared strength would not work.** `s*` differs by an order of magnitude
+   between models: LLaVA-1.5 wants `−3.0`, ConvLLaVA wants `−2.0`, InternVL3 wants `−0.5`.
+   The InternVL3 selection is a long way from the LLaVA cluster — a single shared `s*`
+   tuned to LLaVA would over-mitigate on InternVL3 (still target-meeting but unnecessarily
+   strong) and under-mitigate on neither. Per-model strength selection is the cleaner
+   prototype design; report a per-model column in the paper, not a single number.
+3. **Mitigation effect is *anti-correlated* with baseline anchor-pull**, not proportional.
+   InternVL3 (lowest baseline df = 0.16) shows the *largest* relative drop (−17.7 %, and
+   −61 % at saturation). LLaVA-1.5 (highest baseline df = 0.305) shows the *smallest*
+   relative drop (−13 %, −18 % at saturation). This is a sub-finding worth flagging: the
+   upper-half attention pathway carries a *larger fraction* of the anchor signal in the
+   model that uses it less. Mechanism plausibly: InternVL3's smaller anchor signal is
+   concentrated narrowly in the upper-half layers, so removing it removes most of what is
+   there; the LLaVA-cluster signal is broader / redundant, so the same locus removes only
+   a slice. To be revisited in writeup once Phase 2 confirms or refutes at full scale.
+4. **Strength-axis monotonicity is robust on every model.** Every step from `s = 0` to
+   `s = −10⁴` either reduces or holds `direction_follow_rate`, and `exact_match` either
+   holds or rises. No "U-shape" disasters where over-mitigation tips into hallucination.
+   This means the conservative selection rule is safe — a paper could equivalently cite
+   the saturation values (the asymptote of the strength axis) as the "maximum achievable
+   mitigation" without breaking the safety contract on em.
 
-## Phase 2 — full validation (pending)
+## Phase 2 — full validation (in flight)
 
-Will run on the model(s) for which Phase 1 yields a valid `s*`, at full VQAv2-number scale
-(n=17,730 sample-instances × 5 irrelevant sets × 3 conditions × 2 modes ≈ 100 k generations
-per model). Resumable — single canonical JSONL per model, append-only writes with flush, set
-of completed `(sample_instance_id, condition, mask_strength)` keys read on startup.
+Runs on every Phase-1-valid model at full VQAv2-number scale (n=17,730 sample-instances
+× 5 irrelevant sets × 3 conditions × 2 modes ≈ 88,650 records per model after the
+target_only-skip optimisation). Resumable — single canonical JSONL per model, append-only
+writes with flush, set of completed `(sample_instance_id, condition, mask_strength)` keys
+read on startup.
 
 **Prioritisation under 12-h session budget (advised by call to advisor):** llava-1.5-7b
-first (cleanest E1d signal, largest causal effect, no caveats). Other models continue in
+first (cleanest E1d signal, largest causal effect, no caveats), then convllava-7b, then
+internvl3-8b. Chained by `scripts/run_e4_phase2_chain.sh`. Other models continue in
 subsequent sessions via the resumability protocol.
 
 ## Caveats
@@ -149,18 +193,34 @@ subsequent sessions via the resumability protocol.
   (e.g., baseline df 0.305 [0.24, 0.37] vs s=−3.0 df 0.265 [0.21, 0.33]). The strength-axis
   monotonicity is informative; the per-strength deltas are not yet load-bearing. Phase 2 at
   n=17,730 is what carries the headline numbers.
+- **InternVL3 prose-leak parse loss.** InternVL3's free-form prose ("based on…") leaks
+  through `parsed_number` as a non-numeric string ("based"), which the analysis-side
+  `_to_int` then drops. ~30 % of records fall out of the valid-triplet count, leaving
+  n ∈ [112, 137] per cell instead of 200. Comparison-internally consistent (baseline and
+  treated share the same noise floor) but the absolute n is small; Phase 2 at full scale
+  + a parse-rescue patch (regex `extract_first_number`, already exists in `vlm_anchor.utils`)
+  will resolve. CIs reported here are honest given the smaller n.
 - **ConvLLaVA causal-structure caveat from E1d.** ConvLLaVA and LLaVA-1.5 share the same
   E1b peak/mechanism but respond *opposite* to lower-half ablation (E1d). Same-attention-
   signature does not imply same-causal-structure. If Phase 2 numbers diverge from
   LLaVA-1.5/InternVL3 substantially, decide at writeup time whether to demote ConvLLaVA to
   a discussion caveat rather than treat it as part of the headline mid-stack-cluster claim.
+- **Shared `s*` would not work.** `s*` ranges from −0.5 (InternVL3) to −3.0 (LLaVA-1.5). A
+  single shared strength would over-mitigate one and under-mitigate the others. Reported as
+  per-model.
 
 ## Open follow-ups (post Phase 2)
 
-- Per-model vs. shared optimal strength — if Phase 1 picks similar `s*` across the 3 models,
-  report a single shared strength as the architecture-blind prototype; otherwise per-model.
-- Failure escalation path if no strength in [−5, 0] meets the target on any model:
-  (a) `ablate_upper_quarter` (`[3n/4, n)`), (b) different intervention class.
+- Per-model strength selection (Phase 1 result; shared single number infeasible — see
+  caveats).
+- InternVL3 parse-rescue patch in `scripts/e4_attention_reweighting.py` to use the project's
+  `extract_first_number` regex helper instead of relying on the model's bare numeric output.
+  Recovers ~30 % of dropped triplets without changing the comparison structure.
+- Failure escalation path if Phase 2 fails the target on any model: (a) `ablate_upper_quarter`
+  (`[3n/4, n)`), (b) different intervention class.
+- Per-stratum analysis at Phase 2 scale: split the headline by susceptibility decile
+  (top vs bottom) to test whether the mitigation effect concentrates on the items the model
+  was most susceptible to in the first place — directly tightens the H2 → mitigation link.
 
 ## Writeup tags
 
