@@ -91,39 +91,38 @@ def _get_llm_layers(model: nn.Module) -> nn.ModuleList:
 
 # ─── Anchor-mask forward pre-hook ────────────────────────────────────────────────
 
-def _make_anchor_mask_hook(anchor_span: tuple[int, int]):
-    """Return a forward pre-hook that subtracts a large value from `attention_mask`
-    columns inside the anchor span, so post-softmax attention to those keys is ~0.
+def _make_anchor_mask_hook(anchor_span: tuple[int, int], strength: float = -1e4):
+    """Return a forward pre-hook that adds `strength` to `attention_mask` columns
+    inside the anchor span, so post-softmax attention to those keys is multiplied
+    by exp(strength).
 
-    The hook expects the LLaMA-family attention forward signature where
-    `attention_mask` is passed in via kwargs (or args). Modifies a clone of the
-    mask, never the original tensor.
+    strength=-1e4 (default) is hard masking — bf16-safe, behaves like -inf without
+    NaN propagation in some kernels. This is E1d's behaviour.
+    Smaller |strength| values give graded down-weighting (E4 mitigation use).
+    Returns None if the anchor span is empty or strength == 0 (caller skips install).
     """
     s, e = anchor_span
     if e <= s:
-        return None  # nothing to mask
-
-    NEG = -1e4  # bf16-safe; -inf can break some kernels
+        return None
+    if strength == 0:
+        return None
 
     def hook(module, args, kwargs):
         mask = kwargs.get("attention_mask")
         if mask is None:
-            # Some attention implementations tuck the mask into a different position.
-            # Try positional args.
             for i, a in enumerate(args):
                 if isinstance(a, torch.Tensor) and a.dim() == 4:
                     args = list(args)
                     a = a.clone()
-                    a[..., s:e] = a[..., s:e] + NEG
+                    a[..., s:e] = a[..., s:e] + strength
                     args[i] = a
                     return tuple(args), kwargs
             return None
         mask = mask.clone()
-        # additive mask — subtract a big value at anchor key positions so softmax pushes them to 0
         if mask.dim() == 4:
-            mask[..., s:e] = mask[..., s:e] + NEG
+            mask[..., s:e] = mask[..., s:e] + strength
         elif mask.dim() == 2:
-            mask[..., s:e] = mask[..., s:e].masked_fill(mask[..., s:e] >= 0, NEG)
+            mask[..., s:e] = mask[..., s:e].masked_fill(mask[..., s:e] >= 0, strength)
         else:
             return None
         kwargs["attention_mask"] = mask
@@ -132,11 +131,14 @@ def _make_anchor_mask_hook(anchor_span: tuple[int, int]):
     return hook
 
 
-def _install_hooks(layers: nn.ModuleList, layer_indices: list[int], anchor_span: tuple[int, int]):
+def _install_hooks(layers: nn.ModuleList, layer_indices: list[int],
+                   anchor_span: tuple[int, int], strength: float = -1e4):
     handles = []
     if anchor_span is None or anchor_span[1] <= anchor_span[0]:
         return handles
-    hook = _make_anchor_mask_hook(anchor_span)
+    if strength == 0:
+        return handles
+    hook = _make_anchor_mask_hook(anchor_span, strength=strength)
     if hook is None:
         return handles
     for i in layer_indices:
