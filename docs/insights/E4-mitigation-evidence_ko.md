@@ -40,6 +40,23 @@ hook은 구조적으로 no-op, `target_plus_irrelevant_neutral`에서는 hook이
 - `em(target_plus_irrelevant_number)`: 0.365 → 0.395 (+3 pp) — 예측이 hook 아래에서
   변하는 유일한 조건이며, 변화 방향은 정답 쪽.
 
+## 더 강한 프레이밍 — anchor 손상과 부분 회복
+
+`em_target_only`을 "anchor 없는" 상한으로 읽으면 em 컬럼들이 "완화책이 정확도에 안전"보다
+더 날카로운 claim을 가능하게 한다:
+
+| model | em(target_only) | em(num) at s=0 | anchor 유발 em 손실 | em(num) at 포화 s=−10⁴ | 포화 회복 |
+|---|---:|---:|---:|---:|---:|
+| llava-1.5-7b | 0.435 | 0.365 | −0.070 (상대 16 %) | 0.395 | +0.030 (손실의 43 % 회복) |
+| convllava-7b | 0.500 | 0.375 | −0.125 (상대 25 %) | 0.405 | +0.030 (손실의 24 % 회복) |
+
+이 stratified 세트에서 anchor가 정확도를 *손상*시킨다는 사실이 분명함 (em(num)이
+em(target_only)보다 두 모델 모두 상당히 낮음). Upper-half 어텐션 재가중이 그 손상의
+일부를 회복 — 완전한 회복은 아니고 부분적. 선택된 운영 지점 `s*`에서는 회복이 더 작음
+(em delta ≈ 0 pp at s*=−3.0 / s*=−2.0); 가시적 회복은 포화에서 발생. Phase 2가
+(a) `s*`가 너무 약해 운영 지점을 strength 축의 더 깊은 곳으로 옮겨야 하는지, 또는
+(b) 포화가 과도하고 `s*`에서의 적당한 df 감소가 올바른 운영 지점인지 결정.
+
 ## 의의
 
 E1d가 한 열린 질문(E1b의 per-layer 어텐션 peak는 correlational, 인과 경로는 multi-layer)
