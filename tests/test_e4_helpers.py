@@ -92,5 +92,34 @@ class ResumeKeyLoaderTests(unittest.TestCase):
             self.assertEqual(_load_completed_keys(path), {("a", "target_only", 0.0)})
 
 
+class StrengthSelectionTests(unittest.TestCase):
+    def test_picks_smallest_magnitude_meeting_both_criteria(self) -> None:
+        from analyze_e4_mitigation import select_optimal_strength
+
+        baseline_df, baseline_em = 0.30, 0.55
+        per_strength = {
+            0.0:   {"df_num": 0.30, "em_num": 0.55},
+            -0.5:  {"df_num": 0.29, "em_num": 0.55},  # df drop only 0.01 — fails df criterion
+            -1.0:  {"df_num": 0.26, "em_num": 0.54},  # df < 0.27 (10% drop) and em drop 1pp — passes
+            -2.0:  {"df_num": 0.20, "em_num": 0.50},  # passes df easily; em drop 5pp — fails
+            -1e4:  {"df_num": 0.18, "em_num": 0.42},  # fails em
+        }
+        chosen = select_optimal_strength(per_strength, baseline_df, baseline_em,
+                                         df_drop_target=0.10, em_drop_max=0.02)
+        self.assertEqual(chosen, -1.0)
+
+    def test_returns_none_when_no_strength_qualifies(self) -> None:
+        from analyze_e4_mitigation import select_optimal_strength
+
+        baseline_df, baseline_em = 0.30, 0.55
+        per_strength = {
+            0.0:   {"df_num": 0.30, "em_num": 0.55},
+            -1.0:  {"df_num": 0.29, "em_num": 0.45},
+            -1e4:  {"df_num": 0.10, "em_num": 0.30},
+        }
+        self.assertIsNone(select_optimal_strength(per_strength, baseline_df, baseline_em,
+                                                  df_drop_target=0.10, em_drop_max=0.02))
+
+
 if __name__ == "__main__":
     unittest.main()
