@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from pathlib import Path
 
 import matplotlib.pyplot as plt
@@ -34,6 +35,10 @@ E4_ROOT = PROJECT_ROOT / "outputs" / "e4_mitigation"
 SUMMARY_DIR = E4_ROOT / "_summary"
 
 PANEL_MODELS = ["llava-1.5-7b", "convllava-7b", "internvl3-8b"]
+
+
+sys.path.insert(0, str(PROJECT_ROOT / "src"))
+from vlm_anchor.utils import extract_first_number  # noqa: E402
 
 
 def _load_phase(model: str, phase: str) -> pd.DataFrame | None:
@@ -55,61 +60,98 @@ def _load_phase(model: str, phase: str) -> pd.DataFrame | None:
     return pd.DataFrame(rows) if rows else None
 
 
-def _to_int(x):
+def _to_int(x, rescue_text: str | None = None):
+    """Robust integer parse.
+
+    Tries: strict int(x). On failure, falls back to extract_first_number on the
+    raw decoded text (`rescue_text`) — recovers InternVL3-style prose-leak cases
+    where the driver's parsed_number landed on a non-numeric word ("based" etc).
+    Returns None if neither path produces an integer."""
     try:
         return int(str(x).strip())
     except (ValueError, TypeError):
-        return None
+        pass
+    if rescue_text is not None:
+        rescued = extract_first_number(rescue_text)
+        if rescued:
+            try:
+                return int(rescued)
+            except ValueError:
+                pass
+    return None
 
 
 def _build_triplets(df: pd.DataFrame) -> pd.DataFrame:
     """Per (sample_instance_id, mask_strength), join target_only baseline (strength=0)
-    with target_plus_irrelevant_number under that strength."""
+    with target_plus_irrelevant_number under that strength.
+
+    Carries the raw `decoded` text alongside `parsed_number` on both sides so
+    `_to_int` can rescue prose-leak cases (e.g. InternVL3 emits "based on…",
+    parser lands on "based", rescue extracts the number from the raw text)."""
+    base_cols = ["sample_instance_id", "parsed_number", "ground_truth"]
+    if "decoded" in df.columns:
+        base_cols = base_cols + ["decoded"]
     base = (
         df[(df["condition"] == "target_only") & (df["mask_strength"] == 0.0)]
-        [["sample_instance_id", "parsed_number", "ground_truth"]]
-        .rename(columns={"parsed_number": "base_pred"})
+        [base_cols]
+        .rename(columns={"parsed_number": "base_pred", "decoded": "base_decoded"})
         .drop_duplicates("sample_instance_id")
     )
     num = df[df["condition"] == "target_plus_irrelevant_number"].copy()
-    num = num.rename(columns={"parsed_number": "num_pred"})
+    num = num.rename(columns={"parsed_number": "num_pred", "decoded": "num_decoded"})
     num = num.merge(base, on="sample_instance_id", how="inner",
                     suffixes=("", "_base"))
     return num
 
 
+def _to_int_series(values: pd.Series, rescue: pd.Series | None = None) -> pd.Series:
+    """Vectorised _to_int with optional per-row rescue text."""
+    if rescue is None:
+        return values.map(_to_int)
+    out = []
+    for v, r in zip(values, rescue):
+        out.append(_to_int(v, rescue_text=r))
+    return pd.Series(out, index=values.index, dtype=object)
+
+
 def _metrics(triplets: pd.DataFrame) -> dict:
-    base = triplets["base_pred"].map(_to_int)
-    num = triplets["num_pred"].map(_to_int)
-    anchor = triplets["anchor_value"].map(_to_int)
-    gt = triplets["ground_truth"].map(_to_int)
+    base = _to_int_series(triplets["base_pred"], triplets.get("base_decoded"))
+    num = _to_int_series(triplets["num_pred"], triplets.get("num_decoded"))
+    anchor = _to_int_series(triplets["anchor_value"])
+    gt = _to_int_series(triplets["ground_truth"])
     valid = base.notna() & num.notna() & anchor.notna()
     n = int(valid.sum())
     if n == 0:
         return {"n": 0, "df_num": np.nan, "adopt_num": np.nan, "em_num": np.nan,
                 "mean_dist": np.nan}
-    db = (base[valid] - anchor[valid]).abs()
-    dn = (num[valid] - anchor[valid]).abs()
+    base_v = base[valid].astype(int)
+    num_v = num[valid].astype(int)
+    anc_v = anchor[valid].astype(int)
+    db = (base_v - anc_v).abs()
+    dn = (num_v - anc_v).abs()
     df_num = float((dn < db).mean())
-    adopt = float((num[valid] == anchor[valid]).mean())
+    adopt = float((num_v == anc_v).mean())
     mean_dist = float(dn.mean())
     em_valid = num.notna() & gt.notna()
-    em = float((num[em_valid] == gt[em_valid]).mean()) if em_valid.any() else np.nan
+    em = (
+        float((num[em_valid].astype(int) == gt[em_valid].astype(int)).mean())
+        if em_valid.any() else np.nan
+    )
     return {"n": n, "df_num": df_num, "adopt_num": adopt, "em_num": em,
             "mean_dist": mean_dist}
 
 
 def _bootstrap(triplets: pd.DataFrame, metric: str, n_boot: int = 2000,
                seed: int = 42) -> tuple[float, float]:
-    base = triplets["base_pred"].map(_to_int)
-    num = triplets["num_pred"].map(_to_int)
-    anchor = triplets["anchor_value"].map(_to_int)
-    gt = triplets["ground_truth"].map(_to_int)
+    base = _to_int_series(triplets["base_pred"], triplets.get("base_decoded"))
+    num = _to_int_series(triplets["num_pred"], triplets.get("num_decoded"))
+    anchor = _to_int_series(triplets["anchor_value"])
+    gt = _to_int_series(triplets["ground_truth"])
     valid = base.notna() & num.notna() & anchor.notna()
-    arr_base = base[valid].to_numpy()
-    arr_num = num[valid].to_numpy()
-    arr_anc = anchor[valid].to_numpy()
-    arr_gt = gt[valid].to_numpy()
+    arr_base = base[valid].astype(int).to_numpy()
+    arr_num = num[valid].astype(int).to_numpy()
+    arr_anc = anchor[valid].astype(int).to_numpy()
+    arr_gt = gt[valid].to_numpy()  # gt may be None; cast happens after mask_gt filter
     n = len(arr_num)
     if n == 0:
         return (np.nan, np.nan)
@@ -163,6 +205,61 @@ def select_optimal_strength(per_strength: dict, baseline_df: float,
     return min(candidates, key=abs)
 
 
+def _paired_anchor_damage(df: pd.DataFrame, s_star: float | None) -> dict | None:
+    """Anchor-damage / partial-recovery on the *intersection* of valid samples.
+
+    For a given model, computes em(target_only @ 0), em(num @ 0), em(num @ s*),
+    em(num @ -1e4) on the same set of sample_instance_ids — the only fair way
+    to compare em across conditions.
+
+    Returns None if s_star is missing or any required cell is empty."""
+    if s_star is None:
+        return None
+    cells = {
+        "to_0": ("target_only", 0.0),
+        "num_0": ("target_plus_irrelevant_number", 0.0),
+        "num_s": ("target_plus_irrelevant_number", float(s_star)),
+        "num_sat": ("target_plus_irrelevant_number", -1e4),
+    }
+    per_cell: dict[str, dict[str, tuple[int, int]]] = {}
+    for key, (cond, strength) in cells.items():
+        sub = df[(df["condition"] == cond) & (df["mask_strength"] == strength)]
+        parsed = _to_int_series(sub["parsed_number"], sub.get("decoded"))
+        gt = _to_int_series(sub["ground_truth"])
+        bag: dict[str, tuple[int, int]] = {}
+        for sid, p, g in zip(sub["sample_instance_id"], parsed, gt):
+            if p is None or g is None:
+                continue
+            bag[str(sid)] = (int(p), int(g))
+        per_cell[key] = bag
+    common = set.intersection(*(set(per_cell[k]) for k in per_cell))
+    if not common:
+        return None
+    n = len(common)
+    em = {key: sum(1 for sid in common if per_cell[key][sid][0]
+                   == per_cell[key][sid][1]) / n
+          for key in per_cell}
+    damage_pp = (em["num_0"] - em["to_0"]) * 100.0
+    recover_pp_sat = (em["num_sat"] - em["num_0"]) * 100.0
+    recover_pp_s = (em["num_s"] - em["num_0"]) * 100.0
+    pct_loss_recovered_sat = (
+        100.0 * (em["num_sat"] - em["num_0"]) / (em["to_0"] - em["num_0"])
+        if em["to_0"] > em["num_0"] else None
+    )
+    return {
+        "n_paired": n,
+        "em_target_only": round(em["to_0"], 4),
+        "em_num_at_0": round(em["num_0"], 4),
+        "em_num_at_s_star": round(em["num_s"], 4),
+        "em_num_at_saturation": round(em["num_sat"], 4),
+        "anchor_damage_pp": round(damage_pp, 2),
+        "recovery_at_s_star_pp": round(recover_pp_s, 2),
+        "recovery_at_saturation_pp": round(recover_pp_sat, 2),
+        "fraction_of_damage_recovered_at_saturation_pct":
+            round(pct_loss_recovered_sat, 1) if pct_loss_recovered_sat is not None else None,
+    }
+
+
 def _per_condition_em(df: pd.DataFrame) -> dict:
     """Per (mask_strength, condition) exact_match — used to verify the hook is
     anchor-condition-specific (target_only should be invariant, neutral should
@@ -172,11 +269,14 @@ def _per_condition_em(df: pd.DataFrame) -> dict:
         for cond in ("target_only", "target_plus_irrelevant_neutral",
                      "target_plus_irrelevant_number"):
             sub = df[(df["mask_strength"] == s) & (df["condition"] == cond)]
-            parsed = sub["parsed_number"].map(_to_int)
-            gt = sub["ground_truth"].map(_to_int)
+            parsed = _to_int_series(sub["parsed_number"], sub.get("decoded"))
+            gt = _to_int_series(sub["ground_truth"])
             valid = parsed.notna() & gt.notna()
             n = int(valid.sum())
-            em = float((parsed[valid] == gt[valid]).mean()) if n else np.nan
+            em = (
+                float((parsed[valid].astype(int) == gt[valid].astype(int)).mean())
+                if n else np.nan
+            )
             out[(float(s), cond)] = {"n": n, "em": em}
     return out
 
@@ -289,6 +389,26 @@ def main() -> None:
         print("=== chosen strengths ===")
         for k, v in chosen.items():
             print(f"  {k}: {v}")
+
+        # Paired anchor-damage table — fair cross-condition em comparison on
+        # intersection of valid samples per model.
+        pad_rows = []
+        for model in PANEL_MODELS:
+            sub_df = _load_phase(model, "sweep")
+            if sub_df is None:
+                continue
+            pad = _paired_anchor_damage(sub_df, chosen.get(model))
+            if pad is None:
+                continue
+            pad_rows.append({"model": model, "phase": "sweep",
+                             "s_star": chosen.get(model), **pad})
+        if pad_rows:
+            pad_df = pd.DataFrame(pad_rows)
+            out_pad_csv = SUMMARY_DIR / "anchor_damage_paired_sweep.csv"
+            pad_df.to_csv(out_pad_csv, index=False)
+            print(f"[write] {out_pad_csv}")
+            print("=== paired anchor-damage (sweep) ===")
+            print(pad_df.to_string(index=False))
     else:
         df_summary = _summarise_phase("full")
         out_csv = SUMMARY_DIR / "full_validation.csv"
@@ -367,6 +487,26 @@ def main() -> None:
             out_compare_csv = SUMMARY_DIR / "full_validation_compare.csv"
             compare_df.to_csv(out_compare_csv, index=False)
             print(f"[write] {out_compare_csv}")
+
+        # Paired anchor-damage at full scale — the headline em-side comparison.
+        pad_rows = []
+        for model in PANEL_MODELS:
+            sub_df = _load_phase(model, "full")
+            if sub_df is None:
+                continue
+            s_star = chosen.get(model)
+            pad = _paired_anchor_damage(sub_df, s_star)
+            if pad is None:
+                continue
+            pad_rows.append({"model": model, "phase": "full",
+                             "s_star": s_star, **pad})
+        if pad_rows:
+            pad_df = pd.DataFrame(pad_rows)
+            out_pad_csv = SUMMARY_DIR / "anchor_damage_paired_full.csv"
+            pad_df.to_csv(out_pad_csv, index=False)
+            print(f"[write] {out_pad_csv}")
+            print("=== paired anchor-damage (full) ===")
+            print(pad_df.to_string(index=False))
 
         print("=== full-scale validation (raw per-strength) ===")
         print(df_summary.to_string())
