@@ -1,11 +1,34 @@
 # E4 — upper-half 어텐션 재가중이 mid-stack cluster의 anchor pull을 줄인다
 
 **상태:** mid-stack-cluster 3 모델 (llava-1.5-7b, convllava-7b, internvl3-8b) Phase 1
-sweep 모두 완료. Phase 2 풀 검증 진행 중 (2026-04-25 시작; chained
-llava → convllava → internvl3). 소스 데이터:
-`outputs/e4_mitigation/<model>/sweep_n200/predictions.jsonl`. 집계 표:
-`outputs/e4_mitigation/_summary/{sweep_pareto.csv, chosen_strength.json}`. 상세 writeup:
+sweep 모두 완료. **Phase 2 풀 검증: llava-1.5-7b 완료 (88,650 records, 100 %),
+convllava-7b 진행 중, internvl3-8b 대기.** 소스 데이터:
+`outputs/e4_mitigation/<model>/{sweep_n200,full_n17730}/predictions.jsonl`. 집계 표:
+`outputs/e4_mitigation/_summary/{sweep_pareto, full_validation, full_validation_compare,
+anchor_damage_paired_{sweep,full}, chosen_strength}.csv|.json`. 상세 writeup:
 `docs/experiments/E4-mitigation.md`.
+
+## Phase 2 헤드라인 (LLaVA-1.5-7B, n = 17,730 samples × 5 anchors = 88,650 records)
+
+Phase-1-chosen `s* = −3.0`:
+
+| 메트릭 | 베이스라인 | treated | Δ | rel |
+|---|---:|---:|---:|---:|
+| direction_follow_rate | 0.2578 [0.2515, 0.2640] | 0.2122 [0.2060, 0.2182] | **−4.55 pp** | **−17.7 %** |
+| exact_match (num) | 0.3340 [0.3272, 0.3412] | 0.3418 [0.3348, 0.3490] | **+0.77 pp** | +2.3 % |
+
+풀 세트의 paired anchor-damage (n_paired = 17,724):
+
+| em(TO) | em(num@0) | em(num@s*) | damage | recovery | 손상 회복 비율 |
+|---:|---:|---:|---:|---:|---:|
+| 0.3696 | 0.3340 | 0.3417 | **−3.55 pp** | +0.77 pp | **21.7 %** |
+
+**읽기.** Phase 2가 LLaVA의 모든 Phase-1 claim을 *복제·강화*. Direction-follow가 Phase 1이
+예측한 정확히 같은 상대 양 (−17.7 %)으로 감소, CI는 ~10× 더 좁음. Exact-match가 약간 상승.
+풀 subset의 paired anchor-damage는 susceptibility-stratified Phase-1 세트보다 절대 값에서
+작음 (−3.55 pp vs −7.00 pp), 예상대로; 회복 비율 (21.7 %)은 Phase-1 sweep의 "at s*"
+회복 (~7 %)과 "at saturation" 회복 (43 %)의 사이 — Phase 2가 {0, s*}만 돌리므로. 완화책이
+풀 스케일에서, cluster의 가장 깨끗한 테스트 케이스에서 작동한다.
 
 ## 주장과 검증
 

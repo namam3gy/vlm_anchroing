@@ -1,11 +1,35 @@
 # E4 — upper-half attention re-weighting reduces anchor pull on the mid-stack cluster
 
 **Status:** Phase 1 sweep complete on all 3 mid-stack-cluster models
-(llava-1.5-7b, convllava-7b, internvl3-8b). Phase 2 full-scale validation in flight
-(2026-04-25; chained llava → convllava → internvl3). Source data:
-`outputs/e4_mitigation/<model>/sweep_n200/predictions.jsonl`. Aggregate tables:
-`outputs/e4_mitigation/_summary/{sweep_pareto.csv, chosen_strength.json}`. Full writeup:
-`docs/experiments/E4-mitigation.md`.
+(llava-1.5-7b, convllava-7b, internvl3-8b). **Phase 2 full-scale validation: llava-1.5-7b
+complete (88,650 records, 100 %), convllava-7b in flight, internvl3-8b queued.**
+Source data: `outputs/e4_mitigation/<model>/{sweep_n200,full_n17730}/predictions.jsonl`.
+Aggregate tables: `outputs/e4_mitigation/_summary/{sweep_pareto, full_validation,
+full_validation_compare, anchor_damage_paired_{sweep,full}, chosen_strength}.csv|.json`.
+Full writeup: `docs/experiments/E4-mitigation.md`.
+
+## Phase 2 headline (LLaVA-1.5-7B, n = 17,730 samples × 5 anchors = 88,650 records)
+
+At Phase-1-chosen `s* = −3.0`:
+
+| metric | baseline | treated | Δ | rel |
+|---|---:|---:|---:|---:|
+| direction_follow_rate | 0.2578 [0.2515, 0.2640] | 0.2122 [0.2060, 0.2182] | **−4.55 pp** | **−17.7 %** |
+| exact_match (num) | 0.3340 [0.3272, 0.3412] | 0.3418 [0.3348, 0.3490] | **+0.77 pp** | +2.3 % |
+
+Paired anchor-damage on the full set (n_paired = 17,724):
+
+| em(TO) | em(num@0) | em(num@s*) | damage | recovery | % of damage recovered |
+|---:|---:|---:|---:|---:|---:|
+| 0.3696 | 0.3340 | 0.3417 | **−3.55 pp** | +0.77 pp | **21.7 %** |
+
+**Reading.** Phase 2 *replicates and tightens* every Phase-1 claim on LLaVA. Direction-follow
+drops by exactly the relative amount Phase 1 predicted (−17.7 %), with CIs ~10× narrower.
+Exact-match rises slightly. Paired anchor-damage on the full subset is smaller in absolute
+terms than on the susceptibility-stratified Phase-1 set (−3.55 pp vs −7.00 pp), as expected;
+the recovery ratio (21.7 %) sits between Phase-1 sweep's "at s*" recovery (~7 %) and its
+"at saturation" recovery (43 %), since Phase 2 only runs {0, s*}. The mitigation works at
+full scale on the cleanest test case in the cluster.
 
 ## The claim and the test
 

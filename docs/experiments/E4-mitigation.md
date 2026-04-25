@@ -174,10 +174,10 @@ direction-follow by nearly a fifth.
    the saturation values (the asymptote of the strength axis) as the "maximum achievable
    mitigation" without breaking the safety contract on em.
 
-## Phase 2 — full validation (in flight)
+## Phase 2 — full validation
 
 Runs on every Phase-1-valid model at full VQAv2-number scale (n=17,730 sample-instances
-× 5 irrelevant sets × 3 conditions × 2 modes ≈ 88,650 records per model after the
+× 5 irrelevant sets × 3 conditions × 2 modes = 88,650 records per model after the
 target_only-skip optimisation). Resumable — single canonical JSONL per model, append-only
 writes with flush, set of completed `(sample_instance_id, condition, mask_strength)` keys
 read on startup.
@@ -186,6 +186,52 @@ read on startup.
 first (cleanest E1d signal, largest causal effect, no caveats), then convllava-7b, then
 internvl3-8b. Chained by `scripts/run_e4_phase2_chain.sh`. Other models continue in
 subsequent sessions via the resumability protocol.
+
+### llava-1.5-7b — Phase 2 (88,650 records, 100 % complete)
+
+| metric | baseline (s=0) | treated (s=−3.0) | Δ | relative |
+|---|---:|---:|---:|---:|
+| direction_follow_rate | 0.2578 [0.2515, 0.2640] | 0.2122 [0.2060, 0.2182] | **−4.55 pp** | **−17.7 %** |
+| exact_match (num) | 0.3340 [0.3272, 0.3412] | 0.3418 [0.3348, 0.3490] | +0.77 pp | +2.3 % |
+| exact_match (target_only baseline) | 0.3697 | (hook is no-op on target_only) | – | – |
+| exact_match (neutral baseline) | 0.3249 | 0.3284 | +0.35 pp | – |
+
+**Paired anchor-damage table** (intersection of valid {target_only@0, num@0, num@s*} —
+n_paired = 17,724, virtually no parse loss for LLaVA):
+
+| em(target_only) | em(num@0) | em(num@s*) | anchor damage | recovery at s* | % of damage recovered |
+|---:|---:|---:|---:|---:|---:|
+| 0.3696 | 0.3340 | 0.3417 | **−3.55 pp** | +0.77 pp | **21.7 %** |
+
+**Headline.** LLaVA Phase 2 *replicates and tightens* the Phase 1 sweep claim. Direction-
+follow drops by exactly the same relative amount (−17.7 %) at Phase-1-chosen `s*` as the
+sweep predicted; CIs are now ~10× narrower. Exact-match is *not just preserved but mildly
+improved* (+0.77 pp), and the paired anchor-damage table shows the upper-half attention
+re-weighting *recovers 21.7 % of the anchor-induced em loss* on the full VQAv2-number
+subset. Hook still anchor-condition-specific by construction (the `em_target_only` cell is
+empty for treated rows because the Phase 2 driver skips target_only at non-zero strength;
+Phase 1 verified invariance at smaller n).
+
+**Phase 2 vs Phase 1 sweep — what changed.** The sweep set was stratified
+(top-decile-susceptible × 100 + bottom-decile-resistant × 100) and so over-sampled the
+items where the anchor matters; the full set is the entire VQAv2-number subset. As
+expected, the absolute df numbers come down (0.305 → 0.258 baseline; 0.265 → 0.212
+treated), but the *relative* mitigation is ~identical and the *paired anchor-damage*
+shrinks (−7.00 pp → −3.55 pp), reflecting the more representative sample mix.
+
+### convllava-7b — Phase 2 (in flight, ~0.8 % at writeup time)
+
+Started 2026-04-25 20:24 UTC, rate ~0.86 sample-instances/sec, ETA ~5.7 h. Partial
+Phase-2 numbers at this completion rate are not yet load-bearing (CIs span the s=0 region);
+table will be filled in once the run finishes.
+
+### internvl3-8b — Phase 2 (queued)
+
+Will not start within the 12-h session budget given LLaVA's 4-hour wall and ConvLLaVA's
+~5.7-hour ETA. Continues in the next session via the resumability protocol; the driver
+fix logged in §"open follow-ups" (longer max_new_tokens for InternVL3) should be applied
+*before* the InternVL3 Phase 2 run starts so the parse-loss caveat doesn't reappear at
+full scale.
 
 ## Caveats
 

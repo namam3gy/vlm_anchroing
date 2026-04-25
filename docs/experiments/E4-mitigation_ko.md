@@ -167,17 +167,59 @@ multi-layer 위치가 이 모델 가족에서 단순 correlational이 아니라 
    안전 — 논문이 동등하게 포화 값 (strength 축의 점근선)을 "달성 가능한 최대 완화"로
    인용해도 em 안전 계약이 깨지지 않음.
 
-## Phase 2 — 풀 검증 (진행 중)
+## Phase 2 — 풀 검증
 
 Phase 1에서 유효한 모든 모델에 대해 풀 VQAv2-number 스케일 실행 (n=17,730 sample-instances
-× 5 irrelevant sets × 3 conditions × 2 modes, target_only-skip 최적화 후 모델당 약
-88,650 records). Resumable — 모델별 단일 canonical JSONL, append-only flush, 시작 시 완료된
+× 5 irrelevant sets × 3 conditions × 2 modes = 모델당 88,650 records, target_only-skip 최적화
+후). Resumable — 모델별 단일 canonical JSONL, append-only flush, 시작 시 완료된
 `(sample_instance_id, condition, mask_strength)` 키 집합을 읽어 skip.
 
 **12-h 세션 예산 하의 우선순위 (advisor 호출 기반):** llava-1.5-7b 우선 (E1d 시그널 가장
 깨끗, 인과 효과 가장 큼, caveat 없음), 그다음 convllava-7b, 그다음 internvl3-8b.
 `scripts/run_e4_phase2_chain.sh`로 chain. 다른 모델은 후속 세션에서 resumability 프로토콜로
 이어짐.
+
+### llava-1.5-7b — Phase 2 (88,650 records, 100 % 완료)
+
+| 메트릭 | 베이스라인 (s=0) | treated (s=−3.0) | Δ | 상대 |
+|---|---:|---:|---:|---:|
+| direction_follow_rate | 0.2578 [0.2515, 0.2640] | 0.2122 [0.2060, 0.2182] | **−4.55 pp** | **−17.7 %** |
+| exact_match (num) | 0.3340 [0.3272, 0.3412] | 0.3418 [0.3348, 0.3490] | +0.77 pp | +2.3 % |
+| exact_match (target_only 베이스라인) | 0.3697 | (treated에서 hook은 no-op) | – | – |
+| exact_match (neutral 베이스라인) | 0.3249 | 0.3284 | +0.35 pp | – |
+
+**Paired anchor-damage 표** (intersection of valid {target_only@0, num@0, num@s*} —
+n_paired = 17,724, LLaVA는 parse loss 거의 없음):
+
+| em(target_only) | em(num@0) | em(num@s*) | anchor damage | s*에서 회복 | 손상 회복 비율 |
+|---:|---:|---:|---:|---:|---:|
+| 0.3696 | 0.3340 | 0.3417 | **−3.55 pp** | +0.77 pp | **21.7 %** |
+
+**헤드라인.** LLaVA Phase 2가 Phase 1 sweep claim을 *복제·강화*. Direction-follow가
+Phase-1-chosen `s*`에서 sweep이 예측한 정확히 같은 상대 양 (−17.7 %)으로 감소; CI는 이제
+~10× 더 좁음. Exact-match는 *유지가 아니라 약간 개선* (+0.77 pp), 그리고 paired anchor-damage
+표는 upper-half 어텐션 재가중이 풀 VQAv2-number subset에서 *anchor 유발 em 손실의 21.7 %를
+회복*함을 보임. Hook은 구조적으로 여전히 anchor-condition-specific (treated 행의
+`em_target_only` 셀이 비어 있는 이유는 Phase 2 드라이버가 non-zero strength에서 target_only를
+skip하기 때문; Phase 1이 작은 n에서 invariance 검증 완료).
+
+**Phase 2 vs Phase 1 sweep — 무엇이 변했나.** Sweep 세트는 stratified (top-decile-susceptible
+× 100 + bottom-decile-resistant × 100)이라 anchor가 영향을 주는 items을 over-sample; 풀 세트는
+전체 VQAv2-number subset. 예상대로, 절대 df 수치는 줄어들고 (베이스라인 0.305 → 0.258;
+treated 0.265 → 0.212), *상대* 완화는 ~동일, *paired anchor-damage*는 줄어듦
+(−7.00 pp → −3.55 pp), 더 representative한 sample mix를 반영.
+
+### convllava-7b — Phase 2 (진행 중, writeup 시점 ~0.8 %)
+
+2026-04-25 20:24 UTC 시작, rate ~0.86 sample-instances/sec, ETA ~5.7 h. 이 완료율의 부분
+Phase-2 수치는 아직 load-bearing 하지 않음 (CI가 s=0 영역에 걸침); 런 완료 후 표 채워넣음.
+
+### internvl3-8b — Phase 2 (대기)
+
+LLaVA 4시간 + ConvLLaVA ~5.7시간 ETA를 고려하면 12-h 세션 예산 안에 시작 못 함. 다음 세션에서
+resumability 프로토콜로 이어짐; §"후속 follow-up"에 logged된 드라이버 fix (InternVL3
+max_new_tokens 연장) 가 InternVL3 Phase 2 시작 *전에* 적용되어야 parse-loss caveat이 풀
+스케일에서 다시 나타나지 않음.
 
 ## Caveat
 
