@@ -8,29 +8,37 @@ Aggregate tables: `outputs/e4_mitigation/_summary/{sweep_pareto, full_validation
 full_validation_compare, anchor_damage_paired_{sweep,full}, chosen_strength}.csv|.json`.
 Full writeup: `docs/experiments/E4-mitigation.md`.
 
-## Phase 2 headline (LLaVA & ConvLLaVA, 88,650 records each, 100 % complete)
+## Phase 2 headline (all 3 mid-stack-cluster models, 88,650 records each, 100 % complete)
 
 | model | s* | df baseline | df treated | df Δ | df rel | em baseline | em treated | em Δ |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
 | llava-1.5-7b | −3.0 | 0.2578 | 0.2122 | **−4.55 pp** | **−17.7 %** | 0.3340 | 0.3418 | +0.77 pp |
 | convllava-7b | −2.0 | 0.2283 | 0.2042 | **−2.42 pp** | **−10.6 %** | 0.3522 | 0.3652 | +1.30 pp |
+| internvl3-8b | −0.5 | 0.1035 | 0.0975 | **−0.59 pp** | **−5.8 %** | 0.5902 | 0.5950 | +0.49 pp |
 
-Paired anchor-damage on the full sets (n_paired ≈ 17,720 per model):
+Paired anchor-damage on the full sets:
 
-| model | em(TO) | em(num@0) | em(num@s*) | damage | recovery | % of damage recovered |
-|---|---:|---:|---:|---:|---:|---:|
-| llava-1.5-7b | 0.3696 | 0.3340 | 0.3417 | **−3.55 pp** | +0.77 pp | **21.7 %** |
-| convllava-7b | 0.4454 | 0.3520 | 0.3651 | **−9.34 pp** | +1.31 pp | **14.0 %** |
+| model | n_paired | em(TO) | em(num@0) | em(num@s*) | damage | recovery | % of damage recovered |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| llava-1.5-7b | 17,724 | 0.3696 | 0.3340 | 0.3417 | **−3.55 pp** | +0.77 pp | **21.7 %** |
+| convllava-7b | 17,722 | 0.4454 | 0.3520 | 0.3651 | **−9.34 pp** | +1.31 pp | **14.0 %** |
+| internvl3-8b | 11,848 | 0.6325 | 0.5938 | 0.5977 | **−3.87 pp** | +0.40 pp | **10.2 %** |
 
-**Reading.** Phase 2 *replicates and tightens* every Phase-1 claim on **both** mid-stack-cluster
-models that completed in the 12-h window. Each model drops df by exactly the relative
-amount Phase 1 sweep predicted (LLaVA −17.7 % then and now; ConvLLaVA −10.3 % then,
-−10.6 % now); CIs ~10× narrower. Exact-match rises in both cases (+0.77 / +1.30 pp). Paired
-anchor-damage on the full subsets is smaller in absolute terms than the susceptibility-
-stratified Phase-1 sets — as expected, the full set is more representative — and the
-recovery ratios at `s*` (14.0–21.7 %) are partial. The mitigation works at full scale on
-two of the three mid-stack-cluster models; InternVL3 Phase 2 starts in the next session
-with the driver fix applied first.
+**Reading.** Phase 2 covers **all 3 mid-stack-cluster models at full scale**. Headline
+properties hold across the panel: df decreases on every model, em rises on every model,
+and the paired anchor-damage analysis shows partial recovery on every model (10–22 % of
+the damage). The 10 %-relative-reduction roadmap target is met cleanly on LLaVA (−17.7 %)
+and ConvLLaVA (−10.6 %); InternVL3 misses it (−5.8 %) for a structural reason — it is
+the H6 "distraction-not-anchoring" model and its full-scale baseline df is half of the
+LLaVA-cluster's. The mitigation still moves the metric in the right direction, just there
+is less anchor signal to remove on this model in the first place.
+
+**Stratified vs. full-scale on InternVL3 — the gap is sample-distributional, not a
+mitigation failure.** Phase 1 sweep on the stratified set (top-decile susceptible × 100 +
+bottom-decile resistant × 100) saw df₀ = 0.161 and the mitigation dropped it 17.7 %
+relative. Phase 2 full set is more representative and has df₀ = 0.103 (~36 % lower
+baseline anchor pull). The mitigation effect at the working point scales with the baseline
+signal it is removing.
 
 **ConvLLaVA fluency caveat at full scale.** `mean_distance_to_anchor` jumps from 2.99 to
 53.54 on ConvLLaVA at full scale (Phase 1 sweep on stratified set: 3.18 → 3.30). A small
@@ -39,6 +47,14 @@ up by ~17×; em(num) still rises because the bulk of the distribution improves e
 net positive, and df is robust because it is computed per-pair against the model's own
 baseline. For the paper: report median distance + a fluency-degraded fraction count rather
 than the unwinsorised mean.
+
+**InternVL3 parse-loss persists.** ~33 % of records drop out of the paired-valid set
+(n_paired = 11,848 of 17,730) because the InternVL3 max_new_tokens=32 driver patch was
+applied *during* this run rather than before it. Re-running InternVL3 with the patch
+would tighten the sample size; whether it materially changes the headline depends on
+whether the dropped items are systematically different from the kept ones (paired-set
+em(TO) = 0.6325 vs panel em(TO) = 0.5760 suggests parse-failing items are systematically
+the model's harder cases — same caveat as Phase 1).
 
 ## The claim and the test
 

@@ -250,20 +250,45 @@ report *median* distance (robust to outliers) or report mean alongside a winsori
 distribution + an explicit "fluency-degraded fraction" count. Tracked in §"open
 follow-ups": ConvLLaVA fluency-tail decomposition at full scale.
 
-### internvl3-8b — Phase 2 (started, ~0.1 % at writeup time, will not finish in this session)
+### internvl3-8b — Phase 2 (88,650 records, 100 % complete)
 
-Started 2026-04-26 02:27 UTC after the chain auto-promoted; rate ~0.20 sample/sec → ETA ~24 h
-(InternVL3 multi-tile forward pass + the planned driver patch *not yet applied*). 105 of
-88,650 records at the time of this writeup; figures shown in
-`outputs/e4_mitigation/_summary/full_validation_compare.csv` for InternVL3 are based on
-n=16 valid triplets and are not load-bearing. Continues in the next session.
+| metric | baseline (s=0) | treated (s=−0.5) | Δ | relative |
+|---|---:|---:|---:|---:|
+| direction_follow_rate | 0.1035 [0.0981, 0.1089] | 0.0975 [0.0923, 0.1026] | **−0.59 pp** | **−5.8 %** |
+| exact_match (num) | 0.5902 [0.5815, 0.5984] | 0.5950 [0.5864, 0.6039] | **+0.49 pp** | +0.8 % |
+| exact_match (target_only baseline) | 0.5760 | (hook is no-op on target_only) | – | – |
+| mean_distance_to_anchor | 4.61 | 4.81 | +0.20 | – |
 
-**Action item before the next InternVL3 session:** apply the `max_new_tokens` driver fix
-(currently 8 → propose 32 for InternVL3 only, gated by model name in
-`scripts/e4_attention_reweighting.py`). Decide between (a) discarding the partial 105
-records and restarting, or (b) leaving them as a contaminated subset and using
-resumability to fill in the rest with the new max_new_tokens. (a) is cleaner; (b) saves
-~3 minutes of compute.
+**Paired anchor-damage table** (n_paired = 11,848 of 17,730 = 66.8 % — InternVL3 prose-leak
+parse loss persists at full scale because the driver patch was *not* applied to this run):
+
+| em(target_only) | em(num@0) | em(num@s*) | anchor damage | recovery at s* | % of damage recovered |
+|---:|---:|---:|---:|---:|---:|
+| 0.6325 | 0.5938 | 0.5977 | **−3.87 pp** | +0.40 pp | **10.2 %** |
+
+**Headline.** InternVL3 Phase 2 *replicates the direction* of Phase 1 sweep (df drops, em
+rises, mean_dist nearly invariant) but at a *materially smaller* magnitude than Phase 1
+predicted (−5.8 % vs −17.7 % rel). The reason is structural: Phase 1 used a susceptibility-
+stratified set (top-decile susceptible × 100 + bottom-decile resistant × 100) where
+InternVL3's anchor signal was visible (df₀ = 0.161); the Phase 2 full set has df₀ = 0.103
+because InternVL3 is the H6 "distraction-not-anchoring" outlier — most of its Phase 2 set
+has no anchor pull to mitigate. The mitigation still works on the items that *are*
+anchored, just there are fewer of them. **The 10 %-relative-reduction target is missed
+on InternVL3 Phase 2 (5.8 %)** but the direction and accuracy-safety claims hold.
+
+**Phase 2 vs Phase 1 sweep — InternVL3 specifics.** Mean_distance is invariant (4.61 →
+4.81), em rises (+0.49 pp), and the paired anchor-damage analysis shows damage of −3.87
+pp (vs LLaVA −3.55 pp; ConvLLaVA −9.34 pp) — a smaller damage to recover. The 10.2 %
+recovery ratio sits below the LLaVA / ConvLLaVA range (14–22 %) but consistent in
+direction. For the paper: the cleaner mid-stack-cluster claim is on LLaVA + ConvLLaVA;
+InternVL3 confirms direction but should be reported with the H6-axis context.
+
+**Driver patch status.** The InternVL3 max_new_tokens=32 patch (commit `c986857`) was
+applied *during* the InternVL3 Phase 2 run, so the in-flight process kept using the
+original max_new_tokens=8 until completion. ~33 % parse loss persists in this dataset.
+Re-running InternVL3 with the patched driver would tighten the sample size; whether the
+extra compute is worth it depends on whether a future paper section needs InternVL3-only
+analysis.
 
 ## Caveats
 

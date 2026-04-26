@@ -238,17 +238,41 @@ treated 0.265 → 0.212), *상대* 완화는 ~동일, *paired anchor-damage*는 
 fraction" 카운트 보고를 권장. §"후속 follow-up"에 tracked: ConvLLaVA 풀 스케일 fluency-tail
 decomposition.
 
-### internvl3-8b — Phase 2 (시작됨, writeup 시점 ~0.1 %, 본 세션에 끝나지 않음)
+### internvl3-8b — Phase 2 (88,650 records, 100 % 완료)
 
-체인이 자동 이어지면서 2026-04-26 02:27 UTC 시작; rate ~0.20 sample/sec → ETA ~24 h
-(InternVL3 multi-tile forward pass + 계획된 드라이버 패치 *아직 미적용*). 본 writeup 시점
-88,650 중 105 records; `outputs/e4_mitigation/_summary/full_validation_compare.csv`의
-InternVL3 수치는 valid triplet n=16 기준이며 load-bearing 하지 않음. 다음 세션에서 이어짐.
+| 메트릭 | 베이스라인 (s=0) | treated (s=−0.5) | Δ | 상대 |
+|---|---:|---:|---:|---:|
+| direction_follow_rate | 0.1035 [0.0981, 0.1089] | 0.0975 [0.0923, 0.1026] | **−0.59 pp** | **−5.8 %** |
+| exact_match (num) | 0.5902 [0.5815, 0.5984] | 0.5950 [0.5864, 0.6039] | **+0.49 pp** | +0.8 % |
+| exact_match (target_only 베이스라인) | 0.5760 | (treated에서 hook은 no-op) | – | – |
+| mean_distance_to_anchor | 4.61 | 4.81 | +0.20 | – |
 
-**다음 InternVL3 세션 전 액션 아이템:** `max_new_tokens` 드라이버 fix 적용 (현재 8 → InternVL3
-에만 32 제안, `scripts/e4_attention_reweighting.py`에서 model name으로 gate). (a) 부분 105
-records 폐기 후 재시작, 또는 (b) 그대로 두고 resumability로 새 max_new_tokens로 나머지
-채우기 — 결정. (a)가 깨끗, (b)는 ~3분 compute 절약.
+**Paired anchor-damage 표** (n_paired = 11,848 of 17,730 = 66.8 % — 드라이버 패치가 본 run에
+*적용되지 않아* InternVL3 prose-leak parse 손실 풀 스케일에서 지속):
+
+| em(target_only) | em(num@0) | em(num@s*) | anchor damage | s*에서 회복 | 손상 회복 비율 |
+|---:|---:|---:|---:|---:|---:|
+| 0.6325 | 0.5938 | 0.5977 | **−3.87 pp** | +0.40 pp | **10.2 %** |
+
+**헤드라인.** InternVL3 Phase 2가 Phase 1 sweep의 *방향*을 복제 (df 감소, em 상승, mean_dist
+거의 불변) 하지만 *훨씬 작은 magnitude* (−5.8 % vs Phase 1 예측 −17.7 %). 이유는 구조적:
+Phase 1은 susceptibility-stratified set (상위-decile-susceptible × 100 + 하위-decile-
+resistant × 100) 사용, 그 곳은 InternVL3의 anchor 신호가 보임 (df₀ = 0.161); Phase 2 풀
+세트는 df₀ = 0.103 — InternVL3는 H6의 "distraction-not-anchoring" outlier이므로 Phase 2
+세트 대부분에서 mitigate할 anchor pull이 없음. 완화책은 *anchored item에서는 작동*, 단지 그
+item 수가 적음. **10 % 상대 감소 타깃은 InternVL3 Phase 2에서 미달 (5.8 %)** 이지만 방향과
+accuracy-safety 주장은 유지.
+
+**Phase 2 vs Phase 1 sweep — InternVL3 특이사항.** Mean_distance 불변 (4.61 → 4.81),
+em 상승 (+0.49 pp), paired anchor-damage 분석은 손상 −3.87 pp (vs LLaVA −3.55 pp;
+ConvLLaVA −9.34 pp) — 회복할 손상이 더 작음. 10.2 % 회복 비율은 LLaVA / ConvLLaVA 범위
+(14–22 %) 보다 낮지만 방향 일관. 논문에서: 더 깨끗한 mid-stack-cluster claim은 LLaVA +
+ConvLLaVA 위주; InternVL3는 방향 확증 + H6-axis 맥락과 함께 보고.
+
+**드라이버 패치 상태.** InternVL3 max_new_tokens=32 패치 (commit `c986857`)가 InternVL3
+Phase 2 run *진행 중에* 적용되었으므로, 진행 중이던 process는 완료까지 원래 max_new_tokens=8
+유지. 본 데이터셋에 ~33 % parse 손실 지속. 패치된 드라이버로 InternVL3 재실행 시 sample
+크기 늘어남; 추가 compute 가치는 향후 paper에 InternVL3-only 분석 필요한지에 의존.
 
 ## Caveat
 
