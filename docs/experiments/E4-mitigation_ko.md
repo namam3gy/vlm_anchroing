@@ -209,17 +209,46 @@ skip하기 때문; Phase 1이 작은 n에서 invariance 검증 완료).
 treated 0.265 → 0.212), *상대* 완화는 ~동일, *paired anchor-damage*는 줄어듦
 (−7.00 pp → −3.55 pp), 더 representative한 sample mix를 반영.
 
-### convllava-7b — Phase 2 (진행 중, writeup 시점 ~0.8 %)
+### convllava-7b — Phase 2 (88,650 records, 100 % 완료)
 
-2026-04-25 20:24 UTC 시작, rate ~0.86 sample-instances/sec, ETA ~5.7 h. 이 완료율의 부분
-Phase-2 수치는 아직 load-bearing 하지 않음 (CI가 s=0 영역에 걸침); 런 완료 후 표 채워넣음.
+| 메트릭 | 베이스라인 (s=0) | treated (s=−2.0) | Δ | 상대 |
+|---|---:|---:|---:|---:|
+| direction_follow_rate | 0.2283 [0.2226, 0.2346] | 0.2042 [0.1982, 0.2100] | **−2.42 pp** | **−10.6 %** |
+| exact_match (num) | 0.3522 [0.3452, 0.3591] | 0.3652 [0.3585, 0.3723] | **+1.30 pp** | +3.7 % |
+| exact_match (target_only 베이스라인) | 0.4454 | (treated에서 hook은 no-op) | – | – |
+| exact_match (neutral 베이스라인) | 0.3380 | 0.3438 | +0.58 pp | – |
+| mean_distance_to_anchor | 2.99 | **53.54** ⚠️ | +50.55 | – |
 
-### internvl3-8b — Phase 2 (대기)
+**Paired anchor-damage 표** (n_paired = 17,722 — parse loss 거의 없음):
 
-LLaVA 4시간 + ConvLLaVA ~5.7시간 ETA를 고려하면 12-h 세션 예산 안에 시작 못 함. 다음 세션에서
-resumability 프로토콜로 이어짐; §"후속 follow-up"에 logged된 드라이버 fix (InternVL3
-max_new_tokens 연장) 가 InternVL3 Phase 2 시작 *전에* 적용되어야 parse-loss caveat이 풀
-스케일에서 다시 나타나지 않음.
+| em(target_only) | em(num@0) | em(num@s*) | anchor damage | s*에서 회복 | 손상 회복 비율 |
+|---:|---:|---:|---:|---:|---:|
+| 0.4454 | 0.3520 | 0.3651 | **−9.34 pp** | +1.31 pp | **14.0 %** |
+
+**헤드라인.** ConvLLaVA Phase 2도 Phase 1 sweep claim을 *복제*. Direction-follow가 Phase 1이
+예측한 정확히 같은 상대 양 (−10.6 % vs sweep의 −10.3 %)으로 감소; CI ~10× 더 좁음. Exact-match
+가 또 상승 (+1.30 pp), paired anchor-damage 표는 −9.34 pp anchor 유발 em 손실의 14.0 %를 회복.
+
+**ConvLLaVA 풀 스케일 fluency caveat.** `mean_distance_to_anchor`가 2.99 (베이스라인)
+→ **53.54** (treated) 로 폭주 — Phase 1 sweep의 stratified set에서 3.18 → 3.30이었음.
+일부 샘플이 어떤 plausible anchor와도 멀리 떨어진 예측을 받아 *평균*을 ~17× 끌어올림.
+그럼에도 **em(num)은 상승** (broken output은 zero exact-match를 받지만 나머지 분포가 충분히
+개선되어 net positive), df는 모델 자기 베이스라인 대비 per-pair 계산이라 robust. 논문에서는
+*median* distance를 사용하거나 (outlier에 robust), winsorised 분포 + 명시적 "fluency-degraded
+fraction" 카운트 보고를 권장. §"후속 follow-up"에 tracked: ConvLLaVA 풀 스케일 fluency-tail
+decomposition.
+
+### internvl3-8b — Phase 2 (시작됨, writeup 시점 ~0.1 %, 본 세션에 끝나지 않음)
+
+체인이 자동 이어지면서 2026-04-26 02:27 UTC 시작; rate ~0.20 sample/sec → ETA ~24 h
+(InternVL3 multi-tile forward pass + 계획된 드라이버 패치 *아직 미적용*). 본 writeup 시점
+88,650 중 105 records; `outputs/e4_mitigation/_summary/full_validation_compare.csv`의
+InternVL3 수치는 valid triplet n=16 기준이며 load-bearing 하지 않음. 다음 세션에서 이어짐.
+
+**다음 InternVL3 세션 전 액션 아이템:** `max_new_tokens` 드라이버 fix 적용 (현재 8 → InternVL3
+에만 32 제안, `scripts/e4_attention_reweighting.py`에서 model name으로 gate). (a) 부분 105
+records 폐기 후 재시작, 또는 (b) 그대로 두고 resumability로 새 max_new_tokens로 나머지
+채우기 — 결정. (a)가 깨끗, (b)는 ~3분 compute 절약.
 
 ## Caveat
 

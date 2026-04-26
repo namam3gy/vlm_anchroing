@@ -219,19 +219,51 @@ expected, the absolute df numbers come down (0.305 → 0.258 baseline; 0.265 →
 treated), but the *relative* mitigation is ~identical and the *paired anchor-damage*
 shrinks (−7.00 pp → −3.55 pp), reflecting the more representative sample mix.
 
-### convllava-7b — Phase 2 (in flight, ~0.8 % at writeup time)
+### convllava-7b — Phase 2 (88,650 records, 100 % complete)
 
-Started 2026-04-25 20:24 UTC, rate ~0.86 sample-instances/sec, ETA ~5.7 h. Partial
-Phase-2 numbers at this completion rate are not yet load-bearing (CIs span the s=0 region);
-table will be filled in once the run finishes.
+| metric | baseline (s=0) | treated (s=−2.0) | Δ | relative |
+|---|---:|---:|---:|---:|
+| direction_follow_rate | 0.2283 [0.2226, 0.2346] | 0.2042 [0.1982, 0.2100] | **−2.42 pp** | **−10.6 %** |
+| exact_match (num) | 0.3522 [0.3452, 0.3591] | 0.3652 [0.3585, 0.3723] | **+1.30 pp** | +3.7 % |
+| exact_match (target_only baseline) | 0.4454 | (hook is no-op on target_only) | – | – |
+| exact_match (neutral baseline) | 0.3380 | 0.3438 | +0.58 pp | – |
+| mean_distance_to_anchor | 2.99 | **53.54** ⚠️ | +50.55 | – |
 
-### internvl3-8b — Phase 2 (queued)
+**Paired anchor-damage table** (n_paired = 17,722 — parse loss negligible):
 
-Will not start within the 12-h session budget given LLaVA's 4-hour wall and ConvLLaVA's
-~5.7-hour ETA. Continues in the next session via the resumability protocol; the driver
-fix logged in §"open follow-ups" (longer max_new_tokens for InternVL3) should be applied
-*before* the InternVL3 Phase 2 run starts so the parse-loss caveat doesn't reappear at
-full scale.
+| em(target_only) | em(num@0) | em(num@s*) | anchor damage | recovery at s* | % of damage recovered |
+|---:|---:|---:|---:|---:|---:|
+| 0.4454 | 0.3520 | 0.3651 | **−9.34 pp** | +1.31 pp | **14.0 %** |
+
+**Headline.** ConvLLaVA Phase 2 also *replicates* the Phase 1 sweep claim. Direction-follow
+drops by exactly the relative amount Phase 1 predicted (−10.6 % vs sweep's −10.3 %); CIs
+~10× narrower. Exact-match again rises (+1.30 pp), and the paired anchor-damage table shows
+a 14.0 % recovery of the −9.34 pp anchor-induced em loss.
+
+**ConvLLaVA fluency caveat at full scale.** `mean_distance_to_anchor` blows up from 2.99
+(baseline) to **53.54** (treated) — vs Phase 1 sweep's 3.18 → 3.30 on the stratified set.
+A small fraction of samples receive predictions far from any plausible anchor, dragging the
+*mean* up by ~17×. Despite this, **em(num) rises** (the broken outputs hit zero exact-match
+but the rest of the distribution improves enough to net positive), and df is robust because
+it is computed per-pair against the model's own baseline. For a paper we should either
+report *median* distance (robust to outliers) or report mean alongside a winsorised
+distribution + an explicit "fluency-degraded fraction" count. Tracked in §"open
+follow-ups": ConvLLaVA fluency-tail decomposition at full scale.
+
+### internvl3-8b — Phase 2 (started, ~0.1 % at writeup time, will not finish in this session)
+
+Started 2026-04-26 02:27 UTC after the chain auto-promoted; rate ~0.20 sample/sec → ETA ~24 h
+(InternVL3 multi-tile forward pass + the planned driver patch *not yet applied*). 105 of
+88,650 records at the time of this writeup; figures shown in
+`outputs/e4_mitigation/_summary/full_validation_compare.csv` for InternVL3 are based on
+n=16 valid triplets and are not load-bearing. Continues in the next session.
+
+**Action item before the next InternVL3 session:** apply the `max_new_tokens` driver fix
+(currently 8 → propose 32 for InternVL3 only, gated by model name in
+`scripts/e4_attention_reweighting.py`). Decide between (a) discarding the partial 105
+records and restarting, or (b) leaving them as a contaminated subset and using
+resumability to fill in the rest with the new max_new_tokens. (a) is cleaner; (b) saves
+~3 minutes of compute.
 
 ## Caveats
 
