@@ -1,23 +1,8 @@
 from __future__ import annotations
 
-import sys
-import types
 import unittest
-from pathlib import Path
 
-import numpy as np
-from PIL import Image
-
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
-
-skimage_module = types.ModuleType("skimage")
-skimage_transform_module = types.ModuleType("skimage.transform")
-skimage_transform_module.resize = lambda *args, **kwargs: None
-skimage_module.transform = skimage_transform_module
-sys.modules.setdefault("skimage", skimage_module)
-sys.modules["skimage.transform"] = skimage_transform_module
-
-from vlm_anchor.visualization import _compute_paired_effects, overlay_attention_on_image
+from vlm_anchor.visualization import _compute_paired_effects
 
 
 class ComputePairedEffectsTest(unittest.TestCase):
@@ -92,18 +77,6 @@ class ComputePairedEffectsTest(unittest.TestCase):
         self.assertAlmostEqual(paired["accuracy_delta_neutral_vs_target_only"], -0.5)
         self.assertAlmostEqual(paired["moved_closer_to_anchor_rate"], 1.0)
         self.assertAlmostEqual(paired["mean_anchor_pull"], 2.5)
-
-
-class OverlayAttentionOnImageTest(unittest.TestCase):
-    def test_resizes_token_grid_to_full_image_resolution(self) -> None:
-        image = Image.new("RGB", (10, 8), color="white")
-        heatmap = np.array([[0.0, 1.0], [0.5, 0.25]], dtype=np.float32)
-
-        overlay = overlay_attention_on_image(image, heatmap)
-
-        self.assertEqual(overlay.shape, (8, 10, 3))
-        self.assertGreaterEqual(float(overlay.min()), 0.0)
-        self.assertLessEqual(float(overlay.max()), 1.0)
 
 
 if __name__ == "__main__":

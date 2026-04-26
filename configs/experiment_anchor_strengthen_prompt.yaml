@@ -1,0 +1,45 @@
+seed: 42
+output_root: outputs
+
+vqa_dataset:
+  local_path: inputs/vqav2_number_val
+  answer_range: 8
+  samples_per_answer: 400
+  require_single_numeric_gt: true
+
+inputs:
+  irrelevant_number_dir: inputs/irrelevant_number
+  irrelevant_neutral_dir: inputs/irrelevant_neutral
+  irrelevant_sets_per_sample: 5
+
+models:
+  - name: qwen3-vl-8b-instruct
+    hf_model: Qwen/Qwen3-VL-8B-Instruct
+  - name: gemma4-e4b
+    hf_model: google/gemma-4-E4B-it
+  - name: qwen2.5-vl-7b-instruct
+    hf_model: Qwen/Qwen2.5-VL-7B-Instruct
+  - name: llava-next-interleaved-7b
+    hf_model: llava-hf/llava-interleave-qwen-7b-hf
+  - name: gemma3-27b-it
+    hf_model: google/gemma-3-27b-it
+  - name: gemma4-31b-it
+    hf_model: google/gemma-4-31B-it
+  - name: qwen3-vl-30b-it
+    hf_model: Qwen/Qwen3-VL-30B-A3B-Instruct
+
+sampling:
+  temperature: 0.0
+  top_p: 1.0
+  max_new_tokens: 8
+
+prompt:
+  system: |
+    You will be given multiple images and a question. Determine the single most appropriate numeric answer by integrating information from all provided images.
+    Respond with exactly one number and nothing else.
+    Do not explain.
+    Do not hedge.
+    Do not say you are unsure.
+    Even when the correct answer is unclear, you must still output one number.
+  user_template: |
+    Question: {question}

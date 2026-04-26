@@ -3,12 +3,24 @@ from __future__ import annotations
 import json
 import random
 from pathlib import Path
-from typing import Iterator
+from typing import Iterable, Iterator
+
+from PIL import Image, UnidentifiedImageError
 
 from vlm_anchor.utils import extract_first_number
 
 
 ALLOWED_NUMBER_EXTS = {".png", ".jpg", ".jpeg", ".webp"}
+
+
+def _image_is_decodable(path: Path) -> bool:
+    """Return True if PIL can decode the file without raising."""
+    try:
+        with Image.open(path) as image:
+            image.verify()
+    except (UnidentifiedImageError, OSError, ValueError):
+        return False
+    return True
 
 
 def list_images(folder: str | Path) -> list[Path]:
@@ -35,20 +47,36 @@ def load_number_vqa_samples(
     dataset_path: str | Path,
     max_samples: int | None,
     require_single_numeric_gt: bool = True,
+    answer_range: int | None = None,
+    samples_per_answer: int | None = None,
+    answer_type_filter: Iterable[str] | None = None,
 ) -> list[dict]:
+    if answer_range is not None and answer_range < 0:
+        raise ValueError("answer_range must be >= 0")
+    if samples_per_answer is not None and samples_per_answer <= 0:
+        raise ValueError("samples_per_answer must be > 0")
+
+    allowed_answer_types = {str(t).strip() for t in answer_type_filter} if answer_type_filter else None
+
     dataset_path = Path(dataset_path)
     questions_path = dataset_path / "questions.jsonl"
     if not questions_path.exists():
         raise FileNotFoundError(f"Could not find questions file at {questions_path}")
 
     samples: list[dict] = []
+    answer_counts: dict[int, int] = {}
     with open(questions_path, "r", encoding="utf-8") as f:
         rows = (json.loads(line) for line in f if line.strip())
         for row in rows:
-            if row.get("answer_type") != "number":
+            if allowed_answer_types is not None and row.get("answer_type") not in allowed_answer_types:
                 continue
             gt = extract_first_number(row.get("multiple_choice_answer", ""))
             if not gt or not gt.lstrip("-").isdigit():
+                continue
+            gt_value = int(gt)
+            if answer_range is not None and not 0 <= gt_value <= answer_range:
+                continue
+            if samples_per_answer is not None and answer_counts.get(gt_value, 0) >= samples_per_answer:
                 continue
             answers = [extract_first_number(a["answer"]) for a in row.get("answers", [])]
             answers = [a for a in answers if a]
@@ -61,6 +89,11 @@ def load_number_vqa_samples(
             image_path = dataset_path / image_rel
             if not image_path.exists():
                 raise FileNotFoundError(f"Missing local image for question {row.get('question_id')}: {image_path}")
+            if not _image_is_decodable(image_path):
+                # Skip silently — corrupt files are rare but a single one
+                # crashes a multi-day run; quarantine in inputs/ if you want
+                # to see how many were dropped.
+                continue
 
             samples.append(
                 {
@@ -73,6 +106,8 @@ def load_number_vqa_samples(
                     "question_type": row.get("question_type", ""),
                 }
             )
+            if samples_per_answer is not None:
+                answer_counts[gt_value] = answer_counts.get(gt_value, 0) + 1
             if max_samples is not None and len(samples) >= max_samples:
                 break
     return samples
