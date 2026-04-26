@@ -57,6 +57,27 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
 SWEEP_STRENGTHS: list[float] = [0.0, -0.5, -1.0, -2.0, -3.0, -5.0, -1e4]
 
+# Per-model max_new_tokens override. The default `--max-new-tokens 8` is enough
+# for the JSON-strict `{"result": <number>}` template on most models, but
+# InternVL3 frequently emits free-form prose ("Based on the image…") and is
+# truncated before reaching any digit; ~30 % of records become non-numeric. A
+# value of 32 lets the prose finish into a digit token without materially
+# slowing the run. Selection is by case-insensitive substring match on
+# `args.model`.
+PER_MODEL_MAX_NEW_TOKENS: dict[str, int] = {
+    "internvl3": 32,
+}
+
+
+def _resolve_max_new_tokens(args: argparse.Namespace) -> int:
+    """Return the right max_new_tokens for this model, with an override table
+    for models known to need more than the default."""
+    model_lc = args.model.lower()
+    for needle, override in PER_MODEL_MAX_NEW_TOKENS.items():
+        if needle in model_lc:
+            return override
+    return args.max_new_tokens
+
 
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
@@ -202,7 +223,8 @@ def main() -> None:
     out_path.parent.mkdir(parents=True, exist_ok=True)
     completed = _load_completed_keys(out_path)
     print(f"[setup] phase={args.phase} model={args.model} "
-          f"sample_instances={len(enriched)} resuming_from={len(completed)}")
+          f"sample_instances={len(enriched)} resuming_from={len(completed)} "
+          f"max_new_tokens={_resolve_max_new_tokens(args)}")
 
     sampling = config["sampling"]
     prompt = config["prompt"]
@@ -264,7 +286,7 @@ def main() -> None:
                     try:
                         gen = _generate_one(
                             runner, cond, cached_anchor_span, layers,
-                            upper_half, strength, args.max_new_tokens,
+                            upper_half, strength, _resolve_max_new_tokens(args),
                         )
                     except Exception as exc:
                         gen = {"error": str(exc), "decoded": None, "parsed_number": None,
