@@ -8,27 +8,34 @@ convllava-7b 진행 중, internvl3-8b 대기.** 소스 데이터:
 anchor_damage_paired_{sweep,full}, chosen_strength}.csv|.json`. 상세 writeup:
 `docs/experiments/E4-mitigation.md`.
 
-## Phase 2 헤드라인 (LLaVA-1.5-7B, n = 17,730 samples × 5 anchors = 88,650 records)
+## Phase 2 헤드라인 (LLaVA & ConvLLaVA, 모델당 88,650 records, 100 % 완료)
 
-Phase-1-chosen `s* = −3.0`:
+| model | s* | df 베이스라인 | df treated | df Δ | df rel | em 베이스라인 | em treated | em Δ |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| llava-1.5-7b | −3.0 | 0.2578 | 0.2122 | **−4.55 pp** | **−17.7 %** | 0.3340 | 0.3418 | +0.77 pp |
+| convllava-7b | −2.0 | 0.2283 | 0.2042 | **−2.42 pp** | **−10.6 %** | 0.3522 | 0.3652 | +1.30 pp |
 
-| 메트릭 | 베이스라인 | treated | Δ | rel |
-|---|---:|---:|---:|---:|
-| direction_follow_rate | 0.2578 [0.2515, 0.2640] | 0.2122 [0.2060, 0.2182] | **−4.55 pp** | **−17.7 %** |
-| exact_match (num) | 0.3340 [0.3272, 0.3412] | 0.3418 [0.3348, 0.3490] | **+0.77 pp** | +2.3 % |
+풀 세트의 paired anchor-damage (모델당 n_paired ≈ 17,720):
 
-풀 세트의 paired anchor-damage (n_paired = 17,724):
+| model | em(TO) | em(num@0) | em(num@s*) | damage | recovery | 손상 회복 비율 |
+|---|---:|---:|---:|---:|---:|---:|
+| llava-1.5-7b | 0.3696 | 0.3340 | 0.3417 | **−3.55 pp** | +0.77 pp | **21.7 %** |
+| convllava-7b | 0.4454 | 0.3520 | 0.3651 | **−9.34 pp** | +1.31 pp | **14.0 %** |
 
-| em(TO) | em(num@0) | em(num@s*) | damage | recovery | 손상 회복 비율 |
-|---:|---:|---:|---:|---:|---:|
-| 0.3696 | 0.3340 | 0.3417 | **−3.55 pp** | +0.77 pp | **21.7 %** |
+**읽기.** Phase 2가 12-h 윈도우에 끝난 mid-stack-cluster 모델 *둘 다*에서 모든 Phase-1 claim을
+*복제·강화*. 각 모델이 Phase 1 sweep이 예측한 정확히 같은 상대 양으로 df 감소 (LLaVA 그때나
+지금이나 −17.7 %; ConvLLaVA 그때 −10.3 %, 지금 −10.6 %); CI ~10× 더 좁음. Exact-match가 두
+모델 모두에서 상승 (+0.77 / +1.30 pp). 풀 subset의 paired anchor-damage는 susceptibility-
+stratified Phase-1 세트보다 절대 값에서 작음 — 예상대로, 풀 세트는 더 representative — 그리고
+`s*`에서 회복 비율 (14.0–21.7 %)은 부분적. 완화책이 풀 스케일에서 mid-stack-cluster 3 모델 중
+2개에서 작동; InternVL3 Phase 2는 다음 세션에서 드라이버 fix 먼저 적용 후 시작.
 
-**읽기.** Phase 2가 LLaVA의 모든 Phase-1 claim을 *복제·강화*. Direction-follow가 Phase 1이
-예측한 정확히 같은 상대 양 (−17.7 %)으로 감소, CI는 ~10× 더 좁음. Exact-match가 약간 상승.
-풀 subset의 paired anchor-damage는 susceptibility-stratified Phase-1 세트보다 절대 값에서
-작음 (−3.55 pp vs −7.00 pp), 예상대로; 회복 비율 (21.7 %)은 Phase-1 sweep의 "at s*"
-회복 (~7 %)과 "at saturation" 회복 (43 %)의 사이 — Phase 2가 {0, s*}만 돌리므로. 완화책이
-풀 스케일에서, cluster의 가장 깨끗한 테스트 케이스에서 작동한다.
+**ConvLLaVA 풀 스케일 fluency caveat.** ConvLLaVA의 `mean_distance_to_anchor`가 풀 스케일에서
+2.99 → 53.54로 점프 (Phase 1 sweep stratified set에서: 3.18 → 3.30). 일부 sample이 어떤
+plausible anchor와도 멀리 떨어진 예측을 받아 *평균*을 ~17× 끌어올림; em(num)은 여전히 상승
+(분포의 대부분이 충분히 개선되어 net positive), df는 모델 자기 베이스라인 대비 per-pair 계산이라
+robust. 논문에서는: 비-winsorised mean이 아닌 median distance + fluency-degraded fraction
+카운트로 보고.
 
 ## 주장과 검증
 

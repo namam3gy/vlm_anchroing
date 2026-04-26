@@ -8,28 +8,37 @@ Aggregate tables: `outputs/e4_mitigation/_summary/{sweep_pareto, full_validation
 full_validation_compare, anchor_damage_paired_{sweep,full}, chosen_strength}.csv|.json`.
 Full writeup: `docs/experiments/E4-mitigation.md`.
 
-## Phase 2 headline (LLaVA-1.5-7B, n = 17,730 samples × 5 anchors = 88,650 records)
+## Phase 2 headline (LLaVA & ConvLLaVA, 88,650 records each, 100 % complete)
 
-At Phase-1-chosen `s* = −3.0`:
+| model | s* | df baseline | df treated | df Δ | df rel | em baseline | em treated | em Δ |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| llava-1.5-7b | −3.0 | 0.2578 | 0.2122 | **−4.55 pp** | **−17.7 %** | 0.3340 | 0.3418 | +0.77 pp |
+| convllava-7b | −2.0 | 0.2283 | 0.2042 | **−2.42 pp** | **−10.6 %** | 0.3522 | 0.3652 | +1.30 pp |
 
-| metric | baseline | treated | Δ | rel |
-|---|---:|---:|---:|---:|
-| direction_follow_rate | 0.2578 [0.2515, 0.2640] | 0.2122 [0.2060, 0.2182] | **−4.55 pp** | **−17.7 %** |
-| exact_match (num) | 0.3340 [0.3272, 0.3412] | 0.3418 [0.3348, 0.3490] | **+0.77 pp** | +2.3 % |
+Paired anchor-damage on the full sets (n_paired ≈ 17,720 per model):
 
-Paired anchor-damage on the full set (n_paired = 17,724):
+| model | em(TO) | em(num@0) | em(num@s*) | damage | recovery | % of damage recovered |
+|---|---:|---:|---:|---:|---:|---:|
+| llava-1.5-7b | 0.3696 | 0.3340 | 0.3417 | **−3.55 pp** | +0.77 pp | **21.7 %** |
+| convllava-7b | 0.4454 | 0.3520 | 0.3651 | **−9.34 pp** | +1.31 pp | **14.0 %** |
 
-| em(TO) | em(num@0) | em(num@s*) | damage | recovery | % of damage recovered |
-|---:|---:|---:|---:|---:|---:|
-| 0.3696 | 0.3340 | 0.3417 | **−3.55 pp** | +0.77 pp | **21.7 %** |
+**Reading.** Phase 2 *replicates and tightens* every Phase-1 claim on **both** mid-stack-cluster
+models that completed in the 12-h window. Each model drops df by exactly the relative
+amount Phase 1 sweep predicted (LLaVA −17.7 % then and now; ConvLLaVA −10.3 % then,
+−10.6 % now); CIs ~10× narrower. Exact-match rises in both cases (+0.77 / +1.30 pp). Paired
+anchor-damage on the full subsets is smaller in absolute terms than the susceptibility-
+stratified Phase-1 sets — as expected, the full set is more representative — and the
+recovery ratios at `s*` (14.0–21.7 %) are partial. The mitigation works at full scale on
+two of the three mid-stack-cluster models; InternVL3 Phase 2 starts in the next session
+with the driver fix applied first.
 
-**Reading.** Phase 2 *replicates and tightens* every Phase-1 claim on LLaVA. Direction-follow
-drops by exactly the relative amount Phase 1 predicted (−17.7 %), with CIs ~10× narrower.
-Exact-match rises slightly. Paired anchor-damage on the full subset is smaller in absolute
-terms than on the susceptibility-stratified Phase-1 set (−3.55 pp vs −7.00 pp), as expected;
-the recovery ratio (21.7 %) sits between Phase-1 sweep's "at s*" recovery (~7 %) and its
-"at saturation" recovery (43 %), since Phase 2 only runs {0, s*}. The mitigation works at
-full scale on the cleanest test case in the cluster.
+**ConvLLaVA fluency caveat at full scale.** `mean_distance_to_anchor` jumps from 2.99 to
+53.54 on ConvLLaVA at full scale (Phase 1 sweep on stratified set: 3.18 → 3.30). A small
+fraction of samples receive predictions far from any plausible anchor, dragging the *mean*
+up by ~17×; em(num) still rises because the bulk of the distribution improves enough to
+net positive, and df is robust because it is computed per-pair against the model's own
+baseline. For the paper: report median distance + a fluency-degraded fraction count rather
+than the unwinsorised mean.
 
 ## The claim and the test
 
