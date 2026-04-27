@@ -42,6 +42,32 @@ def _select_image_variants(images: list[Path], count: int, rng: random.Random) -
     return selected
 
 
+ANCHOR_DISTANCE_STRATA: list[tuple[int, int]] = [
+    (0, 1),
+    (2, 5),
+    (6, 30),
+    (31, 300),
+    (301, 10**9),
+]
+
+
+def sample_stratified_anchors(
+    gt: int,
+    inventory: list[int],
+    rng: random.Random,
+    strata: list[tuple[int, int]] = ANCHOR_DISTANCE_STRATA,
+) -> list[int | None]:
+    """Return one randomly-chosen anchor per stratum, keyed off |a - gt|.
+
+    Returns None for strata with no inventory match. Strata are matched
+    on absolute distance from `gt`; bounds are inclusive on both sides.
+    """
+    out: list[int | None] = []
+    for lo, hi in strata:
+        candidates = [a for a in inventory if lo <= abs(a - gt) <= hi]
+        out.append(rng.choice(candidates) if candidates else None)
+    return out
+
 
 def load_number_vqa_samples(
     dataset_path: str | Path,
