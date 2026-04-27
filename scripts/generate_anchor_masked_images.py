@@ -1,10 +1,12 @@
 """Generate digit-masked variants of FLUX-rendered anchor images.
 
 For each anchor image at ``inputs/irrelevant_number/{value}.png`` the script
-runs easyocr to find the bounding box of the rendered digit, computes the
-mean RGB color of pixels OUTSIDE that bounding box, and fills the bbox
-region with that mean color. The result preserves all non-digit pixels
-exactly while erasing the digit into a "background-tinted" rectangle.
+runs easyocr to find the bounding box of the rendered digit, then erases the
+digit by either (a) filling the bbox with the mean RGB color of pixels OUTSIDE
+the bbox (``--method mean_outside``), or (b) using OpenCV inpainting to
+reconstruct the bbox region from local surrounding context
+(``--method inpaint_telea`` (default) or ``--method inpaint_ns``). All
+non-digit pixels are preserved exactly.
 
 Usage:
     uv run python scripts/generate_anchor_masked_images.py \\
@@ -56,6 +58,31 @@ def parse_args() -> argparse.Namespace:
         "--gpu",
         action="store_true",
         help="Use GPU for easyocr (default CPU; 128 images is fast on CPU).",
+    )
+    parser.add_argument(
+        "--method",
+        choices=("mean_outside", "inpaint_telea", "inpaint_ns"),
+        default="inpaint_telea",
+        help=(
+            "Bbox fill method. 'mean_outside' (legacy) replaces the bbox with "
+            "the mean RGB outside it; 'inpaint_telea' / 'inpaint_ns' use OpenCV "
+            "inpainting from local surrounding context (default: inpaint_telea)."
+        ),
+    )
+    parser.add_argument(
+        "--dilate",
+        type=int,
+        default=4,
+        help=(
+            "Pixels to dilate the OCR bbox by before filling, to swallow "
+            "anti-aliasing edges. Default 4. Use 0 to match legacy behaviour."
+        ),
+    )
+    parser.add_argument(
+        "--inpaint-radius",
+        type=int,
+        default=5,
+        help="cv2.inpaint inpaintRadius (only used for inpaint_* methods). Default 5.",
     )
     return parser.parse_args()
 
@@ -112,16 +139,27 @@ def pick_best_detection(
     return candidates[0]
 
 
-def mask_image(
+def _clip_bbox(
+    bbox_xyxy: tuple[int, int, int, int],
+    h: int,
+    w: int,
+    dilate: int,
+) -> tuple[int, int, int, int]:
+    """Dilate the bbox by ``dilate`` px on each side and clip to image bounds."""
+    x0, y0, x1, y1 = bbox_xyxy
+    x0 = max(0, x0 - dilate)
+    y0 = max(0, y0 - dilate)
+    x1 = min(w, x1 + dilate)
+    y1 = min(h, y1 + dilate)
+    return x0, y0, x1, y1
+
+
+def fill_mean_outside(
     img_array: np.ndarray, bbox_xyxy: tuple[int, int, int, int]
 ) -> np.ndarray:
     """Replace the bbox region with the mean RGB of pixels outside the bbox."""
     h, w, _ = img_array.shape
     x0, y0, x1, y1 = bbox_xyxy
-    x0 = max(0, x0)
-    y0 = max(0, y0)
-    x1 = min(w, x1)
-    y1 = min(h, y1)
     inside_mask = np.zeros((h, w), dtype=bool)
     inside_mask[y0:y1, x0:x1] = True
     outside_pixels = img_array[~inside_mask]
@@ -129,6 +167,42 @@ def mask_image(
     out = img_array.copy()
     out[y0:y1, x0:x1] = mean_color
     return out
+
+
+def fill_inpaint(
+    img_array: np.ndarray,
+    bbox_xyxy: tuple[int, int, int, int],
+    method: str,
+    inpaint_radius: int,
+) -> np.ndarray:
+    """Inpaint the bbox region using surrounding context. img is HxWx3 RGB uint8."""
+    import cv2  # local import: opencv is heavy and only needed for this path
+
+    x0, y0, x1, y1 = bbox_xyxy
+    bgr = cv2.cvtColor(img_array, cv2.COLOR_RGB2BGR)
+    mask = np.zeros(img_array.shape[:2], dtype=np.uint8)
+    mask[y0:y1, x0:x1] = 255
+    flag = cv2.INPAINT_TELEA if method == "inpaint_telea" else cv2.INPAINT_NS
+    inpainted = cv2.inpaint(bgr, mask, inpaintRadius=inpaint_radius, flags=flag)
+    return cv2.cvtColor(inpainted, cv2.COLOR_BGR2RGB)
+
+
+def mask_image(
+    img_array: np.ndarray,
+    bbox_xyxy: tuple[int, int, int, int],
+    method: str,
+    dilate: int,
+    inpaint_radius: int,
+) -> tuple[np.ndarray, tuple[int, int, int, int]]:
+    """Erase the bbox using the chosen fill method.
+
+    Returns the masked image plus the (dilated, clipped) bbox actually used.
+    """
+    h, w, _ = img_array.shape
+    bbox = _clip_bbox(bbox_xyxy, h, w, dilate)
+    if method == "mean_outside":
+        return fill_mean_outside(img_array, bbox), bbox
+    return fill_inpaint(img_array, bbox, method, inpaint_radius), bbox
 
 
 def write_compare(orig_path: Path, masked_path: Path, compare_path: Path) -> None:
@@ -198,10 +272,17 @@ def main() -> int:
             )
 
         bbox_xyxy = axis_aligned_bbox(bbox_quad)
-        masked = mask_image(img, bbox_xyxy)
+        masked, used_bbox = mask_image(
+            img,
+            bbox_xyxy,
+            method=args.method,
+            dilate=args.dilate,
+            inpaint_radius=args.inpaint_radius,
+        )
         Image.fromarray(masked).save(dst)
         print(
-            f"OK   {value}: text={text!r} conf={conf:.3f} bbox={bbox_xyxy} "
+            f"OK   {value}: text={text!r} conf={conf:.3f} ocr_bbox={bbox_xyxy} "
+            f"used_bbox={used_bbox} method={args.method} dilate={args.dilate} "
             f"-> {dst}"
         )
         successes.append(value)
