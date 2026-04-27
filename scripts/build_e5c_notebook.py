@@ -9,28 +9,28 @@ def build() -> nbf.NotebookNode:
     cells = []
 
     cells.append(nbf.v4.new_markdown_cell(
-        "# E5c - Anchor-mask control (reproducer)\n"
+        "# E5c - Anchor mask control (reproducer)\n"
         "\n"
-        "Top-to-bottom reproducer for the E5c experiment, an extension of E5b\n"
-        "with two additional irrelevant-image arms:\n"
+        "Top-to-bottom reproducer for `docs/experiments/E5c-anchor-mask-control.md`.\n"
         "\n"
-        "- **anchor**: original digit image at distance stratum S1..S5 (E5b condition).\n"
-        "- **masked**: pixel-masked variant of the same digit image, S1..S5.\n"
-        "- **neutral**: digit-free distractor image, single across-distances bucket.\n"
+        "## Design\n"
         "\n"
-        "12 conditions total: target_only + 5 anchor + 5 masked + 1 neutral.\n"
+        "Four conditions per question:\n"
+        "1. `target_only` (base image)\n"
+        "2. `target_plus_irrelevant_number_S{1..5}` (base + anchor image, digit visible)\n"
+        "3. `target_plus_irrelevant_number_masked_S{1..5}` (base + same anchor scene with the digit pixel region inpainted out)\n"
+        "4. `target_plus_irrelevant_neutral` (base + a generic neutral image; no digit, unrelated content)\n"
         "\n"
-        "Headline metric: **paired conditional adoption** (case 4 `base=a=pred` excluded\n"
-        "from the denominator). Stratified by (dataset, stratum, base_correct, condition_type).\n"
+        "## Comparisons of interest\n"
         "\n"
-        "The two questions this answers:\n"
-        "1. **Digit-pixel causality** — does masking the digit kill the anchoring effect?\n"
-        "   Comparison: anchor vs masked at the same stratum.\n"
-        "2. **Generic 2-image distraction** — is masked > neutral, i.e. does merely having a\n"
-        "   second image (with structure but no digits) move the model? Comparison:\n"
-        "   masked vs neutral.\n"
+        "- `(1, 2, 3)` - digit pixel causality. (1->2) total anchor effect; (1->3) effect with digit removed; (2 - 3) = pure digit-pixel contribution.\n"
+        "- `(1, 3, 4)` - anchor-image-background contribution beyond generic 2-image distraction. (1->3) and (1->4) should match if the anchor scene's background offers no extra info.\n"
         "\n"
-        "All heavy lifting in `scripts/analyze_e5c_distance.py` - this notebook just invokes it and displays."
+        "## Headline metric\n"
+        "\n"
+        "`adopt_cond` (paired conditional anchor adoption, M1; denominator = case 1 + 2 + 3 = excludes case 4 `base==a==pred`). Undefined for neutral (no anchor value).\n"
+        "\n"
+        "Direction-follow (`df_uncond`, `df_cond`) and accuracy drop (`acc_drop`) are also reported so the user can see the (1,3,4) `acc_drop` comparison and the `df` quirk that both anchor and masked produce nearly the same `df_cond` on wrong-base records (model uncertainty, not digit-specific signal).\n"
     ))
 
     cells.append(nbf.v4.new_code_cell(
@@ -41,79 +41,79 @@ def build() -> nbf.NotebookNode:
         "from analyze_e5c_distance import run\n"
         "out = run()\n"
         "summary = out['summary']\n"
-        "print(f\"loaded {out['n_records']} records, wrote {out['out_csv']}\")"
-    ))
-
-    cells.append(nbf.v4.new_markdown_cell(
-        "## Per-cell summary\n"
-        "\n"
-        "Rows: (dataset, stratum, base, condition_type). For anchor and masked, `stratum`\n"
-        "iterates S1..S5; for neutral the row collapses to a single `stratum=all` bucket.\n"
-        "\n"
-        "`adopt_cond = case2 / (case1+case2+case3)` — fraction of eligible records where the\n"
-        "model moved to the anchor digit (paired definition, case 4 excluded). For neutral\n"
-        "rows there is no anchor digit, so `adopt_cond` is structurally 0 and serves as the\n"
-        "baseline floor."
-    ))
-
-    cells.append(nbf.v4.new_code_cell(
+        "print(f\"loaded {out['n_records']} records, wrote {out['out_csv']}\")\n"
         "import pandas as pd\n"
-        "pd.set_option('display.float_format', '{:0.4f}'.format)\n"
-        "summary"
+        "pd.set_option('display.float_format', '{:0.4f}'.format)"
+    ))
+
+    cells.append(nbf.v4.new_markdown_cell("## base = all"))
+    cells.append(nbf.v4.new_code_cell(
+        "summary[summary['base']=='all'][['dataset','condition_type','stratum','n','adopt_cond','df_uncond','df_cond','acc_drop']]"
+    ))
+
+    cells.append(nbf.v4.new_markdown_cell("## base = correct"))
+    cells.append(nbf.v4.new_code_cell(
+        "summary[summary['base']=='correct'][['dataset','condition_type','stratum','n','adopt_cond','df_uncond','df_cond','acc_drop']]"
+    ))
+
+    cells.append(nbf.v4.new_markdown_cell("## base = wrong"))
+    cells.append(nbf.v4.new_code_cell(
+        "summary[summary['base']=='wrong'][['dataset','condition_type','stratum','n','adopt_cond','df_uncond','df_cond','acc_drop']]"
     ))
 
     cells.append(nbf.v4.new_markdown_cell(
-        "## Anchor vs masked-anchor (wrong-base only)\n"
+        "## Figure 1 - anchor vs masked x base correctness, adopt_cond\n"
         "\n"
-        "If digit-pixel content is what causes anchoring, masked should sit substantially\n"
-        "below anchor at every stratum (especially S1 where the anchor is closest to GT)."
+        "Anchor > masked at S1 on both datasets and both base subsets. The gap (anchor - masked) is the pure digit-pixel contribution to paired adoption."
     ))
-
     cells.append(nbf.v4.new_code_cell(
         "from IPython.display import Image, display\n"
-        "display(Image(filename=str(ROOT / 'docs' / 'figures' / 'E5c_anchor_vs_masked.png')))"
+        "display(Image(filename=str(ROOT / 'docs' / 'figures' / 'E5c_anchor_vs_masked_adopt.png')))"
     ))
 
     cells.append(nbf.v4.new_markdown_cell(
-        "## Three-way comparison (wrong-base only)\n"
+        "## Figure 2 - direction-follow does NOT isolate the digit\n"
         "\n"
-        "Anchor and masked across S1..S5, with neutral drawn as a horizontal reference\n"
-        "(stratum-collapsed). The vertical separation between the three lines decomposes the\n"
-        "anchoring effect into (a) digit-pixel content (anchor − masked) and (b) generic\n"
-        "2-image distraction (masked − neutral)."
+        "On wrong-base records, `df_cond` is essentially identical for anchor and masked at S2 (~0.52 VQAv2, ~0.46 TallyQA) and within a few pp at S1. The model's prediction shifts toward the anchor side regardless of whether the digit is visible - the second image's *presence* is enough to perturb predictions for uncertain models. Use `adopt_cond` (where pred lands exactly on anchor) to get the digit-specific signal."
     ))
-
     cells.append(nbf.v4.new_code_cell(
-        "display(Image(filename=str(ROOT / 'docs' / 'figures' / 'E5c_three_way_comparison.png')))"
+        "display(Image(filename=str(ROOT / 'docs' / 'figures' / 'E5c_anchor_vs_masked_df.png')))"
     ))
 
     cells.append(nbf.v4.new_markdown_cell(
-        "## Anchor adoption: correct-base vs wrong-base (sanity)\n"
+        "## Figure 3 - `acc_drop`: masked ~ neutral << anchor (on the meaningful base subsets)\n"
         "\n"
-        "E5b found that anchor adoption is gated on the model being uncertain (wrong-base).\n"
-        "This panel re-checks the gating in the E5c re-run."
+        "Comparing target_only's accuracy to each treatment's accuracy on the SAME base subset:\n"
+        "- `correct-base` (model knows the answer baseline-side): all three distractors hurt accuracy, but masked and neutral hurt about the same (~7-9 pp on VQAv2, ~2-5 pp on TallyQA). Anchor hurts measurably more.\n"
+        "- `wrong-base`: `acc_drop` is negative (regression-to-mean: distraction nudges some wrong predictions back to correct). Not informative.\n"
+        "- The masked image acts like a generic neutral distractor on accuracy. The anchor image's *background* offers no extra information beyond generic 2-image distraction."
     ))
-
     cells.append(nbf.v4.new_code_cell(
-        "display(Image(filename=str(ROOT / 'docs' / 'figures' / 'E5c_correct_vs_wrong.png')))"
+        "display(Image(filename=str(ROOT / 'docs' / 'figures' / 'E5c_acc_drop_3way.png')))"
     ))
 
     cells.append(nbf.v4.new_markdown_cell(
-        "## Sanity check - wrong-base S1 anchor vs masked vs neutral\n"
+        "## Figure 4 - sanity check vs E5b: uncertainty gate still holds\n"
         "\n"
-        "Headline numbers in one place. Expectation: anchor S1 stays near E5b's ~0.13 (VQAv2)\n"
-        "/ ~0.092 (TallyQA); masked S1 falls substantially; neutral is 0 by construction."
+        "Reproducing the E5b finding on the E5c run: anchor adopt_cond decays with distance, with wrong-base higher than correct-base."
+    ))
+    cells.append(nbf.v4.new_code_cell(
+        "display(Image(filename=str(ROOT / 'docs' / 'figures' / 'E5c_correct_vs_wrong_adopt.png')))"
     ))
 
+    cells.append(nbf.v4.new_markdown_cell(
+        "## Distilled digit-pixel gap\n"
+        "\n"
+        "Anchor - masked on wrong-base, paired conditional adoption."
+    ))
     cells.append(nbf.v4.new_code_cell(
         "for ds in ['VQAv2', 'TallyQA']:\n"
-        "    cell = summary[(summary['dataset']==ds) & (summary['base']=='wrong')]\n"
-        "    a = cell[(cell['condition_type']=='anchor') & (cell['stratum']=='S1')]['adopt_cond'].iloc[0]\n"
-        "    m = cell[(cell['condition_type']=='masked') & (cell['stratum']=='S1')]['adopt_cond'].iloc[0]\n"
-        "    n = cell[(cell['condition_type']=='neutral')]['adopt_cond'].iloc[0]\n"
-        "    print(f'{ds:<8s} wrong-base S1: anchor={a:.4f}, masked={m:.4f}, neutral(all)={n:.4f}, anchor/masked={a/m if m>0 else float(\"inf\"):.2f}x')\n"
-        "print()\n"
-        "print(out['headline'])"
+        "    rows = summary[(summary['dataset']==ds) & (summary['base']=='wrong')]\n"
+        "    anchor = rows[rows['condition_type']=='anchor'].set_index('stratum')['adopt_cond']\n"
+        "    masked = rows[rows['condition_type']=='masked'].set_index('stratum')['adopt_cond']\n"
+        "    print(f'\\n{ds}  wrong-base anchor - masked:')\n"
+        "    for s in ['S1','S2','S3','S4','S5']:\n"
+        "        print(f'  {s}: anchor={anchor.get(s, float(\"nan\")):.4f}  masked={masked.get(s, float(\"nan\")):.4f}  gap={anchor.get(s,0) - masked.get(s,0):+.4f}')"
     ))
 
     nb["cells"] = cells
