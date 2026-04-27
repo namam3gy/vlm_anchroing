@@ -18,15 +18,15 @@ Three conditions are compared across multiple HuggingFace VLMs:
 ```
 configs/             experiment YAMLs (entry point for runs)
 docs/
-  experiments/       experiment plans + result writeups (E*-*.md with _ko.md mirror)
-  insights/          Phase-A data-mining findings (A*-*.md with _ko.md mirror) + _data/ numeric artifacts
+  experiments/       experiment plans + result writeups (E*-*.md)
+  insights/          Phase-A data-mining findings (A*-*.md) + _data/ numeric artifacts
   figures/           exported figures for the paper / writeups
 inputs/              (gitignored) local VQAv2 snapshot + irrelevant number/neutral images
 notebooks/           post-run analysis (imports from vlm_anchor.analysis)
 outputs/             (gitignored) per-run predictions, summaries, attention maps
 references/
-  project.md         canonical research plan (project_ko.md Korean mirror)
-  roadmap.md         active research roadmap built from project.md (roadmap_ko.md mirror)
+  project.md         canonical research plan
+  roadmap.md         active research roadmap built from project.md
   AGENTS.md          this file — repo guide for humans and coding agents
 scripts/             CLI entrypoints (experiment driver, data fetchers, image generators, phase-A analysis)
 src/vlm_anchor/      library code
@@ -35,8 +35,7 @@ tests/               unittest-based tests, run via pytest
 
 `references/` is the reading list: start every task by consulting `project.md`
 (candid feasibility review) and `roadmap.md` (operational plan). Update
-`roadmap.md` §3/§5/§6/§10 as work progresses. Every markdown under
-`references/` and `docs/insights/` has an `_ko.md` Korean mirror kept in lockstep.
+`roadmap.md` §3/§5/§6/§10 as work progresses.
 
 ## Setup
 
