@@ -99,11 +99,74 @@ The same calculation on TallyQA wrong-base gives:
 3. **Reviewer-defensibility**: report this judgment doc explicitly in the methods section. Paper text should justify GT-proximal sampling on falsifiability grounds (stratified E5b + E5c showed effect concentrates in S1, decays to noise by S5). This pre-registered choice avoids accusations of post-hoc anchor-cherry-picking — the cutoff is justified by the data, not chosen for inflation.
 4. **Paper headline figure**: report wrong-base × S1 cell. VQAv2 = 0.131 (n=399); TallyQA = 0.092 (n=346). Both tables include CI from bootstrap (see `docs/insights/_data/E5b_per_stratum.csv`).
 
+## Extension to wide-GT datasets (ChartQA, MathVista, future)
+
+The above rule (`|a − GT| ≤ 5` or `anchor ∈ {0..9}`) is calibrated for VQAv2/TallyQA-number where GT ∈ {0..8}. ChartQA and MathVista have GT spanning 0–10⁴+ and can be decimals. A per-dataset validation protocol is required before any wide-GT dataset enters the paper-canonical pipeline.
+
+### Hybrid scale-relative cutoff
+
+Replace the absolute cutoff with:
+
+```
+candidate anchors = { a ∈ inventory : |a − GT| ≤ max(5, 0.2 × |round(GT)|) }
+```
+
+Hybrid form: absolute `5` floor for small GT (matches the VQAv2/TallyQA rule), 20 % relative window for large GT. Worked examples:
+
+| GT | cutoff = max(5, 0.2·\|round(GT)\|) | candidate range | candidates in current 128-PNG inventory |
+|---:|---:|---|---:|
+| 4 | 5 | [0, 9] | 9 (integer 0..9) |
+| 50 | 10 | [40, 60] | 5 (40, 45, 50, 55, 60) |
+| 1000 | 200 | [800, 1200] | 5 (800, 900, 1000, 1100, 1200) |
+| 5000 | 1000 | [4000, 6000] | 21 (every 100 step) |
+| 12 000 | 2 400 | [9 600, 14 400] | 5 (9 600..10 000; one-sided truncation at inventory cap) |
+
+Adequate candidate count (≥ 5) at every scale of interest. A scale-relative stratification (e.g., S1 = 0–10 % off, S2 = 10–30 %, S3 = 30–100 %, S4 = 100–1000 %, S5 = > 1000 %) replaces the absolute 5-stratum scheme.
+
+### Decimal GT handling
+
+```
+GT_for_anchor_selection  = round(float(GT))
+GT_for_metric            = float(GT)
+```
+
+The paired-adoption metric compares `pred == anchor_value` as strings; with decimal GT, `pred="3.5"` will not match `anchor="4"`, so paired adoption naturally fires only when the model rounds toward (and reaches) the anchor exactly. No code change beyond ensuring `normalize_numeric_text` preserves the decimal point.
+
+**Verify before relying:** `vlm_anchor.utils.normalize_numeric_text` and `extract_first_number` must round-trip "3.5" → "3.5". Add a unit test before any wide-GT run.
+
+### Per-dataset validation protocol (medium-term workflow)
+
+For each new dataset (ChartQA next, MathVista after):
+
+1. **GT distribution analysis.** Plot `log10(max(1, |GT|))` histogram on `inputs/<dataset>/questions.jsonl`. Identify GT-magnitude buckets (e.g., {0–10, 10–100, 100–1k, 1k–10k}).
+2. **Inventory coverage check.** For the dataset's GT bucket distribution, confirm the `inputs/irrelevant_number/` inventory has ≥ 5 candidates per (bucket, scale-relative stratum) combination. If not, extend the inventory (FLUX regenerate at the missing values) before running.
+3. **Stratified validation sweep.** Run an E5b-style stratified pipeline at small scale (n ≈ 200 base questions per dataset, 5 scale-relative strata, llava-interleave-7b). Use the hybrid cutoff above for stratum membership. Wall: ~10 min on H200.
+4. **Decay curve check.** Compute the same per-(stratum, base-correctness) `adopt_cond` table as E5b. Confirm:
+   - **(C1) Monotonic decay** of wrong-base `adopt_cond` from S1 to S5 (allowing one inversion within bootstrap CI).
+   - **(C2) Wrong-base S1 `adopt_cond` ≥ 0.05** (effect size large enough to study).
+   - **(C3) Wrong-base S4 or S5 `adopt_cond` ≤ 0.01** (decay reaches noise floor — confirms the cutoff is meaningful).
+5. **Cutoff acceptance.** If all three criteria hold, lock in the dataset's cutoff at `S1 ∪ S2` (or `S1` only if S2 is also at noise floor). If not, debug — typical causes: inventory gap, decimal-handling bug, or an actual scientific surprise (e.g., the dataset shows a different decay shape, in which case the paper claim must be scoped accordingly).
+6. **Full run.** Run the canonical experiment on the dataset using the validated cutoff.
+
+Per-dataset documentation: each dataset gets a small markdown under `docs/insights/E5_<dataset>_distance_validation.md` with the decay table and the chosen cutoff. The methods section of the paper cites these per-dataset docs.
+
+### Required code changes before this protocol can run
+
+- **`src/vlm_anchor/data.py`** — extend `ANCHOR_DISTANCE_STRATA` to support a relative-distance variant. Either (a) replace the constant with a function `compute_strata(gt: int) -> list[tuple[int, int]]` that yields per-question scale-aware bounds, or (b) add an alternative constant `ANCHOR_DISTANCE_STRATA_RELATIVE` and a `mode` flag on `assign_stratified_anchors`. Recommend (a) for cleanness.
+- **`vlm_anchor/utils.py`** — confirm `normalize_numeric_text("3.5") == "3.5"`. Add a test if needed.
+- **YAML configs** — new `experiment_chartqa_e5b_validation.yaml` (and corresponding mathvista variant) using the new stratified mode against the dataset.
+- **Inventory extension** — flag if validation step 2 finds gaps. ChartQA's existing `mean_distance_to_anchor = 33,446` (roadmap §197) suggests GT can exceed the 10 000 cap, so inventory likely needs extension to ~100 000. Roughly 100 new FLUX images at 100-step intervals.
+
+### Datasets to validate in order
+
+1. **ChartQA** — has full 5,390-record run from E5 (random anchor 0–9). Re-run small-scale with hybrid stratification to find ChartQA-specific cutoff. Then re-run full or accept the existing data with the cutoff applied as a post-hoc subset filter.
+2. **MathVista** — only smoke-run done (1 dir, ~5 samples). Full E5b-style validation needed before any paper claim.
+3. **Future dataset (e.g., DocVQA-numeric, GQA-numeric)** — same protocol.
+
 ## What this decision does NOT cover
 
 - **Multi-model generalisation**: this judgment is based on llava-interleave-7b only (E5b + E5c). The 11-model panel was previously run under random anchor 0-9 (the main run), which is range-restricted (B), so existing data is consistent with this rule. A multi-model E5b/E5c extension would confirm the rule transfers.
 - **Multi-prompt robustness**: E7 (paraphrase robustness, queued Tier 2) tests whether the same distance-decay shape holds across prompt phrasings. If E7 finds the decay pattern is prompt-sensitive, the cutoff in (A) may need adjustment per prompt.
-- **Dataset extension to wider GT range**: ChartQA / MathVista have GT that can exceed 10 000. The "GT-proximal" rule must be re-applied to those datasets at their own scale (e.g., `|a − GT| ≤ 5` is too tight when GT = 5000; needs scale-relative rule like `|a − GT| / GT ≤ 0.1` or stratum-based per-dataset). This is a follow-up open question and should be tested with a small E5b-style stratified sweep on each new dataset before claiming generality.
 
 ## What we did NOT test in deciding this
 
