@@ -575,5 +575,40 @@ class AssignStratifiedAnchorsRelativeSchemeTest(unittest.TestCase):
             self.assertEqual(ranges_q2[0], (0, 100))
 
 
+class ComputeStrataRelativeS1Test(unittest.TestCase):
+    def test_returns_single_stratum_matching_relative_s1(self) -> None:
+        s = compute_strata(1000, "relative_s1")
+        full = compute_strata(1000, "relative")
+        self.assertEqual(s, full[:1])
+        self.assertEqual(len(s), 1)
+        self.assertEqual(s[0], (0, 100))
+
+    def test_relative_s1_collapses_to_absolute_s1_at_small_gt(self) -> None:
+        s = compute_strata(4, "relative_s1")
+        self.assertEqual(s, [(0, 1)])
+
+
+class AssignStratifiedSingleStratumTest(unittest.TestCase):
+    def test_absolute_single_stratum_via_strata_override(self) -> None:
+        # Pass strata=[(0, 5)] explicitly; should produce one anchor per sample, in [0,5] of GT.
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            ndir = root / "irrelevant_number"
+            ndir.mkdir()
+            for v in range(11):
+                (ndir / f"{v}.png").write_bytes(b"png")
+            samples = [{
+                "question_id": 1, "image_id": 1, "question": "Q?",
+                "image": root / "t.png", "ground_truth": "3", "answers": ["3"],
+                "question_type": "",
+            }]
+            enriched = assign_stratified_anchors(samples, ndir, seed=42, strata=[(0, 5)])
+            self.assertEqual(len(enriched[0]["anchor_strata"]), 1)
+            entry = enriched[0]["anchor_strata"][0]
+            self.assertIn(entry["anchor_value"], range(0, 9))  # within distance 5 of 3
+            self.assertTrue(0 <= abs(entry["anchor_value"] - 3) <= 5)
+            self.assertEqual(entry["stratum_id"], "S1")
+
+
 if __name__ == "__main__":
     unittest.main()

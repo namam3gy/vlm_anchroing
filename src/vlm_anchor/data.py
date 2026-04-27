@@ -72,7 +72,7 @@ def compute_strata(gt: float | int, scheme: str = "absolute") -> list[tuple[int,
     """
     if scheme == "absolute":
         return [(0, 1), (2, 5), (6, 30), (31, 300), (301, 10**9)]
-    if scheme != "relative":
+    if scheme not in ("relative", "relative_s1"):
         raise ValueError(f"unknown scheme: {scheme!r}")
     g = abs(int(round(float(gt))))
     floors_lo = [0, 2, 6, 31, 301]
@@ -88,6 +88,8 @@ def compute_strata(gt: float | int, scheme: str = "absolute") -> list[tuple[int,
         lo = max(f_lo, prev_hi + 1)
         out.append((lo, hi))
         prev_hi = hi
+    if scheme == "relative_s1":
+        return out[:1]
     return out
 
 

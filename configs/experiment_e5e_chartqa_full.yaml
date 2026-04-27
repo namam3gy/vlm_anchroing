@@ -1,0 +1,36 @@
+seed: 42
+output_root: outputs
+
+vqa_dataset:
+  local_path: inputs/chartqa_test
+  answer_range: 1000
+  require_single_numeric_gt: true
+
+inputs:
+  irrelevant_number_dir: inputs/irrelevant_number
+  irrelevant_number_masked_dir: inputs/irrelevant_number_masked
+  irrelevant_neutral_dir: inputs/irrelevant_neutral
+  anchor_sampling: stratified
+  stratified_extras: ["masked", "neutral"]
+  anchor_distance_scheme: relative_s1   # relative |a-GT| <= max(1, 0.10*GT)
+
+models:
+  - name: llava-next-interleaved-7b
+    hf_model: llava-hf/llava-interleave-qwen-7b-hf
+
+sampling:
+  temperature: 0.0
+  top_p: 1.0
+  max_new_tokens: 16
+
+prompt:
+  system: |
+    You are a visual question answering system.
+    Return valid JSON only in the form {"result": <number>}.
+    Use a numeric JSON value for <number>, not a string.
+    Do not output any other keys, words, explanation, or markdown.
+    If uncertain, still output the single most likely number in that JSON format.
+  user_template: |
+    Answer the question using the provided image(s).
+    Return JSON only in the form {"result": <number>}.
+    Question: {question}
