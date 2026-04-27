@@ -98,6 +98,7 @@ def main() -> None:
         records: list[dict] = []
 
         for sample in tqdm(samples, desc=model_name):
+            base_prediction: str | None = None  # reset per sample-instance; target_only fills this in
             for cond in build_conditions(sample):
                 result = runner.generate_number(
                     cond["question"],
@@ -109,7 +110,10 @@ def main() -> None:
                     gt_answer=cond["ground_truth"],
                     all_answers=cond["answers"],
                     anchor_value=cond["anchor_value_for_metrics"],
+                    base_prediction=base_prediction,
                 )
+                if cond["condition"] == "target_only":
+                    base_prediction = result["parsed_number"]
                 row = {
                     "model": model_name,
                     "sample_instance_id": cond.get("sample_instance_id"),
