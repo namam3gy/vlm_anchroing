@@ -749,6 +749,401 @@ git commit -m "Roadmap: add E5b anchor-distance sweep to §6 Tier 2 + §10 chang
 
 ---
 
+## Task 9: Run E5b end-to-end on both datasets
+
+**Files:**
+- (no source changes; runs the pipeline on real data)
+
+This is the heavy step (~50 min total wall). Run it on a free GPU. Outputs land in `outputs/experiment_distance_*/llava-next-interleaved-7b/<timestamp>/`.
+
+- [ ] **Step 1: Run VQAv2 distance config (~25 min wall)**
+
+Run: `uv run python scripts/run_experiment.py --config configs/experiment_distance_vqa.yaml`
+
+Expected:
+- Output dir: `outputs/experiment_distance_vqa/llava-next-interleaved-7b/<timestamp>/`
+- `predictions.jsonl`: 3,000 records (500 base questions × 6 conditions)
+- `summary.json`: 6 condition keys (`target_only`, `target_plus_irrelevant_number_S{1..5}`)
+- Wall: ~25 min (~0.5 sec/rec on llava-interleave 2-image inference)
+
+- [ ] **Step 2: Run TallyQA distance config (~25 min wall)**
+
+Run: `uv run python scripts/run_experiment.py --config configs/experiment_distance_tally.yaml`
+
+Expected (same shape as Step 1 but under `outputs/experiment_distance_tally/...`).
+
+- [ ] **Step 3: Verify both runs landed**
+
+Run:
+```bash
+ls -la outputs/experiment_distance_vqa/llava-next-interleaved-7b/
+ls -la outputs/experiment_distance_tally/llava-next-interleaved-7b/
+python -c "
+import json, pathlib
+for ds in ['experiment_distance_vqa', 'experiment_distance_tally']:
+    runs = sorted(pathlib.Path(f'outputs/{ds}/llava-next-interleaved-7b').iterdir())
+    latest = runs[-1]
+    recs = [json.loads(l) for l in open(latest/'predictions.jsonl')]
+    print(f'{ds}: n={len(recs)}, conditions={sorted(set(r[\"condition\"] for r in recs))}')
+"
+```
+
+Expected: each dataset shows `n=3000` and 6 conditions.
+
+(No commit — `outputs/` is gitignored. Record the two timestamp dir names; they'll be needed in Task 10.)
+
+---
+
+## Task 10: Build analysis script + reproducible notebook (with executed outputs)
+
+**Files:**
+- Create: `scripts/analyze_e5b_distance.py`
+- Create: `notebooks/E5b_anchor_distance.ipynb`
+- Create: `docs/insights/_data/E5b_per_stratum.csv`
+- Create: `docs/figures/E5b_distance_curve.png`
+- Create: `docs/figures/E5b_cross_dataset_overlay.png`
+
+The analysis script does all the heavy lifting (load → stratum stats with bootstrap CI → plots → save artefacts). The notebook is a thin top-to-bottom reproducer that imports and calls the script — same pattern as `notebooks/E1b_per_layer_localisation.ipynb`.
+
+- [ ] **Step 1: Write the analysis script**
+
+Create `scripts/analyze_e5b_distance.py`:
+
+```python
+"""E5b — per-stratum direction-follow / adoption / em / distance with CIs + plots.
+
+Loads the latest run from `outputs/experiment_distance_vqa/<model>/` and
+`outputs/experiment_distance_tally/<model>/`, computes per-stratum stats
+with bootstrap CIs, draws two figures (per-dataset distance curve,
+cross-dataset overlay), and writes a tidy CSV summary.
+
+Usage: `uv run python scripts/analyze_e5b_distance.py [--model llava-next-interleaved-7b]`
+"""
+from __future__ import annotations
+
+import argparse
+import json
+from pathlib import Path
+
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+DATASETS = {
+    "VQAv2": "experiment_distance_vqa",
+    "TallyQA": "experiment_distance_tally",
+}
+STRATUM_ORDER = ["S1", "S2", "S3", "S4", "S5"]
+STRATUM_MIDPOINT = {"S1": 0.5, "S2": 3.5, "S3": 18.0, "S4": 165.0, "S5": 650.0}
+STRATUM_LABEL = {"S1": "[0,1]", "S2": "[2,5]", "S3": "[6,30]", "S4": "[31,300]", "S5": "[301,∞)"}
+N_BOOTSTRAP = 1000
+RNG_SEED = 42
+
+
+def _latest_run_dir(experiment_dir: str, model: str) -> Path:
+    base = PROJECT_ROOT / "outputs" / experiment_dir / model
+    runs = sorted(p for p in base.iterdir() if p.is_dir())
+    if not runs:
+        raise FileNotFoundError(f"No run dirs under {base}")
+    return runs[-1]
+
+
+def _load_records(model: str) -> pd.DataFrame:
+    frames = []
+    for ds_label, ds_dir in DATASETS.items():
+        run_dir = _latest_run_dir(ds_dir, model)
+        recs = [json.loads(l) for l in (run_dir / "predictions.jsonl").open()]
+        df = pd.DataFrame(recs)
+        df["dataset"] = ds_label
+        df["run_dir"] = str(run_dir.relative_to(PROJECT_ROOT))
+        frames.append(df)
+    return pd.concat(frames, ignore_index=True)
+
+
+def _bootstrap_ci(values: np.ndarray, n_bootstrap: int = N_BOOTSTRAP, seed: int = RNG_SEED) -> tuple[float, float]:
+    if len(values) == 0:
+        return (float("nan"), float("nan"))
+    rng = np.random.default_rng(seed)
+    means = np.empty(n_bootstrap)
+    for i in range(n_bootstrap):
+        sample = rng.choice(values, size=len(values), replace=True)
+        means[i] = np.nanmean(sample)
+    return float(np.percentile(means, 2.5)), float(np.percentile(means, 97.5))
+
+
+def per_stratum_summary(records: pd.DataFrame) -> pd.DataFrame:
+    rows = []
+    for dataset in records["dataset"].unique():
+        ds = records[records["dataset"] == dataset]
+        baseline = ds[ds["condition"] == "target_only"]
+        baseline_df_mean = float(np.nanmean(baseline["anchor_direction_followed"].astype(float)))
+        for stratum in STRATUM_ORDER:
+            cell = ds[ds["condition"] == f"target_plus_irrelevant_number_{stratum}"]
+            if cell.empty:
+                continue
+            df_vals = cell["anchor_direction_followed"].astype(float).to_numpy()
+            adoption_vals = cell["anchor_adopted"].astype(float).to_numpy()
+            em_vals = cell["exact_match"].astype(float).to_numpy()
+            dist_vals = cell["numeric_distance_to_anchor"].astype(float).to_numpy()
+            df_lo, df_hi = _bootstrap_ci(df_vals)
+            rows.append({
+                "dataset": dataset,
+                "stratum": stratum,
+                "stratum_range": STRATUM_LABEL[stratum],
+                "stratum_midpoint": STRATUM_MIDPOINT[stratum],
+                "n": len(cell),
+                "direction_follow_rate": float(np.nanmean(df_vals)),
+                "direction_follow_ci_lo": df_lo,
+                "direction_follow_ci_hi": df_hi,
+                "adoption_rate": float(np.nanmean(adoption_vals)),
+                "exact_match": float(np.nanmean(em_vals)),
+                "mean_distance_to_anchor": float(np.nanmean(dist_vals)) if not np.isnan(dist_vals).all() else float("nan"),
+                "df_minus_baseline": float(np.nanmean(df_vals)) - baseline_df_mean,
+            })
+    return pd.DataFrame(rows)
+
+
+def plot_distance_curve(summary: pd.DataFrame, out_path: Path) -> None:
+    fig, axes = plt.subplots(1, 2, figsize=(11, 4.2), sharey=True)
+    for ax, dataset in zip(axes, ["VQAv2", "TallyQA"]):
+        ds = summary[summary["dataset"] == dataset].sort_values("stratum_midpoint")
+        x = ds["stratum_midpoint"].to_numpy()
+        y = ds["direction_follow_rate"].to_numpy()
+        lo = ds["direction_follow_ci_lo"].to_numpy()
+        hi = ds["direction_follow_ci_hi"].to_numpy()
+        ax.plot(x, y, "o-", color="C0")
+        ax.fill_between(x, lo, hi, color="C0", alpha=0.2)
+        ax.set_xscale("symlog", linthresh=2)
+        ax.set_xticks(ds["stratum_midpoint"].tolist())
+        ax.set_xticklabels(ds["stratum"].tolist())
+        ax.set_xlabel("Anchor distance stratum (|a − GT|)")
+        ax.set_title(f"{dataset}")
+        ax.grid(alpha=0.3)
+    axes[0].set_ylabel("direction-follow rate (95% CI)")
+    fig.suptitle("E5b — anchor effect vs distance (llava-interleave-7b, n≈500/dataset)")
+    fig.tight_layout()
+    fig.savefig(out_path, dpi=150, bbox_inches="tight")
+    plt.close(fig)
+
+
+def plot_cross_dataset_overlay(summary: pd.DataFrame, out_path: Path) -> None:
+    fig, ax = plt.subplots(figsize=(7, 4.5))
+    for dataset, color in [("VQAv2", "C0"), ("TallyQA", "C1")]:
+        ds = summary[summary["dataset"] == dataset].sort_values("stratum_midpoint")
+        x = ds["stratum_midpoint"].to_numpy()
+        y = ds["direction_follow_rate"].to_numpy()
+        lo = ds["direction_follow_ci_lo"].to_numpy()
+        hi = ds["direction_follow_ci_hi"].to_numpy()
+        ax.plot(x, y, "o-", color=color, label=dataset)
+        ax.fill_between(x, lo, hi, color=color, alpha=0.18)
+    ax.set_xscale("symlog", linthresh=2)
+    midpoints = sorted(STRATUM_MIDPOINT.values())
+    ax.set_xticks(midpoints)
+    ax.set_xticklabels(STRATUM_ORDER)
+    ax.set_xlabel("Anchor distance stratum (|a − GT|)")
+    ax.set_ylabel("direction-follow rate (95% CI)")
+    ax.set_title("E5b — cross-dataset anchor-distance comparison")
+    ax.legend()
+    ax.grid(alpha=0.3)
+    fig.tight_layout()
+    fig.savefig(out_path, dpi=150, bbox_inches="tight")
+    plt.close(fig)
+
+
+def run(model: str = "llava-next-interleaved-7b") -> dict:
+    records = _load_records(model)
+    summary = per_stratum_summary(records)
+
+    out_csv = PROJECT_ROOT / "docs" / "insights" / "_data" / "E5b_per_stratum.csv"
+    out_csv.parent.mkdir(parents=True, exist_ok=True)
+    summary.to_csv(out_csv, index=False)
+
+    fig_dir = PROJECT_ROOT / "docs" / "figures"
+    fig_dir.mkdir(parents=True, exist_ok=True)
+    plot_distance_curve(summary, fig_dir / "E5b_distance_curve.png")
+    plot_cross_dataset_overlay(summary, fig_dir / "E5b_cross_dataset_overlay.png")
+
+    return {
+        "summary": summary,
+        "n_records": len(records),
+        "out_csv": str(out_csv.relative_to(PROJECT_ROOT)),
+        "figures": [
+            "docs/figures/E5b_distance_curve.png",
+            "docs/figures/E5b_cross_dataset_overlay.png",
+        ],
+    }
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--model", default="llava-next-interleaved-7b")
+    return parser.parse_args()
+
+
+if __name__ == "__main__":
+    args = parse_args()
+    out = run(model=args.model)
+    print(out["summary"].to_string(index=False))
+    print(f"\nwrote {out['out_csv']}")
+    for f in out["figures"]:
+        print(f"wrote {f}")
+```
+
+- [ ] **Step 2: Sanity-run the analysis script**
+
+Run: `uv run python scripts/analyze_e5b_distance.py`
+
+Expected: prints a 10-row table (2 datasets × 5 strata) + writes `docs/insights/_data/E5b_per_stratum.csv` + 2 PNGs under `docs/figures/`. Each line in the table has finite numeric `direction_follow_rate` and CI columns.
+
+- [ ] **Step 3: Build the notebook via nbformat**
+
+Create `scripts/build_e5b_notebook.py`:
+
+```python
+"""Construct notebooks/E5b_anchor_distance.ipynb via nbformat.
+
+Run once to (re)generate the notebook source; then execute the notebook
+itself (`jupyter nbconvert --to notebook --execute --inplace`) to embed
+output cells. Same builder + execute pattern as other E*-notebooks.
+"""
+from __future__ import annotations
+
+from pathlib import Path
+
+import nbformat as nbf
+
+
+def build() -> nbf.NotebookNode:
+    nb = nbf.v4.new_notebook()
+    cells: list[nbf.NotebookNode] = []
+
+    cells.append(nbf.v4.new_markdown_cell(
+        "# E5b — Anchor-distance robustness sweep (reproducer)\n"
+        "\n"
+        "Top-to-bottom reproducer for `docs/experiments/E5b-anchor-distance-design.md`.\n"
+        "Reads the latest VQAv2 + TallyQA stratified runs under "
+        "`outputs/experiment_distance_*/llava-next-interleaved-7b/<timestamp>/predictions.jsonl` "
+        "and regenerates:\n"
+        "\n"
+        "1. Per-stratum summary table (direction-follow / adoption / EM / mean distance, with 95% bootstrap CI).\n"
+        "2. Distance curve per dataset.\n"
+        "3. Cross-dataset overlay.\n"
+        "\n"
+        "All heavy lifting lives in `scripts/analyze_e5b_distance.py` — this notebook just invokes it and displays the outputs."
+    ))
+
+    cells.append(nbf.v4.new_code_cell(
+        "import sys\n"
+        "from pathlib import Path\n"
+        "ROOT = Path.cwd().parent if Path.cwd().name == 'notebooks' else Path.cwd()\n"
+        "sys.path.insert(0, str(ROOT / 'scripts'))\n"
+        "from analyze_e5b_distance import run\n"
+        "out = run()\n"
+        "summary = out['summary']\n"
+        "print(f\"loaded {out['n_records']} records, wrote {out['out_csv']}\")"
+    ))
+
+    cells.append(nbf.v4.new_markdown_cell(
+        "## Per-stratum summary\n"
+        "\n"
+        "Each row = one (dataset, stratum) cell. `direction_follow_rate` is the headline number; "
+        "`df_minus_baseline` subtracts the per-dataset target_only direction-follow (≈0 by construction)."
+    ))
+
+    cells.append(nbf.v4.new_code_cell(
+        "import pandas as pd\n"
+        "pd.set_option('display.float_format', '{:0.3f}'.format)\n"
+        "summary"
+    ))
+
+    cells.append(nbf.v4.new_markdown_cell(
+        "## Distance curve per dataset"
+    ))
+
+    cells.append(nbf.v4.new_code_cell(
+        "from IPython.display import Image, display\n"
+        "display(Image(filename=str(ROOT / 'docs' / 'figures' / 'E5b_distance_curve.png')))"
+    ))
+
+    cells.append(nbf.v4.new_markdown_cell(
+        "## Cross-dataset overlay\n"
+        "\n"
+        "Two lines on one axis. The cutoff `d*` for paper-headline subset is the largest stratum where "
+        "the effect remains > 50% of S1's effect."
+    ))
+
+    cells.append(nbf.v4.new_code_cell(
+        "display(Image(filename=str(ROOT / 'docs' / 'figures' / 'E5b_cross_dataset_overlay.png')))"
+    ))
+
+    cells.append(nbf.v4.new_markdown_cell(
+        "## Sanity check vs main run\n"
+        "\n"
+        "VQAv2 main run (random anchor 0–9, n=17,730) had `direction_follow_rate = 0.348` on llava-interleave-7b. "
+        "If E5b's anchor-distance distribution were uniform random over 0–9, the pooled effect would land near 0.348. "
+        "The stratified sweep oversamples far strata (S4/S5), so we expect the pooled E5b direction-follow to be **lower** than 0.348."
+    ))
+
+    cells.append(nbf.v4.new_code_cell(
+        "vqa_pool = summary[summary['dataset'] == 'VQAv2']\n"
+        "n_total = vqa_pool['n'].sum()\n"
+        "weighted_df = float((vqa_pool['direction_follow_rate'] * vqa_pool['n']).sum() / n_total)\n"
+        "print(f'E5b VQAv2 pooled direction-follow (n={n_total}): {weighted_df:.3f}')\n"
+        "print(f'reference — main run random-anchor 0..9 (n=17,730):  0.348')"
+    ))
+
+    nb["cells"] = cells
+    return nb
+
+
+if __name__ == "__main__":
+    nb = build()
+    out_path = Path(__file__).resolve().parents[1] / "notebooks" / "E5b_anchor_distance.ipynb"
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    nbf.write(nb, out_path)
+    print(f"wrote {out_path.relative_to(out_path.parents[1])}")
+```
+
+- [ ] **Step 4: Run the builder**
+
+Run: `uv run python scripts/build_e5b_notebook.py`
+Expected: writes `notebooks/E5b_anchor_distance.ipynb` (no outputs yet — just the source).
+
+- [ ] **Step 5: Execute the notebook in-place to embed outputs**
+
+Run: `uv run jupyter nbconvert --to notebook --execute --inplace notebooks/E5b_anchor_distance.ipynb`
+
+Expected: every code cell runs; `summary` DataFrame and the two PNGs appear as embedded outputs in the .ipynb file.
+
+- [ ] **Step 6: Verify the notebook has executed outputs**
+
+Run:
+```bash
+python -c "
+import nbformat
+nb = nbformat.read('notebooks/E5b_anchor_distance.ipynb', as_version=4)
+code_cells = [c for c in nb.cells if c.cell_type == 'code']
+without_output = [i for i, c in enumerate(code_cells) if not c.get('outputs')]
+print(f'{len(code_cells)} code cells, {len(without_output)} without outputs: {without_output}')
+"
+```
+
+Expected: `0 without outputs: []`. If any code cell has empty outputs, debug it and re-execute.
+
+- [ ] **Step 7: Commit notebook + analysis script + figures + summary CSV**
+
+```bash
+git add scripts/analyze_e5b_distance.py scripts/build_e5b_notebook.py \
+        notebooks/E5b_anchor_distance.ipynb \
+        docs/insights/_data/E5b_per_stratum.csv \
+        docs/figures/E5b_distance_curve.png \
+        docs/figures/E5b_cross_dataset_overlay.png
+git commit -m "Add E5b analysis script + reproducible notebook with executed outputs"
+```
+
+---
+
 ## Final Verification
 
 - [ ] **Step 1: Confirm test suite is green**
@@ -758,11 +1153,13 @@ Expected: all tests pass (existing + 8 new tests across Tasks 1–3).
 
 - [ ] **Step 2: Confirm new commits are clean**
 
-Run: `git log --oneline -10`
-Expected: 7 new commits (Tasks 1–7) plus the roadmap commit (Task 8). No uncommitted changes (`git status` clean).
+Run: `git log --oneline -15`
+Expected: 9 new commits (Tasks 1–6 source/configs, Task 8 roadmap, Task 10 analysis+notebook). Task 7 (smoke) and Task 9 (full run) are output-only and don't commit. `git status` clean.
 
 - [ ] **Step 3: Hand off to user**
 
-The implementation is complete. Hand back to the user. The actual E5b run (`uv run python scripts/run_experiment.py --config configs/experiment_distance_vqa.yaml`, then the same on `_tally.yaml`) is ~50 min wall and is **not** part of this plan — it's the user's choice when to launch.
-
-Optional follow-up not in this plan: writing `notebooks/E5b_anchor_distance.ipynb` + `docs/experiments/E5b-anchor-distance.md` results writeup. These should be done after the run produces real data so the analysis can be grounded in actual numbers, not placeholders.
+Implementation + run + reproducible notebook all complete. Hand back to user with:
+- Reference to commits added
+- Path to executed notebook (`notebooks/E5b_anchor_distance.ipynb`)
+- Headline numbers from the summary CSV (per-dataset peak direction-follow + chosen `d*` band)
+- Suggested next step: writing the results writeup `docs/experiments/E5b-anchor-distance.md` (+ `_ko.md`) and the distilled insight `docs/insights/E5b-anchor-distance-evidence.md` (+ `_ko.md`) once the user has reviewed the notebook.
