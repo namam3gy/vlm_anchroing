@@ -263,7 +263,8 @@ def _print_verdicts(v: dict) -> None:
     print("\n=== Acceptance criteria (wrong-base subset) ===")
     c1 = v["C1"]
     print(f"C1 (monotonic decay): {'PASS' if c1['pass'] else 'FAIL'}")
-    print(f"   rates: {[(s, f'{c1[\"rates\"][s]:.4f}' if not pd.isna(c1['rates'][s]) else 'NaN') for s in STRATUM_ORDER]}")
+    rate_strs = [(s, f"{c1['rates'][s]:.4f}" if not pd.isna(c1['rates'][s]) else "NaN") for s in STRATUM_ORDER]
+    print(f"   rates: {rate_strs}")
     if c1["inversions"]:
         print(f"   inversions: {c1['inversions']}")
         print(f"   hard (no CI overlap): {c1['hard_inversions']}")
