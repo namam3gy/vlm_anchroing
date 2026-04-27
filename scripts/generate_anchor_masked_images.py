@@ -1,16 +1,30 @@
 """Generate digit-masked variants of FLUX-rendered anchor images.
 
 For each anchor image at ``inputs/irrelevant_number/{value}.png`` the script
-runs easyocr to find the bounding box of the rendered digit, then erases the
-digit by either (a) filling the bbox with the mean RGB color of pixels OUTSIDE
-the bbox (``--method mean_outside``), or (b) using OpenCV inpainting to
-reconstruct the bbox region from local surrounding context
-(``--method inpaint_telea`` (default) or ``--method inpaint_ns``). All
-non-digit pixels are preserved exactly.
+runs OCR (easyocr by default, paddleocr available via ``--ocr paddleocr``) to
+find the bounding box(es) of rendered text, then erases them by either
+(a) filling the bbox with the mean RGB color of pixels OUTSIDE the bbox
+(``--method mean_outside``), or (b) using OpenCV inpainting to reconstruct the
+bbox region from local surrounding context (``--method inpaint_telea``
+(default) or ``--method inpaint_ns``). All non-text pixels are preserved
+exactly.
+
+By default the script picks the SINGLE OCR detection whose text best matches
+the expected anchor digit. Pass ``--all-text`` to instead inpaint EVERY OCR
+detection's bbox (a union mask), which scrubs residual digits/decals that
+co-exist with the primary anchor digit in multi-text scenes.
 
 Usage:
     uv run python scripts/generate_anchor_masked_images.py \\
         --numbers 0,5,100,5000,10000 --preview
+
+    # scrub all detected text, not just the digit-matching one
+    uv run python scripts/generate_anchor_masked_images.py \\
+        --numbers 3,75,80 --all-text --overwrite
+
+    # paddleocr fallback when easyocr returns zero detections
+    uv run python scripts/generate_anchor_masked_images.py \\
+        --numbers 4,15,6000,8100 --ocr paddleocr --all-text --overwrite
 
 When ``--preview`` is supplied, output goes to
 ``inputs/irrelevant_number_masked_preview/`` and a side-by-side compare PNG
@@ -58,6 +72,26 @@ def parse_args() -> argparse.Namespace:
         "--gpu",
         action="store_true",
         help="Use GPU for easyocr (default CPU; 128 images is fast on CPU).",
+    )
+    parser.add_argument(
+        "--ocr",
+        choices=("easyocr", "paddleocr"),
+        default="easyocr",
+        help=(
+            "OCR backend. 'easyocr' (default) is the original detector; "
+            "'paddleocr' is a fallback for source images where easyocr "
+            "returns zero detections."
+        ),
+    )
+    parser.add_argument(
+        "--all-text",
+        action="store_true",
+        help=(
+            "Inpaint EVERY OCR detection's bbox (union mask) instead of only "
+            "the single detection whose text best matches the expected digit. "
+            "Use this for multi-text scenes where small residual digits/decals "
+            "coexist with the primary anchor."
+        ),
     )
     parser.add_argument(
         "--method",
@@ -187,6 +221,37 @@ def fill_inpaint(
     return cv2.cvtColor(inpainted, cv2.COLOR_BGR2RGB)
 
 
+def fill_inpaint_mask(
+    img_array: np.ndarray,
+    mask: np.ndarray,
+    method: str,
+    inpaint_radius: int,
+) -> np.ndarray:
+    """Inpaint a precomputed binary mask. img is HxWx3 RGB uint8; mask is HxW uint8 (0/255)."""
+    import cv2  # local import
+
+    bgr = cv2.cvtColor(img_array, cv2.COLOR_RGB2BGR)
+    flag = cv2.INPAINT_TELEA if method == "inpaint_telea" else cv2.INPAINT_NS
+    inpainted = cv2.inpaint(bgr, mask, inpaintRadius=inpaint_radius, flags=flag)
+    return cv2.cvtColor(inpainted, cv2.COLOR_BGR2RGB)
+
+
+def build_union_mask(
+    detections: list[tuple],
+    h: int,
+    w: int,
+    dilate: int,
+) -> np.ndarray:
+    """Union-of-detections binary mask (HxW uint8 0/255), each bbox dilated."""
+    mask = np.zeros((h, w), dtype=np.uint8)
+    for det in detections:
+        bbox_quad = det[0]
+        bbox_xyxy = axis_aligned_bbox(bbox_quad)
+        x0, y0, x1, y1 = _clip_bbox(bbox_xyxy, h, w, dilate)
+        mask[y0:y1, x0:x1] = 255
+    return mask
+
+
 def mask_image(
     img_array: np.ndarray,
     bbox_xyxy: tuple[int, int, int, int],
@@ -203,6 +268,38 @@ def mask_image(
     if method == "mean_outside":
         return fill_mean_outside(img_array, bbox), bbox
     return fill_inpaint(img_array, bbox, method, inpaint_radius), bbox
+
+
+class OCRBackend:
+    """Uniform OCR interface returning a list of (quad, text, conf) tuples."""
+
+    def __init__(self, name: str, gpu: bool) -> None:
+        self.name = name
+        if name == "easyocr":
+            import easyocr  # type: ignore
+
+            self._reader = easyocr.Reader(["en"], gpu=gpu, verbose=False)
+        elif name == "paddleocr":
+            from paddleocr import PaddleOCR  # type: ignore
+
+            # paddleocr 2.x legacy API. lang='en' uses the English det+rec models.
+            # use_angle_cls=False since these are upright synthesised digits.
+            self._reader = PaddleOCR(use_angle_cls=False, lang="en", show_log=False)
+        else:
+            raise ValueError(f"unknown ocr backend: {name}")
+
+    def readtext(self, img: np.ndarray) -> list[tuple]:
+        if self.name == "easyocr":
+            return list(self._reader.readtext(img))
+        # paddleocr: returns [[ [bbox, (text, conf)], ... ]] for one image
+        result = self._reader.ocr(img, cls=False)
+        if not result or result[0] is None:
+            return []
+        normalised: list[tuple] = []
+        for line in result[0]:
+            quad, (text, conf) = line
+            normalised.append((quad, text, float(conf)))
+        return normalised
 
 
 def write_compare(orig_path: Path, masked_path: Path, compare_path: Path) -> None:
@@ -232,10 +329,8 @@ def main() -> int:
         print("ERROR: no values to process", file=sys.stderr)
         return 2
 
-    # Lazy import — easyocr pulls torch on first import.
-    import easyocr  # type: ignore
-
-    reader = easyocr.Reader(["en"], gpu=args.gpu, verbose=False)
+    # Lazy import — easyocr/paddleocr pull heavy deps on first import.
+    reader = OCRBackend(args.ocr, gpu=args.gpu)
 
     successes: list[int] = []
     failures: list[tuple[int, str]] = []
@@ -253,39 +348,74 @@ def main() -> int:
 
         img = np.array(Image.open(src).convert("RGB"))
         detections = reader.readtext(img)
-        best = pick_best_detection(detections, value)
-        if best is None:
-            failures.append((value, "no digit-like detection"))
-            print(
-                f"FAIL {value}: no digit-like detection in OCR output",
-                file=sys.stderr,
-            )
-            continue
 
-        bbox_quad, text, conf = best
-        digits = "".join(ch for ch in text if ch.isdigit())
-        if digits != str(value):
+        if args.all_text:
+            # Union mode: inpaint every OCR detection's bbox.
+            if not detections:
+                failures.append((value, f"{args.ocr} returned zero detections"))
+                print(
+                    f"FAIL {value}: {args.ocr} returned zero detections (--all-text)",
+                    file=sys.stderr,
+                )
+                continue
+            h, w, _ = img.shape
+            mask = build_union_mask(detections, h, w, args.dilate)
+            if mask.sum() == 0:
+                failures.append((value, "union mask empty after dilate/clip"))
+                print(
+                    f"FAIL {value}: union mask empty after dilate/clip",
+                    file=sys.stderr,
+                )
+                continue
+            if args.method == "mean_outside":
+                # Mean-outside isn't well-defined for a union mask of arbitrary
+                # shape; fall back to inpaint_telea here.
+                masked = fill_inpaint_mask(img, mask, "inpaint_telea", args.inpaint_radius)
+                effective_method = "inpaint_telea (fallback from mean_outside for --all-text)"
+            else:
+                masked = fill_inpaint_mask(img, mask, args.method, args.inpaint_radius)
+                effective_method = args.method
+            Image.fromarray(masked).save(dst)
+            texts = [d[1] for d in detections]
             print(
-                f"WARN {value}: best OCR text={text!r} (digits={digits!r}) "
-                f"does not exact-match expected {value} (conf={conf:.3f}); using anyway",
-                file=sys.stderr,
+                f"OK   {value}: ocr={args.ocr} all_text=True n_det={len(detections)} "
+                f"texts={texts} method={effective_method} dilate={args.dilate} -> {dst}"
             )
+            successes.append(value)
+        else:
+            best = pick_best_detection(detections, value)
+            if best is None:
+                failures.append((value, "no digit-like detection"))
+                print(
+                    f"FAIL {value}: no digit-like detection in OCR output",
+                    file=sys.stderr,
+                )
+                continue
 
-        bbox_xyxy = axis_aligned_bbox(bbox_quad)
-        masked, used_bbox = mask_image(
-            img,
-            bbox_xyxy,
-            method=args.method,
-            dilate=args.dilate,
-            inpaint_radius=args.inpaint_radius,
-        )
-        Image.fromarray(masked).save(dst)
-        print(
-            f"OK   {value}: text={text!r} conf={conf:.3f} ocr_bbox={bbox_xyxy} "
-            f"used_bbox={used_bbox} method={args.method} dilate={args.dilate} "
-            f"-> {dst}"
-        )
-        successes.append(value)
+            bbox_quad, text, conf = best
+            digits = "".join(ch for ch in text if ch.isdigit())
+            if digits != str(value):
+                print(
+                    f"WARN {value}: best OCR text={text!r} (digits={digits!r}) "
+                    f"does not exact-match expected {value} (conf={conf:.3f}); using anyway",
+                    file=sys.stderr,
+                )
+
+            bbox_xyxy = axis_aligned_bbox(bbox_quad)
+            masked, used_bbox = mask_image(
+                img,
+                bbox_xyxy,
+                method=args.method,
+                dilate=args.dilate,
+                inpaint_radius=args.inpaint_radius,
+            )
+            Image.fromarray(masked).save(dst)
+            print(
+                f"OK   {value}: ocr={args.ocr} text={text!r} conf={conf:.3f} "
+                f"ocr_bbox={bbox_xyxy} used_bbox={used_bbox} method={args.method} "
+                f"dilate={args.dilate} -> {dst}"
+            )
+            successes.append(value)
 
         if args.preview:
             compare_path = output_dir / f"{value}_compare.png"
