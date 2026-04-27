@@ -177,6 +177,62 @@ def assign_irrelevant_images(
 
 
 
+def assign_stratified_anchors(
+    samples: list[dict],
+    irrelevant_number_dir: str | Path,
+    seed: int = 42,
+    strata: list[tuple[int, int]] = ANCHOR_DISTANCE_STRATA,
+) -> list[dict]:
+    """Per-question stratified anchor sampling.
+
+    Each output sample carries an `anchor_strata` field: a list of dicts
+    in the order of `strata`, each containing `stratum_id` ("S1".."Sn"),
+    `stratum_range` (the (lo, hi) tuple), `anchor_value` (int or None),
+    and `irrelevant_number_image` (str path or None).
+    """
+    rng = random.Random(seed)
+    number_images = list_images(irrelevant_number_dir)
+    if not number_images:
+        raise FileNotFoundError(f"No number images found in {irrelevant_number_dir}")
+
+    inventory_by_value: dict[int, Path] = {}
+    for img in number_images:
+        v = extract_first_number(img.stem)
+        if v and v.lstrip("-").isdigit():
+            inventory_by_value[int(v)] = img
+
+    inventory_values = sorted(inventory_by_value.keys())
+
+    enriched: list[dict] = []
+    for sample in samples:
+        gt_str = sample["ground_truth"]
+        if not gt_str.lstrip("-").isdigit():
+            raise ValueError(
+                f"sample {sample.get('question_id')} has non-integer ground_truth {gt_str!r}; "
+                "stratified mode requires integer GT"
+            )
+        gt = int(gt_str)
+        anchor_values = sample_stratified_anchors(gt, inventory_values, rng, strata=strata)
+        anchor_strata: list[dict] = []
+        for idx, ((lo, hi), value) in enumerate(zip(strata, anchor_values), start=1):
+            entry = {
+                "stratum_id": f"S{idx}",
+                "stratum_range": (lo, hi),
+                "anchor_value": value,
+                "irrelevant_number_image": str(inventory_by_value[value]) if value is not None else None,
+            }
+            anchor_strata.append(entry)
+        enriched.append(
+            {
+                **sample,
+                "sample_instance_id": f"{sample['question_id']}_{sample['image_id']}_stratified",
+                "sample_instance_index": 0,
+                "anchor_strata": anchor_strata,
+            }
+        )
+    return enriched
+
+
 def build_conditions(sample: dict) -> Iterator[dict]:
     yield {
         **sample,
