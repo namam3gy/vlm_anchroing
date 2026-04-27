@@ -9,6 +9,7 @@ from pathlib import Path
 from vlm_anchor.data import (
     ANCHOR_DISTANCE_STRATA,
     assign_irrelevant_images,
+    assign_stratified_anchors,
     load_number_vqa_samples,
     sample_stratified_anchors,
 )
@@ -198,6 +199,77 @@ class SampleStratifiedAnchorsTest(unittest.TestCase):
         a = sample_stratified_anchors(gt, inventory, random.Random(1234))
         b = sample_stratified_anchors(gt, inventory, random.Random(1234))
         self.assertEqual(a, b)
+
+
+class AssignStratifiedAnchorsTest(unittest.TestCase):
+    def test_attaches_anchor_strata_field_with_one_entry_per_stratum(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            number_dir = root / "irrelevant_number"
+            number_dir.mkdir()
+            for v in [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 20, 100, 500, 1000]:
+                (number_dir / f"{v}.png").write_bytes(b"png")
+
+            samples = [
+                {
+                    "question_id": 101,
+                    "image_id": 202,
+                    "question": "How many?",
+                    "image": root / "target.png",
+                    "ground_truth": "3",
+                    "answers": ["3"] * 10,
+                    "question_type": "how many",
+                }
+            ]
+
+            enriched = assign_stratified_anchors(
+                samples,
+                irrelevant_number_dir=number_dir,
+                seed=42,
+            )
+
+            self.assertEqual(len(enriched), 1)
+            row = enriched[0]
+            self.assertIn("anchor_strata", row)
+            self.assertEqual(len(row["anchor_strata"]), 5)
+
+            for entry in row["anchor_strata"]:
+                self.assertIn("stratum_id", entry)
+                self.assertIn("stratum_range", entry)
+                self.assertIn("anchor_value", entry)
+                self.assertIn("irrelevant_number_image", entry)
+                if entry["anchor_value"] is not None:
+                    self.assertTrue(Path(entry["irrelevant_number_image"]).exists())
+
+            stratum_ids = [e["stratum_id"] for e in row["anchor_strata"]]
+            self.assertEqual(stratum_ids, ["S1", "S2", "S3", "S4", "S5"])
+
+    def test_skips_strata_with_no_inventory_match(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            number_dir = root / "irrelevant_number"
+            number_dir.mkdir()
+            for v in [3, 4, 5]:
+                (number_dir / f"{v}.png").write_bytes(b"png")
+
+            samples = [{
+                "question_id": 1, "image_id": 1,
+                "question": "Q?", "image": root / "t.png",
+                "ground_truth": "3", "answers": ["3"], "question_type": "",
+            }]
+
+            enriched = assign_stratified_anchors(samples, number_dir, seed=0)
+            entries_by_id = {e["stratum_id"]: e for e in enriched[0]["anchor_strata"]}
+            self.assertIsNotNone(entries_by_id["S1"]["anchor_value"])
+            self.assertIsNone(entries_by_id["S3"]["anchor_value"])
+            self.assertIsNone(entries_by_id["S5"]["anchor_value"])
+
+    def test_raises_when_inventory_directory_empty(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            number_dir = Path(tmpdir) / "irrelevant_number"
+            number_dir.mkdir()
+            with self.assertRaises(FileNotFoundError):
+                assign_stratified_anchors([], number_dir, seed=0)
 
 
 if __name__ == "__main__":
