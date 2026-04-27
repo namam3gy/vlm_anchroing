@@ -1,33 +1,25 @@
-"""Construct notebooks/E5b_anchor_distance.ipynb via nbformat.
-
-Run once to (re)generate the notebook source; then execute the notebook
-itself (`jupyter nbconvert --to notebook --execute --inplace`) to embed
-output cells. Same builder + execute pattern as other E*-notebooks.
-"""
+"""Construct notebooks/E5b_anchor_distance.ipynb via nbformat."""
 from __future__ import annotations
-
 from pathlib import Path
-
 import nbformat as nbf
 
 
 def build() -> nbf.NotebookNode:
     nb = nbf.v4.new_notebook()
-    cells: list[nbf.NotebookNode] = []
+    cells = []
 
     cells.append(nbf.v4.new_markdown_cell(
-        "# E5b — Anchor-distance robustness sweep (reproducer)\n"
+        "# E5b - Anchor-distance robustness sweep (reproducer)\n"
         "\n"
         "Top-to-bottom reproducer for `docs/experiments/E5b-anchor-distance-design.md`.\n"
-        "Reads the latest VQAv2 + TallyQA stratified runs under "
-        "`outputs/experiment_distance_*/llava-next-interleaved-7b/<timestamp>/predictions.jsonl` "
-        "and regenerates:\n"
         "\n"
-        "1. Per-stratum summary table (direction-follow / adoption / EM / mean distance, with 95% bootstrap CI).\n"
-        "2. Distance curve per dataset.\n"
-        "3. Cross-dataset overlay.\n"
+        "Headline metric: **paired conditional adoption** (M1 paired definition, denominator excludes case 4 `base=a=pred`).\n"
         "\n"
-        "All heavy lifting lives in `scripts/analyze_e5b_distance.py` — this notebook just invokes it and displays the outputs."
+        "Key finding: adoption is **uncertainty-modulated AND plausibility-windowed**.\n"
+        "- Correct-base records show essentially no anchor effect (~0.01-0.10 across all distances).\n"
+        "- Wrong-base records show sharp plausibility-windowed pattern: adoption peaks at S2 [2,5] for VQAv2 and decays to ~0 at S4/S5 in both datasets.\n"
+        "\n"
+        "All heavy lifting in `scripts/analyze_e5b_distance.py` - this notebook just invokes it and displays."
     ))
 
     cells.append(nbf.v4.new_code_cell(
@@ -42,52 +34,52 @@ def build() -> nbf.NotebookNode:
     ))
 
     cells.append(nbf.v4.new_markdown_cell(
-        "## Per-stratum summary\n"
+        "## Per-cell summary\n"
         "\n"
-        "Each row = one (dataset, stratum) cell. `direction_follow_rate` is the headline number; "
-        "`df_minus_baseline` subtracts the per-dataset target_only direction-follow (≈0 by construction)."
+        "Rows: (dataset, stratum, base) where base is 'correct' or 'wrong'. "
+        "`adopt_cond = case2 / (case1+case2+case3)` — fraction of eligible records where the model moved to the anchor."
     ))
 
     cells.append(nbf.v4.new_code_cell(
         "import pandas as pd\n"
-        "pd.set_option('display.float_format', '{:0.3f}'.format)\n"
+        "pd.set_option('display.float_format', '{:0.4f}'.format)\n"
         "summary"
     ))
 
     cells.append(nbf.v4.new_markdown_cell(
-        "## Distance curve per dataset"
+        "## Headline figure - adoption vs distance, base correctness split\n"
+        "\n"
+        "Two panels (VQAv2, TallyQA). Each panel has two lines: correct-base (flat) and wrong-base (peaked at S2)."
     ))
 
     cells.append(nbf.v4.new_code_cell(
         "from IPython.display import Image, display\n"
-        "display(Image(filename=str(ROOT / 'docs' / 'figures' / 'E5b_distance_curve.png')))"
+        "display(Image(filename=str(ROOT / 'docs' / 'figures' / 'E5b_adopt_cond_curve.png')))"
     ))
 
     cells.append(nbf.v4.new_markdown_cell(
-        "## Cross-dataset overlay\n"
+        "## Cross-dataset overlay (wrong-base only)\n"
         "\n"
-        "Two lines on one axis. The cutoff `d*` for paper-headline subset is the largest stratum where "
-        "the effect remains > 50% of S1's effect."
+        "Both datasets show the same plausibility-windowed adoption pattern when the model is uncertain."
     ))
 
     cells.append(nbf.v4.new_code_cell(
-        "display(Image(filename=str(ROOT / 'docs' / 'figures' / 'E5b_cross_dataset_overlay.png')))"
+        "display(Image(filename=str(ROOT / 'docs' / 'figures' / 'E5b_adopt_cond_overlay.png')))"
     ))
 
     cells.append(nbf.v4.new_markdown_cell(
-        "## Sanity check vs main run\n"
+        "## Sanity check - wrong-base S1 vs S5 ratio\n"
         "\n"
-        "VQAv2 main run (random anchor 0–9, n=17,730) had `direction_follow_rate = 0.348` on llava-interleave-7b. "
-        "If E5b's anchor-distance distribution were uniform random over 0–9, the pooled effect would land near 0.348. "
-        "The stratified sweep oversamples far strata (S4/S5), so we expect the pooled E5b direction-follow to be **lower** than 0.348."
+        "If plausibility-windowed adoption is real, the wrong-base S1/S2 cells should be much higher than S4/S5."
     ))
 
     cells.append(nbf.v4.new_code_cell(
-        "vqa_pool = summary[summary['dataset'] == 'VQAv2']\n"
-        "n_total = vqa_pool['n'].sum()\n"
-        "weighted_df = float((vqa_pool['direction_follow_rate'] * vqa_pool['n']).sum() / n_total)\n"
-        "print(f'E5b VQAv2 pooled direction-follow (n={n_total}): {weighted_df:.3f}')\n"
-        "print(f'reference — main run random-anchor 0..9 (n=17,730):  0.348')"
+        "for ds in ['VQAv2', 'TallyQA']:\n"
+        "    cell = summary[(summary['dataset']==ds) & (summary['base']=='wrong')].set_index('stratum')\n"
+        "    s1 = cell.loc['S1', 'adopt_cond']\n"
+        "    s5 = cell.loc['S5', 'adopt_cond']\n"
+        "    ratio = s1 / s5 if s5 > 0 else float('inf')\n"
+        "    print(f'{ds:<8s} wrong-base adopt_cond: S1={s1:.4f}, S5={s5:.4f}, S1/S5 ratio={ratio:.1f}')"
     ))
 
     nb["cells"] = cells
@@ -97,6 +89,5 @@ def build() -> nbf.NotebookNode:
 if __name__ == "__main__":
     nb = build()
     out_path = Path(__file__).resolve().parents[1] / "notebooks" / "E5b_anchor_distance.ipynb"
-    out_path.parent.mkdir(parents=True, exist_ok=True)
     nbf.write(nb, out_path)
     print(f"wrote {out_path.relative_to(out_path.parents[1])}")
