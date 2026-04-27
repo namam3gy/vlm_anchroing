@@ -30,14 +30,34 @@ def standard_vqa_accuracy(prediction: str, answers: Iterable[str]) -> float:
 
 
 
-def evaluate_sample(prediction: str, gt_answer: str, all_answers: list[str], anchor_value: str | None) -> VQASampleEval:
+def evaluate_sample(
+    prediction: str,
+    gt_answer: str,
+    all_answers: list[str],
+    anchor_value: str | None,
+    *,
+    base_prediction: str | None,
+) -> VQASampleEval:
+    """Per-sample evaluation.
+
+    Paired anchor adoption: ``anchor_adopted = (base_pred != anchor) AND (pred == anchor)``.
+    The base prediction (target_only arm of the same sample-instance) is required so we
+    can rule out the GT==anchor==pred confound where the model would have produced the
+    anchor without exposure. ``base_prediction`` is keyword-only and required to prevent
+    silently dropping back to the marginal definition.
+    """
     pred = normalize_numeric_text(extract_first_number(prediction))
     gt = normalize_numeric_text(extract_first_number(gt_answer))
     acc = standard_vqa_accuracy(pred, all_answers)
     exact = int(pred == gt)
 
     anchor_val = normalize_numeric_text(str(anchor_value)) if anchor_value is not None else None
-    anchor_adopted = int(bool(anchor_val) and pred == anchor_val)
+    if anchor_val and pred == anchor_val and base_prediction is not None:
+        base = normalize_numeric_text(extract_first_number(base_prediction))
+        base_is_numeric = bool(base) and base.lstrip("-").isdigit()
+        anchor_adopted = int(base_is_numeric and base != anchor_val)
+    else:
+        anchor_adopted = 0
 
     direction_followed = 0
     distance = None
