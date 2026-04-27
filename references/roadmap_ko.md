@@ -124,7 +124,7 @@ Standard prompt, VQAv2 number subset, 모델당 17,730 샘플. `direction_follow
 | ID | Experiment | 메모 | Status |
 |---|---|---|---|
 | **E5** | **Multi-dataset full run.** TallyQA + ChartQA full scale (현재 50 샘플 smoke로는 부족). MathVista는 stretch. | TallyQA = 가장 깨끗한 counting 도메인; ChartQA = in-image-number conflict (특히 강력 — anchor가 타겟 이미지의 legible number와 경쟁). | ☐ |
-| **E5b** | **Anchor-distance robustness sweep.** TallyQA + VQAv2에서 per-question 5-stratum anchor sampling (dataset당 500 base question, llava-interleave-7b). Anchor selection 규칙이 paper 헤드라인 figure에 load-bearing인지 검증. | ~50 min wall (1 모델). | 곡선 figure 1개 (effect-vs-distance) + cross-dataset overlay. 헤드라인 figure가 near-anchor subset에서 reporting할지 full-set에서 유지할지 결정. | ☐ |
+| **E5b** | **Anchor-distance robustness sweep.** TallyQA + VQAv2에서 per-question 5-stratum anchor sampling (dataset당 500 base question, llava-interleave-7b). Anchor selection 규칙이 paper 헤드라인 figure에 load-bearing인지 검증. | ~50 min wall (1 모델). 산출: 곡선 figure 1개 (effect-vs-distance) + cross-dataset overlay. 헤드라인 figure가 near-anchor subset에서 reporting할지 결정. | ☐ |
 | **E6** | **Closed-model subset.** GPT-4o 또는 Gemini-2.5에 대해 ~500 샘플 stratified slice. "open-only" 리뷰어 컴플레인 차단. | Token cost만. | ☐ |
 | **E7** | **Paraphrase robustness.** 3–5개 question prompt 재작성 × bootstrap CI × multiple-comparison correction. | 모델별 effect 주장 전 필수. | ☐ |
 | **E8** | **Position effect.** Anchor 이미지가 image[0]일 때 vs image[1]일 때. 일부 VLM은 위치-가중. | E2/E3 sub-experiment로. | ☐ |
