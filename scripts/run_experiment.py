@@ -62,6 +62,7 @@ def main() -> None:
         extras = cfg["inputs"].get("stratified_extras", [])
         masked_dir_cfg = cfg["inputs"].get("irrelevant_number_masked_dir") if "masked" in extras else None
         neutral_dir_cfg = cfg["inputs"].get("irrelevant_neutral_dir") if "neutral" in extras else None
+        anchor_distance_scheme = cfg["inputs"].get("anchor_distance_scheme", "absolute")
         samples = assign_stratified_anchors(
             samples,
             irrelevant_number_dir=resolve_path(cfg["inputs"]["irrelevant_number_dir"], base_dir=project_root),
@@ -72,6 +73,7 @@ def main() -> None:
             irrelevant_neutral_dir=(
                 resolve_path(neutral_dir_cfg, base_dir=project_root) if neutral_dir_cfg else None
             ),
+            scheme=anchor_distance_scheme,
         )
     else:
         samples = assign_irrelevant_images(
@@ -148,6 +150,7 @@ def main() -> None:
                     "token_info": result.get("token_info", []),
                     "anchor_value": cond["anchor_value_for_metrics"],
                     "anchor_stratum_id": cond.get("anchor_stratum_id"),
+                    "anchor_stratum_range": cond.get("anchor_stratum_range"),
                     "standard_vqa_accuracy": sample_eval.standard_vqa_accuracy,
                     "exact_match": sample_eval.exact_match,
                     "anchor_adopted": sample_eval.anchor_adopted,
