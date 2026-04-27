@@ -242,6 +242,30 @@ def assign_stratified_anchors(
 
 
 def build_conditions(sample: dict) -> Iterator[dict]:
+    if "anchor_strata" in sample:
+        yield {
+            **sample,
+            "condition": "target_only",
+            "input_images": [sample["image"]],
+            "anchor_value_for_metrics": None,
+            "irrelevant_type": "none",
+            "irrelevant_image": None,
+            "anchor_stratum_id": None,
+        }
+        for entry in sample["anchor_strata"]:
+            if entry["anchor_value"] is None:
+                continue
+            yield {
+                **sample,
+                "condition": f"target_plus_irrelevant_number_{entry['stratum_id']}",
+                "input_images": [sample["image"], entry["irrelevant_number_image"]],
+                "anchor_value_for_metrics": str(entry["anchor_value"]),
+                "irrelevant_type": "number",
+                "irrelevant_image": entry["irrelevant_number_image"],
+                "anchor_stratum_id": entry["stratum_id"],
+            }
+        return
+
     yield {
         **sample,
         "condition": "target_only",

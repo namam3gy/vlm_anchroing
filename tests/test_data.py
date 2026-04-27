@@ -10,6 +10,7 @@ from vlm_anchor.data import (
     ANCHOR_DISTANCE_STRATA,
     assign_irrelevant_images,
     assign_stratified_anchors,
+    build_conditions,
     load_number_vqa_samples,
     sample_stratified_anchors,
 )
@@ -270,6 +271,70 @@ class AssignStratifiedAnchorsTest(unittest.TestCase):
             number_dir.mkdir()
             with self.assertRaises(FileNotFoundError):
                 assign_stratified_anchors([], number_dir, seed=0)
+
+
+class BuildConditionsStratifiedTest(unittest.TestCase):
+    def test_stratified_sample_yields_one_baseline_plus_one_per_stratum(self) -> None:
+        sample = {
+            "question_id": 1, "image_id": 1,
+            "question": "Q?", "image": Path("/tmp/t.png"),
+            "ground_truth": "3", "answers": ["3"], "question_type": "",
+            "sample_instance_id": "1_1_stratified", "sample_instance_index": 0,
+            "anchor_strata": [
+                {"stratum_id": "S1", "stratum_range": (0, 1),   "anchor_value": 3, "irrelevant_number_image": "/tmp/3.png"},
+                {"stratum_id": "S2", "stratum_range": (2, 5),   "anchor_value": 7, "irrelevant_number_image": "/tmp/7.png"},
+                {"stratum_id": "S3", "stratum_range": (6, 30),  "anchor_value": 20, "irrelevant_number_image": "/tmp/20.png"},
+                {"stratum_id": "S4", "stratum_range": (31, 300),"anchor_value": 100,"irrelevant_number_image": "/tmp/100.png"},
+                {"stratum_id": "S5", "stratum_range": (301, 10**9),"anchor_value": 1000,"irrelevant_number_image": "/tmp/1000.png"},
+            ],
+        }
+
+        conds = list(build_conditions(sample))
+
+        self.assertEqual(len(conds), 6)
+        self.assertEqual(conds[0]["condition"], "target_only")
+        self.assertEqual(conds[0]["irrelevant_type"], "none")
+        self.assertIsNone(conds[0]["anchor_value_for_metrics"])
+
+        for i, sid in enumerate(["S1", "S2", "S3", "S4", "S5"], start=1):
+            cond = conds[i]
+            self.assertEqual(cond["condition"], f"target_plus_irrelevant_number_{sid}")
+            self.assertEqual(cond["anchor_stratum_id"], sid)
+            self.assertEqual(cond["irrelevant_type"], "number")
+            self.assertEqual(len(cond["input_images"]), 2)
+
+    def test_stratified_skips_strata_with_none_anchor(self) -> None:
+        sample = {
+            "question_id": 1, "image_id": 1,
+            "question": "Q?", "image": Path("/tmp/t.png"),
+            "ground_truth": "3", "answers": ["3"], "question_type": "",
+            "anchor_strata": [
+                {"stratum_id": "S1", "stratum_range": (0, 1), "anchor_value": 3, "irrelevant_number_image": "/tmp/3.png"},
+                {"stratum_id": "S2", "stratum_range": (2, 5), "anchor_value": None, "irrelevant_number_image": None},
+                {"stratum_id": "S3", "stratum_range": (6, 30), "anchor_value": 20, "irrelevant_number_image": "/tmp/20.png"},
+            ],
+        }
+        conds = list(build_conditions(sample))
+        condition_names = [c["condition"] for c in conds]
+        self.assertIn("target_only", condition_names)
+        self.assertIn("target_plus_irrelevant_number_S1", condition_names)
+        self.assertNotIn("target_plus_irrelevant_number_S2", condition_names)
+        self.assertIn("target_plus_irrelevant_number_S3", condition_names)
+
+    def test_legacy_sample_without_anchor_strata_yields_three_conditions(self) -> None:
+        sample = {
+            "question_id": 1, "image_id": 1,
+            "question": "Q?", "image": Path("/tmp/t.png"),
+            "ground_truth": "3", "answers": ["3"], "question_type": "",
+            "irrelevant_number_image": "/tmp/3.png",
+            "irrelevant_neutral_image": "/tmp/n.png",
+            "anchor_value": "3",
+        }
+        conds = list(build_conditions(sample))
+        self.assertEqual(len(conds), 3)
+        self.assertEqual([c["condition"] for c in conds], [
+            "target_only", "target_plus_irrelevant_number", "target_plus_irrelevant_neutral",
+        ])
 
 
 if __name__ == "__main__":
