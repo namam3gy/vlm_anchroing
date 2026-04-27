@@ -54,6 +54,7 @@ def main() -> None:
         samples_per_answer=ds_cfg.get("samples_per_answer"),
         answer_type_filter=ds_cfg.get("answer_type_filter"),
     )
+    # Modes: "stratified" (E5b) or anything else (legacy uniform sampling).
     anchor_sampling = cfg["inputs"].get("anchor_sampling", "uniform")
     if anchor_sampling == "stratified":
         samples = assign_stratified_anchors(
