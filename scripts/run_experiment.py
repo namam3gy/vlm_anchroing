@@ -6,7 +6,12 @@ from pathlib import Path
 
 from tqdm import tqdm
 
-from vlm_anchor.data import assign_irrelevant_images, build_conditions, load_number_vqa_samples
+from vlm_anchor.data import (
+    assign_irrelevant_images,
+    assign_stratified_anchors,
+    build_conditions,
+    load_number_vqa_samples,
+)
 from vlm_anchor.metrics import evaluate_sample, summarize_experiment
 from vlm_anchor.models import InferenceConfig, build_runner
 from vlm_anchor.utils import dump_csv, dump_json, dump_jsonl, ensure_dir, load_yaml, resolve_path, set_seed
@@ -49,13 +54,21 @@ def main() -> None:
         samples_per_answer=ds_cfg.get("samples_per_answer"),
         answer_type_filter=ds_cfg.get("answer_type_filter"),
     )
-    samples = assign_irrelevant_images(
-        samples,
-        irrelevant_number_dir=resolve_path(cfg["inputs"]["irrelevant_number_dir"], base_dir=project_root),
-        irrelevant_neutral_dir=resolve_path(cfg["inputs"]["irrelevant_neutral_dir"], base_dir=project_root),
-        seed=cfg["seed"],
-        variants_per_sample=int(cfg["inputs"].get("irrelevant_sets_per_sample", 1)),
-    )
+    anchor_sampling = cfg["inputs"].get("anchor_sampling", "uniform")
+    if anchor_sampling == "stratified":
+        samples = assign_stratified_anchors(
+            samples,
+            irrelevant_number_dir=resolve_path(cfg["inputs"]["irrelevant_number_dir"], base_dir=project_root),
+            seed=cfg["seed"],
+        )
+    else:
+        samples = assign_irrelevant_images(
+            samples,
+            irrelevant_number_dir=resolve_path(cfg["inputs"]["irrelevant_number_dir"], base_dir=project_root),
+            irrelevant_neutral_dir=resolve_path(cfg["inputs"]["irrelevant_neutral_dir"], base_dir=project_root),
+            seed=cfg["seed"],
+            variants_per_sample=int(cfg["inputs"].get("irrelevant_sets_per_sample", 1)),
+        )
 
     inf_cfg = InferenceConfig(
         system_prompt=cfg["prompt"]["system"],
@@ -118,6 +131,7 @@ def main() -> None:
                     "answer_token_probability": result.get("answer_token_probability"),
                     "token_info": result.get("token_info", []),
                     "anchor_value": cond["anchor_value_for_metrics"],
+                    "anchor_stratum_id": cond.get("anchor_stratum_id"),
                     "standard_vqa_accuracy": sample_eval.standard_vqa_accuracy,
                     "exact_match": sample_eval.exact_match,
                     "anchor_adopted": sample_eval.anchor_adopted,
