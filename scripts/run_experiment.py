@@ -7,6 +7,7 @@ from pathlib import Path
 from tqdm import tqdm
 
 from vlm_anchor.data import (
+    ANCHOR_DISTANCE_STRATA,
     assign_irrelevant_images,
     assign_stratified_anchors,
     build_conditions,
@@ -63,10 +64,19 @@ def main() -> None:
         masked_dir_cfg = cfg["inputs"].get("irrelevant_number_masked_dir") if "masked" in extras else None
         neutral_dir_cfg = cfg["inputs"].get("irrelevant_neutral_dir") if "neutral" in extras else None
         anchor_distance_scheme = cfg["inputs"].get("anchor_distance_scheme", "absolute")
+        # Optional explicit absolute strata override: a list of [lo, hi] pairs in
+        # YAML. When set, replaces the default ANCHOR_DISTANCE_STRATA — used for
+        # single-stratum runs (e.g. E5e TallyQA with [[0, 5]]).
+        custom_strata_cfg = cfg["inputs"].get("anchor_distance_strata")
+        if custom_strata_cfg is not None:
+            strata = [tuple(pair) for pair in custom_strata_cfg]
+        else:
+            strata = ANCHOR_DISTANCE_STRATA
         samples = assign_stratified_anchors(
             samples,
             irrelevant_number_dir=resolve_path(cfg["inputs"]["irrelevant_number_dir"], base_dir=project_root),
             seed=cfg["seed"],
+            strata=strata,
             irrelevant_number_masked_dir=(
                 resolve_path(masked_dir_cfg, base_dir=project_root) if masked_dir_cfg else None
             ),
