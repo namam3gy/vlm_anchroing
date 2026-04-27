@@ -1,11 +1,17 @@
 from __future__ import annotations
 
 import json
+import random
 import tempfile
 import unittest
 from pathlib import Path
 
-from vlm_anchor.data import assign_irrelevant_images, load_number_vqa_samples
+from vlm_anchor.data import (
+    ANCHOR_DISTANCE_STRATA,
+    assign_irrelevant_images,
+    load_number_vqa_samples,
+    sample_stratified_anchors,
+)
 
 
 class AssignIrrelevantImagesTest(unittest.TestCase):
@@ -159,6 +165,39 @@ class LoadNumberVqaSamplesTest(unittest.TestCase):
             "question_type": "how many",
             "answers": [{"answer": answer} for _ in range(10)],
         }
+
+
+class SampleStratifiedAnchorsTest(unittest.TestCase):
+    def test_returns_one_anchor_per_stratum_in_correct_distance_band(self) -> None:
+        gt = 3
+        inventory = list(range(0, 11)) + [15, 20, 25, 50, 100, 200, 500, 1000, 5000, 10000]
+        rng = random.Random(42)
+
+        anchors = sample_stratified_anchors(gt, inventory, rng)
+
+        self.assertEqual(len(anchors), len(ANCHOR_DISTANCE_STRATA))
+        for (lo, hi), value in zip(ANCHOR_DISTANCE_STRATA, anchors):
+            self.assertIsNotNone(value, f"stratum [{lo},{hi}] yielded None unexpectedly")
+            self.assertTrue(lo <= abs(value - gt) <= hi)
+
+    def test_returns_none_when_stratum_has_no_inventory_match(self) -> None:
+        gt = 3
+        inventory = [3, 4, 5]
+        rng = random.Random(0)
+
+        anchors = sample_stratified_anchors(gt, inventory, rng)
+
+        self.assertIn(anchors[0], (3, 4))
+        self.assertIsNone(anchors[2])
+        self.assertIsNone(anchors[3])
+        self.assertIsNone(anchors[4])
+
+    def test_seeded_rng_is_reproducible(self) -> None:
+        gt = 5
+        inventory = list(range(0, 101))
+        a = sample_stratified_anchors(gt, inventory, random.Random(1234))
+        b = sample_stratified_anchors(gt, inventory, random.Random(1234))
+        self.assertEqual(a, b)
 
 
 if __name__ == "__main__":
