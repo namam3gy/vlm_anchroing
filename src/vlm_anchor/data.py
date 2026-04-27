@@ -189,7 +189,21 @@ def assign_stratified_anchors(
     in the order of `strata`, each containing `stratum_id` ("S1".."Sn"),
     `stratum_range` (the (lo, hi) tuple), `anchor_value` (int or None),
     and `irrelevant_number_image` (str path or None).
+
+    Only integer-stem PNG files in `irrelevant_number_dir` are eligible.
+    Decimal- or text-stem files are silently ignored.
     """
+    # Pre-pass: validate every ground_truth before constructing the RNG, so
+    # a mid-dataset failure does not leave the RNG advanced past earlier
+    # samples (which would break seed-determinism on a corrected re-run).
+    for sample in samples:
+        gt_str = sample["ground_truth"]
+        if not gt_str.lstrip("-").isdigit():
+            raise ValueError(
+                f"sample {sample.get('question_id')} has non-integer ground_truth {gt_str!r}; "
+                "stratified mode requires integer GT"
+            )
+
     rng = random.Random(seed)
     number_images = list_images(irrelevant_number_dir)
     if not number_images:
@@ -205,13 +219,7 @@ def assign_stratified_anchors(
 
     enriched: list[dict] = []
     for sample in samples:
-        gt_str = sample["ground_truth"]
-        if not gt_str.lstrip("-").isdigit():
-            raise ValueError(
-                f"sample {sample.get('question_id')} has non-integer ground_truth {gt_str!r}; "
-                "stratified mode requires integer GT"
-            )
-        gt = int(gt_str)
+        gt = int(sample["ground_truth"])
         anchor_values = sample_stratified_anchors(gt, inventory_values, rng, strata=strata)
         anchor_strata: list[dict] = []
         for idx, ((lo, hi), value) in enumerate(zip(strata, anchor_values), start=1):
