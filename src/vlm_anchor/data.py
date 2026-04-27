@@ -51,6 +51,46 @@ ANCHOR_DISTANCE_STRATA: list[tuple[int, int]] = [
 ]
 
 
+def compute_strata(gt: float | int, scheme: str = "absolute") -> list[tuple[int, int]]:
+    """Return per-GT (lo, hi) inclusive distance strata.
+
+    scheme="absolute": fixed [(0,1), (2,5), (6,30), (31,300), (301,inf)] —
+        VQAv2/TallyQA convention. Returns the same constant regardless of `gt`.
+
+    scheme="relative": hybrid — max(absolute_floor, fractional_of_gt) on each
+        upper boundary, with `lo` chained from the previous stratum's `hi`.
+        Floors: hi ≥ [1, 5, 30, 300, inf]; fractions: [10%, 30%, 100%, 300%, inf]
+        of |round(gt)|. At small GT (e.g., 4) the fractional floor binds
+        nowhere and the scheme collapses to "absolute". At large GT
+        (e.g., 1000) the strata open up so the wrong-base anchor cohort
+        stays defined relative to the question's numeric scale.
+
+    The intended use: ChartQA (and other wide-GT datasets) where a fixed
+    301-distance "far" cutoff would lump nearly all anchors into one
+    stratum. Use scheme="absolute" for VQAv2/TallyQA (GT 0–8) where the
+    fixed convention matches the published E5b/E5c protocol.
+    """
+    if scheme == "absolute":
+        return [(0, 1), (2, 5), (6, 30), (31, 300), (301, 10**9)]
+    if scheme != "relative":
+        raise ValueError(f"unknown scheme: {scheme!r}")
+    g = abs(int(round(float(gt))))
+    floors_lo = [0, 2, 6, 31, 301]
+    floors_hi = [1, 5, 30, 300, 10**9]
+    fractions_hi = [0.10, 0.30, 1.00, 3.00, float("inf")]
+    out: list[tuple[int, int]] = []
+    prev_hi = -1
+    for f_lo, f_hi, frac in zip(floors_lo, floors_hi, fractions_hi):
+        if frac == float("inf"):
+            hi = 10**9
+        else:
+            hi = max(f_hi, int(frac * g))
+        lo = max(f_lo, prev_hi + 1)
+        out.append((lo, hi))
+        prev_hi = hi
+    return out
+
+
 def sample_stratified_anchors(
     gt: int,
     inventory: list[int],
@@ -184,6 +224,7 @@ def assign_stratified_anchors(
     strata: list[tuple[int, int]] = ANCHOR_DISTANCE_STRATA,
     irrelevant_number_masked_dir: str | Path | None = None,
     irrelevant_neutral_dir: str | Path | None = None,
+    scheme: str = "absolute",
 ) -> list[dict]:
     """Per-question stratified anchor sampling.
 
@@ -203,6 +244,13 @@ def assign_stratified_anchors(
     If `irrelevant_neutral_dir` is provided, each output sample gets a
     sample-level `irrelevant_neutral_image` field — a randomly-chosen
     neutral image path drawn with the same seeded RNG.
+
+    `scheme` selects the cutoff regime. "absolute" (default) uses the
+    `strata` argument verbatim — backward-compatible with E5b/E5c.
+    "relative" computes per-question strata via
+    `compute_strata(gt, "relative")`, ignoring the `strata` argument.
+    Use "relative" for wide-GT datasets like ChartQA where a fixed
+    301-distance "far" stratum would lump nearly all anchors together.
     """
     # Pre-pass: validate every ground_truth before constructing the RNG, so
     # a mid-dataset failure does not leave the RNG advanced past earlier
@@ -241,9 +289,10 @@ def assign_stratified_anchors(
     enriched: list[dict] = []
     for sample in samples:
         gt = int(sample["ground_truth"])
-        anchor_values = sample_stratified_anchors(gt, inventory_values, rng, strata=strata)
+        per_gt_strata = compute_strata(gt, scheme) if scheme != "absolute" else strata
+        anchor_values = sample_stratified_anchors(gt, inventory_values, rng, strata=per_gt_strata)
         anchor_strata: list[dict] = []
-        for idx, ((lo, hi), value) in enumerate(zip(strata, anchor_values), start=1):
+        for idx, ((lo, hi), value) in enumerate(zip(per_gt_strata, anchor_values), start=1):
             entry = {
                 "stratum_id": f"S{idx}",
                 "stratum_range": (lo, hi),
@@ -298,6 +347,7 @@ def build_conditions(sample: dict) -> Iterator[dict]:
                 "irrelevant_type": "number",
                 "irrelevant_image": entry["irrelevant_number_image"],
                 "anchor_stratum_id": entry["stratum_id"],
+                "anchor_stratum_range": entry["stratum_range"],
             }
         for entry in sample["anchor_strata"]:
             masked_image = entry.get("irrelevant_number_masked_image")
@@ -311,6 +361,7 @@ def build_conditions(sample: dict) -> Iterator[dict]:
                 "irrelevant_type": "number_masked",
                 "irrelevant_image": masked_image,
                 "anchor_stratum_id": entry["stratum_id"],
+                "anchor_stratum_range": entry["stratum_range"],
             }
         neutral_image = sample.get("irrelevant_neutral_image")
         if isinstance(neutral_image, str):

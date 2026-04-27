@@ -11,6 +11,7 @@ from vlm_anchor.data import (
     assign_irrelevant_images,
     assign_stratified_anchors,
     build_conditions,
+    compute_strata,
     load_number_vqa_samples,
     sample_stratified_anchors,
 )
@@ -481,6 +482,97 @@ class AssignStratifiedAnchorsExtendedTest(unittest.TestCase):
             }]
             enriched = assign_stratified_anchors(samples, irrelevant_number_dir=number_dir, seed=42)
             self.assertNotIn("irrelevant_neutral_image", enriched[0])
+
+
+class ComputeStrataTest(unittest.TestCase):
+    def test_absolute_scheme_is_constant(self) -> None:
+        self.assertEqual(
+            compute_strata(4, "absolute"),
+            [(0, 1), (2, 5), (6, 30), (31, 300), (301, 10**9)],
+        )
+        self.assertEqual(
+            compute_strata(1000, "absolute"),
+            [(0, 1), (2, 5), (6, 30), (31, 300), (301, 10**9)],
+        )
+
+    def test_relative_collapses_to_absolute_for_small_gt(self) -> None:
+        # gt=4: 10%·4=0, 30%·4=1, 100%·4=4, 300%·4=12 — all below floors
+        # so the relative scheme yields the same bounds as absolute.
+        self.assertEqual(compute_strata(4, "relative"), compute_strata(4, "absolute"))
+
+    def test_relative_scales_for_large_gt(self) -> None:
+        s = compute_strata(1000, "relative")
+        self.assertEqual(len(s), 5)
+        # S1: hi = max(1, int(0.10*1000)=100) = 100, lo = max(0, -1+1) = 0
+        self.assertEqual(s[0], (0, 100))
+        # S2: hi = max(5, int(0.30*1000)=300) = 300, lo = max(2, 101) = 101
+        self.assertEqual(s[1], (101, 300))
+        # S3: hi = max(30, int(1.00*1000)=1000) = 1000, lo = max(6, 301) = 301
+        self.assertEqual(s[2], (301, 1000))
+        # S4: hi = max(300, int(3.00*1000)=3000) = 3000, lo = max(31, 1001) = 1001
+        self.assertEqual(s[3], (1001, 3000))
+        # S5: open-ended
+        self.assertEqual(s[4][1], 10**9)
+
+    def test_relative_for_decimal_gt_rounds(self) -> None:
+        # 47.6 rounds to 48 → scale=48
+        # S1 hi = max(1, int(0.10*48)=4) = 4
+        s = compute_strata(47.6, "relative")
+        self.assertEqual(s[0][1], 4)
+
+    def test_unknown_scheme_raises(self) -> None:
+        with self.assertRaises(ValueError):
+            compute_strata(4, "no_such_scheme")
+
+
+class AssignStratifiedAnchorsRelativeSchemeTest(unittest.TestCase):
+    def test_relative_scheme_uses_per_gt_strata(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            ndir = root / "irrelevant_number"
+            ndir.mkdir()
+            for v in [10, 50, 100, 500, 800, 900, 950, 1000, 1100, 1200, 1500, 3000, 5000]:
+                (ndir / f"{v}.png").write_bytes(b"png")
+            samples = [{
+                "question_id": 1, "image_id": 1, "question": "Q?",
+                "image": root / "t.png", "ground_truth": "1000", "answers": ["1000"],
+                "question_type": "",
+            }]
+            enriched = assign_stratified_anchors(samples, ndir, seed=0, scheme="relative")
+            for entry in enriched[0]["anchor_strata"]:
+                if entry["anchor_value"] is not None:
+                    a = entry["anchor_value"]
+                    lo, hi = entry["stratum_range"]
+                    self.assertTrue(
+                        lo <= abs(a - 1000) <= hi,
+                        f"anchor {a} not in stratum {entry['stratum_id']}={entry['stratum_range']}",
+                    )
+
+    def test_relative_scheme_records_per_question_stratum_range(self) -> None:
+        # Two questions with very different GTs should yield different stratum_range
+        # bounds in their per-stratum entries.
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            ndir = root / "irrelevant_number"
+            ndir.mkdir()
+            for v in range(0, 5001, 5):
+                (ndir / f"{v}.png").write_bytes(b"png")
+            samples = [
+                {"question_id": 1, "image_id": 1, "question": "Q?",
+                 "image": root / "t.png", "ground_truth": "5", "answers": ["5"],
+                 "question_type": ""},
+                {"question_id": 2, "image_id": 2, "question": "Q?",
+                 "image": root / "t.png", "ground_truth": "1000", "answers": ["1000"],
+                 "question_type": ""},
+            ]
+            enriched = assign_stratified_anchors(samples, ndir, seed=0, scheme="relative")
+            ranges_q1 = [e["stratum_range"] for e in enriched[0]["anchor_strata"]]
+            ranges_q2 = [e["stratum_range"] for e in enriched[1]["anchor_strata"]]
+            self.assertNotEqual(ranges_q1, ranges_q2)
+            # GT=5 collapses to absolute bounds
+            self.assertEqual(ranges_q1[0], (0, 1))
+            # GT=1000 opens up
+            self.assertEqual(ranges_q2[0], (0, 100))
 
 
 if __name__ == "__main__":
