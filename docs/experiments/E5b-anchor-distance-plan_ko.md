@@ -123,6 +123,28 @@ VQAv2 config과 차이:
 
 ---
 
+## Task 9: E5b 두 dataset에 대해 end-to-end 실행
+
+영문 plan의 Task 9 그대로.
+
+요지:
+- VQAv2 distance config full 500 (~25분)
+- TallyQA distance config full 500 (~25분)
+- 각 3,000 records 산출 검증 (500 base × 6 conditions)
+- `outputs/`는 gitignored — commit 없음. 두 timestamp dir 이름 기록 (Task 10에서 필요).
+
+## Task 10: 분석 script + 재현 가능 notebook (executed outputs 포함)
+
+영문 plan의 Task 10 그대로. 코드 블록은 영문 그대로 사용.
+
+요지:
+- `scripts/analyze_e5b_distance.py` — heavy lifting (load → per-stratum stats with bootstrap CI → plots).
+- `scripts/build_e5b_notebook.py` — nbformat으로 notebook 구성.
+- `notebooks/E5b_anchor_distance.ipynb` — thin caller, 기존 E1b notebook 패턴.
+- 산출물: per_stratum CSV (`docs/insights/_data/`), figure 2개 (`docs/figures/`), executed notebook.
+- `jupyter nbconvert --execute --inplace`로 cell outputs 박아넣음.
+- 모든 code cell에 outputs 박혀있는지 검증.
+
 ## 최종 검증
 
 - [ ] **Step 1: Test suite green 확인**
@@ -132,11 +154,13 @@ Expected: 모든 test 통과 (기존 + Task 1–3에서 추가한 8개).
 
 - [ ] **Step 2: Commit log 깨끗한지 확인**
 
-Run: `git log --oneline -10`
-Expected: 새 commit 7개 (Task 1–7) + roadmap commit (Task 8). `git status` clean.
+Run: `git log --oneline -15`
+Expected: 새 commit 9개 (Task 1–6 source/config, Task 8 roadmap, Task 10 analysis+notebook). Task 7 (smoke), Task 9 (full run)은 output-only — commit 없음. `git status` clean.
 
 - [ ] **Step 3: 사용자에게 hand off**
 
-구현 완료. 사용자에게 반환. 실제 E5b 실행 (`uv run python scripts/run_experiment.py --config configs/experiment_distance_vqa.yaml` 후 `_tally.yaml`)은 ~50분 wall, 본 plan에 포함 안 됨 — 사용자가 launch 시점 결정.
-
-본 plan 외 follow-up: `notebooks/E5b_anchor_distance.ipynb` + `docs/experiments/E5b-anchor-distance.md` 결과 writeup. 실제 데이터 산출 후 진행 — placeholder가 아닌 실제 수치 위에서 분석.
+구현 + 실행 + 재현 notebook 모두 완료. 사용자에게 반환:
+- 추가된 commit 참조
+- Executed notebook 경로 (`notebooks/E5b_anchor_distance.ipynb`)
+- summary CSV의 headline 수치 (dataset별 peak direction-follow + 선택된 `d*` band)
+- 다음 단계 제안: notebook 검토 후 결과 writeup `docs/experiments/E5b-anchor-distance.md` (+ `_ko.md`) + distilled insight `docs/insights/E5b-anchor-distance-evidence.md` (+ `_ko.md`) 작성.
