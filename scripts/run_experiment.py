@@ -57,10 +57,21 @@ def main() -> None:
     # Modes: "stratified" (E5b) or anything else (legacy uniform sampling).
     anchor_sampling = cfg["inputs"].get("anchor_sampling", "uniform")
     if anchor_sampling == "stratified":
+        # E5c gates extra arms (masked anchors, neutral) behind an explicit
+        # cfg flag list; absent → behaves identically to E5b (6 conditions).
+        extras = cfg["inputs"].get("stratified_extras", [])
+        masked_dir_cfg = cfg["inputs"].get("irrelevant_number_masked_dir") if "masked" in extras else None
+        neutral_dir_cfg = cfg["inputs"].get("irrelevant_neutral_dir") if "neutral" in extras else None
         samples = assign_stratified_anchors(
             samples,
             irrelevant_number_dir=resolve_path(cfg["inputs"]["irrelevant_number_dir"], base_dir=project_root),
             seed=cfg["seed"],
+            irrelevant_number_masked_dir=(
+                resolve_path(masked_dir_cfg, base_dir=project_root) if masked_dir_cfg else None
+            ),
+            irrelevant_neutral_dir=(
+                resolve_path(neutral_dir_cfg, base_dir=project_root) if neutral_dir_cfg else None
+            ),
         )
     else:
         samples = assign_irrelevant_images(

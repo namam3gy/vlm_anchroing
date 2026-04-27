@@ -182,6 +182,8 @@ def assign_stratified_anchors(
     irrelevant_number_dir: str | Path,
     seed: int = 42,
     strata: list[tuple[int, int]] = ANCHOR_DISTANCE_STRATA,
+    irrelevant_number_masked_dir: str | Path | None = None,
+    irrelevant_neutral_dir: str | Path | None = None,
 ) -> list[dict]:
     """Per-question stratified anchor sampling.
 
@@ -192,6 +194,15 @@ def assign_stratified_anchors(
 
     Only integer-stem PNG files in `irrelevant_number_dir` are eligible.
     Decimal- or text-stem files are silently ignored.
+
+    If `irrelevant_number_masked_dir` is provided, each per-stratum entry
+    also gets an `irrelevant_number_masked_image` field — the path to
+    `<masked_dir>/{anchor_value}.png` if it exists, else None. The
+    `anchor_value` itself is unchanged.
+
+    If `irrelevant_neutral_dir` is provided, each output sample gets a
+    sample-level `irrelevant_neutral_image` field — a randomly-chosen
+    neutral image path drawn with the same seeded RNG.
     """
     # Pre-pass: validate every ground_truth before constructing the RNG, so
     # a mid-dataset failure does not leave the RNG advanced past earlier
@@ -217,6 +228,16 @@ def assign_stratified_anchors(
 
     inventory_values = sorted(inventory_by_value.keys())
 
+    masked_dir_path: Path | None = (
+        Path(irrelevant_number_masked_dir) if irrelevant_number_masked_dir is not None else None
+    )
+
+    neutral_images: list[Path] = []
+    if irrelevant_neutral_dir is not None:
+        neutral_images = list_images(irrelevant_neutral_dir)
+        if not neutral_images:
+            raise FileNotFoundError(f"No neutral images found in {irrelevant_neutral_dir}")
+
     enriched: list[dict] = []
     for sample in samples:
         gt = int(sample["ground_truth"])
@@ -229,15 +250,23 @@ def assign_stratified_anchors(
                 "anchor_value": value,
                 "irrelevant_number_image": str(inventory_by_value[value]) if value is not None else None,
             }
+            if masked_dir_path is not None:
+                masked_path: str | None = None
+                if value is not None:
+                    candidate = masked_dir_path / f"{value}.png"
+                    if candidate.exists():
+                        masked_path = str(candidate)
+                entry["irrelevant_number_masked_image"] = masked_path
             anchor_strata.append(entry)
-        enriched.append(
-            {
-                **sample,
-                "sample_instance_id": f"{sample['question_id']}_{sample['image_id']}_stratified",
-                "sample_instance_index": 0,
-                "anchor_strata": anchor_strata,
-            }
-        )
+        enriched_sample = {
+            **sample,
+            "sample_instance_id": f"{sample['question_id']}_{sample['image_id']}_stratified",
+            "sample_instance_index": 0,
+            "anchor_strata": anchor_strata,
+        }
+        if neutral_images:
+            enriched_sample["irrelevant_neutral_image"] = str(rng.choice(neutral_images))
+        enriched.append(enriched_sample)
     return enriched
 
 
@@ -269,6 +298,30 @@ def build_conditions(sample: dict) -> Iterator[dict]:
                 "irrelevant_type": "number",
                 "irrelevant_image": entry["irrelevant_number_image"],
                 "anchor_stratum_id": entry["stratum_id"],
+            }
+        for entry in sample["anchor_strata"]:
+            masked_image = entry.get("irrelevant_number_masked_image")
+            if not isinstance(masked_image, str):
+                continue
+            yield {
+                **sample,
+                "condition": f"target_plus_irrelevant_number_masked_{entry['stratum_id']}",
+                "input_images": [sample["image"], masked_image],
+                "anchor_value_for_metrics": str(entry["anchor_value"]),
+                "irrelevant_type": "number_masked",
+                "irrelevant_image": masked_image,
+                "anchor_stratum_id": entry["stratum_id"],
+            }
+        neutral_image = sample.get("irrelevant_neutral_image")
+        if isinstance(neutral_image, str):
+            yield {
+                **sample,
+                "condition": "target_plus_irrelevant_neutral",
+                "input_images": [sample["image"], neutral_image],
+                "anchor_value_for_metrics": None,
+                "irrelevant_type": "neutral",
+                "irrelevant_image": neutral_image,
+                "anchor_stratum_id": None,
             }
         return
 

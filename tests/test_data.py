@@ -354,5 +354,134 @@ class BuildConditionsStratifiedTest(unittest.TestCase):
         ])
 
 
+class BuildConditionsStratifiedExtendedTest(unittest.TestCase):
+    def test_emits_masked_and_neutral_when_present(self) -> None:
+        sample = {
+            "question_id": 1, "image_id": 1,
+            "question": "Q?", "image": Path("/tmp/t.png"),
+            "ground_truth": "3", "answers": ["3"], "question_type": "",
+            "sample_instance_id": "1_1_stratified", "sample_instance_index": 0,
+            "anchor_strata": [
+                {"stratum_id": "S1", "stratum_range": (0, 1), "anchor_value": 3,
+                 "irrelevant_number_image": "/tmp/3.png",
+                 "irrelevant_number_masked_image": "/tmp/3_masked.png"},
+                {"stratum_id": "S2", "stratum_range": (2, 5), "anchor_value": 7,
+                 "irrelevant_number_image": "/tmp/7.png",
+                 "irrelevant_number_masked_image": None},
+            ],
+            "irrelevant_neutral_image": "/tmp/neutral.png",
+        }
+        conds = list(build_conditions(sample))
+        names = [c["condition"] for c in conds]
+        self.assertIn("target_only", names)
+        self.assertIn("target_plus_irrelevant_number_S1", names)
+        self.assertIn("target_plus_irrelevant_number_masked_S1", names)
+        self.assertIn("target_plus_irrelevant_number_S2", names)
+        self.assertNotIn("target_plus_irrelevant_number_masked_S2", names)  # masked None → not emitted
+        self.assertIn("target_plus_irrelevant_neutral", names)
+        self.assertEqual(len(conds), 5)
+        masked_cond = next(c for c in conds if c["condition"] == "target_plus_irrelevant_number_masked_S1")
+        self.assertEqual(masked_cond["irrelevant_type"], "number_masked")
+        self.assertEqual(masked_cond["anchor_value_for_metrics"], "3")
+        self.assertEqual(masked_cond["anchor_stratum_id"], "S1")
+        neutral_cond = next(c for c in conds if c["condition"] == "target_plus_irrelevant_neutral")
+        self.assertEqual(neutral_cond["irrelevant_type"], "neutral")
+        self.assertIsNone(neutral_cond["anchor_value_for_metrics"])
+        self.assertIsNone(neutral_cond["anchor_stratum_id"])
+
+    def test_does_not_emit_masked_or_neutral_when_absent(self) -> None:
+        sample = {
+            "question_id": 1, "image_id": 1,
+            "question": "Q?", "image": Path("/tmp/t.png"),
+            "ground_truth": "3", "answers": ["3"], "question_type": "",
+            "anchor_strata": [
+                {"stratum_id": "S1", "stratum_range": (0, 1), "anchor_value": 3,
+                 "irrelevant_number_image": "/tmp/3.png"},
+            ],
+        }
+        conds = list(build_conditions(sample))
+        self.assertEqual(len(conds), 2)
+        self.assertEqual([c["condition"] for c in conds], ["target_only", "target_plus_irrelevant_number_S1"])
+
+
+class AssignStratifiedAnchorsExtendedTest(unittest.TestCase):
+    def test_attaches_masked_and_neutral_paths_when_dirs_provided(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            number_dir = root / "irrelevant_number"
+            masked_dir = root / "irrelevant_number_masked"
+            neutral_dir = root / "irrelevant_neutral"
+            for d in [number_dir, masked_dir, neutral_dir]:
+                d.mkdir()
+            for v in [0, 1, 2, 3, 4, 5, 10, 20, 100, 500]:
+                (number_dir / f"{v}.png").write_bytes(b"png")
+                (masked_dir / f"{v}.png").write_bytes(b"png")
+            (neutral_dir / "neutral_a.png").write_bytes(b"png")
+            (neutral_dir / "neutral_b.png").write_bytes(b"png")
+
+            samples = [{
+                "question_id": 1, "image_id": 1, "question": "Q?",
+                "image": root / "t.png", "ground_truth": "3", "answers": ["3"],
+                "question_type": "",
+            }]
+
+            enriched = assign_stratified_anchors(
+                samples,
+                irrelevant_number_dir=number_dir,
+                seed=42,
+                irrelevant_number_masked_dir=masked_dir,
+                irrelevant_neutral_dir=neutral_dir,
+            )
+            row = enriched[0]
+            for entry in row["anchor_strata"]:
+                if entry["anchor_value"] is not None:
+                    self.assertTrue(Path(entry["irrelevant_number_masked_image"]).exists())
+            self.assertIn(
+                row["irrelevant_neutral_image"],
+                [str(neutral_dir / "neutral_a.png"), str(neutral_dir / "neutral_b.png")],
+            )
+
+    def test_masked_path_is_none_when_inventory_missing(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            number_dir = root / "irrelevant_number"
+            masked_dir = root / "irrelevant_number_masked"
+            number_dir.mkdir()
+            masked_dir.mkdir()
+            for v in [0, 1, 2, 3, 4, 5, 10]:
+                (number_dir / f"{v}.png").write_bytes(b"png")
+            for v in [0, 1, 2, 3]:  # subset only
+                (masked_dir / f"{v}.png").write_bytes(b"png")
+
+            samples = [{
+                "question_id": 1, "image_id": 1, "question": "Q?",
+                "image": root / "t.png", "ground_truth": "3", "answers": ["3"],
+                "question_type": "",
+            }]
+
+            enriched = assign_stratified_anchors(
+                samples, irrelevant_number_dir=number_dir, seed=42,
+                irrelevant_number_masked_dir=masked_dir,
+            )
+            for entry in enriched[0]["anchor_strata"]:
+                if entry["irrelevant_number_masked_image"] is not None:
+                    self.assertTrue(Path(entry["irrelevant_number_masked_image"]).exists())
+
+    def test_neutral_omitted_when_dir_not_provided(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            number_dir = root / "irrelevant_number"
+            number_dir.mkdir()
+            for v in [0, 1, 2, 3]:
+                (number_dir / f"{v}.png").write_bytes(b"png")
+            samples = [{
+                "question_id": 1, "image_id": 1, "question": "Q?",
+                "image": root / "t.png", "ground_truth": "1", "answers": ["1"],
+                "question_type": "",
+            }]
+            enriched = assign_stratified_anchors(samples, irrelevant_number_dir=number_dir, seed=42)
+            self.assertNotIn("irrelevant_neutral_image", enriched[0])
+
+
 if __name__ == "__main__":
     unittest.main()
