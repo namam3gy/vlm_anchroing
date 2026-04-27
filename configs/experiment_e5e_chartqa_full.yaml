@@ -17,6 +17,8 @@ inputs:
 models:
   - name: llava-next-interleaved-7b
     hf_model: llava-hf/llava-interleave-qwen-7b-hf
+  - name: qwen2.5-vl-7b-instruct
+    hf_model: Qwen/Qwen2.5-VL-7B-Instruct
 
 sampling:
   temperature: 0.0
