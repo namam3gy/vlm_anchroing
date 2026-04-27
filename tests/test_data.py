@@ -321,6 +321,23 @@ class BuildConditionsStratifiedTest(unittest.TestCase):
         self.assertNotIn("target_plus_irrelevant_number_S2", condition_names)
         self.assertIn("target_plus_irrelevant_number_S3", condition_names)
 
+    def test_stratified_with_no_valid_anchors_yields_only_baseline(self) -> None:
+        # Covers two edge cases: empty anchor_strata, and all entries with
+        # anchor_value=None. Both should produce exactly one target_only record.
+        for strata in [[],
+                       [{"stratum_id": "S1", "stratum_range": (0, 1),
+                         "anchor_value": None, "irrelevant_number_image": None}]]:
+            sample = {
+                "question_id": 1, "image_id": 1,
+                "question": "Q?", "image": Path("/tmp/t.png"),
+                "ground_truth": "3", "answers": ["3"], "question_type": "",
+                "anchor_strata": strata,
+            }
+            conds = list(build_conditions(sample))
+            self.assertEqual(len(conds), 1)
+            self.assertEqual(conds[0]["condition"], "target_only")
+            self.assertIsNone(conds[0]["anchor_stratum_id"])
+
     def test_legacy_sample_without_anchor_strata_yields_three_conditions(self) -> None:
         sample = {
             "question_id": 1, "image_id": 1,

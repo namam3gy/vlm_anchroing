@@ -242,6 +242,12 @@ def assign_stratified_anchors(
 
 
 def build_conditions(sample: dict) -> Iterator[dict]:
+    """Yield per-condition dicts for one sample.
+
+    If `sample` carries `anchor_strata` (output of `assign_stratified_anchors`),
+    yields target_only + one condition per non-None stratum (E5b mode). Otherwise
+    yields the legacy 3 conditions (target_only + irrelevant_number + irrelevant_neutral).
+    """
     if "anchor_strata" in sample:
         yield {
             **sample,
