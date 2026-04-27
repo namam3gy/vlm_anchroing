@@ -165,6 +165,14 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--start", type=int, default=1, help="First number to generate.")
     parser.add_argument("--end", type=int, default=100, help="Last number to generate.")
+    parser.add_argument(
+        "--numbers",
+        default=None,
+        help=(
+            "Comma-separated explicit list of integers to generate (overrides "
+            "--start/--end). Example: '9,10,15,20,100,200'."
+        ),
+    )
     parser.add_argument("--width", type=int, default=None, help="Output width. Defaults depend on the model family.")
     parser.add_argument("--height", type=int, default=None, help="Output height. Defaults depend on the model family.")
     parser.add_argument(
@@ -180,6 +188,15 @@ def parse_args() -> argparse.Namespace:
         help="Classifier-free guidance scale. Defaults depend on the backend/model family.",
     )
     parser.add_argument("--seed-base", type=int, default=1729, help="Per-image seed is seed_base + number.")
+    parser.add_argument(
+        "--scene-offset",
+        type=int,
+        default=0,
+        help=(
+            "Shift scene-template selection by this amount (mod len(SCENE_TEMPLATES)). "
+            "Useful when retrying a stubborn number on a different scene."
+        ),
+    )
     parser.add_argument("--timeout-seconds", type=float, default=180.0)
     parser.add_argument("--sleep-seconds", type=float, default=0.0, help="Pause between generated images.")
     parser.add_argument("--max-retries", type=int, default=6)
@@ -288,9 +305,9 @@ def build_render_config(args: argparse.Namespace) -> RenderConfig:
     )
 
 
-def build_prompt(number: int, seed_base: int) -> str:
+def build_prompt(number: int, seed_base: int, scene_offset: int = 0) -> str:
     rng = random.Random(seed_base + number)
-    scene = SCENE_TEMPLATES[(number - 1) % len(SCENE_TEMPLATES)]
+    scene = SCENE_TEMPLATES[(number - 1 + scene_offset) % len(SCENE_TEMPLATES)]
     style = rng.choice(STYLE_MODIFIERS)
     colors = rng.choice(COLOR_MODIFIERS)
     return (
@@ -458,8 +475,17 @@ def save_png(image_bytes: bytes, target: Path) -> None:
 
 def main() -> None:
     args = parse_args()
-    if args.start < 0 or args.end < args.start:
-        raise SystemExit("--start and --end must define a valid inclusive range with start >= 1.")
+    if args.numbers is not None:
+        try:
+            numbers = sorted({int(x) for x in args.numbers.split(",") if x.strip()})
+        except ValueError as exc:
+            raise SystemExit(f"--numbers must be a comma-separated list of integers: {exc}")
+        if not numbers:
+            raise SystemExit("--numbers must contain at least one integer.")
+    else:
+        if args.start < 0 or args.end < args.start:
+            raise SystemExit("--start and --end must define a valid inclusive range with start >= 1.")
+        numbers = list(range(args.start, args.end + 1))
 
     args.output_dir.mkdir(parents=True, exist_ok=True)
     render_config = build_render_config(args)
@@ -475,12 +501,11 @@ def main() -> None:
         diffusers_renderer = DiffusersRenderer(render_config)
 
     try:
-        for number in tqdm(
-                range(args.start, args.end + 1), 
-                desc="Generating number images"
-            ):
+        for number in tqdm(numbers, desc="Generating number images"):
             target = args.output_dir / f"{number}.png"
-            prompt = build_prompt(number=number, seed_base=args.seed_base)
+            prompt = build_prompt(
+                number=number, seed_base=args.seed_base, scene_offset=args.scene_offset
+            )
 
             if args.dry_run:
                 print(f"{number}: {prompt}")
