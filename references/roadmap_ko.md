@@ -69,16 +69,16 @@ Standard prompt, VQAv2 number subset, 모델당 17,730 샘플. `direction_follow
 
 | Model | acc(target_only) | acc(neutral) | acc(number) | adoption(number) | direction_follow(number) | mean dist→anchor |
 |---|---:|---:|---:|---:|---:|---:|
-| gemma4-e4b | 0.553 | 0.505 | 0.541 | 0.123 | 0.320 | 4.17 |
-| llava-interleave-7b | 0.619 | 0.577 | 0.576 | 0.134 | 0.348 | 3.20 |
-| gemma3-27b-it | 0.628 | 0.623 | 0.633 | 0.141 | 0.305 | 4.45 |
-| qwen2.5-vl-7b | 0.736 | 0.708 | 0.711 | 0.110 | 0.248 | 5.03 |
-| qwen3-vl-8b | 0.751 | 0.709 | 0.715 | 0.127 | 0.258 | 3.43 |
-| gemma4-31b-it | 0.749 | 0.723 | 0.741 | 0.116 | 0.239 | 6.16 |
-| qwen3-vl-30b-it | 0.759 | 0.709 | 0.707 | 0.120 | 0.280 | 3.70 |
+| gemma4-e4b | 0.553 | 0.505 | 0.541 | 0.059 | 0.320 | 4.17 |
+| llava-interleave-7b | 0.619 | 0.577 | 0.576 | 0.047 | 0.348 | 3.20 |
+| gemma3-27b-it | 0.628 | 0.623 | 0.633 | 0.047 | 0.305 | 4.45 |
+| qwen2.5-vl-7b | 0.736 | 0.708 | 0.711 | 0.019 | 0.248 | 5.03 |
+| qwen3-vl-8b | 0.751 | 0.709 | 0.715 | 0.029 | 0.258 | 3.43 |
+| gemma4-31b-it | 0.749 | 0.723 | 0.741 | 0.021 | 0.239 | 6.16 |
+| qwen3-vl-30b-it | 0.759 | 0.709 | 0.707 | 0.034 | 0.280 | 3.70 |
 
 추가 분석 없이 즉시 보이는 두 패턴:
-1. **Direction-follow ≈ 24–35 %** 인데 adoption (anchor와 정확히 같음)은 11–14 %에 그침. Bias가 *gradient*이지 categorical이 아님 — 대부분 케이스가 anchor "쪽으로 끌려"가지 anchor "로 setting"되지 않음. anchoring effect가 남길 정확히 그 signature.
+1. **Direction-follow ≈ 24–35 %** 인데 paired anchor adoption은 **2–6 %** 에 그침. Bias가 *gradient*이지 categorical이 아님 — 대부분 케이스가 anchor "쪽으로 끌려"가지 anchor "로 setting"되지 않음. Paired 정의 (M1) 가 marginal 정의 (GT==anchor confound로 adoption 을 11–14 %로 부풀렸던) 대비 이 gap을 더욱 벌려 gradient-pull reading을 강화.
 2. **강한 모델일수록 direction-follow는 *덜***, 그러나 anchor digit 채택률은 비슷. Lou & Sun (2024) "stronger LLMs anchor more"의 반대 — 단정 전에 per-pair 재분석 필요.
 
 ### 3.5 Strengthen-prompt anomaly (preliminary)
@@ -110,6 +110,12 @@ Standard prompt, VQAv2 number subset, 모델당 17,730 샘플. `direction_follow
 **Phase A 산출물:** insight 파일 4개 (`00-summary.md`, `A1-…`, `A2-…`, `A7-…`) + numeric artifact `docs/insights/_data/`. A3/A4/A5/A6는 자체 writeup이 안 나올 정도 signal이라 summary에 흡수. 7개 분석 모두 단일 스크립트에서 돌림: `scripts/phase_a_data_mining.py`.
 
 ## 6. Phase B 이후 — 신규 실험
+
+### 대기 중인 리팩터 (Tier 2 진입 전 필수)
+
+| ID | Task | 왜 중요 | Status |
+|---|---|---|---|
+| **M1** | **Paired adoption metric 리팩터.** 현재 marginal `anchor_adopted = (pred == anchor_value)` (`src/vlm_anchor/metrics.py:40`)을 paired `(base_pred ≠ anchor_value) AND (pred == anchor_value)`로 교체. GT==anchor confound 제거: 현 정의는 `GT == anchor == pred` 케이스도 adoption으로 카운트하고, E5b stratum 1 `(0,1)`은 `\|a − gt\| = 0` 자체를 허용하며, main-run anchor inventory 0–9 vs GT support 0–8은 9/10 overlap. 구현: `evaluate_sample`에 `base_prediction` 인자 추가; runner는 sample-instance마다 `target_only`를 먼저 돌리고 그 prediction을 number/neutral 평가에 전달; `summarize_condition` mean shape 보존 (binary label 그대로 → rate처럼 읽힘). 완료된 run은 raw `predictions.jsonl`에서 재집계 (재추론 X). Marginal column 폐기 (raw `prediction` 보존 → downstream 재유도 가능). | §3.4 / Phase A / E1 / E4 mitigation 테이블의 모든 공개 수치가 의존. §6 Tier 2 hardening(E5/E7)이 공개 수치를 다시 만지기 전에 반드시 착륙. **세션 간 조율:** `metrics.py` 또는 `models.py` runner 순서를 동시 수정하는 작업은 M1과 정렬할 것. | ✅ landed (commits bbcc418..ce1928a; 54 dir 재집계 완료) |
 
 ### Tier 1 (Main-tier acceptance에 결정적, `references/project.md` 권고)
 
@@ -179,6 +185,7 @@ research/
 - **`fastvlm-7b` 산문 출력** — JSON-only prompt에도 자주 산문 출력. `extract_first_number`가 대부분 살리지만 parse 실패율 0이 아님; 명시적으로 보고.
 - **공유 GPU** — 같은 머신에서 vLLM `Qwen2.5-32B` 서버가 port 8000 (~55 % VRAM) 사용 중. 본 프로젝트의 효과적 per-GPU 예산 ≈ 60 GB.
 - **Citation hygiene** — `references/project.md`가 일부 2026 arXiv ID는 resolve 안 될 가능성 flag. 제출 전 cite 검증.
+- **`anchor_adopted`는 이제 paired (M1 landed 2026-04-27)** — `(base_pred ≠ anchor) AND (pred == anchor)`. M1 이전 marginal 정의 (`pred == anchor_value`만 보고 base prediction 무관)는 `GT == anchor == pred` 케이스를 adoption 으로 카운트하던 문제 — 특히 E5b stratum 1 `(0,1)`, main-run anchor 0–9 vs GT 0–8 9/10 overlap에서 가시 — 때문에 폐기. 기존 54개 predictions.jsonl 모두 `scripts/reaggregate_paired_adoption.py`로 재집계; 원본 marginal-era artefact는 `*.marginal.bak.*`로 보존.
 
 ## 10. Changelog
 
@@ -195,3 +202,5 @@ research/
 - **2026-04-25** — **E1d 인과 anchor-attention ablation 6-모델 패널 완료.** Driver `scripts/causal_anchor_ablation.py`, 분석 `scripts/analyze_causal_ablation.py`, 모델당 n=200 stratified, 7가지 ablation mode (`baseline`, `ablate_layer0`, `ablate_peak`, `ablate_peak_window`, `ablate_lower_half`, `ablate_upper_half`, `ablate_all`). **세 가지 발견.** (i) **단일-layer ablation은 6/6 모델 모두 null — E1b peak에서도, layer 0에서도** (peak에서 `Δ direction_follow ∈ [−0.032, +0.020]`, layer 0에서 `[−0.027, +0.005]`; 모든 CI가 baseline과 겹침). Layer-0 control이 (b) "peak이 상관관계이고 다른 단일 layer가 인과 site" 해석을 배제 — Gemma (E1b가 L0–4 anchor↔target swap을 보고했던 모델)에서도 (Gemma layer-0 Δ = +0.005). Multi-layer redundancy 확인: anchor의 효과가 LLM stack 전체에 redundant하게 인코딩되어 있어 어떤 단일-layer attention-mask ablation도 답을 변경하지 않음. (ii) **Stack 전체 ablation은 보편적으로 `direction_follow`을 11–22 pp 감소시키지만 3/6에서 fluency 깨뜨림** (Gemma/LLaVA-1.5/ConvLLaVA에서 mean-distance 4–6× 폭발, FastVLM에서 ~3 자릿수). 11–22 pp drop은 인과 anchor pathway의 *upper bound*이지 target이 아님. (iii) **Upper-half attention ablation이 단일 architecture-blind mitigation locus** — 6/6에서 direction-follow 감소 (−5.5 ~ −11.5 pp), 4/6에서 fluency 청결 (mid-stack cluster + Qwen). Mid-stack cluster가 가장 leverage 높은 E4 prototype target — 세 encoder, 한 공유 upper-half-clean 반응. **Caveat sub-finding:** ConvLLaVA와 LLaVA-1.5가 같은 E1b peak/메커니즘 공유에도 불구하고 lower-half ablation에 *반대로* 반응 (ConvLLaVA Δ = −0.120, LLaVA-1.5 Δ = +0.165) — same-attention-signature가 same-causal-structure를 함의하지 않음. **Roadmap 효과:** §6 E1 행 "causal test" open question close; §6 E4 행은 mid-stack cluster의 upper-half multi-layer prototype 명시, single-layer 배제로 갱신. 새 open question: head-level sparsity; multi-layer combinatorial ablation. Writeup: `docs/experiments/E1d-causal-ablation.md` (+ _ko mirror), `docs/insights/E1d-causal-evidence.md` (+ _ko mirror).
 - **2026-04-25** — **E4 Phase 1 strength-sweep 시작; llava-1.5-7b 완료.** Driver `scripts/e4_attention_reweighting.py`, 분석 `scripts/analyze_e4_mitigation.py`, n=200 stratified, strength 7개 × 조건 3개 = 모델당 4,200 records. **llava-1.5-7b:** 베이스라인 df_num=0.305 → s=−3.0 df_num=0.265 (−13 % 상대; ≥ 10 % 타깃 만족); em_num 0.365 → 0.370 at s=−3.0 (≤ 2 pp 예산 안), 포화에서 (s=−10⁴) 0.395로 상승; em(target_only)이 모든 strength에서 0.435로 불변 — hook이 anchor-condition-specific (single-image 추론에 leakage 없음). **convllava-7b** sweep GPU 0에서 진행 중 (15:25 시점 ≈ 60 % 완료), partial 베이스라인 df_num=0.126 (llava보다 낮음 — 이 stratified 세트에서 convllava가 더 anchor-resistant), em_num=0.563 (더 높음); convllava의 효과 크기는 절대값으로 더 작을 것. **internvl3-8b** 대기. 3 sweep 완료 후 Phase 2 풀 스케일 (n=17,730 × 조건 3 × mode 2 ≈ target_only-skip 최적화 후 88 k generations) 우선순위 (advisor 기준 llava-1.5-7b 우선 — E1d 시그널 가장 깨끗, caveat 없음). Phase 2 design은 resumable (append-only JSONL + completed-key skip)이라 12-h 세션 경계를 넘어 계속 진행 가능. Writeup: `docs/experiments/E4-mitigation.md` (+ `_ko.md`), `docs/insights/E4-mitigation-evidence.md` (+ `_ko.md`); 둘 다 풀 검증 land 전까지 "Phase 1 in progress"로 flag.
 - **2026-04-27** — **E5b 설계 + plan commit; pipeline 구현 및 smoke validated.** Anchor-distance robustness sweep을 E5의 새 sub-experiment으로 추가. Stratified anchor sampling (5 strata by `|a − GT|`: [0,1] / [2,5] / [6,30] / [31,300] / [301,∞)), TallyQA + VQAv2 dataset당 500 base questions, llava-interleave-7b 단독. 새 driver path는 YAML의 `inputs.anchor_sampling: stratified`로 진입; legacy 3-condition path 그대로 유지 (5-sample smoke로 regression test). 3개 smoke run (VQAv2 stratified / TallyQA stratified / legacy) 모두 통과: stratum별 평균 distance가 S1<S2<S3<S4<<S5로 monotonic 증가, condition counter 정확, `anchor_stratum_id` field 존재 (legacy row에선 None). Specs: `docs/experiments/E5b-anchor-distance-design.md` (+ _ko mirror), plan: `docs/experiments/E5b-anchor-distance-plan.md` (+ _ko mirror). Full run (T9) 과 reproducible notebook (T10) 예정.
+- **2026-04-27** — **M1 추가: §6 대기 중인 리팩터 — paired adoption metric.** `anchor_adopted = (pred == anchor_value)` (`src/vlm_anchor/metrics.py:40`)이 base 조건 prediction을 무시하여 `GT == anchor == pred` 케이스도 adoption으로 카운트 — anchor inventory가 GT support와 overlap하는 모든 곳에서 비율을 silently 부풀림 (E5b stratum 1 `(0,1)`이 `\|a − gt\| = 0` 자체를 허용; main run anchor 0–9 vs GT 0–8 = 9/10 overlap). Paired `(base_pred ≠ anchor_value) AND (pred == anchor_value)`로 교체: `evaluate_sample`에 `base_prediction` 인자 추가, runner는 sample-instance마다 `target_only` 먼저 돌리고 그 pred를 number/neutral 평가에 전달, `summarize_condition` mean shape 보존 (binary label → rate처럼 읽힘). 완료된 run은 raw `predictions.{jsonl,csv}`에서 모델별 재집계 (재추론 X); raw `prediction` 컬럼 보존이라 downstream 재유도 가능. Marginal 정의 폐기, paired로 단일화. M1은 §6 Tier 2 hardening(E5/E7)이 §3.4 / Phase A / E1 / E4 공개 수치를 다시 만지기 전에 반드시 착륙. **세션 간 노트:** `metrics.py` 또는 `models.py` runner 순서를 동시 수정하는 작업은 이 리팩터와 정렬할 것 — §9 caveat 참조.
+- **2026-04-27** — **M1 landed: paired anchor-adoption metric.** `evaluate_sample` 이 이제 `base_prediction` 을 require하고 `anchor_adopted = (base_pred ≠ anchor) AND (pred == anchor)` 계산 (commit `bbcc418`). Driver는 sample-instance 마다 target_only 의 parsed prediction을 다음 conditions에 thread (`9c07f2e`). 일회성 `scripts/reaggregate_paired_adoption.py` (`220dc4b`, ablation/e4 schema 위해 `ce1928a`로 확장) 가 기존 54개 predictions.jsonl 모두에서 adoption 재계산 (35 standard + 13 causal_ablation + 6 e4_mitigation) — re-inference 불필요; raw prediction 보존. §3.4 헤드라인 paired adoption rate: 0.019–0.059 (이전 marginal 0.110–0.141 대비 ~75–90 % 상대 감소). direction-follow 와 accuracy 는 변동 없음. Stale smoke-only output dir 삭제 (`experiment_tallyqa`, `experiment_mathvista`, `experiment_smoke_check`, ChartQA 5-sample smoke). §6 Pending refactors의 M1 status → ✅. 이제 Tier 2 hardening (E5/E5b/E7) 가 metric drift 없이 진행 가능.
