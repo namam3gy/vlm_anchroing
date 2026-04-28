@@ -25,3 +25,9 @@ outputs/
 
 # Claude Code local settings
 .claude/
+
+# Generated paper-summary deliverables (regenerable from scripts/build_paper_pptx.js)
+docs/figures/paper_summary.pdf
+docs/figures/paper_summary.pptx
+docs/figures/slide-*.jpg
+
