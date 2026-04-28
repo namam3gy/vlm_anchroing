@@ -2,6 +2,14 @@
 
 **Status:** Phase-A finding. Robust across all 7 models. Strongest single hook for the EMNLP write-up. Source data: `_data/A1_asymmetric_long.csv`, `_data/A1_asymmetric_wide.csv`. Script: `scripts/phase_a_data_mining.py::a1_asymmetric_on_wrong`.
 
+> **2026-04-28 verification.** Phase A re-run on the C-form re-aggregated
+> `outputs/experiment/`. Cited numbers below (adoption gap, moved-closer
+> gap, per-model wrong−correct deltas) are **unchanged within ±0.1 pp**
+> — Phase A's headline metrics (`adoption_rate`, `moved_closer_rate`)
+> are independent of the `direction_follow` numerator that the C-form
+> refactor changed. The +6.9 to +19.6 pp wrong−correct range and the
+> per-model ranking both survive untouched.
+
 ## The question
 
 `references/project.md` flagged "stronger anchoring on items the model originally got wrong" as the paper's strongest intellectual hook — none of the LLM/VLM anchoring literature partitions effects by prior correctness, and Mussweiler-Strack / Jacowitz-Kahneman both predict that anchoring scales with subjective uncertainty. **Does it hold?** The pre-stated falsifier (in `references/roadmap.md` §2 H2): if `adoption(wrong)` ≈ `adoption(correct)`, H2 fails.

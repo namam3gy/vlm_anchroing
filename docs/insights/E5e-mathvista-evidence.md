@@ -63,99 +63,110 @@ graded, not categorical.
 - Wall on H200 (GPU 0): llava ~7 min, qwen ~14 min, gemma3-27b ~24 min,
   total ~45 min.
 
-## 2. Per-model headline (S1 anchor arm — all-base)
+## 2. Per-model headline (S1 anchor arm — all-base, C-form)
 
-| model | n | acc(b) | acc(a) | acc(m) | adopt(a)_M2 | adopt(m)_M2 | df(a)_M2 | df(a)_raw |
+| model | n | acc(b) | acc(a) | acc(m) | adopt(a) | adopt(m) | df(a) C-form | df(m) C-form |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
-| llava-next-interleaved-7b | 385 / 365 | 0.086 | 0.094 | 0.080 | 0.055 | 0.025 | 0.000 | 0.238 |
-| qwen2.5-vl-7b-instruct | 385 / 365 | 0.204 | 0.203 | 0.213 | 0.014 | 0.005 | 0.000 | 0.149 |
-| gemma3-27b-it | 385 / 365 | 0.141 | _TBD_ | _TBD_ | **0.121** | _TBD_ | 0.000 | _TBD_ |
+| llava-next-interleaved-7b | 385 / 365 | 0.086 | 0.094 | 0.080 | 0.066 | 0.030 | 0.205 | 0.125 |
+| qwen2.5-vl-7b-instruct | 385 / 365 | 0.203 | 0.203 | 0.213 | 0.020 | 0.008 | 0.072 | 0.041 |
+| **gemma3-27b-it** | 385 / 365 | 0.141 | 0.162 | 0.149 | **0.176** | 0.047 | **0.216** | 0.134 |
 
 (All-base adopt is dominated by wrong-base records; see §3 for the split.)
 
-## 3. Wrong-base / correct-base split
+## 3. Wrong-base / correct-base split (C-form)
 
-The headline finding lives here. Wrong-base S1 anchor arm `adopt_rate` (M2):
+The headline finding lives here. Wrong-base S1 anchor arm rates from
+`docs/insights/_data/experiment_e5e_mathvista_full_per_cell.csv`:
 
-| model | n_wrong | adopt(a) wrong | adopt(a) correct | wrong − correct gap |
-|---|---:|---:|---:|---:|
-| **gemma3-27b-it** | 211 | **0.194** | 0.052 | **+14.2 pp** |
-| llava-next-interleaved-7b | 270 | 0.059 | 0.042 | +1.7 pp |
-| qwen2.5-vl-7b-instruct | 139 | 0.022 | 0.009 | +1.3 pp |
+| model | n_wrong | adopt(a) wrong | adopt(a) correct | wrong − correct gap | df(a) wrong C-form |
+|---|---:|---:|---:|---:|---:|
+| **gemma3-27b-it** | 211 | **0.230** | 0.079 | **+15.1 pp** | **0.332** |
+| llava-next-interleaved-7b | 270 | 0.065 | 0.070 | −0.5 pp | 0.266 |
+| qwen2.5-vl-7b-instruct | 139 | 0.026 | 0.014 | +1.2 pp | 0.162 |
 
-`exact_match` on wrong-base anchor arm is below 0.1 on every model — the
-wrong-base subset really is the model's least-confident records.
+`exact_match` on wrong-base anchor arm: 0.05–0.18 — the wrong-base
+subset is the model's least-confident records.
 
-## 4. Digit-pixel causality (anchor − masked)
+## 4. Digit-pixel causality (anchor − masked, wrong-base S1, C-form)
 
-Wrong-base S1, M2 `adopt_rate`:
-
-| model | adopt(a) | adopt(m) | gap (a − m) |
+| model | adopt(a) wrong | adopt(m) wrong | gap (a − m) |
 |---|---:|---:|---:|
-| **gemma3-27b-it** | 0.194 | 0.043 | **+15.2 pp** |
-| llava-next-interleaved-7b | 0.059 | 0.019 | +4.1 pp |
-| qwen2.5-vl-7b-instruct | 0.022 | 0.014 | +0.7 pp |
+| **gemma3-27b-it** | 0.230 | 0.051 | **+17.9 pp** |
+| llava-next-interleaved-7b | 0.065 | 0.020 | +4.5 pp |
+| qwen2.5-vl-7b-instruct | 0.026 | 0.014 | +1.2 pp |
 
-3/3 models preserve `a > m` on wrong-base S1. Magnitudes differ by 20×
-across the panel (qwen 0.7 pp vs gemma 15.2 pp). The digit-pixel-specific
-contribution is robust on cross-model panel; the *size* of that
-contribution scales with the model's overall susceptibility (gemma3-27b
-≫ llava ≫ qwen on this dataset).
+3/3 models preserve `a > m` on wrong-base S1. The digit-pixel-specific
+contribution scales with the model's overall susceptibility
+(gemma3-27b ≫ llava ≫ qwen on this dataset).
 
-## 5. The "answer-locked" regime — `direction_follow_rate = 0` everywhere
+## 5. Graded movement is real on MathVista — earlier "categorical-only" was a driver-bug artefact
 
-`direction_follow_rate` (M2, requires `pa != pb`) is **exactly 0 on every
-model on every condition**. Reading: when the model is exposed to the
-anchor, it either:
+The 2026-04-29 first pass reported `direction_follow_rate (M2) = 0` on every
+model on every condition and concluded MathVista was the
+"categorical-replace" regime — anchor either replaces outright or doesn't
+move pa at all. **That conclusion was wrong**: it followed from the
+driver schema gap (`run_experiment.py` not threading
+`anchor_direction_followed_moved` into the row dict; `summarize_condition`
+defaulting the missing flag to 0). After the C-form refactor + reaggregate
+sweep, MathVista shows clearly non-zero direction-follow with a clean
+graded structure:
 
-- (i) replaces its base prediction with the anchor value (= adopt event), OR
-- (ii) keeps its base prediction unchanged (`pa == pb`).
+| dataset | model | df(a) C-form | adopt(a) |
+|---|---|---:|---:|
+| VQAv2 main | gemma4-e4b | 0.274 | 0.066 |
+| VQAv2 main | llava-interleave | 0.172 | 0.053 |
+| ChartQA E5e | gemma3-27b | 0.073 | 0.037 |
+| TallyQA E5e | llava-interleave | 0.078 | 0.020 |
+| **MathVista γ-α** | **gemma3-27b** | **0.216** | **0.176** |
+| **MathVista γ-α** | **llava-interleave** | 0.205 | 0.066 |
+| **MathVista γ-α** | **qwen2.5-vl** | 0.072 | 0.020 |
 
-There is essentially no third bucket of "moved toward anchor but didn't
-reach it". Compare to VQAv2 / TallyQA / ChartQA:
+**MathVista is the strongest single dataset for adopt(a) AND a top-tier
+dataset for df(a)**, simultaneously. The graded-movement layer co-exists
+with the adoption layer; both are present.
 
-| dataset | model | df(a) M2 | df(a) raw | adopt(a) |
-|---|---|---:|---:|---:|
-| VQAv2 main | gemma4-e4b | 0.193 | 0.320 | 0.066 |
-| VQAv2 main | llava-interleave | 0.145 | 0.349 | 0.053 |
-| ChartQA E5e | gemma3-27b | 0.057 | 0.140 | 0.037 |
-| TallyQA E5e | llava-interleave | 0.047 | _TBD_ | 0.026 |
-| **MathVista γ-α** | **gemma3-27b** | **0.000** | _TBD_ | **0.121** |
-| **MathVista γ-α** | **llava-interleave** | **0.000** | 0.238 | 0.055 |
-| **MathVista γ-α** | **qwen2.5-vl** | **0.000** | 0.149 | 0.014 |
+## 6. γ-β: reasoning amplifies anchor pull (Qwen3-VL-8B Instruct vs. Thinking)
 
-MathVista is the only dataset where df(M2) = 0 universally. The non-zero
-`df(a)_raw` reflects pairs where `pa = pb` and both happen to be on the
-anchor side of GT (model is "wrong in the anchor's direction" without
-the anchor having moved it). The M2 `pa != pb` filter cleanly separates
-this artifact from genuine direction-follow.
+γ-β tests whether reasoning-mode (chain-of-thought) suppresses or
+amplifies the cross-modal anchor effect. The pair is `Qwen3-VL-8B-Instruct`
+(thinking-off) vs. `Qwen3-VL-8B-Thinking` (separately-trained
+reasoning-mode checkpoint, Apache-2.0). Same architecture, same chat
+template, same 4-condition stimuli. Source:
+`outputs/experiment_e5e_mathvista_reasoning/qwen3-vl-8b-{instruct,thinking}/20260428-114421/`,
+post-C-form reaggregate.
 
-## 6. Implications for §5 of the paper
+| model | acc(b) | acc(a) | acc(m) | adopt(a) | adopt(m) | df(a) C-form | df(m) C-form |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| qwen3-vl-8b-instruct | 0.216 | 0.218 | 0.220 | 0.074 | 0.030 | 0.102 | 0.069 |
+| **qwen3-vl-8b-thinking** | 0.196 | 0.202 | 0.196 | **0.117** | 0.032 | **0.291** | 0.237 |
 
-### 6.1 The "graded vs. categorical" axis
+**Thinking amplifies anchor pull on every metric**: adopt ×1.6,
+df ×2.9 (thinking ÷ instruct). Anchor > masked digit-pixel causality
+preserved on both models. acc(b) is *lower* on thinking (0.196 vs 0.216)
+— reasoning trace doesn't gain accuracy on this panel; it just loses
+anchor robustness.
 
-Two regimes of cross-modal anchoring emerge:
+This is the strongest single reasoning-amplifies-bias finding in our
+panel and an empirical confirmation of the VLMBias / Wang
+LRM-judging direction (text-only reasoning models can be *more* biased
+than their non-reasoning counterparts; H4 lands on the *amplification*
+side, not the *suppression* side).
 
-- **Graded-tilt regime** (VQAv2, TallyQA, ChartQA): model has multiple
-  plausible answers; anchor *tilts* the search direction;
-  `direction_follow_rate (M2)` substantial; `adopt_rate` modest.
-- **Categorical-replace regime** (MathVista): model commits to a
-  canonical numeric answer; anchor either *replaces* outright or has
-  no effect; `df(M2) = 0`; `adopt_rate` is the entire effect.
+## 7. Implications for §5 / §6 / §8 of the paper
 
-This is a paper-grade cross-dataset finding for §5. The
-plausibility-window (S1 > S5 distance decay) hypothesis still applies
-on the *adoption side*: γ-α uses S1-only sampling, so we don't directly
-verify the decay, but E5d's diffuse pattern is now interpretable as a
-genuine model behaviour where the model retains very few plausible
-alternatives — once the anchor is plausible at all (even at far
-distance), it can replace, but only on items where the base is wrong.
+### 7.1 §5 — graded-movement claim survives on MathVista
 
-### 6.2 gemma3-27b on MathVista — strongest panel cell
+The earlier "categorical-replace" reading is retracted. MathVista
+contributes both a strong adoption signal AND a strong direction-follow
+signal — the dataset where anchoring is largest, not where
+graded-movement is absent. The §5 cross-dataset cross-model panel is
+strengthened, not split.
 
-`adopt_rate(wrong-base, S1) = 0.194` for gemma3-27b-it on MathVista is
-the largest single cell we have. Plausible drivers (to disambiguate in
-follow-up):
+### 7.2 gemma3-27b on MathVista — strongest panel cell
+
+Wrong-base S1 `adopt(a) = 0.230` and `df(a) = 0.332` for gemma3-27b-it
+on MathVista are the largest single cells we have. Plausible drivers
+(testable in follow-up):
 
 - gemma3-27b's higher overall accuracy may correlate with wrong-base
   records being *more cleanly delineated* — the records the model gets
@@ -163,25 +174,41 @@ follow-up):
 - MathVista's reasoning-style prompts may admit more "if I were given a
   hint, the hint is the answer" priors than counting-style VQAv2 /
   TallyQA prompts.
-- Gemma3-27b's SigLIP encoder, which we identified in E1b as having
-  early-layer text-stealing (peak L5/42), may be especially susceptible
-  to in-image rendered digits.
+- Gemma3-27b's SigLIP encoder, which E1b identified as having early-layer
+  text-stealing (peak L5/42), may be especially susceptible to in-image
+  rendered digits — testable via E1-patch (gemma4-e4b is the same
+  SigLIP family).
 
-The third hypothesis is testable in the upcoming E1-patch dump (which
-includes gemma4-e4b — same SigLIP family) once γ-β reasoning-mode also
-adds clarity.
+### 7.3 §6 — graded-tilt vs adoption decomposed
 
-## 7. Caveats
+L1's confidence-quartile result (entropy_top_k Q4-Q1 mean +0.152 on
+df(a) under C-form, 23/35 cells fully monotone) explains why MathVista
+shows substantial direction-follow alongside adoption: MathVista's
+wrong-base subset is the highest-entropy cohort the panel has, and §6
+predicts highest-entropy cohorts get the largest graded pull. γ-β
+strengthens this: thinking lowers acc(b) (= raises mean entropy) and
+df(a) rises in lockstep (×2.9).
 
-- Single-prompt run; no paraphrase robustness on γ-α.
-- 3-model panel is narrow; γ-β (reasoning-mode) is a separate test of
-  the categorical-replace reading.
-- The MathVista smoke-run residue (n=5) appears in the per-cell CSV
-  alongside the full run for `llava-next-interleaved-7b`. Filter by
-  `n >= 100` when reading downstream.
-- Direction-follow at exactly 0 is striking — confirmed by checking
-  individual `predictions.jsonl` rows (the model produces the same
-  digit string under all conditions for the bulk of records).
+### 7.4 §8 — reasoning-mode VLMs as future work
+
+γ-β closes the H4 question (does reasoning suppress or amplify
+anchoring?) on the *amplification* side. §8 should keep the broader
+"reasoning-mode VLM at scale" direction open as future work — γ-β is
+a single-pair single-dataset answer, the broader claim needs more
+models and datasets.
+
+## 8. Caveats
+
+- Single-prompt run; no paraphrase robustness on γ-α / γ-β.
+- 3-model panel is narrow on γ-α; γ-β is a 2-model pair.
+- The MathVista smoke-run residues (n=5 / n=3) appear in the per-cell
+  CSV alongside the full runs. Filter by `n >= 100` when reading
+  downstream.
+- Pre-refactor (driver-bug 0) γ-α + γ-β results preserved at
+  `outputs/before_C_form/experiment_e5e_mathvista_full/` and
+  `outputs/before_C_form/experiment_e5e_mathvista_reasoning/qwen3-vl-8b-thinking_postlanding/`
+  for audit. **DO NOT reference those for analysis** — see backup
+  README for the full notice.
 
 ## 8. Open follow-ups
 

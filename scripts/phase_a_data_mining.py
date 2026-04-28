@@ -27,10 +27,10 @@ from vlm_anchor.analysis import (
 )
 
 
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
 STANDARD_ROOT = PROJECT_ROOT / "outputs" / "experiment"
 STRENGTHEN_ROOT = PROJECT_ROOT / "outputs" / "experiment_anchor_strengthen_prompt"
-OUT_DIR = PROJECT_ROOT / "research" / "insights" / "_data"
+OUT_DIR = PROJECT_ROOT / "docs" / "insights" / "_data"
 OUT_DIR.mkdir(parents=True, exist_ok=True)
 
 

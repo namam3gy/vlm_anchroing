@@ -255,20 +255,47 @@ E5e TallyQA gemma/qwen).
 
 ---
 
-## 슬라이드 15 — MathVista γ-α highlight
+## 슬라이드 15 — MathVista γ-α highlight (C-form refresh)
 
-**핵심 메시지:** **gemma3-27b adopt(a, wrong-base) = 0.194 — 본 프로그램에서
-가장 큰 단일 셀.** anchor − masked gap = +15.2 pp.
+**핵심 메시지:** **gemma3-27b wrong-base S1 adopt(a) = 0.230, df(a) C-form
+= 0.332 — 본 프로그램에서 가장 큰 단일 셀.** anchor − masked adopt gap
+= +17.9 pp (digit-pixel 인과 보존).
 
-**두 regime 발견:**
-- **Graded-tilt** (VQAv2/TallyQA/ChartQA): df 큼, adopt 작음. anchor가
-  search direction을 비례 이동.
-- **Categorical-replace** (MathVista): df = 0, adopt 큼. anchor가 base
-  답을 통째로 교체. 다른 경우 base 답 그대로.
+**과거 "categorical-replace regime" 결론은 driver-bug artefact.** C-form
+re-aggregate 후 MathVista는 *adoption + graded-tilt 모두 강한* 데이터셋
+으로 판명:
+- adopt(a) wrong-base S1: gemma 0.230, llava 0.065, qwen 0.026
+- df(a) C-form wrong-base S1: gemma **0.332**, llava 0.266, qwen 0.162
+- 둘 다 ≠ 0 → graded movement도 실재. paper §5 cross-dataset claim
+  는 split이 아니라 *strengthened*.
 
 (Plausible 원인: gemma3-27b의 high-acc 모델이 wrong-base를 *cleanly
-delineated* uncertainty subset으로 만듦. SigLIP encoder의 typographic
+delineated* high-entropy subset으로 만듦. SigLIP encoder의 typographic
 weakness 가능성도. E1-patch에서 후속 검증.)
+
+---
+
+## 슬라이드 15.5 — MathVista γ-β: Thinking이 anchor를 amplify
+
+**핵심 메시지:** Qwen3-VL-8B Instruct vs Thinking (separately-trained
+reasoning checkpoint, same architecture).
+
+| metric | qwen3-vl-8b-instruct | qwen3-vl-8b-thinking | ratio |
+|---|---:|---:|---:|
+| acc(b) | 0.216 | 0.196 | ÷1.10 |
+| **adopt(a)** | 0.074 | **0.117** | **×1.6** |
+| **df(a) C-form** | 0.102 | **0.291** | **×2.9** |
+| acc(a) | 0.218 | 0.202 | — |
+
+**Reading**:
+- Reasoning trace가 anchor pull을 *amplify*. 모든 metric 강화.
+- acc(b) *감소* — reasoning은 정확도 손실 + anchor robustness 손실
+  *둘 다* 일으킴.
+- digit-pixel causality (anchor > masked) 두 모델 모두 보존.
+
+**§8 시사:** H4 ("reasoning suppresses anchoring")이 *amplification*
+side로 lands. VLMBias / Wang LRM-judging의 텍스트 결과를 VLM에서
+경험적 확증. paper §1 hook + §8 future work 두 곳에 사용.
 
 ---
 
@@ -281,10 +308,10 @@ monotone).
 모델·데이터셋 cell마다 4분위로 나눔. Q1 (가장 confident) → Q4 (가장
 uncertain).
 
-**헤드라인:**
+**헤드라인 (C-form, 2026-04-28 refresh):**
 - mean(adopt Q4 − Q1) = **+0.044**
-- mean(direction_follow Q4 − Q1) = **+0.128**
-- 18 / 34 cells가 fully monotone (Q1<Q2<Q3<Q4) on direction-follow.
+- mean(direction_follow Q4 − Q1) = **+0.152** (was +0.128 pre-C-form, *strengthened*)
+- 23 / 35 cells가 fully monotone (Q1<Q2<Q3<Q4) on direction-follow (was 18/34).
 
 `entropy_top_k`이 best proxy (vs softmax_top1_prob, top1−top2 margin).
 
@@ -295,17 +322,18 @@ uncertain).
 **핵심 메시지:** 구체적 셀 (E5c VQAv2 wrong-base S1 llava-interleave-7b)에서
 quartile별 anchor effect 분포.
 
-| quartile | base 정답률 | anchor adopt | direction-follow |
+| quartile | base 정답률 | anchor adopt | direction-follow (C-form) |
 |---|---:|---:|---:|
-| Q1 (most confident) | 0.77 | 0.077 | 0.040 |
-| Q2 | 0.50 | 0.090 | 0.080 |
-| Q3 | 0.27 | 0.110 | 0.090 |
-| Q4 (least confident) | **0.07** | **0.147** | **0.113** |
-| **Δ (Q4 − Q1)** | −0.70 | +0.070 (+7.0 pp) | +0.074 (+7.4 pp) |
+| Q1 (most confident) | 0.92 | 0.043 | 0.032 |
+| Q2 | 0.72 | 0.084 | 0.080 |
+| Q3 | 0.42 | 0.149 | 0.137 |
+| Q4 (least confident) | **0.34** | **0.172** | **0.210** |
+| **Δ (Q4 − Q1)** | −0.58 | +0.130 (+13.0 pp) | +0.178 (+17.8 pp) |
 
 **관계:** Phase A의 wrong/correct binary는 confidence quartile의 *coarse
-projection*. Q1 mean exact_match=0.77 ∼ correct, Q4=0.07 ∼ wrong. 그러나
-quartile은 confidently wrong / lucky correct를 더 정밀 분리.
+projection*. Q1 mean exact_match=0.92 ∼ correct, Q4=0.34 ∼ wrong. 그러나
+quartile은 confidently wrong / lucky correct를 더 정밀 분리. C-form
+하에서 graded direction-follow 신호가 더 두드러짐.
 
 ---
 
