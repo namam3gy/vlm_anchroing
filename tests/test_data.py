@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import io
 import json
 import random
 import tempfile
 import unittest
 from pathlib import Path
+
+from PIL import Image
 
 from vlm_anchor.data import (
     ANCHOR_DISTANCE_STRATA,
@@ -17,6 +20,19 @@ from vlm_anchor.data import (
 )
 
 
+def _minimal_png() -> bytes:
+    # `load_number_vqa_samples` calls `PIL.Image.verify()` to silently
+    # skip undecodable target images (added 2026-04-24 to survive corrupt
+    # VQAv2 frames in production); test fixtures must therefore write
+    # actual decodable PNG bytes, not the literal string "png".
+    buf = io.BytesIO()
+    Image.new("RGB", (1, 1), color=(0, 0, 0)).save(buf, format="PNG")
+    return buf.getvalue()
+
+
+_PNG_BYTES = _minimal_png()
+
+
 class AssignIrrelevantImagesTest(unittest.TestCase):
     def test_expands_each_sample_into_distinct_variants(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -27,8 +43,8 @@ class AssignIrrelevantImagesTest(unittest.TestCase):
             neutral_dir.mkdir()
 
             for idx in range(12):
-                (number_dir / f"{idx}.png").write_bytes(b"png")
-                (neutral_dir / f"neutral_{idx}.png").write_bytes(b"png")
+                (number_dir / f"{idx}.png").write_bytes(_PNG_BYTES)
+                (neutral_dir / f"neutral_{idx}.png").write_bytes(_PNG_BYTES)
 
             samples = [
                 {
@@ -76,7 +92,7 @@ class LoadNumberVqaSamplesTest(unittest.TestCase):
             ]
 
             for row in rows:
-                (image_dir / Path(row["image_file"]).name).write_bytes(b"png")
+                (image_dir / Path(row["image_file"]).name).write_bytes(_PNG_BYTES)
 
             questions_path = root / "questions.jsonl"
             with open(questions_path, "w", encoding="utf-8") as f:
@@ -107,7 +123,7 @@ class LoadNumberVqaSamplesTest(unittest.TestCase):
                 self._build_row(question_id=4, image_id=14, answer="Yes", answer_type="text"),
             ]
             for row in rows:
-                (image_dir / Path(row["image_file"]).name).write_bytes(b"png")
+                (image_dir / Path(row["image_file"]).name).write_bytes(_PNG_BYTES)
             with open(root / "questions.jsonl", "w", encoding="utf-8") as f:
                 for row in rows:
                     f.write(json.dumps(row) + "\n")
@@ -132,7 +148,7 @@ class LoadNumberVqaSamplesTest(unittest.TestCase):
                 self._build_row(question_id=3, image_id=13, answer="2", answer_type="number"),
             ]
             for row in rows:
-                (image_dir / Path(row["image_file"]).name).write_bytes(b"png")
+                (image_dir / Path(row["image_file"]).name).write_bytes(_PNG_BYTES)
             with open(root / "questions.jsonl", "w", encoding="utf-8") as f:
                 for row in rows:
                     f.write(json.dumps(row) + "\n")
@@ -210,7 +226,7 @@ class AssignStratifiedAnchorsTest(unittest.TestCase):
             number_dir = root / "irrelevant_number"
             number_dir.mkdir()
             for v in [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 20, 100, 500, 1000]:
-                (number_dir / f"{v}.png").write_bytes(b"png")
+                (number_dir / f"{v}.png").write_bytes(_PNG_BYTES)
 
             samples = [
                 {
@@ -252,7 +268,7 @@ class AssignStratifiedAnchorsTest(unittest.TestCase):
             number_dir = root / "irrelevant_number"
             number_dir.mkdir()
             for v in [3, 4, 5]:
-                (number_dir / f"{v}.png").write_bytes(b"png")
+                (number_dir / f"{v}.png").write_bytes(_PNG_BYTES)
 
             samples = [{
                 "question_id": 1, "image_id": 1,
@@ -415,10 +431,10 @@ class AssignStratifiedAnchorsExtendedTest(unittest.TestCase):
             for d in [number_dir, masked_dir, neutral_dir]:
                 d.mkdir()
             for v in [0, 1, 2, 3, 4, 5, 10, 20, 100, 500]:
-                (number_dir / f"{v}.png").write_bytes(b"png")
-                (masked_dir / f"{v}.png").write_bytes(b"png")
-            (neutral_dir / "neutral_a.png").write_bytes(b"png")
-            (neutral_dir / "neutral_b.png").write_bytes(b"png")
+                (number_dir / f"{v}.png").write_bytes(_PNG_BYTES)
+                (masked_dir / f"{v}.png").write_bytes(_PNG_BYTES)
+            (neutral_dir / "neutral_a.png").write_bytes(_PNG_BYTES)
+            (neutral_dir / "neutral_b.png").write_bytes(_PNG_BYTES)
 
             samples = [{
                 "question_id": 1, "image_id": 1, "question": "Q?",
@@ -450,9 +466,9 @@ class AssignStratifiedAnchorsExtendedTest(unittest.TestCase):
             number_dir.mkdir()
             masked_dir.mkdir()
             for v in [0, 1, 2, 3, 4, 5, 10]:
-                (number_dir / f"{v}.png").write_bytes(b"png")
+                (number_dir / f"{v}.png").write_bytes(_PNG_BYTES)
             for v in [0, 1, 2, 3]:  # subset only
-                (masked_dir / f"{v}.png").write_bytes(b"png")
+                (masked_dir / f"{v}.png").write_bytes(_PNG_BYTES)
 
             samples = [{
                 "question_id": 1, "image_id": 1, "question": "Q?",
@@ -474,7 +490,7 @@ class AssignStratifiedAnchorsExtendedTest(unittest.TestCase):
             number_dir = root / "irrelevant_number"
             number_dir.mkdir()
             for v in [0, 1, 2, 3]:
-                (number_dir / f"{v}.png").write_bytes(b"png")
+                (number_dir / f"{v}.png").write_bytes(_PNG_BYTES)
             samples = [{
                 "question_id": 1, "image_id": 1, "question": "Q?",
                 "image": root / "t.png", "ground_truth": "1", "answers": ["1"],
@@ -532,7 +548,7 @@ class AssignStratifiedAnchorsRelativeSchemeTest(unittest.TestCase):
             ndir = root / "irrelevant_number"
             ndir.mkdir()
             for v in [10, 50, 100, 500, 800, 900, 950, 1000, 1100, 1200, 1500, 3000, 5000]:
-                (ndir / f"{v}.png").write_bytes(b"png")
+                (ndir / f"{v}.png").write_bytes(_PNG_BYTES)
             samples = [{
                 "question_id": 1, "image_id": 1, "question": "Q?",
                 "image": root / "t.png", "ground_truth": "1000", "answers": ["1000"],
@@ -556,7 +572,7 @@ class AssignStratifiedAnchorsRelativeSchemeTest(unittest.TestCase):
             ndir = root / "irrelevant_number"
             ndir.mkdir()
             for v in range(0, 5001, 5):
-                (ndir / f"{v}.png").write_bytes(b"png")
+                (ndir / f"{v}.png").write_bytes(_PNG_BYTES)
             samples = [
                 {"question_id": 1, "image_id": 1, "question": "Q?",
                  "image": root / "t.png", "ground_truth": "5", "answers": ["5"],
@@ -596,7 +612,7 @@ class AssignStratifiedSingleStratumTest(unittest.TestCase):
             ndir = root / "irrelevant_number"
             ndir.mkdir()
             for v in range(11):
-                (ndir / f"{v}.png").write_bytes(b"png")
+                (ndir / f"{v}.png").write_bytes(_PNG_BYTES)
             samples = [{
                 "question_id": 1, "image_id": 1, "question": "Q?",
                 "image": root / "t.png", "ground_truth": "3", "answers": ["3"],
