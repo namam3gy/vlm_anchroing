@@ -109,7 +109,10 @@ def main() -> None:
 
     all_records: list[dict] = []
 
-    for model_cfg in selected_models:
+    import gc
+    import torch
+
+    for model_idx, model_cfg in enumerate(selected_models):
         model_name = model_cfg["name"]
         print(f"\n=== Running {model_name} ===")
         model_out_dir = ensure_dir(experiment_root / model_name / timestamp)
@@ -158,6 +161,8 @@ def main() -> None:
                     "answer_token_logit": result.get("answer_token_logit"),
                     "answer_token_probability": result.get("answer_token_probability"),
                     "token_info": result.get("token_info", []),
+                    "thinking_marker_present": result.get("thinking_marker_present"),
+                    "n_generated_tokens": result.get("n_generated_tokens"),
                     "anchor_value": cond["anchor_value_for_metrics"],
                     "anchor_stratum_id": cond.get("anchor_stratum_id"),
                     "anchor_stratum_range": cond.get("anchor_stratum_range"),
@@ -176,6 +181,13 @@ def main() -> None:
         dump_json(summary, model_out_dir / "summary.json")
         all_records.extend(records)
         print(summary)
+
+        # Release this model's GPU memory before loading the next checkpoint —
+        # 8B BF16 ≈ 18 GB + KV cache; back-to-back loads can OOM otherwise.
+        del runner
+        gc.collect()
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
 
     if all_records:
         save_experiment_analysis_figures(all_records, experiment_root / "analysis" / timestamp)

@@ -70,7 +70,7 @@ in-flight · ☐ not started.
 | `experiment_e5e_chartqa_full` | ChartQA | b/a/m/d (S1) | llava-interleave-7b, qwen2.5-vl-7b, gemma3-27b-it | ✅ |
 | `experiment_e5e_tallyqa_full` | TallyQA | b/a/m/d (S1) | same 3 | ✅ |
 | `experiment_e5e_mathvista_full` (γ-α) | MathVista | b/a/m/d (S1) | llava-interleave-7b, qwen2.5-vl-7b, gemma3-27b-it | ✅ landed 2026-04-29 — `docs/insights/E5e-mathvista-evidence.md` |
-| MathVista (γ-β) reasoning-mode | MathVista | thinking-on / thinking-off | Qwen3-VL or similar | ☐ P0 |
+| MathVista (γ-β) reasoning-mode | MathVista | b/a/m/d (S1) | qwen3-vl-8b-instruct + qwen3-vl-8b-thinking | ⏳ launched 2026-04-28 |
 | VQAv2 4-condition (b/a/m/d) | VQAv2 | full grid cross-model | TBD | ☐ P1 (kept, time-permitting) |
 
 ### 3.2 Mechanistic runs
@@ -232,7 +232,7 @@ robustness).
 | **E5e S1-only cross-model** | b/a/m/d × ChartQA + TallyQA × 3 models | ✅ |
 | **E5b/c cross-model expansion** | extend E5b + E5c to 3-model E5e panel (qwen2.5-vl-7b, gemma3-27b-it ∪ llava-interleave-7b) on VQAv2 + TallyQA | ⏳ in flight (user 2026-04-28) |
 | **E5e MathVista (γ-α)** | MathVista b/a/m/d (S1) × 3 models | ✅ landed 2026-04-29 — gemma3-27b adopt(a, wrong-base) = 0.194; df(M2) = 0 universally → categorical-replace regime |
-| **E5e MathVista (γ-β)** | reasoning-mode VLM × MathVista (Qwen3-VL thinking, etc.) | ☐ P0 — infra check first |
+| **E5e MathVista (γ-β)** | reasoning-mode VLM × MathVista — Qwen3-VL-8B-Instruct vs. Qwen3-VL-8B-Thinking (separate weights), 4-cond S1, max_new_tokens=512, runner is `</think>`-aware | ⏳ launched 2026-04-28 — `configs/experiment_e5e_mathvista_reasoning.yaml`; instruct ETA ~40min, thinking ETA ~15h |
 | **VQAv2 4-condition** | b/a/m/d cross-model VQAv2 | ☐ P1 (kept) |
 
 ### 6.4 §6 — Confidence-modulated anchoring (logit-based)
@@ -280,7 +280,7 @@ bearing. P2 = ideation depth. P3 = future / parallel.
 | **P1** | E1-patch full panel — masked arm causal control + 4 remaining archetypes | §6.5 E1-patch | ~1.5d |
 | **P0** | Per-token logit confidence analysis (L1–L4) | §6.4 | analysis only, ~3-4h |
 | ~~P0~~ ✅ | E5e MathVista (γ-α) — 3-model b/a/m/d × S1 | §6.3 | landed 2026-04-29 |
-| **P0** | MathVista (γ-β) — reasoning-mode infra check + run | §6.3 | check 0.5d + run 0.5-1d |
+| **P0** | MathVista (γ-β) — reasoning-mode | §6.3 | ⏳ in flight (launched 2026-04-28; thinking ETA ~15h) |
 | **P0** | E5b / E5c cross-model expansion (in flight, finish) | §6.3 | 1-1.5d |
 | **P1** | VQAv2 4-condition cross-model (kept) | §6.3 | ~1d (3 models) — opportunistic |
 | **P1** | M2 unit tests | §6.1 | 0.5d |
@@ -335,6 +335,36 @@ bearing. P2 = ideation depth. P3 = future / parallel.
   M2 evidence numbers refresh accordingly.
 
 ## 10. Changelog
+
+- **2026-04-28** — **E5e MathVista (γ-β) reasoning-mode launched.** Same
+  4-condition S1 design as γ-α (b/a/m/d, integer-GT subset, relative_s1 cutoff)
+  but with the thinking-on / thinking-off pair: `Qwen3-VL-8B-Instruct`
+  (already in main panel) vs. `Qwen3-VL-8B-Thinking` (Apache-2.0, 9B BF16,
+  separate weight — Qwen3-VL Thinking is shipped as a distinct checkpoint,
+  not an `enable_thinking` flag). Smoke (`/tmp/qwen3vl_thinking_smoke.py`,
+  one MathVista question) confirmed Thinking output format =
+  `<trace>\n</think>\n\n{"result": <num>}<|im_end|>` with `</think>`
+  as plain text (not a special token). Three plumbing changes landed
+  before launch: (i) `vlm_anchor.utils.extract_last_number` added with 4
+  unit tests (`tests/test_utils.py::ExtractLastNumberTest`); (ii)
+  `models._summarize_generation` is now thinking-aware — splits
+  `decoded` on the **last** `</think>` and parses `extract_first_number`
+  on the post-trace tail (so trace-internal numerals never leak into
+  the prediction), with answer-token matching switched to reverse
+  iteration to lock onto the final answer token; (iii) `run_experiment.py`
+  threads `thinking_marker_present` and `n_generated_tokens` into every
+  `predictions.jsonl` row + adds `del runner; gc.collect();
+  torch.cuda.empty_cache()` between models so back-to-back 8B BF16
+  loads don't OOM. The `thinking_marker_present` flag is the
+  truncation guard advisor flagged: when False, `max_new_tokens` cut
+  off the trace before the final answer JSON, so the row's prediction
+  may be a trace-internal numeral and must be filtered. New artefacts:
+  `configs/experiment_e5e_mathvista_reasoning.yaml`, smoke test at
+  `/tmp/qwen3vl_thinking_smoke.py`. Inflight: GPU 0, instruct ETA
+  ~40min, thinking ETA ~15h (smoke timing 35s/gen × 1,540 gen — will
+  refine once stable trace-length distribution lands). Tests: 25
+  utils + metrics tests pass. Pre-existing `tests/test_data.py` PNG
+  header failure unrelated.
 
 - **2026-04-29 (late evening)** — **Paper-section prose for §3, §7.4, §8/F1 landed.**
   Three first-draft paper-ready writeups committed under

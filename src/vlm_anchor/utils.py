@@ -153,6 +153,43 @@ def extract_first_number(text: str | None) -> str:
     return text.split()[0] if text.split() else ""
 
 
+def extract_last_number(text: str | None) -> str:
+    """Return the *last* numeric span in ``text``.
+
+    Mirrors :func:`extract_first_number` but matches the final occurrence
+    rather than the first. Reasoning-mode VLMs emit a chain of thought
+    followed by a final answer — the answer lives at the *end* of the
+    output, while the trace contains many irrelevant numeric spans.
+    """
+    text = normalize_numeric_text(text)
+    if not text:
+        return ""
+    matches = list(re.finditer(r"-?\d+(?:\.\d+)?", text))
+    if matches:
+        value = matches[-1].group(0)
+        if value.endswith(".0"):
+            value = value[:-2]
+        return value
+
+    tokens = text.split()
+    total = 0
+    current = 0
+    matched = False
+    for tok in tokens:
+        if tok not in _NUM_WORDS:
+            continue
+        matched = True
+        val = _NUM_WORDS[tok]
+        if tok == "hundred":
+            current = max(1, current) * val
+        else:
+            current += val
+    total += current
+    if matched:
+        return str(total)
+    return tokens[-1] if tokens else ""
+
+
 def ensure_dir(path: str | Path) -> Path:
     path = Path(path)
     path.mkdir(parents=True, exist_ok=True)
