@@ -87,7 +87,18 @@ def _build_triplets(df: pd.DataFrame) -> pd.DataFrame:
 
     Carries the raw `decoded` text alongside `parsed_number` on both sides so
     `_to_int` can rescue prose-leak cases (e.g. InternVL3 emits "based on…",
-    parser lands on "based", rescue extracts the number from the raw text)."""
+    parser lands on "based", rescue extracts the number from the raw text).
+    Also carries the M2 / C-form flags written by
+    `reaggregate_paired_adoption.py` so `_metrics` can switch to canonical
+    rates without re-deriving the predicates here."""
+    m2_flag_cols = [
+        c for c in [
+            "anchor_adopted",
+            "anchor_direction_followed_moved",
+            "pred_b_equal_anchor",
+            "numeric_distance_to_anchor",
+        ] if c in df.columns
+    ]
     base_cols = ["sample_instance_id", "parsed_number", "ground_truth"]
     if "decoded" in df.columns:
         base_cols = base_cols + ["decoded"]
@@ -97,7 +108,9 @@ def _build_triplets(df: pd.DataFrame) -> pd.DataFrame:
         .rename(columns={"parsed_number": "base_pred", "decoded": "base_decoded"})
         .drop_duplicates("sample_instance_id")
     )
-    num = df[df["condition"] == "target_plus_irrelevant_number"].copy()
+    num_cols = list(df.columns)
+    # Rename columns that collide with `base` after merge.
+    num = df[df["condition"] == "target_plus_irrelevant_number"][num_cols].copy()
     num = num.rename(columns={"parsed_number": "num_pred", "decoded": "num_decoded"})
     num = num.merge(base, on="sample_instance_id", how="inner",
                     suffixes=("", "_base"))
@@ -115,44 +128,85 @@ def _to_int_series(values: pd.Series, rescue: pd.Series | None = None) -> pd.Ser
 
 
 def _metrics(triplets: pd.DataFrame) -> dict:
-    base = _to_int_series(triplets["base_pred"], triplets.get("base_decoded"))
-    num = _to_int_series(triplets["num_pred"], triplets.get("num_decoded"))
-    anchor = _to_int_series(triplets["anchor_value"])
-    gt = _to_int_series(triplets["ground_truth"])
-    valid = base.notna() & num.notna() & anchor.notna()
-    n = int(valid.sum())
-    if n == 0:
+    """Per-cell M2 / C-form rates using flags from `reaggregate_paired_adoption.py`.
+
+    Pre-2026-04-28 this used Phase-A pull-form
+    `(|num_pred − anchor| < |base_pred − anchor|).mean()` and pre-M1 marginal
+    adoption `(num_pred == anchor).mean()`. Refactored to read the canonical
+    M2 flags so §7 free-lunch deltas use the same metric definitions as
+    §3.3 / §5 headlines:
+
+        df_num    = #(C-form moved) / #(numeric pair AND anchor present)
+        adopt_num = #(pa == anchor AND pb != anchor) / #(pb != anchor)
+        em_num    = #(num_pred == gt) / #(num_pred & gt parseable)
+        mean_dist = mean(|num_pred − anchor|) over numeric-anchor subset
+
+    The InternVL3 prose-leak rescue (`_to_int(rescue_text=decoded)`) is
+    retained for `em_num` where it materially affects coverage; for the
+    M2 anchoring metrics we accept whatever the canonical evaluator
+    populated, mirroring the §3.3 / §5 main-panel handling (no rescue).
+    """
+    if triplets.empty:
         return {"n": 0, "df_num": np.nan, "adopt_num": np.nan, "em_num": np.nan,
                 "mean_dist": np.nan}
-    base_v = base[valid].astype(int)
-    num_v = num[valid].astype(int)
-    anc_v = anchor[valid].astype(int)
-    db = (base_v - anc_v).abs()
-    dn = (num_v - anc_v).abs()
-    df_num = float((dn < db).mean())
-    adopt = float((num_v == anc_v).mean())
-    mean_dist = float(dn.mean())
+
+    df_eligible = triplets[triplets["numeric_distance_to_anchor"].notna()]
+    n_df = len(df_eligible)
+    df_num = (
+        float(df_eligible["anchor_direction_followed_moved"].astype(float).mean())
+        if n_df else np.nan
+    )
+
+    adopt_eligible = triplets[triplets["pred_b_equal_anchor"].fillna(0).astype(int) == 0]
+    n_adopt = len(adopt_eligible)
+    adopt = (
+        float(adopt_eligible["anchor_adopted"].astype(float).mean())
+        if n_adopt else np.nan
+    )
+
+    mean_dist = (
+        float(df_eligible["numeric_distance_to_anchor"].astype(float).mean())
+        if n_df else np.nan
+    )
+
+    # exact-match keeps the rescue path — em is computed against gt and
+    # benefits most from prose-leak recovery on InternVL3.
+    num = _to_int_series(triplets["num_pred"], triplets.get("num_decoded"))
+    gt = _to_int_series(triplets["ground_truth"])
     em_valid = num.notna() & gt.notna()
     em = (
         float((num[em_valid].astype(int) == gt[em_valid].astype(int)).mean())
         if em_valid.any() else np.nan
     )
-    return {"n": n, "df_num": df_num, "adopt_num": adopt, "em_num": em,
-            "mean_dist": mean_dist}
+
+    return {
+        "n": int(n_df),
+        "n_pb_ne_anchor": int(n_adopt),
+        "df_num": df_num,
+        "adopt_num": adopt,
+        "em_num": em,
+        "mean_dist": mean_dist,
+    }
 
 
 def _bootstrap(triplets: pd.DataFrame, metric: str, n_boot: int = 2000,
                seed: int = 42) -> tuple[float, float]:
-    base = _to_int_series(triplets["base_pred"], triplets.get("base_decoded"))
+    """C-form / M2 bootstrap CI matching `_metrics` denominators per draw."""
+    if triplets.empty:
+        return (np.nan, np.nan)
+    df_moved = triplets["anchor_direction_followed_moved"].astype(float).to_numpy()
+    adopt = triplets["anchor_adopted"].astype(float).to_numpy()
+    pb_eq_a = triplets["pred_b_equal_anchor"].fillna(0).astype(int).to_numpy()
+    dist = pd.to_numeric(triplets["numeric_distance_to_anchor"], errors="coerce").to_numpy()
+    df_eligible_mask = ~np.isnan(dist)
+
     num = _to_int_series(triplets["num_pred"], triplets.get("num_decoded"))
-    anchor = _to_int_series(triplets["anchor_value"])
     gt = _to_int_series(triplets["ground_truth"])
-    valid = base.notna() & num.notna() & anchor.notna()
-    arr_base = base[valid].astype(int).to_numpy()
-    arr_num = num[valid].astype(int).to_numpy()
-    arr_anc = anchor[valid].astype(int).to_numpy()
-    arr_gt = gt[valid].to_numpy()  # gt may be None; cast happens after mask_gt filter
-    n = len(arr_num)
+    em_eligible_mask = (num.notna() & gt.notna()).to_numpy()
+    num_arr = num.to_numpy()
+    gt_arr = gt.to_numpy()
+
+    n = len(triplets)
     if n == 0:
         return (np.nan, np.nan)
     rng = np.random.default_rng(seed)
@@ -160,21 +214,31 @@ def _bootstrap(triplets: pd.DataFrame, metric: str, n_boot: int = 2000,
     for i in range(n_boot):
         idx = rng.integers(0, n, n)
         if metric == "df_num":
-            db = np.abs(arr_base[idx] - arr_anc[idx])
-            dn = np.abs(arr_num[idx] - arr_anc[idx])
-            draws[i] = (dn < db).mean()
+            elig = df_eligible_mask[idx]
+            n_elig = int(elig.sum())
+            draws[i] = float(df_moved[idx][elig].sum() / n_elig) if n_elig else np.nan
         elif metric == "adopt_num":
-            draws[i] = (arr_num[idx] == arr_anc[idx]).mean()
+            elig = (pb_eq_a[idx] == 0)
+            n_elig = int(elig.sum())
+            draws[i] = float(adopt[idx][elig].sum() / n_elig) if n_elig else np.nan
         elif metric == "em_num":
-            num_b = arr_num[idx]
-            gt_b = arr_gt[idx]
-            mask_gt = np.array([v is not None for v in gt_b])
-            if mask_gt.sum() == 0:
+            elig = em_eligible_mask[idx]
+            if not elig.any():
                 draws[i] = np.nan
-            else:
-                draws[i] = (num_b[mask_gt] == gt_b[mask_gt]).mean()
+                continue
+            num_b = num_arr[idx][elig]
+            gt_b = gt_arr[idx][elig]
+            try:
+                num_int = np.array([int(v) for v in num_b], dtype=int)
+                gt_int = np.array([int(v) for v in gt_b], dtype=int)
+            except (TypeError, ValueError):
+                draws[i] = np.nan
+                continue
+            draws[i] = float((num_int == gt_int).mean())
         elif metric == "mean_dist":
-            draws[i] = float(np.abs(arr_num[idx] - arr_anc[idx]).mean())
+            elig = df_eligible_mask[idx]
+            d = dist[idx][elig]
+            draws[i] = float(d.mean()) if d.size else np.nan
         else:
             raise ValueError(metric)
     valid_draws = draws[~np.isnan(draws)]

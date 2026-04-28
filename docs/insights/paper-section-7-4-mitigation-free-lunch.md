@@ -51,9 +51,9 @@ models, three properties hold simultaneously at the Phase-1-chosen `s*`:
 
 | Model | `s*` | df(a) `s=0` → `s*` | rel Δ df(a) | em(a) `s=0` → `s*` | abs Δ em(a) | em(b) `s=0` | em(b) `s*` | em(b) flat? |
 |---|---:|---:|---:|---:|---:|---:|---:|:---:|
-| `llava-1.5-7b` | −3.0 | 0.2578 → 0.2122 | **−17.7 %** | 0.3340 → 0.3418 | **+0.77 pp** | 0.3696 | 0.3696 | ✓ |
-| `convllava-7b` | −2.0 | 0.2283 → 0.2042 | **−10.6 %** | 0.3522 → 0.3652 | **+1.30 pp** | 0.4454 | 0.4454 | ✓ |
-| `internvl3-8b` | −0.5 | 0.1035 → 0.0975 | **−5.8 %** | 0.5902 → 0.5950 | **+0.49 pp** | 0.6325 | 0.6325 | ✓ |
+| `llava-1.5-7b` | −3.0 | 0.2877 → 0.2459 | **−14.6 %** | 0.3340 → 0.3418 | **+0.77 pp** | 0.3696 | 0.3696 | ✓ |
+| `convllava-7b` | −2.0 | 0.2579 → 0.2330 | **−9.6 %** | 0.3522 → 0.3652 | **+1.30 pp** | 0.4454 | 0.4454 | ✓ |
+| `internvl3-8b` | −0.5 | 0.1263 → 0.1189 | **−5.8 %** | 0.5902 → 0.5950 | **+0.49 pp** | 0.6325 | 0.6325 | ✓ |
 
 `em(b)` is the model's `exact_match` on the `target_only` condition
 measured on the same paired sample-instances used for the anchor arm.
@@ -133,9 +133,9 @@ this as a limitation in §9 and as a tractable follow-up.
 
 The model-level claim is full-cluster: all three Phase 2 results were
 collected at full data scale with bootstrap CIs. The relative reduction
-ranks LLaVA (−17.7 %) > ConvLLaVA (−10.6 %) > InternVL3 (−5.8 %), in
-the same order as the *baseline* `direction_follow_rate` (LLaVA 0.258
-> ConvLLaVA 0.228 > InternVL3 0.103). The mitigation effect scales
+ranks LLaVA (−14.6 %) > ConvLLaVA (−9.6 %) > InternVL3 (−5.8 %), in
+the same order as the *baseline* `direction_follow_rate` (LLaVA 0.288
+> ConvLLaVA 0.258 > InternVL3 0.126). The mitigation effect scales
 with the anchor signal available to remove; on the H6 "distraction-
 not-anchoring" model (InternVL3) there is less anchor signal in the
 full distribution to begin with and the absolute reduction is

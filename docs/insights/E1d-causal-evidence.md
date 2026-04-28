@@ -2,15 +2,26 @@
 
 **Status:** Causal follow-up to E1b across the 6-model panel. Source data: `outputs/causal_ablation/<model>/<run>/predictions.jsonl`. Aggregate tables: `outputs/causal_ablation/_summary/{per_model_per_mode.csv, by_stratum.csv}`. Full writeup: `docs/experiments/E1d-causal-ablation.md`.
 
-> **2026-04-28 update.** Re-run on C-form re-aggregated causal_ablation
-> data: numerical results are **unchanged within ±0.5 pp** on every
-> reported pp-shift (verified against the refreshed
-> `outputs/causal_ablation/_summary/per_model_per_mode.csv`). Both
-> qualitative findings (single-layer ablation null on 6/6; upper-half
-> ablation reduces df by 5.5 — 11.5 pp on 6/6) AND quantitative claims
-> survive the C-form refactor. Pre-refactor results archived at
-> `outputs/before_C_form/causal_ablation/` for audit. Inline numbers
-> below are correct under both forms.
+> **2026-04-28 update (B안 — full C-form propagation).**
+> `analyze_causal_ablation.py` was refactored to read the canonical M2
+> `_moved` flag instead of computing a Phase-A pull-form
+> `(|num_pred − anchor| < |base_pred − anchor|)`. The qualitative
+> findings (single-layer ablation null on 6/6; upper-half ablation
+> reduces df on 6/6; lower-half is heterogeneous; ablate_all has the
+> largest reduction with fluency cost on 3/6) all survive. Quantitative
+> ranges shift by 1-2 pp:
+>
+> - `ablate_upper_half`: pull-form −5.5 to −11.5 pp → C-form **−4.0 to −10.5 pp**
+> - `ablate_all`: pull-form −10 to −22 pp → C-form **−9.6 to −24.5 pp**
+> - `ablate_peak`: pull-form |Δ df| ≤ 3.2 pp → C-form |Δ df| ≤ 2.0 pp
+> - `ablate_layer0`: pull-form Δ ∈ [−2.7, +0.5] pp → C-form same range
+>
+> Per-model deltas under C-form are documented in the refreshed
+> `outputs/causal_ablation/_summary/per_model_per_mode.csv`. Pre-refactor
+> pull-form results archived at `outputs/before_C_form/causal_ablation/`.
+> The `_moved` flag is the M2 canonical numerator under C-form
+> `(pa-pb)·(anchor-pb) > 0 AND pa != pb`, matching the §3.3 / §5
+> headline metric exactly.
 
 ## The claim and the test
 
@@ -20,12 +31,12 @@ We ablate the anchor span at six different layer sets (single peak, peak ± 2, l
 
 ## What we found
 
-| Mode | What it tests | Result |
+| Mode | What it tests | Result (C-form) |
 |---|---|---|
-| `ablate_peak` | E1b's headline | **Null on 6/6 models** (|Δ df| ≤ 3.2 pp, all CIs overlap baseline) |
-| `ablate_layer0` | Non-peak control | **Null on 6/6 models** (Δ df ∈ [−0.027, +0.005], all CIs overlap baseline) — including Gemma, whose E1b reported anchor↔target swaps at L0–4 |
-| `ablate_all` | Upper bound on causal effect | −10 to −22 pp on direction_follow, but **fluency degrades on 3/6 models** (mean-distance balloons 4–6× or 1000×) |
-| `ablate_upper_half` | Mitigation candidate | −5.5 to −11.5 pp on **6/6 models**, fluency clean on 4/6 (mid-stack cluster + Qwen); Gemma marginal; FastVLM broken |
+| `ablate_peak` | E1b's headline | **Null on 6/6 models** (|Δ df| ≤ 2.0 pp, all CIs overlap baseline) |
+| `ablate_layer0` | Non-peak control | **Null on 6/6 models** (Δ df ∈ [−2.7, +0.5] pp, all CIs overlap baseline) — including Gemma, whose E1b reported anchor↔target swaps at L0–4 |
+| `ablate_all` | Upper bound on causal effect | **−9.6 to −24.5 pp** on direction_follow, but **fluency degrades on 3/6 models** (mean-distance balloons 4–6× or 1000×) |
+| `ablate_upper_half` | Mitigation candidate | **−4.0 to −10.5 pp** on **6/6 models**, fluency clean on 4/6 (mid-stack cluster + Qwen); Gemma marginal; FastVLM broken |
 | `ablate_lower_half` | Diagnostic | **Heterogeneous: 3/6 BACKFIRE, 1/6 reduce, 2/6 flat** |
 
 The single-layer ablation null — at the E1b peak *and* at layer 0 — is the most surprising result. E1b's per-layer peak (with up to 5–10× the layer-averaged anchor mass) was the obvious E4 intervention site, and Gemma's L0–4 anchor↔target swaps were the most plausible "early-layer alternative". Neither is load-bearing on its own.
@@ -34,7 +45,7 @@ The single-layer ablation null — at the E1b peak *and* at layer 0 — is the m
 
 Reading **(A) Multi-layer redundancy** is confirmed by the layer-0 control. The anchor's effect on the answer is *encoded redundantly* across the LLM stack — removing one layer's view of the anchor at any single site (peak, layer 0, or anywhere in between, on any of 6 models) leaves the rest of the stack to reconstruct it. The peak layer is where the signal is most visible, not where it is uniquely produced. Reading **(B) "peak is correlational and a different single layer matters"** is unsupported even on Gemma, whose E1b L0–4 anchor↔target swaps made it the most plausible "early-layer alternative" candidate (Gemma layer-0 Δ = +0.005, indistinguishable from its peak Δ = +0.020).
 
-The pragmatic positive result: **`ablate_upper_half` is the single mitigation locus that works on the entire 6-model panel** without exploding fluency on the mid-stack cluster. For LLaVA-1.5, ConvLLaVA, InternVL3, upper-half ablation reduces `direction_follow_rate` by 5.5–9.9 pp while keeping `mean_distance_to_anchor` essentially flat. That is the strongest "architecture-blind" candidate the panel has yielded; the three encoders (CLIP-ViT, InternViT, ConvNeXt) at the same depth respond similarly.
+The pragmatic positive result: **`ablate_upper_half` is the single mitigation locus that works on the entire 6-model panel** without exploding fluency on the mid-stack cluster. For LLaVA-1.5, ConvLLaVA, InternVL3, upper-half ablation reduces `direction_follow_rate` by 4.0–10.5 pp (C-form) while keeping `mean_distance_to_anchor` essentially flat. That is the strongest "architecture-blind" candidate the panel has yielded; the three encoders (CLIP-ViT, InternViT, ConvNeXt) at the same depth respond similarly.
 
 ## Why this matters
 
@@ -52,7 +63,7 @@ Two things change for the experiment plan and one stays the same.
 
 ## Sub-finding flagged as "do not generalise to single architecture cluster"
 
-ConvLLaVA and LLaVA-1.5 share the E1b answer-step peak (L16), the same text-stealing budget source, and almost-identical magnitudes. **They respond *opposite* to lower-half ablation.** ConvLLaVA `delta_df = −0.120`, LLaVA-1.5 `delta_df = +0.165`. Same-attention-signature does not imply same-causal-structure. We treat this as a caveat against treating "mid-stack cluster" as a *causally* uniform group; it remains a useful *attention-signature* group.
+ConvLLaVA and LLaVA-1.5 share the E1b answer-step peak (L16), the same text-stealing budget source, and almost-identical magnitudes. **They respond *opposite* to lower-half ablation.** ConvLLaVA `delta_df = −0.150`, LLaVA-1.5 `delta_df = +0.135` (C-form). Same-attention-signature does not imply same-causal-structure. We treat this as a caveat against treating "mid-stack cluster" as a *causally* uniform group; it remains a useful *attention-signature* group.
 
 ## What this doesn't say
 

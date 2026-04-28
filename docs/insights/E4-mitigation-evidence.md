@@ -1,29 +1,40 @@
 # E4 — upper-half attention re-weighting reduces anchor pull on the mid-stack cluster
 
-> **2026-04-28 update.** Re-run on C-form re-aggregated e4_mitigation
-> data (sweep + full): numerical results are **unchanged within ±0.1
-> pp** on every cited df-drop and em-delta (verified against refreshed
-> `outputs/e4_mitigation/_summary/full_validation_compare.csv` and
-> paired `anchor_damage_paired_{sweep,full}.csv`). Headline relative
-> reductions (LLaVA −17.7 %, ConvLLaVA −10.6 %, InternVL3 −5.8 %) and
-> em rises (+0.49 to +1.30 pp) hold exactly under both forms. Pre-
-> refactor results archived at `outputs/before_C_form/e4_mitigation/`.
+> **2026-04-28 update (B안 — full C-form propagation).** This evidence
+> doc previously reported pull-form Phase A direction-follow rates
+> (`|num_pred − anchor| < |base_pred − anchor|`). Refactored
+> `analyze_e4_mitigation.py` now reads the canonical M2 `_moved` flag
+> written by `reaggregate_paired_adoption.py`, so the same Phase 2
+> data is now re-aggregated under C-form `(pa−pb)·(anchor−pb) > 0`.
+>
+> Headline df-baseline values shift up by ~0.03 (pull-form was
+> stricter than C-form on overshoot cases; C-form correctly counts
+> direction-toward-anchor regardless of distance). Relative reductions
+> become slightly smaller in absolute terms (LLaVA −17.7 % → **−14.6 %**,
+> ConvLLaVA −10.6 % → **−9.6 %**, InternVL3 −5.8 % → −5.8 % unchanged)
+> but the **qualitative free-lunch claim is preserved on 3/3 models**:
+> df decreases, em rises, em(target_only) is invariant.
+>
+> em-based metrics (em delta, paired anchor-damage / recovery, em
+> baselines) are unchanged — em is gt-comparison and pull-form/C-form
+> divergence does not affect it. Pre-refactor pull-form results
+> archived at `outputs/before_C_form/e4_mitigation/`.
 
 **Status:** Phase 1 sweep complete on all 3 mid-stack-cluster models
-(llava-1.5-7b, convllava-7b, internvl3-8b). **Phase 2 full-scale validation: llava-1.5-7b
-complete (88,650 records, 100 %), convllava-7b in flight, internvl3-8b queued.**
+(llava-1.5-7b, convllava-7b, internvl3-8b). **Phase 2 full-scale validation: 3/3 models
+complete (88,650 records each, 100 %).**
 Source data: `outputs/e4_mitigation/<model>/{sweep_n200,full_n17730}/predictions.jsonl`.
 Aggregate tables: `outputs/e4_mitigation/_summary/{sweep_pareto, full_validation,
 full_validation_compare, anchor_damage_paired_{sweep,full}, chosen_strength}.csv|.json`.
 Full writeup: `docs/experiments/E4-mitigation.md`.
 
-## Phase 2 headline (all 3 mid-stack-cluster models, 88,650 records each, 100 % complete)
+## Phase 2 headline (all 3 mid-stack-cluster models, 88,650 records each, 100 % complete; **C-form**)
 
 | model | s* | df baseline | df treated | df Δ | df rel | em baseline | em treated | em Δ |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
-| llava-1.5-7b | −3.0 | 0.2578 | 0.2122 | **−4.55 pp** | **−17.7 %** | 0.3340 | 0.3418 | +0.77 pp |
-| convllava-7b | −2.0 | 0.2283 | 0.2042 | **−2.42 pp** | **−10.6 %** | 0.3522 | 0.3652 | +1.30 pp |
-| internvl3-8b | −0.5 | 0.1035 | 0.0975 | **−0.59 pp** | **−5.8 %** | 0.5902 | 0.5950 | +0.49 pp |
+| llava-1.5-7b | −3.0 | 0.2877 | 0.2459 | **−4.19 pp** | **−14.6 %** | 0.3340 | 0.3418 | +0.77 pp |
+| convllava-7b | −2.0 | 0.2579 | 0.2330 | **−2.49 pp** | **−9.6 %** | 0.3522 | 0.3652 | +1.30 pp |
+| internvl3-8b | −0.5 | 0.1263 | 0.1189 | **−0.74 pp** | **−5.8 %** | 0.5902 | 0.5950 | +0.49 pp |
 
 Paired anchor-damage on the full sets:
 
@@ -34,20 +45,20 @@ Paired anchor-damage on the full sets:
 | internvl3-8b | 11,848 | 0.6325 | 0.5938 | 0.5977 | **−3.87 pp** | +0.40 pp | **10.2 %** |
 
 **Reading.** Phase 2 covers **all 3 mid-stack-cluster models at full scale**. Headline
-properties hold across the panel: df decreases on every model, em rises on every model,
-and the paired anchor-damage analysis shows partial recovery on every model (10–22 % of
-the damage). The 10 %-relative-reduction roadmap target is met cleanly on LLaVA (−17.7 %)
-and ConvLLaVA (−10.6 %); InternVL3 misses it (−5.8 %) for a structural reason — it is
-the H6 "distraction-not-anchoring" model and its full-scale baseline df is half of the
-LLaVA-cluster's. The mitigation still moves the metric in the right direction, just there
-is less anchor signal to remove on this model in the first place.
+properties hold across the panel under C-form: df decreases on every model, em rises on
+every model, and the paired anchor-damage analysis shows partial recovery on every model
+(10–22 % of the damage). The 10 %-relative-reduction roadmap target is met cleanly on
+LLaVA (−14.6 %); ConvLLaVA narrowly misses (−9.6 %, was −10.6 % under pull-form);
+InternVL3 misses on the same structural reason as before (−5.8 %, smallest baseline df₀ in
+the panel — H6 "distraction-not-anchoring" model). The mitigation still moves the
+metric in the right direction on every model.
 
 **Stratified vs. full-scale on InternVL3 — the gap is sample-distributional, not a
 mitigation failure.** Phase 1 sweep on the stratified set (top-decile susceptible × 100 +
-bottom-decile resistant × 100) saw df₀ = 0.161 and the mitigation dropped it 17.7 %
-relative. Phase 2 full set is more representative and has df₀ = 0.103 (~36 % lower
-baseline anchor pull). The mitigation effect at the working point scales with the baseline
-signal it is removing.
+bottom-decile resistant × 100) saw df₀ = 0.168 (C-form) and the mitigation dropped it
+16.8 % relative. Phase 2 full set is more representative and has df₀ = 0.126 (~25 %
+lower baseline anchor pull). The mitigation effect at the working point scales with the
+baseline signal it is removing.
 
 **ConvLLaVA fluency caveat at full scale.** `mean_distance_to_anchor` jumps from 2.99 to
 53.54 on ConvLLaVA at full scale (Phase 1 sweep on stratified set: 3.18 → 3.30). A small
@@ -74,30 +85,44 @@ multiplier on anchor attention), sweeps it on n=200 stratified samples, and pick
 smallest |strength| that achieves ≥ 10 % relative reduction in `direction_follow_rate`
 with ≤ 2 pp drop in standard VQA accuracy.
 
-## What we found (Phase 1, n=200 stratified per model)
+## What we found (Phase 1, n=200 stratified per model; **C-form**)
 
 | model | baseline df | s* | df at s* | em(num) at s=0 | em(num) at s* | em(target_only) invariant? |
 |---|---:|---:|---:|---:|---:|:---:|
-| llava-1.5-7b | 0.305 | **−3.0** | 0.265 (−13 %) | 0.365 | 0.370 (+0.5 pp) | ✓ (0.435) |
-| convllava-7b | 0.290 | **−2.0** | 0.260 (−10 %) | 0.375 | 0.375 (+0.0 pp) | ✓ (0.500) |
-| internvl3-8b | 0.161 | **−0.5** | 0.132 (−17.7 %) | 0.591 | 0.610 (+1.9 pp) | ✓ (0.568) |
+| llava-1.5-7b | 0.340 | **−3.0** | 0.315 (−7.4 %) | 0.365 | 0.370 (+0.5 pp) | ✓ (0.435) |
+| convllava-7b | 0.325 | **−2.0** | 0.300 (−7.7 %) | 0.375 | 0.375 (+0.0 pp) | ✓ (0.500) |
+| internvl3-8b | 0.168 | **−0.5** | 0.140 (−16.8 %) | 0.591 | 0.610 (+1.9 pp) | ✓ (0.568) |
 
-**Headline:** the mitigation hits target on every mid-stack-cluster model at n=200. All
-three meet ≥ 10 % `direction_follow_rate` reduction with em either flat or rising. Crucially,
+**Headline:** the mitigation reduces df on every mid-stack-cluster model at n=200 with em
+flat or rising. The 10 %-relative-reduction roadmap target is met on InternVL3
+(−16.8 %), narrowly missed on LLaVA-1.5 (−7.4 %) and ConvLLaVA (−7.7 %) under C-form
+(was met under pull-form Phase 1 at the same s*; the pull-form mitigation effect is
+strictly larger by construction because pull-form excludes "overshoot" trajectories
+that C-form correctly counts as direction-toward-anchor). Crucially,
 `em(target_plus_irrelevant_number)` does *not* drop on any model — at saturation
-(`s = −10⁴`) it rises +0.030 to +0.061. The mitigation appears safe for accuracy and mildly
-beneficial. Phase 2 at full scale will tell us whether this holds with tight CIs.
+(`s = −10⁴`) it rises +0.030 to +0.061. Phase 2 at full scale tightens the CIs and
+preserves the qualitative picture.
+
+**On C-form vs. the original ≥10% target.** The original Phase 1 sweep was scored
+against the Phase A pull-form direction-follow rate; under that metric LLaVA-1.5 hit
+−13 % at s* = −3.0 and ConvLLaVA hit −10 % at s* = −2.0. The C-form Phase 1 sweep would
+prefer slightly stronger s* (LLaVA / ConvLLaVA both = −5.0) to hit the same ≥10 %
+threshold; Phase 2 full-scale runs were launched at the pull-form-optimal s* and have
+not been re-launched at the C-form-optimal s*. Phase 2 numbers above report the C-form
+metric at the s* values where Phase 2 data exists.
 
 **Two patterns from Phase 1.**
 
-*On `direction_follow_rate` — anti-correlation with baseline anchor-pull.* Mitigation
-effect is *anti-correlated* with baseline df, not proportional. InternVL3 has the lowest
-baseline df (0.161, the H6 "distraction-not-anchoring" model) but the largest relative drop
-(−17.7 % at s*, −61 % at saturation). LLaVA-1.5 has the highest baseline df (0.305) but the
-smallest relative drop (−13 % at s*, −18 % at saturation). Conjecture: the upper-half
-attention pathway carries a *larger fraction* of the anchor signal in the model that uses
-it less — InternVL3's anchor signal is narrowly concentrated in upper-half layers, while
-the LLaVA-cluster signal is broadly / redundantly distributed.
+*On `direction_follow_rate` — anti-correlation with baseline anchor-pull.* Under C-form
+on the stratified Phase 1 set, InternVL3 has the lowest baseline df (0.168, the H6
+"distraction-not-anchoring" model) but the largest relative drop at the chosen s*
+(−16.8 % at s* = −0.5). LLaVA-1.5 has the highest baseline df (0.340) and the smallest
+relative drop at s* = −3.0 (−7.4 %; under pull-form this was −13 %). Conjecture: the
+upper-half attention pathway carries a *larger fraction* of the anchor signal in the
+model that uses it less — InternVL3's anchor signal is narrowly concentrated in
+upper-half layers, while the LLaVA-cluster signal is broadly / redundantly distributed.
+The qualitative anti-correlation pattern is preserved under C-form; only the absolute
+percentages shift.
 
 *On paired `exact_match` — coherent damage / partial-recovery ratio.* The opposite picture
 on em: when computed on the intersection of valid samples (so cells are like-for-like), all
