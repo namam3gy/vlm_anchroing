@@ -4,7 +4,7 @@ experiment,VQAv2,gemma4-31b-it,20260412-120052,outputs/experiment/gemma4-31b-it/
 experiment,VQAv2,gemma4-e4b,20260411-235419,outputs/experiment/gemma4-e4b/20260411-235419/predictions.jsonl
 experiment,VQAv2,llava-next-interleaved-7b,20260411-174859,outputs/experiment/llava-next-interleaved-7b/20260411-174859/predictions.jsonl
 experiment,VQAv2,qwen2.5-vl-7b-instruct,20260411-213927,outputs/experiment/qwen2.5-vl-7b-instruct/20260411-213927/predictions.jsonl
-experiment,VQAv2,qwen2.5-vl-7b-instruct,20260427-075523,outputs/experiment/qwen2.5-vl-7b-instruct/20260427-075523/predictions.jsonl
+experiment,VQAv2,qwen2.5-vl-7b-instruct,20260428-140004,outputs/experiment/qwen2.5-vl-7b-instruct/20260428-140004/predictions.jsonl
 experiment,VQAv2,qwen3-vl-30b-it,20260412-092237,outputs/experiment/qwen3-vl-30b-it/20260412-092237/predictions.jsonl
 experiment,VQAv2,qwen3-vl-8b-instruct,20260411-214510,outputs/experiment/qwen3-vl-8b-instruct/20260411-214510/predictions.jsonl
 experiment_anchor_strengthen_prompt,VQAv2,gemma3-27b-it,20260411-214249,outputs/experiment_anchor_strengthen_prompt/gemma3-27b-it/20260411-214249/predictions.jsonl
@@ -24,3 +24,4 @@ experiment_e5e_chartqa_full,ChartQA,gemma3-27b-it,20260428-001359,outputs/experi
 experiment_e5e_chartqa_full,ChartQA,llava-next-interleaved-7b,20260427-171240,outputs/experiment_e5e_chartqa_full/llava-next-interleaved-7b/20260427-171240/predictions.jsonl
 experiment_e5e_chartqa_full,ChartQA,qwen2.5-vl-7b-instruct,20260427-235812,outputs/experiment_e5e_chartqa_full/qwen2.5-vl-7b-instruct/20260427-235812/predictions.jsonl
 experiment_e5e_tallyqa_full,TallyQA,llava-next-interleaved-7b,20260427-171240,outputs/experiment_e5e_tallyqa_full/llava-next-interleaved-7b/20260427-171240/predictions.jsonl
+experiment_e5e_tallyqa_full,TallyQA,qwen2.5-vl-7b-instruct,20260427-235812,outputs/experiment_e5e_tallyqa_full/qwen2.5-vl-7b-instruct/20260427-235812/predictions.jsonl
