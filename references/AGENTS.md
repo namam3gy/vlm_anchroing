@@ -92,7 +92,7 @@ pipeline.
 |---|---|
 | `data.py` | Load the VQAv2 JSONL snapshot, assign irrelevant images, emit per-condition dicts via `build_conditions()` |
 | `models.py` | `HFAttentionRunner` wrapping `AutoModelForImageTextToText` with a `generate_number()` helper |
-| `metrics.py` | Per-sample evaluation (`evaluate_sample`) and condition/experiment summarization. M2 canonical adopt + direction_follow definitions live here (refactor pending — `docs/insights/M2-metric-definition-evidence.md`) |
+| `metrics.py` | Per-sample evaluation (`evaluate_sample`) and condition/experiment summarization. M2 canonical adopt + C-form direction_follow `(pa-pb)·(anchor-pb) > 0 AND pa != pb` live here. Rationale: `docs/insights/M2-metric-definition-evidence.md` + `docs/insights/C-form-migration-report.md` |
 | `visualization.py` | Experiment-result chart rendering (`save_experiment_analysis_figures`) |
 | `analysis.py` | Post-experiment pandas analysis + plotting (matplotlib/plotly/seaborn), used by notebooks |
 | `utils.py` | File I/O, number parsing (`extract_first_number`, `normalize_numeric_text`), YAML/seed helpers |
