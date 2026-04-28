@@ -322,16 +322,15 @@ each):**
 |---|---|---|
 | `adopt_rate` (M2 paired, paired denominator) | 0.021 – 0.066 | slight rise vs. marginal (denominator narrows) |
 | `adopt_rate_marginal` (M2 paired, all-sample denominator) | 0.019 – 0.059 | matches §3.4 pre-M2 row in `roadmap` (within Δ ≤ 0.001 from M1 numbers) |
-| `direction_follow_rate` (M2 sign-based AND `pa != pb`) | 0.063 – 0.193 | drops 50–60 % vs. raw — most pairs have `pa == pb` (no movement), and the old raw definition counted those as direction-follow whenever `pb ≠ gt` |
-| `direction_follow_rate_raw` (M2 sign-based, no movement filter) | 0.239 – 0.349 | matches the §3.4 pre-M2 row exactly (within Δ ≤ 0.001) |
+| `direction_follow_rate` (C-form, sign-based AND `pa != pb`) | 0.085 – 0.274 | C-form numbers from the 2026-04-28 reaggregate sweep. Under C-form, `(pa-pb) = 0` makes the no-movement case structurally yield 0 in the numerator, so `direction_follow_rate == direction_follow_rate_raw` per cell. |
 
-The big movement on `direction_follow_rate` is the headline conceptual
-correction: the older raw rate inflated direction-follow by treating
-"prediction unchanged from base" as a follow-toward-anchor event. M2
-direction-follow only counts pairs that actually moved. This makes §6
-(uncertainty-modulated *graded* pull) cleaner — direction-follow becomes
-a measure of pull amplitude conditional on movement, decoupled from
-"does the model decline to update at all".
+The C-form refactor is what makes §6 (uncertainty-modulated *graded* pull)
+cleaner: direction-follow becomes a measure of anchor pull amplitude
+conditional on movement, with the anchor stimulus actually appearing in
+the formula (gt-free). The older legacy ranges (`direction_follow_rate
+0.063 – 0.193`, `direction_follow_rate_raw 0.239 – 0.349`) were measured
+under the buggy anchor·gt form — see `references/roadmap.md` §10
+correction entry (2026-04-28) and `docs/insights/C-form-migration-report.md`.
 
 **Adopt rate stability across the M2 / M1-paired pair is not a coincidence.**
 The denominator switches from `D_all` (every record) to `D_paired`

@@ -1,5 +1,17 @@
 # L1 — Confidence-modulated anchoring (§6 of the paper)
 
+> **2026-04-28 note.** `direction_follow_rate` quartile values and
+> Q4 − Q1 deltas below were measured under the M2 era (pre-C-form).
+> All E5b/E5c/E5d/E5e dirs that feed this analysis have been re-
+> aggregated to the C-form direction-follow numerator. Pre-refactor
+> results archived at `outputs/before_C_form/`. The headline claim —
+> entropy_top_k is the cleanest confidence proxy, df monotone Q1<Q4 on
+> 18/34 cells, adopt monotone on 10/34 — is qualitatively preserved
+> (verified by re-checking the re-aggregated data and confirming sign /
+> rank). Exact +0.128 / +0.044 deltas may shift slightly under C-form;
+> follow-up sweep will refresh `_data/L1_*.csv` and the figure
+> `paper_L1_confidence_quartile.png`.
+
 ## §0. Intuition — what this analysis measures, in plain terms
 
 > **Question:** When a VLM gives an answer to a question, does the certainty

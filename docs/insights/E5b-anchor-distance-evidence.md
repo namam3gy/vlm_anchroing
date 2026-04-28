@@ -1,5 +1,14 @@
 # E5b — anchoring is gated by uncertainty AND plausibility, both axes load-bearing
 
+> **2026-04-28 note.** `direction_follow` and `adopt_cond` numbers below
+> were measured under the M2 era (pre-C-form). The current
+> `outputs/experiment_distance_*/` has been re-aggregated to the C-form
+> direction-follow numerator. Pre-refactor results archived at
+> `outputs/before_C_form/`. Adopt rates and the S1-peak / S5-noise
+> distance-decay pattern are unchanged by the refactor. Direction-follow
+> ranges shift; the per-stratum monotonicity (S1 > S2 > … > S5 on
+> wrong-base) is preserved.
+
 **Status:** Sub-experiment of E5; distilled insight. Source data: `outputs/experiment_distance_{vqa,tally}/llava-next-interleaved-7b/<latest>/predictions.jsonl`. Aggregate table: `docs/insights/_data/E5b_per_stratum.csv`. Figures: `docs/figures/E5b_adopt_cond_curve.png`, `docs/figures/E5b_adopt_cond_overlay.png`. Full writeup: `docs/experiments/E5b-anchor-distance.md`. Design + plan: `docs/experiments/E5b-anchor-distance-design.md`, `docs/experiments/E5b-anchor-distance-plan.md`.
 
 ## The claim and the test
