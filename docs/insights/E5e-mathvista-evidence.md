@@ -1,33 +1,53 @@
 # E5e — MathVista (γ-α) cross-model 4-condition
 
-**Status:** Generated 2026-04-29 from
-`scripts/analyze_e5e_wrong_correct.py --exp-dir experiment_e5e_mathvista_full`.
+**Status:** Refreshed 2026-04-28 under C-form direction_follow numerator.
 Source: `outputs/experiment_e5e_mathvista_full/` — 3 models × MathVista
 testmini integer subset × {b, a-S1, m-S1, d}. Run config:
 `configs/experiment_e5e_mathvista_full.yaml`. Driver:
-`scripts/run_experiment.py`. Metrics: M2 canonical (see
+`scripts/run_experiment.py`. Metrics: M2 canonical with
+`direction_follow_rate = (pa-pb)·(anchor-pb) > 0` (see
 `docs/insights/M2-metric-definition-evidence.md`). Per-cell CSV:
 `docs/insights/_data/experiment_e5e_mathvista_full_per_cell.csv`.
+
+> **2026-04-28 correction.** This file's previous TL;DR — "df_M2 = 0 on
+> all three models → MathVista is the categorical-only adoption regime" —
+> was a driver schema artefact: `run_experiment.py` never threaded
+> `anchor_direction_followed_moved` into the row dict and the dirs below
+> had never been re-aggregated, so `summarize_condition` read the
+> missing flag as 0. Under the corrected pipeline (C-form +
+> reaggregate sweep), MathVista shows clearly non-zero
+> `direction_follow_rate` on every model and remains the dataset with
+> the largest anchor effect in our panel — just *not* in the
+> categorical-only sense the original reading claimed. Side-by-side
+> before/after: `docs/insights/C-form-migration-report.md`.
 
 This run is the cross-model successor to E5d's single-model MathVista
 validation, which had failed C3 (S4/S5 noise floor not reached). γ-α
 tests whether the diffuse pattern was llava-specific or universal.
 
-## TL;DR
+## TL;DR (post-C-form)
 
-> **MathVista shows the largest cross-modal anchor effect yet observed in
-> our panel — gemma3-27b-it has wrong-base S1 `adopt_rate = 0.194` with a
-> +15.2 pp anchor-vs-masked gap.** The two 7B models replicate the
-> direction (anchor > masked) but at much smaller magnitude. The
-> `direction_follow_rate` (M2) is exactly zero on all three models —
-> when the model moves off its base prediction, it goes *all the way to
-> the anchor value*; otherwise it stays put. MathVista is the
-> "categorical-only adoption" regime, in contrast to VQAv2 / TallyQA /
-> ChartQA which show *graded* direction-follow with `pa != pb`.
+> **MathVista is the dataset with the largest cross-modal anchor effect
+> in our panel.** All three models show non-zero adoption
+> (`adopt(a)` 0.020 — 0.176, all-base) and non-zero direction-follow
+> (`df(a)` C-form 0.072 — 0.216, all-base). The anchor > masked gap is
+> preserved on every model (digit-pixel causality holds). gemma3-27b-it
+> drives the headline with `adopt(a) = 0.176, df(a) = 0.216`. qwen2.5-vl
+> has the smallest cell — but still `df(a) = 0.072 ≠ 0`, contra the
+> previous "categorical-only" reading.
 
 The single-model E5d C3-FAIL diagnosis (diffuse pattern with no
-plausibility window) was a llava-specific behaviour at small n; γ-α with
-3 models on the larger integer subset reveals a clean pattern.
+plausibility window) remains a llava-specific small-n behaviour;
+γ-α with 3 models on the larger integer subset shows the pattern is
+graded, not categorical.
+
+### γ-α headline table (all-base, S1 anchor / masked, C-form)
+
+| model | n | acc(b) | acc(a) | acc(m) | adopt(a) | adopt(m) | df(a) C-form | df(m) C-form |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| llava-next-interleaved-7b | 385/365 | 0.086 | 0.094 | 0.080 | 0.066 | 0.030 | 0.205 | 0.125 |
+| qwen2.5-vl-7b-instruct | 385/365 | 0.203 | 0.203 | 0.213 | 0.020 | 0.008 | 0.072 | 0.041 |
+| gemma3-27b-it | 385/365 | 0.141 | 0.162 | 0.149 | 0.176 | 0.047 | 0.216 | 0.134 |
 
 ## 1. Setup
 

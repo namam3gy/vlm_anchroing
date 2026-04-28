@@ -26,7 +26,7 @@ Canonical metrics (M2, settled 2026-04-28; see
 
 ```
 adopt_rate            = #(pa == anchor AND pb != anchor) / #(pb != anchor)
-direction_follow_rate = #( (pb-gt)·(pa-gt) > 0  AND  pa != pb )
+direction_follow_rate = #( (pa-pb)·(anchor-pb) > 0  AND  pa != pb )
                         / #(numeric pair AND anchor present)
 exact_match           = #(pa == gt) / #(numeric pair)
 anchor_effect_M       = M(a-arm) - M(d-arm)
@@ -148,6 +148,16 @@ run with a `--max-samples 5` smoke run and verify `outputs/<model>/summary.json`
   distractor images, predictions, or attention maps.
 - Large generated artifacts should land under `outputs/`, never back into `src/`.
 - Keep `configs/*.yaml` aligned with available assets under `inputs/`.
+- ⚠️ **`outputs/before_C_form/` is a frozen pre-refactor backup
+  (2026-04-28).** Every metric under that tree was computed under the
+  buggy anchor·gt form for `direction_follow_rate`. **Do not read,
+  aggregate, cite, or feed into any analysis script.** All current
+  `outputs/<experiment>/<model>/<timestamp>/` outside this backup tree
+  are correct. See `outputs/before_C_form/README.md` for the full
+  notice. If you (the agent) discover yourself reading from
+  `outputs/before_C_form/*` for any reason except a deliberate
+  before-vs-after audit explicitly requested by the user, stop and
+  re-target the live `outputs/` tree.
 
 ## Commits & PRs
 

@@ -1,5 +1,16 @@
 # L1 — Confidence-modulated anchoring (§6 of the paper)
 
+> **2026-04-28 update.** Re-run on C-form re-aggregated data: the
+> headline claim is *strengthened*. With `entropy_top_k`, mean
+> `direction_follow_rate` Q4 − Q1 = **+0.152** (was +0.128 under
+> anchor·gt form), with **23/35 anchor cells fully monotone**
+> Q1 < Q2 < Q3 < Q4 (was 18/34). `adopt_rate` Q4 − Q1 = **+0.044**
+> (was +0.044, unchanged), 10/35 monotone (was 10/34). Inline numbers
+> below have been refreshed; the qualitative finding —
+> "uncertainty-modulated graded pull, with wrong/correct as a coarse
+> binary projection" — survives unchanged. Figure
+> `paper_L1_confidence_quartile.png` regenerated against the new CSV.
+
 ## §0. Intuition — what this analysis measures, in plain terms
 
 > **Question:** When a VLM gives an answer to a question, does the certainty
@@ -96,7 +107,7 @@ close second. `top1_minus_top2_margin` is the noisiest of the three.
 
 | Proxy | mean(`adopt_rate` Q4 − Q1) | mean(`direction_follow_rate` Q4 − Q1) | cells fully monotone Q1<Q2<Q3<Q4 |
 |---|---:|---:|---|
-| **`entropy_top_k`** | **+0.044** | **+0.128** | **10 / 34 (adopt), 18 / 34 (df)** |
+| **`entropy_top_k`** | **+0.044** | **+0.152** | **10 / 35 (adopt), 23 / 35 (df)** |
 | `softmax_top1_prob` | +0.036 | +0.108 | 5 / 34 (adopt), 15 / 34 (df) |
 | `top1_minus_top2_margin` | +0.017 | +0.013 | 7 / 34 (adopt), 8 / 34 (df) |
 

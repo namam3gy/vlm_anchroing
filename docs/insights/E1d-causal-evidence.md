@@ -2,6 +2,16 @@
 
 **Status:** Causal follow-up to E1b across the 6-model panel. Source data: `outputs/causal_ablation/<model>/<run>/predictions.jsonl`. Aggregate tables: `outputs/causal_ablation/_summary/{per_model_per_mode.csv, by_stratum.csv}`. Full writeup: `docs/experiments/E1d-causal-ablation.md`.
 
+> **2026-04-28 update.** Re-run on C-form re-aggregated causal_ablation
+> data: numerical results are **unchanged within ±0.5 pp** on every
+> reported pp-shift (verified against the refreshed
+> `outputs/causal_ablation/_summary/per_model_per_mode.csv`). Both
+> qualitative findings (single-layer ablation null on 6/6; upper-half
+> ablation reduces df by 5.5 — 11.5 pp on 6/6) AND quantitative claims
+> survive the C-form refactor. Pre-refactor results archived at
+> `outputs/before_C_form/causal_ablation/` for audit. Inline numbers
+> below are correct under both forms.
+
 ## The claim and the test
 
 E1b reported that anchor attention concentrates at a single LLM layer per encoder family — Gemma L5, mid-stack cluster L14–16, Qwen and FastVLM L22. The natural follow-up: if we *remove the model's ability to attend to the anchor at that layer*, does the model's anchor-pull behaviour drop?

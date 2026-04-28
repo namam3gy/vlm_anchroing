@@ -1,0 +1,52 @@
+experiment,model,status,before_mean,after_mean
+experiment,analysis,no data,,
+experiment,gemma3-27b-it,stronger (after > before),0.1067,0.1672
+experiment,gemma4-31b-it,stronger (after > before),0.0632,0.0847
+experiment,gemma4-e4b,stronger (after > before),0.1931,0.2736
+experiment,llava-next-interleaved-7b,stronger (after > before),0.1446,0.1721
+experiment,qwen2.5-vl-7b-instruct,stronger (after > before),0.0786,0.0937
+experiment,qwen3-vl-30b-it,stronger (after > before),0.1412,0.1695
+experiment,qwen3-vl-8b-instruct,stronger (after > before),0.0869,0.1043
+experiment_anchor_strengthen_prompt,gemma3-27b-it,stronger (after > before),0.249,0.3211
+experiment_anchor_strengthen_prompt,gemma4-31b-it,stronger (after > before),0.101,0.1423
+experiment_anchor_strengthen_prompt,gemma4-e4b,stronger (after > before),0.182,0.2585
+experiment_anchor_strengthen_prompt,llava-next-interleaved-7b,stronger (after > before),0.1287,0.149
+experiment_anchor_strengthen_prompt,qwen2.5-vl-7b-instruct,stronger (after > before),0.1,0.1441
+experiment_anchor_strengthen_prompt,qwen3-vl-30b-it,stronger (after > before),0.112,0.1316
+experiment_anchor_strengthen_prompt,qwen3-vl-8b-instruct,stronger (after > before),0.1355,0.1677
+experiment_chartqa,analysis,no data,,
+experiment_chartqa,llava-next-interleaved-7b,preserved (~ unchanged),0.1502,0.1514
+experiment_chartqa,qwen2.5-vl-7b-instruct,preserved (~ unchanged),0.0426,0.0487
+experiment_chartqa,qwen3-vl-8b-instruct,preserved (~ unchanged),0.0368,0.0425
+experiment_distance_tally,analysis,no data,,
+experiment_distance_tally,llava-next-interleaved-7b,stronger (after > before),0.0421,0.0559
+experiment_distance_vqa,analysis,no data,,
+experiment_distance_vqa,llava-next-interleaved-7b,stronger (after > before),0.0674,0.0832
+experiment_e5c_tally,analysis,no data,,
+experiment_e5c_tally,llava-next-interleaved-7b,stronger (after > before),0.0371,0.0538
+experiment_e5c_vqa,analysis,no data,,
+experiment_e5c_vqa,llava-next-interleaved-7b,stronger (after > before),0.0594,0.074
+experiment_e5d_chartqa_validation,analysis,no data,,
+experiment_e5d_chartqa_validation,llava-next-interleaved-7b,stronger (after > before),0.1409,0.158
+experiment_e5d_mathvista_validation,analysis,no data,,
+experiment_e5d_mathvista_validation,llava-next-interleaved-7b,stronger (after > before),0.1975,0.2518
+experiment_e5e_chartqa_full,analysis,no data,,
+experiment_e5e_chartqa_full,gemma3-27b-it,stronger (after > before),0.0535,0.087
+experiment_e5e_chartqa_full,llava-next-interleaved-7b,stronger (after > before),0.1008,0.1333
+experiment_e5e_chartqa_full,qwen2.5-vl-7b-instruct,stronger (after > before),0.022,0.0482
+experiment_e5e_mathvista_full,analysis,no data,,
+experiment_e5e_mathvista_full,gemma3-27b-it,"REVEALED (was 0, now > 0)",0.0,0.1753
+experiment_e5e_mathvista_full,llava-next-interleaved-7b,"REVEALED (was 0, now > 0)",0.0,0.0825
+experiment_e5e_mathvista_full,qwen2.5-vl-7b-instruct,"REVEALED (was 0, now > 0)",0.0,0.0566
+experiment_e5e_mathvista_reasoning,analysis,no data,,
+experiment_e5e_mathvista_reasoning,qwen3-vl-8b-instruct,"REVEALED (was 0, now > 0)",0.0,0.0427
+experiment_e5e_mathvista_reasoning,qwen3-vl-8b-thinking,"REVEALED (was 0, now > 0)",0.0,0.5
+experiment_e5e_mathvista_reasoning,qwen3-vl-8b-thinking_postlanding,no data,,
+experiment_e5e_tallyqa_full,analysis,no data,,
+experiment_e5e_tallyqa_full,llava-next-interleaved-7b,stronger (after > before),0.0434,0.061
+experiment_e5e_tallyqa_full,qwen2.5-vl-7b-instruct,weakened (after < before),0.0938,0.0295
+experiment_encoder_pilot,analysis,no data,,
+experiment_encoder_pilot,convllava-7b,preserved (~ unchanged),0.2364,0.2284
+experiment_encoder_pilot,fastvlm-7b,preserved (~ unchanged),0.1577,0.1547
+experiment_encoder_pilot,internvl3-8b,stronger (after > before),0.0809,0.1023
+experiment_encoder_pilot,llava-1.5-7b,stronger (after > before),0.2178,0.2907

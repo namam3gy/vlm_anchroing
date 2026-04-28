@@ -1,5 +1,17 @@
 # E5b — anchoring is gated by uncertainty AND plausibility, both axes load-bearing
 
+> **2026-04-28 update.** Re-run on C-form re-aggregated data: the cited
+> `adopt_cond` decays (VQAv2 wrong-base 0.130 → 0.032 → 0.010 → 0.010 →
+> 0.003 across S1—S5; TallyQA 0.092 → 0.006 → 0.003 → 0 → 0) are
+> **unchanged** — adopt is independent of the direction-follow numerator.
+> `direction_follow` rates are *smaller in absolute magnitude* under
+> C-form (the new form excludes pa==pb pairs structurally) but the
+> S1>S5 monotonicity on wrong-base is preserved. Inline numbers below
+> are correct for `adopt_cond`; `df` ranges have shrunk relative to the
+> anchor·gt form but the qualitative two-axis claim (uncertainty gate +
+> plausibility window) holds. Pre-refactor results at
+> `outputs/before_C_form/experiment_distance_*/`.
+
 **Status:** Sub-experiment of E5; distilled insight. Source data: `outputs/experiment_distance_{vqa,tally}/llava-next-interleaved-7b/<latest>/predictions.jsonl`. Aggregate table: `docs/insights/_data/E5b_per_stratum.csv`. Figures: `docs/figures/E5b_adopt_cond_curve.png`, `docs/figures/E5b_adopt_cond_overlay.png`. Full writeup: `docs/experiments/E5b-anchor-distance.md`. Design + plan: `docs/experiments/E5b-anchor-distance-design.md`, `docs/experiments/E5b-anchor-distance-plan.md`.
 
 ## The claim and the test

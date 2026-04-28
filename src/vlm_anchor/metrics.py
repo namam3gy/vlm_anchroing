@@ -3,10 +3,16 @@
 Canonical definitions (`docs/insights/M2-metric-definition-evidence.md`):
 
     adopt_rate            = #(pa == anchor AND pb != anchor) / #(pb != anchor)
-    direction_follow_rate = #( (pb-gt)·(pa-gt) > 0  AND  pa != pb )
+    direction_follow_rate = #( (pa-pb)·(anchor-pb) > 0  AND  pa != pb )
                             / #(numeric pair AND anchor present)
     exact_match           = #(pa == gt) / #(numeric pair)
     anchor_effect_M       = M(a-arm) - M(d-arm)
+
+The ``direction_follow_rate`` numerator measures whether ``pa`` (the
+anchor-condition prediction) shifted **from the baseline ``pb`` toward the
+anchor stimulus**. Using ``pb`` (not ``gt``) as the reference makes the
+metric depend only on model outputs and the anchor draw — a direct measure
+of anchor pull, robust to per-question stimulus variability.
 
 Per-row flags persisted to ``predictions.jsonl``:
 
@@ -76,8 +82,8 @@ def evaluate_sample(
     Adopt numerator (paired, M1):
         anchor_adopted = (pa == anchor) AND (pb != anchor)
 
-    Direction-follow numerators:
-        anchor_direction_followed       = (pb - gt) * (pa - gt) > 0
+    Direction-follow numerators (C-form, gt-free):
+        anchor_direction_followed       = (pa - pb) * (anchor - pb) > 0
         anchor_direction_followed_moved = anchor_direction_followed AND (pa != pb)
 
     Denominator filters live in ``summarize_condition``; this function only
@@ -111,11 +117,11 @@ def evaluate_sample(
     if (
         anchor
         and _is_int_str(pa)
-        and _is_int_str(gt)
         and _is_int_str(anchor)
     ):
-        pa_i, gt_i, anchor_i = int(pa), int(gt), int(anchor)
-        if (pa_i - gt_i) * (anchor_i - gt_i) > 0:
+        pa_i, anchor_i = int(pa), int(anchor)
+        # C-form: pa shifted from pb toward the anchor side of pb (gt-free).
+        if pb_is_int and (pa_i - int(pb)) * (anchor_i - int(pb)) > 0:
             direction_followed = 1
         if pb_is_int and direction_followed and int(pb) != pa_i:
             direction_followed_moved = 1

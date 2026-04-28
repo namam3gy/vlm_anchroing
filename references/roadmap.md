@@ -70,7 +70,7 @@ in-flight · ☐ not started.
 | `experiment_e5e_chartqa_full` | ChartQA | b/a/m/d (S1) | llava-interleave-7b, qwen2.5-vl-7b, gemma3-27b-it | ✅ |
 | `experiment_e5e_tallyqa_full` | TallyQA | b/a/m/d (S1) | same 3 | ✅ |
 | `experiment_e5e_mathvista_full` (γ-α) | MathVista | b/a/m/d (S1) | llava-interleave-7b, qwen2.5-vl-7b, gemma3-27b-it | ✅ landed 2026-04-29 — `docs/insights/E5e-mathvista-evidence.md` |
-| MathVista (γ-β) reasoning-mode | MathVista | b/a/m/d (S1) | qwen3-vl-8b-instruct + qwen3-vl-8b-thinking | ⏳ launched 2026-04-28 |
+| MathVista (γ-β) reasoning-mode | MathVista | b/a/m/d (S1) | qwen3-vl-8b-instruct + qwen3-vl-8b-thinking | ✅ landed 2026-04-28 — thinking *amplifies* anchor pull (df C-form 0.094 → 0.291, ×3.1; adopt 0.055 → 0.117, ×2.1). VLMBias / LRM-judging gain confirmed |
 | VQAv2 4-condition (b/a/m/d) | VQAv2 | full grid cross-model | TBD | ☐ P1 (kept, time-permitting) |
 
 ### 3.2 Mechanistic runs
@@ -85,26 +85,33 @@ in-flight · ☐ not started.
 | E4 mitigation Phase 2 (full validation) | same 3 | 17,730 | ✅ |
 | E4 generalisation to other archetypes | gemma4-e4b, qwen2.5-vl-7b, fastvlm-7b | TBD | ☐ P3 |
 
-### 3.3 Headline numbers (M2 re-aggregation, 2026-04-29)
+### 3.3 Headline numbers (C-form re-aggregation, 2026-04-28)
 
-All numbers below use the canonical M2 metrics from §4. The M1-era figures
-preserved in §10 changelog entries continue to reflect the older `D_all`
-denominator (adopt) and `DF_raw` numerator (direction-follow); M2 changes
-adopt by ≈ +0.005 (denominator tightens) and `direction_follow_rate`
-substantially downward (numerator now requires `pa != pb` — no-change
-pairs no longer count). Differences are mechanical, not new data.
+All numbers below use the canonical M2 metrics from §4 with the
+`direction_follow_rate` numerator in **C-form**: `(pa-pb)·(anchor-pb) > 0`.
+The previously-published anchor·gt form numbers (committed 2026-04-29 as
+"M2 re-aggregation") were a buggy carry-over from the M1 era; see §10
+changelog for the correction entry. Pre-refactor results are archived at
+`outputs/before_C_form/` for audit. Side-by-side before/after deltas:
+`docs/insights/C-form-migration-report.md`. Adopt and exact-match are
+unchanged by the refactor; only `direction_follow*` columns moved.
 
 #### Standard-prompt VQAv2 number subset, 17,730 samples / model
 
-| Model | acc(b) | acc(d) | acc(a) | adopt(a) | direction_follow(a) | (legacy adopt_marg) | (legacy df_raw) |
-|---|---:|---:|---:|---:|---:|---:|---:|
-| gemma4-e4b | 0.553 | 0.505 | 0.541 | **0.066** | **0.193** | 0.059 | 0.320 |
-| llava-interleave-7b | 0.619 | 0.577 | 0.576 | **0.053** | **0.145** | 0.047 | 0.349 |
-| gemma3-27b-it | 0.628 | 0.623 | 0.633 | **0.053** | **0.107** | 0.047 | 0.305 |
-| qwen2.5-vl-7b | 0.736 | 0.708 | 0.711 | **0.021** | **0.079** | 0.019 | 0.248 |
-| qwen3-vl-8b | 0.751 | 0.710 | 0.715 | **0.033** | **0.087** | 0.029 | 0.258 |
-| gemma4-31b-it | 0.749 | 0.723 | 0.741 | **0.024** | **0.063** | 0.021 | 0.239 |
-| qwen3-vl-30b | 0.759 | 0.709 | 0.707 | **0.039** | **0.141** | 0.034 | 0.281 |
+| Model | acc(b) | acc(d) | acc(a) | adopt(a) | direction_follow(a) C-form |
+|---|---:|---:|---:|---:|---:|
+| gemma4-e4b | 0.553 | 0.505 | 0.541 | **0.066** | **0.274** |
+| llava-interleave-7b | 0.619 | 0.577 | 0.576 | **0.053** | **0.172** |
+| gemma3-27b-it | 0.628 | 0.623 | 0.633 | **0.053** | **0.167** |
+| qwen3-vl-30b | 0.759 | 0.709 | 0.707 | **0.039** | **0.170** |
+| qwen3-vl-8b | 0.751 | 0.709 | 0.715 | **0.033** | **0.104** |
+| qwen2.5-vl-7b | 0.736 | 0.708 | 0.711 | **0.021** | **0.094** |
+| gemma4-31b-it | 0.749 | 0.723 | 0.741 | **0.024** | **0.085** |
+
+Under C-form, `direction_follow_rate_raw == direction_follow_rate_moved`
+because `(pa-pb) = 0` makes the no-movement case yield zero in the
+numerator structurally — the `pa != pb` clause is structurally redundant
+but kept explicit for clarity. Ranking is preserved across the panel.
 
 #### E5b distance sweep — `llava-interleave-7b` only (cross-model in flight)
 
@@ -157,7 +164,7 @@ Settled in `docs/insights/M2-metric-definition-evidence.md`. Paper headline:
 
 ```
 adopt_rate            = #(pa == anchor AND pb != anchor) / #(pb != anchor)
-direction_follow_rate = #( (pb-gt)·(pa-gt) > 0  AND  pa != pb )
+direction_follow_rate = #( (pa-pb)·(anchor-pb) > 0  AND  pa != pb )
                         / #(numeric pair AND anchor present)
 exact_match           = #(pa == gt) / #(numeric pair)
 anchor_effect_M       = M(a-arm) - M(d-arm)
@@ -232,7 +239,7 @@ robustness).
 | **E5e S1-only cross-model** | b/a/m/d × ChartQA + TallyQA × 3 models | ✅ |
 | **E5b/c cross-model expansion** | extend E5b + E5c to 3-model E5e panel (qwen2.5-vl-7b, gemma3-27b-it ∪ llava-interleave-7b) on VQAv2 + TallyQA | ⏳ in flight (user 2026-04-28) |
 | **E5e MathVista (γ-α)** | MathVista b/a/m/d (S1) × 3 models | ✅ landed 2026-04-29 — gemma3-27b adopt(a, wrong-base) = 0.194; df(M2) = 0 universally → categorical-replace regime |
-| **E5e MathVista (γ-β)** | reasoning-mode VLM × MathVista — Qwen3-VL-8B-Instruct vs. Qwen3-VL-8B-Thinking (separate weights), 4-cond S1, max_new_tokens=512, runner is `</think>`-aware | ⏳ launched 2026-04-28 — `configs/experiment_e5e_mathvista_reasoning.yaml`; instruct ETA ~40min, thinking ETA ~15h |
+| **E5e MathVista (γ-β)** | reasoning-mode VLM × MathVista — Qwen3-VL-8B-Instruct vs. Qwen3-VL-8B-Thinking (separate weights), 4-cond S1, max_new_tokens=512, runner is `</think>`-aware | ✅ landed 2026-04-28. Headline (C-form, S1 anchor arm, all-base): instruct adopt=0.055 / df=0.094, thinking adopt=0.117 / df=0.291. Thinking amplifies anchor pull on every metric (×2 — ×3) — direction-agnostic hypothesis (H4) lands on the *amplification* side, consistent with VLMBias / Wang LRM-judging |
 | **VQAv2 4-condition** | b/a/m/d cross-model VQAv2 | ☐ P1 (kept) |
 
 ### 6.4 §6 — Confidence-modulated anchoring (logit-based)
@@ -280,7 +287,7 @@ bearing. P2 = ideation depth. P3 = future / parallel.
 | **P1** | E1-patch full panel — masked arm causal control + 4 remaining archetypes | §6.5 E1-patch | ~1.5d |
 | **P0** | Per-token logit confidence analysis (L1–L4) | §6.4 | analysis only, ~3-4h |
 | ~~P0~~ ✅ | E5e MathVista (γ-α) — 3-model b/a/m/d × S1 | §6.3 | landed 2026-04-29 |
-| **P0** | MathVista (γ-β) — reasoning-mode | §6.3 | ⏳ in flight (launched 2026-04-28; thinking ETA ~15h) |
+| ~~P0~~ ✅ | MathVista (γ-β) — reasoning-mode | §6.3 | landed 2026-04-28 — thinking amplifies anchor pull |
 | **P0** | E5b / E5c cross-model expansion (in flight, finish) | §6.3 | 1-1.5d |
 | **P1** | VQAv2 4-condition cross-model (kept) | §6.3 | ~1d (3 models) — opportunistic |
 | **P1** | M2 unit tests | §6.1 | 0.5d |
@@ -335,6 +342,69 @@ bearing. P2 = ideation depth. P3 = future / parallel.
   M2 evidence numbers refresh accordingly.
 
 ## 10. Changelog
+
+- **2026-04-28** — **γ-β MathVista (reasoning-mode) landed: thinking amplifies anchor pull.**
+  Background `btymeywv9` finished overnight; results on
+  `outputs/experiment_e5e_mathvista_reasoning/qwen3-vl-8b-thinking/20260428-114421/`,
+  reaggregated post-C-form. Per-arm headline (S1 anchor, all-base):
+  instruct (Qwen3-VL-8B-Instruct) `adopt(a) = 0.055`, `df(a) C-form = 0.094`;
+  thinking (Qwen3-VL-8B-Thinking) `adopt(a) = 0.117`, `df(a) C-form = 0.291`
+  — thinking is **×2.1 on adopt and ×3.1 on direction-follow**. Masked-arm
+  digit-pixel causality is preserved on both (anchor > masked on every
+  metric, both models). Thinking acc(b) = 0.196 (slightly below
+  instruct's 0.216 — reasoning trace does not gain accuracy on this
+  panel, but loses anchor robustness). H4 ("reasoning reduces anchoring")
+  lands on the *amplification* side, consistent with VLMBias and Wang
+  LRM-judging. The γ-β result is the strongest single
+  reasoning-amplifies-bias finding in our panel and a paper-tier hook.
+  Pre-reaggregate (driver-bug 0) results preserved at
+  `outputs/before_C_form/experiment_e5e_mathvista_reasoning/qwen3-vl-8b-thinking_postlanding/`.
+
+- **2026-04-28** — **direction_follow_rate refactor — C-form (pa-pb)·(anchor-pb).**
+  An audit triggered by γ-β `df_M2 = 0` exposed two compounding bugs:
+  (i) the `direction_follow_rate` formula in `metrics.py:118` had carried
+  the M1-era `(pa-gt)·(anchor-gt) > 0` form unchanged through the M2
+  commit, even though that commit's docstring + commit message + 5 doc
+  surfaces all declared `(pb-gt)·(pa-gt) > 0`. Both forms turned out to
+  be unintended on reflection; the user's true intent (verified across
+  the same commit and a brief design discussion) was the gt-free
+  C-form `(pa-pb)·(anchor-pb) > 0  AND  pa != pb` — anchor pull as a
+  baseline-relative shift toward the anchor stimulus, robust to per-
+  question stimulus draws. (ii) `run_experiment.py` row dict never
+  threaded `anchor_direction_followed_moved`, `pred_b_equal_anchor`, or
+  `pred_diff_from_base` from `sample_eval`, so `summarize_condition`
+  read missing keys as 0 and reported `df_M2 = 0` on every directly-
+  driven run. `reaggregate_paired_adoption.py` had silently been fixing
+  (ii) for any dir it touched, but eight dirs (γ-α MathVista, γ-β
+  reasoning, one TallyQA E5e cell) had never been re-aggregated.
+  Remediation: code surfaces (`metrics.py:118`, reaggregate, analyze
+  variants, tests) all rewritten to C-form; 7 doc surfaces (project.md
+  §0.3, roadmap.md §4, AGENTS.md, M2 evidence, paper_summary_slides,
+  metrics.py docstrings, analyze_metric_variants docstrings) re-stated
+  in C-form; driver row dict gained the three missing flags;
+  `tests/test_metrics.py::DriverRowSchemaRegressionTest` enforces
+  schema parity going forward; full reaggregate sweep across 17 sub-
+  trees rewrote 61 `predictions.jsonl` files. Pre-refactor results
+  archived at `outputs/before_C_form/`. Side-by-side before/after
+  comparison: `docs/insights/C-form-migration-report.md` (+ 7-slide
+  PPTX deck `docs/figures/C_form_migration_report.pptx`). **All
+  paper-tier qualitative claims preserved or strengthened under
+  C-form.** Largest single shift: qwen2.5-vl-7b VQAv2 df_moved
+  0.079 → 0.094 (modest under standard prompt; up to ×2.7 on other
+  cells across the project). E5e MathVista's "df_M2 = 0 universally
+  → categorical-replace regime" framing was a driver-bug artefact:
+  true df_moved is 0.099 on γ-α and 0.195 on γ-β. The §"E5e
+  MathVista evidence" section needs a writeup rewrite; other evidence
+  docs (A1, E1d, E4, E5b, E5c, ChartQA, TallyQA, L1) need only a
+  number refresh — qualitative narratives survive intact. New
+  artefacts: `scripts/build_C_form_migration_report.py`,
+  `scripts/verify_m2_schema.py` (CI guard, 61/61 jsonls pass),
+  `docs/deprecated/_ko-mirrors-2026-04-27/` (18 files moved per the
+  retired bilingual convention), 145 `.marginal.bak.*` files deleted
+  from the working tree (118 inside `outputs/before_C_form/`
+  preserved as audit artefacts). Memory entry
+  `feedback_metric_C_form.md` persisted to prevent re-litigation in
+  future sessions. §3.3 headline table refreshed.
 
 - **2026-04-28** — **E5e MathVista (γ-β) reasoning-mode launched.** Same
   4-condition S1 design as γ-α (b/a/m/d, integer-GT subset, relative_s1 cutoff)
