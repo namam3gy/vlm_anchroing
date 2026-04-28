@@ -119,13 +119,19 @@ S1 (b/a/m/d × S1):
 
 | Dataset | Model | adopt(a) | adopt(m) | df(a) C-form | df(m) C-form |
 |---|---|---:|---:|---:|---:|
-| ChartQA | gemma3-27b-it | 0.037 | 0.022 | 0.073 | 0.052 |
-| ChartQA | llava-interleave | 0.028 | 0.009 | 0.097 | 0.072 |
-| ChartQA | qwen2.5-vl-7b | 0.017 | 0.013 | 0.030 | 0.024 |
-| TallyQA | llava-interleave | 0.020 | 0.013 | 0.078 | 0.054 |
+| ChartQA | gemma3-27b-it | 0.037 | 0.022 | 0.096 | 0.079 |
+| ChartQA | llava-interleave | 0.028 | 0.009 | 0.152 | 0.115 |
+| ChartQA | qwen2.5-vl-7b | 0.017 | 0.013 | 0.051 | 0.046 |
+| TallyQA | llava-interleave | 0.026 | 0.014 | 0.066 | 0.056 |
+| TallyQA | qwen2.5-vl-7b | 0.011 | 0.011 | 0.029 | 0.030 |
 | **MathVista** | **gemma3-27b-it** | **0.176** | 0.047 | **0.216** | 0.134 |
 | MathVista | llava-interleave | 0.066 | 0.030 | 0.205 | 0.125 |
 | MathVista | qwen2.5-vl-7b | 0.020 | 0.008 | 0.072 | 0.041 |
+
+TallyQA × gemma3-27b-it is in flight on GPU 1 (launched 2026-04-28
+00:39 UTC, full 38,245-question integer subset, ETA ~30-35h on
+contended GPU). The cell will be added once the run lands; the
+qualitative pattern across the three datasets does not depend on it.
 
 Three observations:
 

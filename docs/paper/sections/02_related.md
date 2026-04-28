@@ -21,15 +21,16 @@ on a VLM in §7-§8. All of these are text-only.
 
 ## 2.2 Multimodal cognitive-bias evaluation
 
-VLMBias [Nguyen et al., ICML AI4MATH 2025] is the most comprehensive
-multimodal-bias benchmark to date. They probe whether memorized-subject
-labels (e.g. "Aston Martin DB5") cause counterfactual counting failures
-on images containing the named subject. AIpsych [Jin et al.,
-arXiv:2507.03123] is the first psychology-grounded VLM cognitive-bias
-benchmark; it focuses on sycophancy, authority, and logical-consistency
-biases. CIVET [EMNLP Findings 2025] systematises position-understanding
-evaluation. Tinted Frames [arXiv:2603.19203] varies question-form
-framing in VLMs.
+VLMBias [Vo, Nguyen et al., arXiv:2505.23941, 2025] is the most
+comprehensive multimodal-bias benchmark to date. They probe whether
+memorized-subject labels (e.g. "Aston Martin DB5") cause counterfactual
+counting failures on images containing the named subject. AIpsych
+[Liu et al., arXiv:2507.03123, 2025] is a psychology-grounded VLM
+cognitive-bias benchmark; it focuses on sycophancy, appeal-to-authority,
+and logical-consistency biases. CIVET [EMNLP Findings 2025]
+systematises position-understanding evaluation. Tinted Frames
+[Fan et al., arXiv:2603.19203, 2026] varies question-form framing in
+VLMs.
 
 **None of the above measures cross-modal numerical anchoring.** VLMBias
 is the closest neighbour: both inject visual content that biases the
@@ -42,9 +43,10 @@ measures *classification flips* on counterfactual scenes. We use a
 ## 2.3 Typographic attacks and FigStep
 
 Typographic-attack work [Goh et al., "Multimodal Neurons", 2021;
-Wang-Zhao-Larson, NAACL 2025; arXiv:2508.20570] shares one mechanism
-with our setup: in-image rendered text activates concept neurons in
-the vision encoder. The key differences:
+Wang-Zhao-Larson, NAACL 2025, arXiv:2502.08193; Hufe et al.,
+"Dyslexify", arXiv:2508.20570, 2025] shares one mechanism with our
+setup: in-image rendered text activates concept neurons in the vision
+encoder. The key differences:
 (a) typographic attacks paste *class-label text* on the target image
 to flip a classifier; we paste a *single numerical value* on a *separate*
 irrelevant image alongside the target.
@@ -62,14 +64,20 @@ mechanism but targets jailbreaking, not numeric estimation.
 ## 2.4 Mechanism-localising VLM work
 
 Goh et al.'s "Multimodal Neurons" [2021] is the canonical "in-image
-text → concept-neuron activation" reference. arXiv:2508.20570 (2025)
-localises typographic-attack susceptibility to early-layer CLIP/SigLIP
-features. Weng et al.'s "Images Speak Louder than Words"
-[EMNLP 2024 Main] is the gold-standard "behavioural finding +
-causal-mediation analysis + 22 % mitigation" template — what an
-EMNLP-Main-tier paper looks like for a multimodal behavioural finding.
-We follow that template here (§5 behavioural / §7 attention-locus /
-§7 mitigation).
+text → concept-neuron activation" reference. Hufe et al.'s
+"Dyslexify" [arXiv:2508.20570, 2025] localises typographic-attack
+susceptibility to a circuit of attention heads in the latter half of
+CLIP's vision encoder, and proposes head ablation as a mitigation.
+Weng et al.'s "Images Speak Louder than Words" [EMNLP 2024 Main] is
+the gold-standard "behavioural finding + causal-mediation analysis +
+22 % mitigation" template — what an EMNLP-Main-tier paper looks like
+for a multimodal behavioural finding. We follow that template here
+(§5 behavioural / §7 attention-locus / §7 mitigation). Our §7 result
+that **upper-half** attention re-weighting on the LLM stack reduces
+direction-follow on 6/6 archetypes is consistent in spirit with
+Dyslexify's "later-half" CLIP finding, suggesting that the encoder's
+late-stack typographic circuit propagates into the LLM stack's upper
+half along the same depth axis.
 
 ## 2.5 What this paper adds, in one paragraph
 

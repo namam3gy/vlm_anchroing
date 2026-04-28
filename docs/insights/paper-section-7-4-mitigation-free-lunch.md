@@ -127,8 +127,9 @@ We do not claim the working point `s*` transfers unchanged to ChartQA,
 TallyQA, or MathVista. The mitigation locus *should* generalise (it is
 defined on the LLM stack, not on the dataset), but the optimal `s*`
 likely shifts with the per-dataset distance distribution and the
-graded-tilt vs. categorical-replace regime characterised in §3.3 and §5.
-We flag this as a limitation in §9 and as a tractable follow-up.
+graded-tilt magnitude characterised in §3.3 and §5 (MathVista is the
+largest single cell in the panel; ChartQA is the smallest). We flag
+this as a limitation in §9 and as a tractable follow-up.
 
 The model-level claim is full-cluster: all three Phase 2 results were
 collected at full data scale with bootstrap CIs. The relative reduction

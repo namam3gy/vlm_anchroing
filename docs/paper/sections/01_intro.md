@@ -38,7 +38,7 @@ cues even when explicitly told they are irrelevant
 [Tversky-Kahneman 1974, Mussweiler-Strack 1997, Jacowitz-Kahneman 1995].
 The LLM literature has confirmed this for *text* anchors
 [Jones-Steinhardt 2022, Echterhoff et al. 2024, Lou-Sun 2024,
-Jin et al. 2025]. We ask: does the same anchoring effect transfer to
+Huang et al. 2025]. We ask: does the same anchoring effect transfer to
 the *image* modality, when the cue is a stand-alone rendered-number
 image carrying no semantic label?
 

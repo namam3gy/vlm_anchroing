@@ -34,15 +34,32 @@ OUT_DIR = PROJECT_ROOT / "docs" / "insights" / "_data"
 OUT_DIR.mkdir(parents=True, exist_ok=True)
 
 
-def _resolve_model_runs(root: Path) -> dict[str, Path]:
-    """For each model dir under root, pick the latest run that has predictions.csv."""
+def _resolve_model_runs(root: Path, min_records: int = 100) -> dict[str, Path]:
+    """For each model dir under root, pick the largest run with predictions.csv.
+
+    The previous "latest by name" rule silently picked smoke / verification
+    runs (n < 100) created after the canonical full run, polluting Phase A
+    aggregates. Prefer the run with the largest `predictions.csv` line count
+    that has at least ``min_records`` rows.
+    """
     runs: dict[str, Path] = {}
     for model_dir in sorted(p for p in root.iterdir() if p.is_dir()):
         if model_dir.name == "analysis":
             continue
-        candidates = sorted(p for p in model_dir.iterdir() if p.is_dir() and (p / "predictions.csv").exists())
+        candidates: list[tuple[int, Path]] = []
+        for p in model_dir.iterdir():
+            if not p.is_dir():
+                continue
+            csv = p / "predictions.csv"
+            if not csv.exists():
+                continue
+            with csv.open() as fh:
+                n_rows = sum(1 for _ in fh) - 1  # header
+            if n_rows >= min_records:
+                candidates.append((n_rows, p))
         if candidates:
-            runs[model_dir.name] = candidates[-1]
+            candidates.sort()
+            runs[model_dir.name] = candidates[-1][1]
     return runs
 
 

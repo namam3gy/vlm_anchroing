@@ -83,8 +83,9 @@ parameter count.
 | Strengthen-prompt | VQAv2 | 7 | 17,730 × 3 cond | 372,330 |
 | E5b distance sweep | VQAv2 + TallyQA | 1 | 1,000 × 6 cond × 2 datasets | 12,000 |
 | E5c digit-mask | VQAv2 + TallyQA | 1 | 1,000 × 12 cond × 2 datasets | 24,000 |
-| E5e ChartQA full | ChartQA | 3 | 5,390 × 3 cond | 48,510 |
-| E5e TallyQA full | TallyQA | 3 (extending) | 38,245 × 4 cond | 458,940 |
+| E5 ChartQA original (3-cond) | ChartQA | 3 | 5,390 × 3 cond | 48,510 |
+| E5e ChartQA full (4-cond) | ChartQA | 3 | 705 × 4 cond | 8,460 |
+| E5e TallyQA full (4-cond) | TallyQA | 2 done + 1 in flight | 38,245 × 4 cond | 458,940 |
 | E5e MathVista (γ-α) | MathVista | 3 | 385 × 4 cond | 4,620 |
 | E5e MathVista (γ-β) | MathVista | 2 (instruct + thinking) | 385 × 4 cond | 3,080 |
 | E1 attention-mass | VQAv2 stratified | 6 | 200 × 3 cond | 3,600 |
