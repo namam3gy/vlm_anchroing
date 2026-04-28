@@ -81,8 +81,8 @@ applies to `pred_m` (mask arm).
 | VQAv2 number | b / a / m / d (4-cond, S1) | 0 — kept as P1 | deferred (kept) |
 | TallyQA | b / a / m / d (4-cond, S1) | 3 (E5e) | done — extending |
 | ChartQA | b / a / m / d (4-cond, S1) | 3 (E5e) | done — extending |
-| MathVista | b / a / m / d (4-cond, S1) | 0 — γ planned | P0 |
-| MathVista | reasoning-mode (β) | 0 — γ planned | P0 |
+| MathVista | b / a / m / d (4-cond, S1) | 3 (γ-α: llava-interleave, qwen2.5-vl, gemma3-27b) | ✅ landed 2026-04-28 — gemma3-27b wrong-base adopt(a) = 0.230, df(a) C-form = 0.332 (panel-largest cell) |
+| MathVista | reasoning-mode (β) | 2 (qwen3-vl-8b instruct vs thinking) | ✅ landed 2026-04-28 — thinking amplifies anchor pull (adopt ×1.6, df ×2.9) |
 
 E5b stratified-distance and E5c digit-mask runs are on
 `llava-next-interleaved-7b` only (cross-model expansion in flight).
