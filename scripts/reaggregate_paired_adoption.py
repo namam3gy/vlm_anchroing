@@ -48,6 +48,9 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 MARKER_FIELDS = (
     "anchor_adopted",
     "anchor_direction_followed",
+    "anchor_direction_followed_moved",
+    "pred_b_equal_anchor",
+    "pred_diff_from_base",
     "numeric_distance_to_anchor",
 )
 
@@ -159,8 +162,8 @@ def _display_path(run_dir: Path) -> str:
 
 def reaggregate_ablation_like(run_dir: Path, records: list[dict[str, Any]],
                               schema: str, force: bool, apply: bool) -> dict[str, Any]:
-    """Add paired anchor_adopted (+ direction_follow + distance) fields in-place
-    to every record. Group by (sample_instance_id, mode_or_strength).
+    """Add paired/M2 per-row flags in-place to every record. Group by
+    (sample_instance_id, mode_or_strength).
 
     Skips summary.json regeneration (preserves existing schema-specific summary
     written by analyze_*.py).
@@ -221,11 +224,23 @@ def reaggregate_ablation_like(run_dir: Path, records: list[dict[str, Any]],
             if r.get("condition") == "target_only":
                 r["anchor_adopted"] = 0
                 r["anchor_direction_followed"] = 0
+                r["anchor_direction_followed_moved"] = 0
+                r["pred_b_equal_anchor"] = 0
+                r["pred_diff_from_base"] = 0
                 r["numeric_distance_to_anchor"] = None
                 target_only_count += 1
             else:
                 r["anchor_adopted"] = paired_adoption(parsed, anchor, base_parsed)
-                r["anchor_direction_followed"] = direction_follow(parsed, anchor, gt)
+                df_raw = direction_follow(parsed, anchor, gt)
+                r["anchor_direction_followed"] = df_raw
+                pa_n = _normalized_int_str(parsed)
+                pb_n = _normalized_int_str(base_parsed)
+                a_n = _normalized_int_str(anchor)
+                pb_eq_a = int(a_n is not None and pb_n is not None and pb_n == a_n)
+                pa_ne_pb = int(pb_n is not None and pa_n is not None and pa_n != pb_n)
+                r["pred_b_equal_anchor"] = pb_eq_a
+                r["pred_diff_from_base"] = pa_ne_pb
+                r["anchor_direction_followed_moved"] = int(bool(df_raw) and bool(pa_ne_pb))
                 r["numeric_distance_to_anchor"] = numeric_distance_to_anchor(parsed, anchor)
             new_records.append(r)
             rewrote += 1
@@ -233,6 +248,9 @@ def reaggregate_ablation_like(run_dir: Path, records: list[dict[str, Any]],
     for r in no_instance:
         r["anchor_adopted"] = 0
         r["anchor_direction_followed"] = 0
+        r["anchor_direction_followed_moved"] = 0
+        r["pred_b_equal_anchor"] = 0
+        r["pred_diff_from_base"] = 0
         r["numeric_distance_to_anchor"] = None
         new_records.append(r)
 
@@ -252,10 +270,12 @@ def reaggregate_ablation_like(run_dir: Path, records: list[dict[str, Any]],
     csv_path = run_dir / "predictions.csv"
     csv_existed = csv_path.exists()
 
-    if jsonl.exists():
-        shutil.copy2(jsonl, run_dir / "predictions.marginal.bak.jsonl")
-    if csv_existed:
-        shutil.copy2(csv_path, run_dir / "predictions.marginal.bak.csv")
+    jsonl_bak = run_dir / "predictions.marginal.bak.jsonl"
+    csv_bak = run_dir / "predictions.marginal.bak.csv"
+    if jsonl.exists() and not jsonl_bak.exists():
+        shutil.copy2(jsonl, jsonl_bak)
+    if csv_existed and not csv_bak.exists():
+        shutil.copy2(csv_path, csv_bak)
 
     write_jsonl(new_records, jsonl)
     # Only regenerate the csv if there was one before — mirror the original
@@ -311,7 +331,8 @@ def reaggregate_one(run_dir: Path, force: bool, apply: bool) -> dict[str, Any]:
         target_rows = [r for r in group if r.get("condition") == "target_only"]
         if not target_rows:
             for r in group:
-                r["anchor_adopted"] = 0
+                for f in MARKER_FIELDS:
+                    r[f] = 0 if f != "numeric_distance_to_anchor" else None
                 new_records.append(r)
             skipped_no_target += len(group)
             continue
@@ -328,12 +349,19 @@ def reaggregate_one(run_dir: Path, force: bool, apply: bool) -> dict[str, Any]:
                 r[f] = getattr(new_eval, f)
             if r.get("condition") == "target_only":
                 target_only_count += 1
-                r["anchor_adopted"] = 0  # always zero for target_only by definition
+                # Always zero on target_only by definition (no anchor exposure).
+                r["anchor_adopted"] = 0
+                r["anchor_direction_followed"] = 0
+                r["anchor_direction_followed_moved"] = 0
+                r["pred_b_equal_anchor"] = 0
+                r["pred_diff_from_base"] = 0
+                r["numeric_distance_to_anchor"] = None
             new_records.append(r)
             rewrote += 1
 
     for r in no_instance:
-        r["anchor_adopted"] = 0
+        for f in MARKER_FIELDS:
+            r[f] = 0 if f != "numeric_distance_to_anchor" else None
         new_records.append(r)
 
     new_records.sort(key=lambda r: (r.get("model", ""), r.get("sample_instance_id") or "", r.get("condition", "")))
@@ -352,12 +380,18 @@ def reaggregate_one(run_dir: Path, force: bool, apply: bool) -> dict[str, Any]:
     csv_path = run_dir / "predictions.csv"
     summary_path = run_dir / "summary.json"
 
-    if jsonl.exists():
-        shutil.copy2(jsonl, run_dir / "predictions.marginal.bak.jsonl")
-    if csv_path.exists():
-        shutil.copy2(csv_path, run_dir / "predictions.marginal.bak.csv")
-    if summary_path.exists():
-        shutil.copy2(summary_path, run_dir / "summary.marginal.bak.json")
+    # Only create a marginal backup the first time we touch this dir; do not
+    # overwrite existing backups on re-runs (M2 / future). The backup
+    # preserves the *pre-M1* marginal state for historical reproducibility.
+    jsonl_bak = run_dir / "predictions.marginal.bak.jsonl"
+    csv_bak = run_dir / "predictions.marginal.bak.csv"
+    summary_bak = run_dir / "summary.marginal.bak.json"
+    if jsonl.exists() and not jsonl_bak.exists():
+        shutil.copy2(jsonl, jsonl_bak)
+    if csv_path.exists() and not csv_bak.exists():
+        shutil.copy2(csv_path, csv_bak)
+    if summary_path.exists() and not summary_bak.exists():
+        shutil.copy2(summary_path, summary_bak)
 
     write_jsonl(new_records, jsonl)
     write_csv(new_records, csv_path)

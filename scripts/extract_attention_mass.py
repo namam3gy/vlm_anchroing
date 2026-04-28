@@ -9,6 +9,17 @@ to each input region:
   - prompt text tokens (everything else in the prompt)
   - already-generated tokens (only non-empty after step 0)
 
+When ``--bbox-file`` is supplied (E1-patch), two more regions are emitted alongside:
+
+  - ``image_anchor_digit``      attention to the digit-pixel patches inside the anchor image
+  - ``image_anchor_background`` attention to the rest of the anchor image (= anchor − digit)
+
+The bbox-file is a JSON dict ``{anchor_value: {bbox_xyxy, image_size, ...}}`` produced
+by ``scripts/compute_anchor_digit_bboxes.py`` (which diffs the original anchor image
+against its masked counterpart). The mapping from pixel bbox to patch tokens uses
+*normalized* coordinates and the image-span's row-major patch grid (perfect square only;
+multi-tile / multi-scale spans are skipped).
+
 Output: per-record JSONL under outputs/attention_analysis/<model>/<run>/.
 
 Dispatches on HF model id:
@@ -29,6 +40,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import time
 from datetime import datetime
 from pathlib import Path
@@ -60,6 +72,62 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 # Set by main() from --max-new-tokens. Module-global so _process_sample_* helpers use it
 # without threading an extra arg through the dispatcher.
 MAX_NEW_TOKENS: int = 8
+
+# E1-patch: digit bbox lookup loaded from --bbox-file. None when feature is off.
+_BBOXES: dict[str, dict] | None = None
+
+
+def _load_bboxes(path: Path | None) -> dict[str, dict] | None:
+    """Load bbox JSON if path given. Keys are anchor-value strings; values
+    have at least ``bbox_xyxy`` and ``image_size``."""
+    if path is None:
+        return None
+    return json.loads(Path(path).read_text())
+
+
+def _bbox_for_anchor(anchor_value: Any) -> dict | None:
+    """Look up bbox info for an anchor value; returns None if unknown."""
+    if _BBOXES is None or anchor_value is None:
+        return None
+    key = str(anchor_value)
+    return _BBOXES.get(key)
+
+
+def _compute_anchor_bbox_mass(
+    attention_step: tuple[torch.Tensor, ...],
+    image_span: tuple[int, int],
+    bbox_info: dict,
+) -> list[float] | None:
+    """Per-layer attention sum over the digit-bbox token positions inside
+    ``image_span``. Uses normalized bbox coords + perfect-square row-major
+    grid. Returns None if the span isn't a perfect square (multi-tile /
+    -200-marker expansion etc.)."""
+    span_start, span_end = image_span
+    n_tokens = span_end - span_start
+    grid = int(math.isqrt(n_tokens))
+    if grid * grid != n_tokens or grid <= 0:
+        return None
+
+    W, H = bbox_info["image_size"]
+    x0, y0, x1, y1 = bbox_info["bbox_xyxy"]
+    px0 = max(0, min(grid - 1, int(x0 * grid / W)))
+    py0 = max(0, min(grid - 1, int(y0 * grid / H)))
+    px1 = max(px0 + 1, min(grid, math.ceil(x1 * grid / W)))
+    py1 = max(py0 + 1, min(grid, math.ceil(y1 * grid / H)))
+
+    out: list[float] = []
+    for layer_attn in attention_step:
+        head_avg = layer_attn[0, :, -1, :].float().mean(dim=0)  # [k_len]
+        total = 0.0
+        for py in range(py0, py1):
+            row_start = span_start + py * grid + px0
+            row_end = span_start + py * grid + px1
+            row_end = min(row_end, head_avg.shape[0])
+            row_start = min(row_start, row_end)
+            if row_end > row_start:
+                total += float(head_avg[row_start:row_end].sum().item())
+        out.append(total)
+    return out
 
 
 class EagerAttentionRunner(HFAttentionRunner):
@@ -206,6 +274,13 @@ def _parse_args() -> argparse.Namespace:
                         help="Generation length cap. Default 8 matches the 4-model E1 runs. "
                              "Bump for FastVLM (emits prose before the digit under JSON prompt).")
     parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--bbox-file", type=Path, default=None,
+                        help="JSON of digit-pixel bboxes per anchor value (E1-patch). "
+                             "Produced by scripts/compute_anchor_digit_bboxes.py. "
+                             "When supplied, per-step record gains image_anchor_digit + "
+                             "image_anchor_background fields. Models whose anchor span isn't "
+                             "a perfect-square grid (e.g. multi-tile InternVL3, FastVLM -200) "
+                             "transparently skip the new fields.")
     return parser.parse_args()
 
 
@@ -290,12 +365,17 @@ def _build_per_step_records(
     attentions: tuple,
     seq_len: int,
     image_spans: list[tuple[int, int]],
+    bbox_info: dict | None = None,
 ) -> list[dict[str, Any]]:
     """Assemble per-step, per-layer attention-mass records from generate output.
 
     Shared across all three extraction paths (HF / ConvLLaVA / FastVLM) because the
     structure of `attentions` (a tuple over steps, each a tuple over layers of
     [batch, heads, q_len, k_len] tensors) is identical once spans are known.
+
+    If ``bbox_info`` is provided and the anchor span is a perfect-square grid,
+    additionally emits ``image_anchor_digit`` and ``image_anchor_background`` per
+    layer per step (E1-patch).
     """
     n_layers = len(attentions[0])
     region_specs: list[tuple[str, int, int]] = []
@@ -308,6 +388,12 @@ def _build_per_step_records(
     else:
         region_specs.append(("image_target", 0, 0))
         region_specs.append(("image_anchor", 0, 0))
+
+    bbox_eligible = (
+        bbox_info is not None
+        and image_spans is not None
+        and len(image_spans) >= 2
+    )
 
     per_step_records: list[dict[str, Any]] = []
     for step_idx, step_attn in enumerate(attentions):
@@ -325,14 +411,29 @@ def _build_per_step_records(
                 + masses["generated"][layer_idx]
             )
             text_mass.append(max(0.0, 1.0 - sum_other))
-        per_step_records.append({
+
+        record = {
             "step": step_idx,
             "n_layers": n_layers,
             "image_target": masses["image_target"],
             "image_anchor": masses["image_anchor"],
             "generated": masses["generated"],
             "text": text_mass,
-        })
+        }
+
+        if bbox_eligible:
+            digit_mass = _compute_anchor_bbox_mass(
+                step_attn, image_spans[1], bbox_info
+            )
+            if digit_mass is not None:
+                bg_mass = [
+                    max(0.0, anchor - digit)
+                    for anchor, digit in zip(masses["image_anchor"], digit_mass)
+                ]
+                record["image_anchor_digit"] = digit_mass
+                record["image_anchor_background"] = bg_mass
+
+        per_step_records.append(record)
     return per_step_records
 
 
@@ -375,7 +476,8 @@ def _process_sample_hf(
     if not attentions:
         return {"error": "no attentions returned"}
 
-    per_step_records = _build_per_step_records(attentions, seq_len, image_spans)
+    bbox_info = _bbox_for_anchor(sample.get("anchor_value"))
+    per_step_records = _build_per_step_records(attentions, seq_len, image_spans, bbox_info=bbox_info)
     generated = out.sequences[:, seq_len:]
     tokenizer = getattr(runner.processor, "tokenizer", runner.processor)
     decoded = runner.processor.batch_decode(generated, skip_special_tokens=True)[0].strip()
@@ -440,7 +542,8 @@ def _process_sample_convllava(
     if not attentions:
         return {"error": "no attentions returned (ConvLLaVA)"}
 
-    per_step_records = _build_per_step_records(attentions, seq_len, image_spans)
+    bbox_info = _bbox_for_anchor(sample.get("anchor_value"))
+    per_step_records = _build_per_step_records(attentions, seq_len, image_spans, bbox_info=bbox_info)
     generated = out.sequences  # inputs_embeds path -> only new tokens
     decoded = runner.tokenizer.batch_decode(generated, skip_special_tokens=True)[0].strip()
     per_step_tokens = _per_step_tokens_from_sequences(generated, len(attentions), runner.tokenizer)
@@ -524,7 +627,8 @@ def _process_sample_fastvlm(
             )
         }
 
-    per_step_records = _build_per_step_records(attentions, expanded_seq_len, image_spans)
+    bbox_info = _bbox_for_anchor(sample.get("anchor_value"))
+    per_step_records = _build_per_step_records(attentions, expanded_seq_len, image_spans, bbox_info=bbox_info)
     generated = out.sequences  # only new tokens per FastVLMRunner convention
     decoded = runner.tokenizer.batch_decode(generated, skip_special_tokens=True)[0].strip()
     per_step_tokens = _per_step_tokens_from_sequences(generated, len(attentions), runner.tokenizer)
@@ -562,9 +666,14 @@ def _process_sample(
 def main() -> None:
     args = _parse_args()
     set_seed(args.seed)
-    global MAX_NEW_TOKENS
+    global MAX_NEW_TOKENS, _BBOXES
     MAX_NEW_TOKENS = args.max_new_tokens
     print(f"[setup] max_new_tokens = {MAX_NEW_TOKENS}")
+    if args.bbox_file is not None:
+        _BBOXES = _load_bboxes(PROJECT_ROOT / args.bbox_file if not args.bbox_file.is_absolute() else args.bbox_file)
+        print(f"[setup] bbox file loaded — n={len(_BBOXES) if _BBOXES else 0}")
+    else:
+        _BBOXES = None
 
     config_path = PROJECT_ROOT / args.config
     config = yaml.safe_load(config_path.read_text())

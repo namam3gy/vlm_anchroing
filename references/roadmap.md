@@ -1,220 +1,460 @@
-# references/roadmap.md — Cross-modal Anchoring in VLMs
+# roadmap.md — Cross-modal Anchoring in VLMs (paper-section anchored)
 
-**Single source of truth.** Read this first before any work in `vlm_anchroing/`. Update §3 (status), §5/§6 (checklists), and §10 (changelog) at the end of every task. Do **not** duplicate this content into other docs — link to sections of this file instead.
+**Single source of truth.** Read this first before any work in `vlm_anchroing/`.
+Aligned with `references/project.md §0` (paper outline) — every experiment
+below is owned by one paper section. Update §3 / §6 / §7 / §10 (changelog)
+at the end of every task. Do **not** duplicate this content into other docs;
+link to sections of this file instead.
 
-- **Target venue:** EMNLP 2026 Main (current scope per `references/project.md` is Findings-tier; the roadmap below is built around the Main-tier moves the plan recommends).
-- **Compute envelope:** 8×H200 (one shared with a vLLM Qwen2.5-32B server → ~60 GB usable per GPU), one month.
-- **Research-plan companion:** `references/project.md` is the candid feasibility review. Treat it as the prior; this file is the operational plan that follows from it.
+- **Target venue:** EMNLP 2026 Main, ARR May 25.
+- **Compute envelope:** 8 × H200 (one shared with vLLM Qwen2.5-32B,
+  ~60 GB usable per GPU), one month at writeup.
+- **Paper outline source of truth:** `references/project.md §0`.
 
 ---
 
 ## 1. Research definition
 
-**Phenomenon.** A VLM is given a numerical VQA question + the target image. We *also* hand it an irrelevant second image that contains a rendered digit (the **anchor**). Does the anchor systematically pull the model's numeric answer?
+A VLM is given a numerical VQA question + the target image. We *also* hand
+it an irrelevant second image. There are four conditions per
+`sample_instance`:
 
-**Three within-sample conditions** (`build_conditions` in `data.py`):
-
-| Condition | Inputs | Role |
-|---|---|---|
-| `target_only` | target image | baseline accuracy |
-| `target_plus_irrelevant_neutral` | target + irrelevant image with **no** digits | controls for "second image distracts" |
-| `target_plus_irrelevant_number` | target + image containing one digit | the anchor manipulation |
-
-The neutral arm separates **anchoring** from **mere distraction**. Anything visible in `number > neutral` is the anchoring signal.
-
-**Why it matters.** No published work delivers a stand-alone rendered-number image as a cross-modal anchor in a multi-image VLM prompt and measures regression-style shift toward the anchor on open numerical VQA. The closest neighbours (VLMBias, Typographic Attacks, FigStep, Tinted Frames, the LLM-anchoring lineage) each differ on at least one core axis. See §1 of `references/project.md` for the full novelty matrix.
-
-## 2. Hypotheses (anchored to falsifiable predictions)
-
-| ID | Hypothesis | Falsifier | Evidence so far |
+| Condition (canonical) | second image | role | code label |
 |---|---|---|---|
-| **H1** | An anchor digit pulls the prediction beyond the neutral-distractor baseline. | `direction_follow_rate(number)` ≤ chance(0.5) **and** `mean_distance_to_anchor(number)` ≈ random pairing baseline. | ✅ all 7 models in main run: direction-follow ∈ [0.247, 0.348], adoption ∈ [0.110, 0.140]. |
-| **H2** | Anchoring is **asymmetric**: stronger on items the model originally got wrong (= subjective uncertainty proxy). | Stratify pairs by `target_only`-correctness; expect adoption_wrong > adoption_correct. If equal, H2 fails. | ✅ **Refined.** A1 (Phase A): adoption gap is ≈ 0 across all 7 models, but the *graded* `moved_closer_rate` gap is **+6.9 to +19.6 pp** wrong > correct in every model. The bias is uncertainty-modulated *graded pull*, not categorical capture. See `docs/insights/A1-asymmetric-on-wrong.md`. |
-| **H3** | Vision-encoder family modulates susceptibility. ConvNeXt/encoder-free should be *less* susceptible than CLIP/SigLIP-ViT (typographic-attack inheritance). | If ConvLLaVA / EVE / DINO-VLM show statistically equivalent direction-follow gap to CLIP-ViT VLMs, H3 fails. | ❌ **Falsified at adoption and per-layer levels.** Pilot (2026-04-24): ConvLLaVA adoption=0.156 inside CLIP/SigLIP cluster CI. 6-model E1b (2026-04-24): ConvLLaVA's per-layer attention signature matches LLaVA-1.5 exactly — same peak layer L16, same text-stealing mechanism, magnitude within 19 %, A7 gap within 30 %. Replaced by the depth-axis framing in E1b and by H6 (two-axis decomposition). See `docs/insights/E1c-h3-falsified.md`. |
-| **H6** | Cross-modal failures separate into two orthogonal axes: **anchor-pull** (uncertainty-modulated, encoder-mediated) and **multi-image distraction** (encoder-architecture-mediated, hits accuracy without encoding the anchor). Different encoder families sit at different points on this 2D plane. | If `adoption_rate` and `acc_drop_vs_target_only` are perfectly correlated (single failure mode), H6 fails. | ✅ **Strongly suggested by pilot.** InternVL3 = high acc_drop / low adoption; LLaVA-1.5 = low acc_drop / high adoption; ConvLLaVA = both. The two-axis decoupling is the new headline candidate. Needs full-run CIs to confirm. |
-| **H4** | "Thinking" / instruction-tuned reasoning reduces anchoring (System-2 suppression). | Same model family with vs. without reasoning trace shows equal direction-follow. | ❌ Untested. *Note*: VLMBias + LRM-judging literature shows reasoning can *amplify* some biases — write the experiment to be agnostic to direction. |
-| **H5** | Strengthening the prompt ("output a number, do not hedge") increases anchor pull on uncertain items but also induces large-number hallucination on others. | Compare `experiment_anchor_strengthen_prompt` vs `experiment` per item. | ⚠️ Suggestive: `mean_distance_to_anchor` in strengthen run reaches 2617 for gemma3-27b-it (vs. 4.4 in the same model's standard run) → model fabricates huge numbers under pressure. Needs proper analysis. |
+| `b` (target_only) | none | baseline | `target_only` |
+| `a` (anchor) | image with one digit (the anchor value) | manipulation | `target_plus_irrelevant_number(_S?)` |
+| `m` (anchor mask) | same anchor image with the digit pixel region inpainted out | digit-pixel control | `target_plus_irrelevant_number_masked(_S?)` |
+| `d` (neutral distractor) | digit-free FLUX-rendered image | 2-image-distraction control | `target_plus_irrelevant_neutral` |
 
-## 3. Status — what's been run
+The (`a` − `d`) gap separates **anchoring** from mere distraction; the
+(`a` − `m`) gap isolates the **digit-pixel** contribution from anchor-image
+background distraction; the (`a` wrong-base − `a` correct-base) gap maps
+the **uncertainty modulation** (Phase A / §6).
 
-### 3.1 Completed full runs (17,730 samples each)
+Predictions are written `pred_b / pred_a / pred_m / pred_d`; ground truth is
+`gt`; anchor value is `anchor`. Boolean flags: `pb_eq_a`, `pa_eq_a`,
+`gt_eq_a`, `pa_ne_pb`, `pb_eq_gt`. See `docs/insights/M2-metric-definition-evidence.md`
+§0 for the full glossary.
 
-| Experiment | Models | Output dir |
-|---|---|---|
-| `experiment` (standard prompt, VQAv2 number subset) | gemma3-27b-it, gemma4-31b-it, gemma4-e4b, llava-next-interleaved-7b, qwen2.5-vl-7b-instruct, qwen3-vl-8b-instruct, qwen3-vl-30b-it | `outputs/experiment/<model>/<run>/` |
-| `experiment_anchor_strengthen_prompt` (no-hedging system prompt) | same 7 | `outputs/experiment_anchor_strengthen_prompt/<model>/<run>/` |
+## 2. Hypotheses
 
-Per-record fields available (see `predictions.jsonl` keys): `condition`, `irrelevant_type`, `anchor_value`, `prediction`, `ground_truth`, `standard_vqa_accuracy`, `exact_match`, `anchor_adopted`, `anchor_direction_followed`, `numeric_distance_to_anchor`. Per-token logits also captured (commit `5f925b2`).
+| ID | Hypothesis | Falsifier | Evidence |
+|---|---|---|---|
+| **H1** | Anchor pulls the prediction beyond the neutral baseline | `direction_follow_rate(a) ≤ direction_follow_rate(d) + chance` | ✅ all 7 main models, all 3 E5e models — `direction_follow_rate(a) > direction_follow_rate(d)` significantly |
+| **H2** | Anchoring is asymmetric: stronger on items the model originally got wrong | `direction_follow_rate(a)` for wrong-base ≤ correct-base | ✅ Phase A `A1`: +6.9 to +19.6 pp wrong > correct on direction-follow; M2 §5.1 confirms +0.040 mean wrong-correct gap on adopt at S0/S1 cells (22/22 wins) |
+| **H3** ❌ | ConvNeXt / encoder-free encoders less susceptible than ViT | `adopt_rate(ConvNeXt)` ≈ `adopt_rate(ViT)` | ❌ Falsified at adoption (E2 pilot 2026-04-24) and per-layer levels (E1b: ConvLLaVA's peak layer L16, signature identical to LLaVA-1.5 CLIP-ViT). Replaced by depth-axis framing (E1c) |
+| **H4** | Reasoning / thinking-mode reduces anchoring | thinking-on `df` ≤ thinking-off `df` | ⚠ Untested. VLMBias / LRM-judging suggests reasoning may *amplify* — write β experiment direction-agnostic |
+| **H5** | "No-hedging" prompt amplifies anchor pull on uncertain items | `direction_follow` increases under strengthen | ⚠ Suggestive (gemma3-27b-it strengthen `mean_distance_to_anchor` = 2617 → hallucination, not anchor pull). Folded into §"strengthen anomaly" caveat |
+| **H6** | Cross-modal failures decouple into two orthogonal axes — `anchor-pull` vs. `multi-image distraction` | `adopt_rate(a)` and `acc_drop_d_vs_b` perfectly correlated → H6 fails | ✅ Suggested by E2 pilot (InternVL3 = high acc_drop / low adopt; LLaVA-1.5 = low acc_drop / high adopt; ConvLLaVA = both). Confirmed at full E4 Phase 2 scale |
+| **H7** ⚙ | `direction_follow_rate` is monotonic with `pred_b`-token logit / probability — i.e. uncertainty modulates anchor pull on a **continuous** confidence scale, of which wrong/correct (H2) is a coarse projection | `direction_follow_rate` flat across confidence quartiles | ☐ Pending §6 analysis (data captured commit `5f925b2`, no analysis yet) |
 
-### 3.2 Smoke runs only (50 samples)
+## 3. Status snapshot — where we are (2026-04-28)
 
-| Experiment | Models | Output dir |
-|---|---|---|
-| `experiment_tallyqa` | qwen2.5-vl-7b-instruct, qwen3-vl-8b-instruct, llava-next-interleaved-7b | `outputs/experiment_tallyqa/` |
-| `experiment_chartqa` | qwen2.5-vl-7b-instruct (only) | `outputs/experiment_chartqa/` |
-| `experiment_mathvista` | qwen2.5-vl-7b-instruct (only) | `outputs/experiment_mathvista/` |
+The matrix below replaces the old "completed runs" / "pilot runs" / "models
+integrated" tables. Status flags: ✅ done · 🟡 partial / single-model · ⏳
+in-flight · ☐ not started.
 
-### 3.3 Models integrated but not yet in any full run
+### 3.1 Behavioural runs
 
-These are wired into `build_runner` and pass the smoke test. Pilot (`outputs/experiment_encoder_pilot/`, 1,125 sample-instances each, 2026-04-24) is complete; full 17,730 runs queued pending user signoff:
+| Experiment | Dataset | Conditions | Models | Status |
+|---|---|---|---|---|
+| `experiment` (standard prompt) | VQAv2 number | b/a/d | 7 (gemma3-27b-it, gemma4-31b-it, gemma4-e4b, llava-interleave-7b, qwen2.5-vl-7b, qwen3-vl-8b, qwen3-vl-30b) | ✅ M1 re-aggregated; M2 re-aggregation pending |
+| `experiment_anchor_strengthen_prompt` | VQAv2 number | b/a/d | same 7 | ✅ + strengthen-anomaly caveat (§9) |
+| `experiment_encoder_pilot` | VQAv2 number | b/a/d, n=1,125 | llava-1.5-7b, internvl3-8b, fastvlm-7b, convllava-7b | ✅ pilot only — full run deferred (kept) |
+| `experiment_distance_vqa` (E5b) | VQAv2 | b + a×S1..S5 | llava-interleave-7b | 🟡 single-model — cross-model expansion in flight |
+| `experiment_distance_tally` (E5b) | TallyQA | b + a×S1..S5 | llava-interleave-7b | 🟡 single-model — cross-model expansion in flight |
+| `experiment_e5c_vqa` | VQAv2 | b + a×S1..S5 + m×S1..S5 + d | llava-interleave-7b | 🟡 single-model — cross-model expansion in flight |
+| `experiment_e5c_tally` | TallyQA | same | llava-interleave-7b | 🟡 single-model — cross-model expansion in flight |
+| `experiment_e5d_chartqa_validation` | ChartQA | per-dataset cutoff validation | llava-interleave-7b | ✅ S1-only relative cutoff adopted |
+| `experiment_e5d_mathvista_validation` | MathVista | same | llava-interleave-7b | ⚠ C3 FAIL — see §9 (MathVista (γ) supersedes) |
+| `experiment_e5e_chartqa_full` | ChartQA | b/a/m/d (S1) | llava-interleave-7b, qwen2.5-vl-7b, gemma3-27b-it | ✅ |
+| `experiment_e5e_tallyqa_full` | TallyQA | b/a/m/d (S1) | same 3 | ✅ |
+| `experiment_e5e_mathvista_full` (γ-α) | MathVista | b/a/m/d (S1) | llava-interleave-7b, qwen2.5-vl-7b, gemma3-27b-it | ✅ landed 2026-04-29 — `docs/insights/E5e-mathvista-evidence.md` |
+| MathVista (γ-β) reasoning-mode | MathVista | thinking-on / thinking-off | Qwen3-VL or similar | ☐ P0 |
+| VQAv2 4-condition (b/a/m/d) | VQAv2 | full grid cross-model | TBD | ☐ P1 (kept, time-permitting) |
 
-- `llava-1.5-7b` — CLIP-ViT vanilla baseline. Pilot adoption=0.181 (highest of 11 models).
-- `internvl3-8b` — InternViT family. Pilot adoption=0.066 (lowest), acc_drop=0.355 (highest). The "distraction-not-anchoring" outlier.
-- `fastvlm-7b` — Apple FastViT. Pilot acc=0.483 (low — verify parse-rescue rate).
-- `convllava-7b` — pure ConvNeXt encoder. Pilot adoption=0.156 (close to LLaVA-1.5; H3 in simple form not supported).
+### 3.2 Mechanistic runs
 
-### 3.4 Headline numbers from completed runs
+| Experiment | Models | n | Status |
+|---|---|---|---|
+| E1 attention-mass | gemma4-e4b, qwen2.5-vl-7b, llava-1.5-7b, internvl3-8b, convllava-7b, fastvlm-7b | 200 stratified | ✅ |
+| E1b per-layer localisation | same 6 | 200 | ✅ — 4 archetypes (SigLIP-Gemma early, mid-stack cluster CLIP-ViT/InternViT/ConvNeXt, Qwen-ViT late, FastVLM late text-stealing) |
+| E1d causal ablation | same 6 | 200 | ✅ — single-layer null on 6/6; upper-half multi-layer −5.5 to −11.5 pp on 6/6 |
+| E1 digit-pixel-patch reanalysis | same 6 (reuse n=200 dump) | analysis only | ☐ P0 |
+| E4 mitigation Phase 1 (sweep) | llava-1.5-7b, convllava-7b, internvl3-8b | 200 × 7 strengths | ✅ |
+| E4 mitigation Phase 2 (full validation) | same 3 | 17,730 | ✅ |
+| E4 generalisation to other archetypes | gemma4-e4b, qwen2.5-vl-7b, fastvlm-7b | TBD | ☐ P3 |
 
-Standard prompt, VQAv2 number subset, 17,730 samples per model. `direction_follow` is the rate at which the model's prediction moves toward the anchor relative to its `target_only` answer.
+### 3.3 Headline numbers (M2 re-aggregation, 2026-04-29)
 
-| Model | acc(target_only) | acc(neutral) | acc(number) | adoption(number) | direction_follow(number) | mean dist→anchor |
-|---|---:|---:|---:|---:|---:|---:|
-| gemma4-e4b | 0.553 | 0.505 | 0.541 | 0.059 | 0.320 | 4.17 |
-| llava-interleave-7b | 0.619 | 0.577 | 0.576 | 0.047 | 0.348 | 3.20 |
-| gemma3-27b-it | 0.628 | 0.623 | 0.633 | 0.047 | 0.305 | 4.45 |
-| qwen2.5-vl-7b | 0.736 | 0.708 | 0.711 | 0.019 | 0.248 | 5.03 |
-| qwen3-vl-8b | 0.751 | 0.709 | 0.715 | 0.029 | 0.258 | 3.43 |
-| gemma4-31b-it | 0.749 | 0.723 | 0.741 | 0.021 | 0.239 | 6.16 |
-| qwen3-vl-30b-it | 0.759 | 0.709 | 0.707 | 0.034 | 0.280 | 3.70 |
+All numbers below use the canonical M2 metrics from §4. The M1-era figures
+preserved in §10 changelog entries continue to reflect the older `D_all`
+denominator (adopt) and `DF_raw` numerator (direction-follow); M2 changes
+adopt by ≈ +0.005 (denominator tightens) and `direction_follow_rate`
+substantially downward (numerator now requires `pa != pb` — no-change
+pairs no longer count). Differences are mechanical, not new data.
 
-Two patterns visible without further work:
-1. **Direction-follow ≈ 24–35 %** even though paired anchor adoption is only **2–6 %**. The bias is *gradient*, not categorical — most cases are "pulled toward" the anchor, not "set to" the anchor. The paired definition (M1) further widens this gap vs. the prior marginal definition (which inflated adoption to 11–14 % via the GT==anchor confound), strengthening the gradient-pull reading.
-2. **Strong models anchor *less* on direction-follow** but accept the anchor digit at similar rates. Counter to Lou & Sun (2024) "stronger LLMs anchor more" — needs a careful per-pair re-analysis before claiming a finding.
+#### Standard-prompt VQAv2 number subset, 17,730 samples / model
 
-### 3.5 Strengthen-prompt anomaly (preliminary)
+| Model | acc(b) | acc(d) | acc(a) | adopt(a) | direction_follow(a) | (legacy adopt_marg) | (legacy df_raw) |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| gemma4-e4b | 0.553 | 0.505 | 0.541 | **0.066** | **0.193** | 0.059 | 0.320 |
+| llava-interleave-7b | 0.619 | 0.577 | 0.576 | **0.053** | **0.145** | 0.047 | 0.349 |
+| gemma3-27b-it | 0.628 | 0.623 | 0.633 | **0.053** | **0.107** | 0.047 | 0.305 |
+| qwen2.5-vl-7b | 0.736 | 0.708 | 0.711 | **0.021** | **0.079** | 0.019 | 0.248 |
+| qwen3-vl-8b | 0.751 | 0.710 | 0.715 | **0.033** | **0.087** | 0.029 | 0.258 |
+| gemma4-31b-it | 0.749 | 0.723 | 0.741 | **0.024** | **0.063** | 0.021 | 0.239 |
+| qwen3-vl-30b | 0.759 | 0.709 | 0.707 | **0.039** | **0.141** | 0.034 | 0.281 |
 
-Under `experiment_anchor_strengthen_prompt`, three Gemma models show pathological `mean_distance_to_anchor`: gemma3-27b-it 2617.13, qwen2.5-vl-7b 1519.91, gemma4-31b-it 511.75 (vs. 3–6 in the standard prompt). The "must output a number" instruction is inducing large-number hallucination, *not* anchor adoption. Filter or report with a robust statistic before using these runs for any quantitative claim.
+#### E5b distance sweep — `llava-interleave-7b` only (cross-model in flight)
 
-## 4. Experiment configuration (current defaults)
+Wrong-base subset, `adopt_rate` (M2):
 
-- VQAv2 number subset: `answer_range=8`, `samples_per_answer=400`, `require_single_numeric_gt=True` → 17,730 sample-instances per model.
-- 5 irrelevant sets per question (one number-image and one neutral-image per set, each anchor digit ∈ {0..9} sampled).
-- Greedy decoding, `max_new_tokens=8`.
-- JSON-only system prompt (`{"result": <number>}`). The strengthen variant adds explicit "no hedging" instructions.
-- Seed 42.
+| stratum | VQAv2 (n_eligible) | TallyQA (n_eligible) |
+|---|---:|---:|
+| S1 | **0.134** (313) | **0.098** (265) |
+| S2 | 0.030 | 0.006 |
+| S3 | 0.010 | 0.003 |
+| S4 | 0.010 | 0.000 |
+| S5 | 0.003 | 0.000 |
 
-## 5. Phase A — deep re-analysis of existing data (no new compute)
+Pattern: sharp peak at S1, decay to noise floor by S5 (cross-dataset).
 
-These extract evidence already present in `outputs/experiment/` and `outputs/experiment_anchor_strengthen_prompt/`. Each is one analysis script + one short insight markdown under `docs/insights/`.
+#### E5c digit-pixel causality — `llava-interleave-7b` only (cross-model in flight)
+
+Wrong-base S1 `adopt_rate` gap (anchor − masked) under M2:
+
+| dataset | anchor S1 | masked S1 | gap (anchor − masked) |
+|---|---:|---:|---:|
+| VQAv2 | 0.139 | 0.073 | **+6.62 pp** |
+| TallyQA | 0.114 | 0.088 | **+2.57 pp** |
+
+#### E5e S1-only 4-condition full — 3-model panel × ChartQA + TallyQA
+
+All-base `adopt_rate` (M2):
+
+| dataset | model | acc(b) | acc(a) | adopt(a) | adopt(m) | direction_follow(a) |
+|---|---|---:|---:|---:|---:|---:|
+| ChartQA | gemma3-27b-it | 0.217 | 0.218 | **0.037** | 0.022 | 0.057 |
+| ChartQA | llava-interleave-7b | 0.113 | 0.110 | **0.028** | 0.009 | 0.116 |
+| ChartQA | qwen2.5-vl-7b | 0.255 | 0.253 | **0.017** | 0.013 | 0.025 |
+| TallyQA | llava-interleave-7b | 0.236 | 0.233 | **0.026** | 0.015 | 0.047 |
+
+Gemma3-27b and qwen2.5-vl TallyQA E5e runs are queued (dirs created
+2026-04-28, predictions.jsonl pending).
+
+E1d upper-half ablation: −5.5 to −11.5 pp `direction_follow` on 6/6 models;
+fluency-clean on 4/6 (mid-stack cluster + Qwen).
+
+E4 Phase 2 full mid-stack-cluster: `direction_follow_rate` reduction
+LLaVA-1.5 −17.7 % rel, ConvLLaVA −10.6 %, InternVL3 −5.8 %; `exact_match`
+rises +0.49 to +1.30 pp; `accuracy_vqa(b)` invariant — anchor-condition
+specific.
+
+## 4. Canonical metrics (M2)
+
+Settled in `docs/insights/M2-metric-definition-evidence.md`. Paper headline:
+
+```
+adopt_rate            = #(pa == anchor AND pb != anchor) / #(pb != anchor)
+direction_follow_rate = #( (pb-gt)·(pa-gt) > 0  AND  pa != pb )
+                        / #(numeric pair AND anchor present)
+exact_match           = #(pa == gt) / #(numeric pair)
+anchor_effect_M       = M(a-arm) - M(d-arm)
+```
+
+Same form on the m-arm (substitute `pred_m`). `exact_match` is a per-arm
+accuracy; `anchor_effect_M` is a per-pair gap.
+
+The 18 (numerator × denominator) variants behind these choices are tabled
+in M2 §3; equivalence collapses, signal-preservation evidence (5.1 wrong >
+correct on S0/S1; 5.2 S1 > S5 on adopt; 5.3 anchor > masked) and the per
+section role of each metric live in M2 §5–§6.
+
+`metrics.py` refactor (M2 codification — §8) is pending user signoff; the
+re-aggregation re-runs from raw `predictions.jsonl` only (no re-inference).
+
+## 5. Phase A — closed (no new compute)
 
 | ID | Question | Output | Status |
 |---|---|---|---|
-| **A1** | **Asymmetric anchoring on wrong cases.** Stratify pairs by `target_only` correctness; compute adoption / direction-follow / pull magnitude separately for originally-correct vs. originally-wrong. Report per model + pooled. This is the H2 test and the paper's strongest hook. | `docs/insights/A1-asymmetric-on-wrong.md` | ✅ Done — adoption symmetric, graded `moved_closer_rate` +6.9–19.6 pp |
-| **A2** | **Per-anchor-value pull.** For each anchor digit 0–9, compute mean signed shift `pred(number) − pred(target_only)` and adoption rate. Are some digits stickier (0, round numbers, model-frequent priors)? Plot pull vs. anchor. | `docs/insights/A2-per-anchor-digit.md` | ✅ Done — anchors 1/2/4 sticky, 7/8 inert; LLaVA × anchor=2 = 0.30; Qwen3-VL anti-anchoring on digits 3/6/7 |
-| **A3** | **Question-type stratification.** Use the existing `question_type` column ("how many", "what number", etc.). Does anchoring differ across question forms? Note: VQAv2's question_type is coarse — confirm taxonomy first. | folded into `00-summary.md` (no signal at this granularity) | ✅ Done (negative — defer until ChartQA/TallyQA data) |
-| **A4** | **Per-pair shift distribution.** Move beyond means: histogram of `pred(number) − pred(target_only)`. Where is the mass? Bimodal (full adoption + no change) or graded? This decides whether H1 reads as "discrete capture" or "graded pull". | folded into `00-summary.md` | ✅ Done — strongly bimodal (≥75% no change) + thin pull-toward-anchor tail |
-| **A5** | **Strengthen vs. standard prompt.** Per item, compare both prompts. Test H5: does the strengthen prompt amplify *anchor-driven* shifts on uncertain items, or does it just inflate hallucination? Use median + IQR, not means, given the §3.5 outliers. | folded into `00-summary.md` | ✅ Done — only gemma3-27b moves substantially (+17.4 pp adoption); not universal |
-| **A6** | **Failure-mode taxonomy.** Bucket each `number`-condition prediction into: (a) exact anchor copy, (b) graded pull toward anchor, (c) unchanged from `target_only`, (d) anchor-orthogonal hallucination, (e) refusal/non-numeric. Report per model. | folded into `00-summary.md` | ✅ Done — `_data/A6_failure_modes.csv` |
-| **A7** | **Cross-model item agreement.** For the items a model anchors on, do other models also anchor? Build a per-item susceptibility score, correlate across models. If susceptibility is item-driven (high cross-model correlation), the bias is *content*-mediated; if model-driven (low correlation), it's *parameter*-mediated — directly informs H3. | `docs/insights/A7-cross-model-agreement.md` | ✅ Done — Spearman ρ ∈ [0.15, 0.31]; partly content-driven; same-family Qwen3-VL pair = 0.30 |
+| **A1** | Asymmetric anchoring on wrong cases | `docs/insights/A1-asymmetric-on-wrong.md` | ✅ adoption symmetric, graded direction-follow +6.9 to +19.6 pp wrong > correct |
+| **A2** | Per-anchor-value pull | `docs/insights/A2-per-anchor-digit.md` | ✅ digits 1/2/4 sticky, 7/8 inert; LLaVA × anchor=2 = 0.30 |
+| **A3** | Question-type stratification | folded into `00-summary.md` | ✅ negative — defer until ChartQA / TallyQA |
+| **A4** | Per-pair shift histogram | folded | ✅ bimodal — ≥75% no change + thin pull-toward-anchor tail |
+| **A5** | Strengthen vs. standard prompt | folded | ✅ only gemma3-27b moves substantially +17.4 pp adoption |
+| **A6** | Failure-mode taxonomy | `_data/A6_failure_modes.csv` | ✅ |
+| **A7** | Cross-model item agreement | `docs/insights/A7-cross-model-agreement.md` | ✅ Spearman ρ ∈ [0.15, 0.31]; partly content-driven |
 
-**Deliverable for Phase A:** four insight files (`00-summary.md`, `A1-…`, `A2-…`, `A7-…`) + numeric artifacts under `docs/insights/_data/`. A3/A4/A5/A6 are folded into the summary because the underlying signal didn't earn its own writeup (negative or supporting). All 7 analyses ran from a single script: `scripts/phase_a_data_mining.py`.
+Driver: `scripts/phase_a_data_mining.py`. Phase A's contribution to the
+paper is concentrated in §1 / §6 (uncertainty modulation, A1 → continuous
+in H7).
 
-## 6. Phase B onward — new experiments
+## 6. Per-section experiments — status and pending work
 
-### Pending refactors (must land before Tier 2)
+Anchored to the paper outline in `references/project.md §0.2`. Each row
+is one experiment; status reflects what is done versus what is in flight
+or pending. Priorities (P0 / P1 / P2 / P3) are listed in §7.
 
-| ID | Task | Why it matters | Status |
+### 6.1 §3 — Problem definition + canonical metrics
+
+| ID | Task | Status | Notes |
 |---|---|---|---|
-| **M1** | **Paired adoption metric refactor.** Replace marginal `anchor_adopted = (pred == anchor_value)` (`src/vlm_anchor/metrics.py:40`) with paired `(base_pred ≠ anchor_value) AND (pred == anchor_value)`. Eliminates the GT==anchor confound: today `GT == anchor == pred` counts as adoption, and E5b stratum 1 `(0,1)` literally permits `\|a − gt\| = 0`; main-run anchor inventory 0–9 overlaps GT support 0–8 9-in-10. Implementation: `evaluate_sample` gains a `base_prediction` arg; runner runs `target_only` first per sample-instance and threads its prediction into number/neutral evaluations; `summarize_condition` mean shape preserved (still binary label → still reads as a rate). Re-aggregate completed runs from raw `predictions.jsonl` — no re-inference. Marginal column retired (raw `prediction` preserved → any downstream re-derivation possible). | Every public number in §3.4 / Phase A / E1 / E4 mitigation tables depends on this. Must land before §6 Tier 2 hardening (E5/E7) re-touches the public numbers. **Cross-session coordination:** any concurrent edit to `metrics.py` or `models.py` runner ordering should align with M1. | ✅ landed (commits bbcc418..ce1928a; 54 dirs re-aggregated) |
+| **M2-evidence** | Metric-definition analysis (18 variants × known-signal preservation) | ✅ `docs/insights/M2-metric-definition-evidence.md`, 2026-04-28 | re-runs as more `predictions.jsonl` arrive; recommendation is rank-driven, robust |
+| **M2-refactor** | `metrics.py` refactor + re-aggregation | ⏳ pending user signoff | `summarize_condition` rates use `D_paired` denominator; `direction_follow_rate` numerator gains `pa != pb`; helper `scripts/reaggregate_paired_adoption.py` extended to refresh ≥ 25 existing run dirs from raw `predictions.jsonl` (no re-inference) |
+| **M2-tests** | Unit tests on the new rate definitions | ☐ | small fixture-based tests under `tests/` to lock the canonical formulas |
 
-### Tier 1 (Main-tier acceptance lever, per `references/project.md`)
+### 6.2 §4 — Datasets and anchor inventory
 
-| ID | Experiment | Compute estimate | Why it matters | Status |
-|---|---|---|---|---|
-| **E1** | **Attention-mass analysis.** `output_attentions=True` on a stratified subset. Compute attention to anchor-image-tokens vs. target-image-tokens vs. text-tokens, per layer, per condition. | Hours per model on existing 7. | Directly answers reviewer "why does this happen?". Cheapest mechanistic move. | ✅ **6-model panel + per-layer localisation + causal ablation all done** (gemma4-e4b, qwen2.5-vl-7b, llava-1.5-7b, internvl3-8b, convllava-7b, fastvlm-7b; n=200 each). Three E1 claims settled; four E1b archetypes identified: SigLIP-Gemma early+large (L5, δ +0.050, text-stealing); mid-stack cluster of CLIP-ViT+InternViT+ConvNeXt (L14–16, δ ~+0.020, text-stealing); Qwen-ViT late+moderate (L22, δ +0.015, target-stealing); FastViT late+large+strongest-A7 (L22, δ +0.047, text-stealing, A7 gap +0.086 with n=75 caveat). **H3 "ConvNeXt < ViT" definitively falsified** — ConvLLaVA replicates LLaVA-1.5 exactly. **E1d causal test (2026-04-25): single-layer ablation is null on 6/6 — at the E1b peak *and* at layer 0; multi-layer redundancy confirmed.** Upper-half ablation is the single architecture-blind locus that reduces direction-follow on 6/6 (−5.5 to −11.5 pp), fluency-clean on 4/6. Writeups: `docs/experiments/E1-preliminary-results.md` (E1 4-model original), `docs/experiments/E1b-per-layer-localisation.md` (E1b full 6-model writeup) + `docs/insights/E1b-per-layer-localisation.md` (distilled), `docs/experiments/E1d-causal-ablation.md` (E1d detailed) + `docs/insights/E1d-causal-evidence.md` (distilled). Remaining: head-level sparsity; multi-layer combinatorial ablation. |
-| **E2+E3** (combined) | **Full 17,730 grid for all 4 newly-integrated models** (ConvLLaVA, LLaVA-1.5, InternVL3, FastVLM). Pilot at 1,125 done — see `docs/experiments/E2-pilot-results.md`. The full run (a) tightens CIs around the H6 two-axis hypothesis, (b) captures per-token logits enabling deferred A1 logit-margin re-analysis, (c) gives 11-model panel for the paper. | ~1 day per 7B model on H200; 4 models in sequence. | Resolves H6 two-axis hypothesis at scale. | **⏸ Deferred** (user 2026-04-24): proceeding with pilot data only; E1 attention + mitigation prioritised first. Re-evaluate after E1 results inform whether full 4-model panel still needed. |
-| **E4** | **Mitigation prototype.** Pick the simplest intervention that the E1 attention analysis suggests. **E1d (2026-04-25) ruled out single-layer attention re-weighting** at the E1b peak or layer 0; multi-layer ablation is required. Current candidate prototype: **upper-half attention re-weighting on the mid-stack cluster** (LLaVA-1.5 / ConvLLaVA / InternVL3) — E1d shows −5.5 to −9.8 pp direction-follow with no fluency hit on those three. Target: ≥ 10 % reduction in direction-follow with ≤ 2 pp accuracy drop. | A few days; depends on E1d. | The single most reliable Findings → Main lever. | ⏳ **Phase 1 sweep (n=200, 7 strengths × 3 conditions) in progress.** llava-1.5-7b done — `s* = −3.0` meets target (df 0.305 → 0.265, −13 % relative; em 0.365 → 0.370, +0.5 pp); em(target_only) invariant at 0.435 confirms hook is anchor-condition-specific. convllava-7b sweep running on GPU 0 (~50 % done at 2026-04-25 15:20); internvl3-8b queued. Phase 2 full-scale validation (n=17,730) at chosen `s*` to follow, prioritising llava-1.5-7b under 12-h session budget. Writeups: `docs/experiments/E4-mitigation.md` (+ _ko mirror, in flight), `docs/insights/E4-mitigation-evidence.md` (+ _ko mirror, in flight). |
-
-### Tier 2 (paper hardening)
-
-| ID | Experiment | Notes | Status |
+| ID | Task | Status | Notes |
 |---|---|---|---|
-| **E5** | **Multi-dataset full runs.** TallyQA + ChartQA at full scale (current 50-sample smoke is not enough). MathVista as a stretch goal. | TallyQA is the cleanest counting domain; ChartQA gives an in-image-number conflict (especially compelling — anchor competes with a legible number in the target image). | ☐ |
-| **E5b** | **Anchor-distance robustness sweep.** Per-question 5-stratum anchor sampling on TallyQA + VQAv2 (500 base questions each, llava-interleave-7b). Validates whether anchor selection rule is load-bearing for paper headline figures. | ~50 min wall on 1 model. Output: one figure (effect-vs-distance) + cross-dataset overlay. Decides whether headline figures should report on a near-anchor subset. | ☐ |
-| **E5c** | **Anchor-mask control.** Replace the digit pixel region in each anchor image with a content-preserving inpaint (Telea/OpenCV on the dilated digit bbox only — not the whole image), and run the E5b stratified pipeline with anchor + masked + neutral arms. Isolates the *digit-specific* contribution to anchoring vs. the anchor-scene-background contribution vs. generic second-image distraction baseline. Writeups: `docs/experiments/E5c-anchor-mask-control.md`, `docs/insights/E5c-anchor-mask-evidence.md`. | Headline: digit-pixel contribution to paired adoption peaks at +6.1 pp on VQAv2 wrong-base S1, decays monotonically to ~0 by S5; anchor image background acts like generic neutral distractor on accuracy (masked vs neutral acc_drop within 2 pp on correct-base, both datasets). | ✅ landed |
-| **E6** | **Closed-model subset.** GPT-4o or Gemini-2.5 on a ~500-sample stratified slice. Defuses the "open-only" reviewer complaint. | Token cost only. | ☐ |
-| **E7** | **Paraphrase robustness.** 3–5 question-prompt rephrasings × bootstrap CI × multiple-comparison correction. | Required before claiming any per-model effect. | ☐ |
-| **E8** | **Position effect.** Anchor image as image[0] vs. image[1]. Some VLMs are known to weight images positionally. | Can be sub-experiment of E2/E3. | ☐ |
+| **D1 — VQAv2** | snapshot + loader | ✅ `inputs/vqav2_number_val/` |
+| **D2 — TallyQA** | snapshot + loader | ✅ `inputs/tallyqa_test/` |
+| **D3 — ChartQA** | snapshot + loader | ✅ `inputs/chartqa_test/`, integer-GT [1,1000] gate |
+| **D4 — MathVista** | snapshot + loader, integer-GT gate | ✅ inputs ready; MathVista runs are γ |
+| **I1 — anchor inventory** | FLUX-rendered digit images, range up to 10000 | ✅ `inputs/irrelevant_number/` |
+| **I2 — anchor mask inventory** | OpenCV Telea inpaint of digit bbox | ✅ `inputs/irrelevant_number_masked/` |
+| **I3 — neutral inventory** | digit-free FLUX renders, scene-balanced | ✅ `inputs/irrelevant_neutral/` |
 
-### Tier 3 (optional, only after Tiers 1–2)
+### 6.3 §5 — Distance, plausibility window, digit-pixel causality
 
-| ID | Experiment | Notes | Status |
+The §5 narrative arc (`project.md §0.2 row 5`) is one story across E5b
+(distance decay) → E5c (digit-pixel causality, masked vs. anchor vs.
+neutral) → E5d (per-dataset cutoff validation) → E5e (S1-only cross-model
+robustness).
+
+| ID | Experiment | Status |
+|---|---|---|
+| **E5b distance sweep** | 5-stratum × b + a (VQAv2 + TallyQA), llava-interleave-7b | ✅ single model — cross-model in flight |
+| **E5c digit-mask control** | + 5-stratum × m, llava-interleave-7b | ✅ single model — cross-model in flight |
+| **E5d per-dataset cutoff** | ChartQA: S1-only relative `\|a-gt\| ≤ max(1, 0.1·gt)`; TallyQA: absolute `[0,5]`; VQAv2: range `{0..9}`; MathVista: C3 FAIL, scope-out as plausibility-window contrast (or rerun stricter) | ✅ except MathVista — see γ |
+| **E5e S1-only cross-model** | b/a/m/d × ChartQA + TallyQA × 3 models | ✅ |
+| **E5b/c cross-model expansion** | extend E5b + E5c to 3-model E5e panel (qwen2.5-vl-7b, gemma3-27b-it ∪ llava-interleave-7b) on VQAv2 + TallyQA | ⏳ in flight (user 2026-04-28) |
+| **E5e MathVista (γ-α)** | MathVista b/a/m/d (S1) × 3 models | ✅ landed 2026-04-29 — gemma3-27b adopt(a, wrong-base) = 0.194; df(M2) = 0 universally → categorical-replace regime |
+| **E5e MathVista (γ-β)** | reasoning-mode VLM × MathVista (Qwen3-VL thinking, etc.) | ☐ P0 — infra check first |
+| **VQAv2 4-condition** | b/a/m/d cross-model VQAv2 | ☐ P1 (kept) |
+
+### 6.4 §6 — Confidence-modulated anchoring (logit-based)
+
+Generalises Phase A's wrong/correct binary into a continuous confidence
+scale. Hypothesis (H7): `direction_follow_rate` is monotonic with
+`pred_b`-token logit / probability. The wrong/correct gap from A1 is then
+the coarsest possible projection of this monotonicity.
+
+| ID | Task | Status |
+|---|---|---|
+| **L1** | per-token logit / softmax-prob already captured (commit `5f925b2`) on E5b/E5c/E5e + 7 main runs | ✅ data |
+| **L2** | confidence-proxy menu — `top1_softmax_prob`, `top1_minus_top2_margin`, `entropy_top_k` — script in `scripts/analyze_confidence_anchoring.py` (to write) | ☐ P0 |
+| **L3** | per-confidence-quartile `adopt_rate` and `direction_follow_rate` table, model × dataset; compare to A1 binary split | ☐ P0 |
+| **L4** | report — pick the proxy + quartile shape with cleanest monotone trend; lift over A1 in `docs/insights/L1-confidence-modulation-evidence.md` | ☐ P0 |
+| **L5** | re-cast §6 narrative — "wrong/correct gap is a coarse projection of confidence monotonicity" | ☐ writing |
+
+### 6.5 §7 — Attention mechanism + mitigation
+
+| ID | Experiment | Status |
+|---|---|---|
+| **E1 / E1b / E1c / E1d** | full anchor-image attention pipeline (mass + per-layer + H3-falsified writeup + causal ablation) | ✅ |
+| **E1-patch (POC)** | digit-pixel-patch attention reanalysis on 2 representative archetypes (llava-1.5-7b mid-stack, gemma4-e4b SigLIP-early). bbox JSON via `scripts/compute_anchor_digit_bboxes.py`; extraction via `scripts/extract_attention_mass.py --bbox-file`; analysis via `scripts/analyze_attention_patch.py`. **POC headline (2026-04-29)**: gemma4-e4b digit/anchor = 0.631 (peak L9, +0.404 above fair share); llava-1.5-7b digit/anchor = 0.468 (peak L7, +0.241 above fair share). Two profiles: gemma globally digit-concentrated, llava peaked mid-early. `docs/insights/E1-patch-evidence.md`. | ✅ POC landed 2026-04-29; full 6-model panel + masked-arm causal control deferred |
+| **E4 Phase 1 + 2** | mid-stack-cluster attention re-weighting (LLaVA-1.5 / ConvLLaVA / InternVL3) | ✅ |
+| **E4 §7.4 paper rendering** | report `direction_follow_rate` reduction, `exact_match` rise, `accuracy_vqa(b)` invariance side by side; the "free lunch" framing | ☐ writing |
+| **E1-patch generalises mitigation?** | does upper-half attention mass concentrate on the digit patch only? if yes, mitigation can shrink target region | ☐ P3 |
+
+### 6.6 §8 — Future work (scope only)
+
+| ID | Direction | Status |
+|---|---|---|
+| **F1 (preferred)** | LLM/VLM architectural diff — same anchor delivered as text to LLM vs. as image to VLM, compare layer-wise integration profile (§7-style attention) | ☐ ideation only — paragraph in §8 |
+| **F2** | image-vs-text anchor — anchor image described as text and given to the same VLM; effect-size delta | ☐ ideation only |
+| **F3** | Reasoning-mode VLM at scale — Qwen3-VL thinking, etc., on E5e cross-dataset matrix | ☐ scope only (γ-β is the minimal §8 stake) |
+
+## 7. Pending work — priority queue
+
+P0 = blocks paper sections, do this week. P1 = strengthens but not load-
+bearing. P2 = ideation depth. P3 = future / parallel.
+
+| P | Task | Source | ETA / compute |
 |---|---|---|---|
-| E9 | Anchor-value range sweep beyond 0–9 (10s, 100s). | Tests whether the bias scales with anchor magnitude or saturates. | ☐ |
-| E10 | Layer-wise logit lens — *when* the anchor enters the prediction. | Complements E1. | ☐ |
-| E11 | Human baseline (~50 Prolific participants on a small condition matrix). | Disproportionately credibility-positive for psychology-framed papers. | ☐ |
-| E12 | Thinking-VLM comparison on a model that supports both modes (Qwen3-VL with/without reasoning). | The H4 test. | ☐ |
+| **P0** | M2 `metrics.py` refactor + re-aggregate ≥ 25 run dirs | §6.1 M2-refactor | code 0.5d, re-aggregate ~30min |
+| ~~P0~~ ✅ | Attention digit-pixel-patch reanalysis POC (2 models) | §6.5 E1-patch | landed 2026-04-29 |
+| **P1** | E1-patch full panel — masked arm causal control + 4 remaining archetypes | §6.5 E1-patch | ~1.5d |
+| **P0** | Per-token logit confidence analysis (L1–L4) | §6.4 | analysis only, ~3-4h |
+| ~~P0~~ ✅ | E5e MathVista (γ-α) — 3-model b/a/m/d × S1 | §6.3 | landed 2026-04-29 |
+| **P0** | MathVista (γ-β) — reasoning-mode infra check + run | §6.3 | check 0.5d + run 0.5-1d |
+| **P0** | E5b / E5c cross-model expansion (in flight, finish) | §6.3 | 1-1.5d |
+| **P1** | VQAv2 4-condition cross-model (kept) | §6.3 | ~1d (3 models) — opportunistic |
+| **P1** | M2 unit tests | §6.1 | 0.5d |
+| **P2** | §8 LLM/VLM architectural-diff ideation paragraph + design sketch (F1) | §6.6 | writing |
+| **P3** | E4 generalisation to other archetypes (Gemma / Qwen / FastVLM) | §6.5 | days |
+| **P3** | Image-vs-text anchor (F2) follow-up paper | §6.6 | future |
 
-## 7. Ordering and decision points
+## 8. Pending refactors
 
-1. **Phase A (done)** — Phase-A insights settled (`docs/insights/`). Output: A1 confirmed H2 in graded form; A2/A7 informed mechanism plan.
-2. **Phase B (current)** — E1 attention + E1b per-layer + E1d causal ablation all done on the 6-model panel. Active sequence now: **E4 (upper-half multi-layer mitigation prototype on the mid-stack cluster, per E1d)**. Pilot data + Phase A + E1d are sufficient to prototype mitigation; E2+E3 full 4-model grid remains deferred and is only re-opened if E4 cannot generalise from the mid-stack cluster to other archetypes.
-3. **Phase C** — Tier-2 hardening (E5 multi-dataset, E7 paraphrase robustness, E6 closed-model subset) once E4 produces a publishable mitigation result.
-4. **Phase D** — write-up. ARR May 25 deadline (per `references/project.md` §"realistic one-month plan").
+| ID | Task | Why | Status |
+|---|---|---|---|
+| **M1** | Paired adoption metric `(base_pred ≠ anchor) AND (pred == anchor)` | base-prediction confound (`pre-M1` marginal definition counted `gt == anchor == pred` as adoption; full M1 commentary in 2026-04-27 changelog) | ✅ landed `bbcc418..ce1928a`; 54 dirs re-aggregated 2026-04-27 |
+| **M2** | Metric definitions — `adopt_rate = A_paired/D_paired`, `direction_follow_rate = DF_moved/DD_all`, naming canonical (`pred_b/pred_a/pred_m/pred_d`) | M1 fixed numerator confound but left denominator and df numerator under-specified; `adopt_cond` was unofficial in E5b/E5c; df numerator's `pa != pb` clause closes the no-change-in-direction confound | ✅ landed 2026-04-29 (commits TBD); 53 run dirs re-aggregated; legacy fields kept for audit; tests in `tests/test_metrics.py` |
 
-**Decision triggers** (write the answer down when the trigger fires):
-- After A1: is the asymmetry real and large (≥ 10 pp gap)? If no, fall back to either H3 or H5 as headline. **Fired green** — Phase A confirmed graded-pull asymmetry +6.9 to +19.6 pp on 7/7 models.
-- After E1: does the anchor draw disproportionate attention? If yes → E4 is straightforward; if no → mitigation must target the LLM side instead. **Fired green** — anchor>neutral attention robust 6/6 at answer step. *Caveat from E1d:* the per-layer attention concentration is correlational, not a causal single-layer site — E4 must use multi-layer intervention.
-- After E1d: is the per-family peak layer a single-layer causal site? If yes → per-family targeted E4 prototype. If no → multi-layer or different intervention class. **Fired no** — single-layer ablation null at peak *and* at layer 0 on 6/6; current E4 candidate is upper-half multi-layer ablation on the mid-stack cluster.
-- After E2: does ConvLLaVA show meaningfully lower direction-follow? If yes, H3 becomes a paper section; if no, drop H3 and consolidate around H2 + mechanism. **Fired no** — H3 retired (E1c).
+## 9. Caveats — carry these into every analysis
 
-## 8. File-system conventions for research artifacts
-
-Created lazily — only when the first artifact of that type is written.
-
-```
-research/
-  insights/                    # phase-A re-analysis outputs (one md per insight)
-    00-summary.md
-    A1-asymmetric-on-wrong.md
-    ...
-  experiments/                 # plans + result writeups for E1..E12
-    E1-attention-mass.md
-    E2-convllava-full.md
-    ...
-  scripts/                     # one-off analysis scripts that produce insights
-                               # reusable scripts go to ../scripts/
-```
-
-This roadmap stays at project root and is the **only** doc that lists status across the whole program. Insight and experiment docs each focus on one thing.
-
-## 9. Known caveats (carry these into every analysis)
-
-- **Strengthen-prompt distance outliers** (§3.5) — robustly trim or use medians.
-- **Anchor digit ∈ 0–9 vs. answer support 0–8** — the anchor distribution is wider than the GT distribution. When computing "moved toward anchor", control for the fact that anchors 9 can never be the correct answer in this subset.
-- **Broken VQA image** (`inputs/vqav2_number_val/images/000000000136.jpg`) — file body is filesystem garbage, not a JPEG. The loader (`vlm_anchor.data.load_number_vqa_samples`) now calls `Image.verify()` and silently skips undecodable files, so it no longer crashes runs. The questions.jsonl entry referencing that image_id is now dropped on load (one fewer sample).
-- **`fastvlm-7b` prose outputs** — the model often emits prose despite the JSON-only prompt. `extract_first_number` rescues most cases but the parse-failure rate is non-zero; report it explicitly.
-- **Shared GPU** — same machine runs a vLLM `Qwen2.5-32B` server on port 8000 (~55 % VRAM). Effective per-GPU budget for this project ≈ 60 GB.
-- **Citation hygiene** — `references/project.md` flags some 2026 arXiv IDs that may not resolve. Verify each cite before any submission.
-- **`anchor_adopted` is now paired (M1 landed 2026-04-27)** — `(base_pred ≠ anchor) AND (pred == anchor)`. The marginal counterpart from before M1 (`pred == anchor_value` regardless of base prediction) was retired because it counted `GT == anchor == pred` as adoption — visible especially in E5b stratum 1 `(0,1)` and main-run anchor 0–9 vs GT 0–8 9-in-10 overlap. All 54 existing predictions.jsonl files were re-aggregated via `scripts/reaggregate_paired_adoption.py`; original marginal-era artefacts preserved beside as `*.marginal.bak.*`.
+- **Strengthen-prompt anomaly.** Under `experiment_anchor_strengthen_prompt`,
+  three Gemma models show pathological `mean_distance_to_anchor`
+  (gemma3-27b 2617, gemma4-31b 511, qwen2.5-vl 1519 — see 2026-04-23
+  changelog). The "must output a number" instruction induces large-number
+  hallucination, *not* anchor adoption. Filter or report with a robust
+  statistic before quantitative claims.
+- **`MathVista` C3 FAIL.** E5d MathVista validation rejected the S1-only
+  cutoff at the same `n` that ChartQA accepted it; the diffuse pattern is
+  robust to GT-floor filtering. (γ-α) re-runs at 4-condition single
+  stratum with the 3-model E5e panel; (γ-β) tests reasoning-mode separately.
+- **Anchor digit ∈ 0-9 vs. answer support 0-8.** When computing "moved
+  toward anchor", control for the fact that anchor 9 cannot be the
+  correct answer in this subset. M2 `D_paired` and `D_clean` denominators
+  partially handle this; the new `gt != anchor` flag is captured but
+  excluded from the headline denominator on signal-cleanness grounds (§5
+  of M2 doc).
+- **Broken VQA image** (`inputs/vqav2_number_val/images/000000000136.jpg`)
+  — file body is filesystem garbage. Loader calls `Image.verify()` and
+  silently skips; the questions.jsonl entry is dropped on load (one fewer
+  sample).
+- **`fastvlm-7b` prose outputs.** Often emits prose despite the JSON-only
+  prompt; `extract_first_number` rescues most but parse-failure rate is
+  non-zero. Report explicitly.
+- **`InternVL3-8b` prose-leak parse loss.** ~30 % of records drop out of
+  E4 Phase-1 valid-triplet count because InternVL3 emits prose ("based
+  on…") truncated at `max_new_tokens=8`. Driver patch to `max_new_tokens`
+  or InternVL3-specific JSON-strict prompt is the fix; tracked in §6.5.
+- **Shared GPU.** Same machine runs a vLLM Qwen2.5-32B on port 8000
+  (~55 % VRAM). Effective per-GPU budget ~60 GB.
+- **Citation hygiene.** `references/project.md` flags some 2026 arXiv IDs
+  that may not resolve. Verify every cite before submission.
+- **Bilingual docs convention retired** (commit `84f9341`, 2026-04-27).
+  No `_ko.md` mirrors. English `.md` is the only canonical version.
+- **In-flight inference.** E5b / E5c cross-model expansion and E5e
+  MathVista (γ) are running. Tables in §3.3 will tighten when those land;
+  M2 evidence numbers refresh accordingly.
 
 ## 10. Changelog
 
-- **2026-04-24** — Roadmap created. Status reflects: 7 models × full VQAv2 (standard + strengthen prompts) done; 5 new models integrated but not yet in main runs; 3 dataset extensions at smoke-only. Phase A queued.
-- **2026-04-24** — Phase A complete. Headline (H2): anchoring is uncertainty-modulated **graded pull**, not categorical capture (`docs/insights/A1-asymmetric-on-wrong.md`). Per-digit asymmetry confirmed (A2). Cross-model correlations 0.15–0.31 (A7) → both encoder and content matter, motivating E1+E2. A3/A4/A5/A6 folded into `00-summary.md`. Decision triggers in §7 fired — Phase B order unchanged.
-- **2026-04-24** — E2 pilot (n=1,125 × 4 models) complete. **H3 in simple "Conv < ViT" form not supported** — ConvLLaVA adoption=0.156 falls inside the CLIP/SigLIP cluster CI. **New H6 added**: cross-modal failures decompose into two orthogonal axes (anchor-pull vs. multi-image distraction). InternVL3 = pure distraction (low adoption, high acc_drop), LLaVA-1.5 = pure anchoring (high adoption, low acc_drop), ConvLLaVA = both. Two-axis framing replaces "encoder family universally matters" as the candidate paper headline. See `docs/experiments/E2-pilot-results.md`. Full 17,730 runs for all 4 models queued, awaiting user signoff.
-- **2026-04-24** — Bug fix: `vlm_anchor.data.load_number_vqa_samples` now calls `Image.verify()` and silently skips undecodable images. Prevents the `000000000136.jpg` PIL crash from killing future multi-day runs.
-- **2026-04-24** — User decision (option 2): defer E2+E3 full 4-model run; prioritise E1 attention extraction + E4 mitigation. Pilot data + Phase A is sufficient to prototype mitigation. Re-open E2+E3 only if E1 cannot mechanistically separate anchor-pull from multi-image distraction. Phase B sequence in §7 updated.
-- **2026-04-24** — Bilingual docs convention adopted. Every md under references/roadmap.md or research/ now has a `_ko.md` Korean mirror. English `.md` is canonical (Claude reads/edits it first); Korean version updated in lockstep. Memory entry: `feedback_bilingual_docs.md`.
-- **2026-04-24** — E1 extended to 4 encoder families (gemma4-e4b, qwen2.5-vl-7b, llava-1.5-7b, internvl3-8b; n=200 each). **Three claims settled at 4-model scale:** (i) anchor>neutral attention robust 4/4 (answer-step mean +0.004 to +0.007, CI excludes 0); (ii) H2 `wrong>correct` attention asymmetry falsified 4/4 — uncertainty does not modulate mean anchor attention; (iii) A7 `susceptible>resistant` holds 3/4 at answer step, inverts in Gemma-SigLIP (which also concentrates signal at step 0, consistent with typographic-attack inheritance). Candidate 3-claim paper structure emerges: anchor notice (attention) is robust; anchor pull (behaviour) is encoder-modulated; uncertainty modulates pull (Phase A) but not attention. `docs/experiments/E1-preliminary-results.md`.
-- **2026-04-24** — **E1b per-layer localisation done** (same 4 models × n=200). Peak layer differs sharply by encoder family: SigLIP-Gemma **layer 5/42** (12 % depth, δ +0.050, spike flanked by anchor/target trade-off layers), Qwen-ViT **layer 22/28** (82 %, δ +0.015, A7 gap +0.025 with bottom-decile CI including zero), CLIP-ViT (LLaVA-1.5) **layer 16/32** and InternViT (InternVL3) **layer 14/28** (both mid, δ ~+0.019). Layer-averaged E1 numbers were hiding a ~3× concentration at a single layer. **Second axis — budget decomposition:** at peak, Gemma/LLaVA-1.5/InternVL3 pull anchor mass from *text* (δ_text −0.014 to −0.038), Qwen pulls from *target image* (−0.010, text −0.005). Two distinct mechanisms: text-stealing vs target-stealing. **Candidate E4 intervention sites per family, to be tested:** Gemma → input-side pre-layer-5 KV/projection patch (denies text→anchor pull); Qwen → late-stack anchor attention re-weighting layer 22±2 gated by susceptibility (returns mass to target); CLIP/Intern → mid-stack ~14–16 (returns mass to text — less ideal, still testable). These are observational conjectures; E4 will test whether any of them actually reduce `direction_follow`. `docs/experiments/E1b-per-layer-localisation.md` (detailed) + `docs/insights/E1b-per-layer-localisation.md` (distilled).
-- **2026-04-24** — **E1 inputs_embeds-path extension done; 6-model panel complete.** Added ConvLLaVA (ConvNeXt encoder, inputs_embeds generate path) and FastVLM (FastViT, -200-marker expansion path) to the attention extraction pipeline in `scripts/extract_attention_mass.py` via new `EagerConvLLaVARunner` / `EagerFastVLMRunner` subclasses. Full n=200 runs complete for both. **Two key new findings:** (i) **H3 "ConvNeXt < ViT" is definitively falsified at the per-layer level** — ConvLLaVA's peak layer is L16 (same as LLaVA-1.5), mechanism is text-stealing (identical), magnitude +0.022 (within 20 % of LLaVA-1.5). Three encoders (CLIP-ViT, InternViT, ConvNeXt) now form a tight "mid-stack text-stealing" cluster. (ii) **FastVLM is a new archetype:** late peak (L22, matching Qwen depth) + text-stealing budget (−0.034, matching Gemma kind) + Gemma-level magnitude (+0.047) + panel-largest A7 gap (+0.086, with n=75 and wide CI caveat). Two published VLM failure modes — typographic attack and anchor-vs-target budget confusion — appear to co-fire in FastVLM. The 3-archetype story (from the 4-model E1b) refines to 4 archetypes. E4 design can now proceed with per-family intervention sites; the mid-stack cluster is the highest-leverage target (one intervention could generalise to three encoders). See `docs/experiments/E1b-per-layer-localisation.md` for the updated 6-model panel.
-- **2026-04-24** — **H3 formally retired; depth-axis framing replaces it.** Distilled insight written: `docs/insights/E1c-h3-falsified.md` (+ _ko mirror). H3's "ConvNeXt < ViT" hypothesis fails at both behavioural (E2 pilot adoption) and mechanistic (E1b per-layer) levels. Three architecturally different encoders (CLIP-ViT / InternViT / ConvNeXt) converge on the same mid-stack text-stealing profile. Paper narrative shifts from "encoder architecture modulates anchoring" to "post-projection LLM stack depth is the axis". Consequence: the originally planned E2 "encoder-ablation" subsection is no longer needed; compute can be re-routed to E5 (multi-dataset) or E7 (paraphrase robustness). H3 status in §2 updated from ⚠️ to ❌.
-- **2026-04-25** — **E1d causal anchor-attention ablation done across the 6-model panel.** Driver `scripts/causal_anchor_ablation.py`, analysis `scripts/analyze_causal_ablation.py`, n=200 stratified per model, 7 ablation modes (`baseline`, `ablate_layer0`, `ablate_peak`, `ablate_peak_window`, `ablate_lower_half`, `ablate_upper_half`, `ablate_all`). **Three findings.** (i) **Single-layer ablation is null on 6/6 models — at the E1b peak *and* at layer 0** (`Δ direction_follow ∈ [−0.032, +0.020]` for peak, `[−0.027, +0.005]` for layer 0; all CIs overlap baseline). The layer-0 control rules out reading (b) "peak is correlational and a different single layer matters" — even on Gemma, whose E1b reported anchor↔target swaps at L0–4 (Gemma layer-0 Δ = +0.005). Multi-layer redundancy confirmed: anchor's effect is encoded redundantly across the LLM stack, so any single-layer attention-mask ablation leaves the answer unchanged. (ii) **Stack-wide ablation reduces `direction_follow` 11–22 pp universally but breaks fluency on 3/6** (mean-distance balloons 4–6× on Gemma/LLaVA-1.5/ConvLLaVA, ~3 orders of magnitude on FastVLM). The 11–22 pp drop is an *upper bound* on the causal anchor pathway, not a target. (iii) **Upper-half attention ablation is the single architecture-blind mitigation locus** that reduces direction-follow on 6/6 (−5.5 to −11.5 pp) and is fluency-clean on 4/6 (mid-stack cluster + Qwen). Mid-stack cluster is the highest-leverage E4 prototype target — three encoders, one shared upper-half-clean response. **Sub-finding flagged as caveat:** ConvLLaVA and LLaVA-1.5 share the same E1b peak/mechanism but respond *opposite* to lower-half ablation (ConvLLaVA Δ = −0.120, LLaVA-1.5 Δ = +0.165) — same-attention-signature does not imply same-causal-structure. **Roadmap effects:** §6 E1 row "causal test" open question closed; §6 E4 row updated to specify upper-half multi-layer prototype on mid-stack cluster, single-layer ruled out. Open new questions: head-level sparsity; multi-layer combinatorial ablation. Writeups: `docs/experiments/E1d-causal-ablation.md` (+ _ko mirror), `docs/insights/E1d-causal-evidence.md` (+ _ko mirror).
-- **2026-04-25** — **E4 Phase 1 strength-sweep started; llava-1.5-7b complete.** Driver `scripts/e4_attention_reweighting.py`, analysis `scripts/analyze_e4_mitigation.py`, n=200 stratified, 7 strengths × 3 conditions = 4,200 records per model. **llava-1.5-7b:** baseline df_num=0.305 → s=−3.0 df_num=0.265 (−13 % relative; meets ≥ 10 % target); em_num 0.365 → 0.370 at s=−3.0 (well within ≤ 2 pp budget) and rises to 0.395 at saturation (s=−10⁴); em(target_only) invariant at 0.435 across all strengths confirms the hook is anchor-condition-specific (no leakage into single-image inference). **convllava-7b** sweep running on GPU 0 (≈ 60 % done at 15:25), partial baseline df_num=0.126 (lower than llava — convllava is more anchor-resistant on this stratified set), em_num=0.563 (higher); convllava effect size will be smaller in absolute terms. **internvl3-8b** queued behind. After all 3 sweeps, Phase 2 full-scale (n=17,730 × 3 conditions × 2 modes ≈ 88 k generations after target_only-skip optimization) runs in priority order (llava-1.5-7b first per advisor — cleanest E1d signal, no caveats). Phase 2 design is resumable (append-only JSONL with completed-key skip) so the run continues across the 12-h session boundary. Writeups: `docs/experiments/E4-mitigation.md` (+ `_ko.md`) and `docs/insights/E4-mitigation-evidence.md` (+ `_ko.md`); both flagged "Phase 1 in progress" until full validation lands.
-- **2026-04-25** — **E4 Phase 1 sweep complete on the full mid-stack-cluster panel; Phase 2 chain launched.** convllava-7b finished: baseline df=0.290 → s*=−2.0 df=0.260 (−10 % rel, em delta +0 pp). internvl3-8b finished: baseline df=0.161 → s*=−0.5 df=0.132 (−17.7 % rel, em delta +1.9 pp). All three models hit the ≥ 10 % `direction_follow_rate` reduction target with em either flat or rising; em(target_only) invariant on every model on every strength (LLaVA 0.435, ConvLLaVA 0.500, InternVL3 0.568). **Three Phase-1 findings worth keeping for the writeup:** (i) **per-model `s*` is required, not a single shared strength** — `s*` ranges from −0.5 (InternVL3) to −3.0 (LLaVA-1.5), an order of magnitude apart, so a shared constant would over-mitigate one and under-mitigate the others. The mitigation generalises *as a locus + selection rule*, not a single strength constant. (ii) **mitigation effect is anti-correlated with baseline anchor-pull, not proportional** — InternVL3 (lowest baseline df = 0.16, the H6 "distraction-not-anchoring" model) shows the *largest* relative drop (−17.7 % at `s*`, −61 % at saturation); LLaVA-1.5 (highest baseline df = 0.305) shows the *smallest* (−13 % at `s*`, −18 % at saturation). Mechanism conjecture: the upper-half attention pathway carries a *larger fraction* of the anchor signal in the model that uses it less, consistent with InternVL3 having a narrowly-concentrated anchor signal vs. LLaVA-cluster's broader / redundant distribution. To confirm at Phase 2 scale. (iii) **InternVL3 prose-leak parse loss caveat** — ~30 % of records drop out of the valid-triplet count because InternVL3 emits prose ("based on…") that the parser misclassifies as a numeric string ("based"); n drops from 200 to 112–137 per cell. Comparison-internally consistent (baseline and treated share the same noise floor) but absolute em comparison across conditions is approximate. Driver fix logged for Phase 2 (regex `extract_first_number` rescue from `vlm_anchor.utils`). Phase 2 chain (`scripts/run_e4_phase2_chain.sh`) now running on GPU 0 in priority order LLaVA → ConvLLaVA → InternVL3, resumable across the 12-h session boundary. Writeups updated: `docs/experiments/E4-mitigation.md` (+ `_ko.md`) cross-model summary 3/3 done; `docs/insights/E4-mitigation-evidence.md` (+ `_ko.md`) headline + anchor-damage table now include InternVL3.
-- **2026-04-27** — **E5 ChartQA full run complete on existing 3-model panel (qwen2.5-vl-7b, qwen3-vl-8b, llava-next-interleaved-7b).** Driver: `scripts/run_experiment.py --config configs/experiment_chartqa.yaml`, GPU 1, 16,170 records per model (5,390 sample-instances × 3 conditions), wall ~32 min per model (advisor's 3.7 h estimate was conservative — ChartQA target images and prompts are smaller than VQAv2 Number). **Cross-dataset signature differs sharply from VQAv2:** `direction_follow_rate` is *higher* on ChartQA (0.230, 0.252, 0.394 for the three models vs VQAv2 main 0.089–0.348), `adoption_rate` is *lower* (0.015–0.022 vs VQAv2 0.110–0.141, well below chance 0.11), and `accuracy_exact` is essentially *invariant* across conditions (TO 0.654 → num 0.654 on qwen2.5-vl; TO 0.316 → num 0.305 on llava-interleave). Reading: in ChartQA the target image already contains a legible answer number, so anchor cannot *replace* the prediction (em invariant) but can *tilt* the prediction direction (df strong). VQAv2 number subset has no such target-side number anchor, so anchor competes more directly. This is a paper-grade cross-dataset finding: **anchoring magnitude varies systematically by domain, with the "tilt vs replace" decomposition driven by whether the target image carries a competing legible number**. Caveats: (i) ChartQA mean_distance_to_anchor explodes (1.1 k–33 k) because ChartQA GT distribution is much wider than 0–9, so absolute distance is not directly comparable to VQAv2; relative df / em are the load-bearing metrics. (ii) Single-prompt run (no paraphrase robustness yet — E7). (iii) 3-model panel is the Phase-1 main subset, NOT the mid-stack cluster (no E4 mitigation generalisation claim from this run yet). Open follow-ups: (a) re-run on mid-stack cluster (LLaVA-1.5, ConvLLaVA, InternVL3) if E4 generalisation to ChartQA is needed for the paper, (b) Phase A-style analysis (per-anchor digit, wrong-vs-correct stratification) on this dataset, (c) **region-aware attention re-analysis** flagged by user — current E1 measures attention on the whole anchor image span; digit-pixel patches would isolate the digit-specific signal vs background patches. Writeups (E5-chartqa.md / _ko mirror, E5-chartqa-evidence.md) deferred to next session.
-- **2026-04-26 (evening)** — **E4 Phase 2 InternVL3-8b complete; mid-stack-cluster Phase 2 panel is 3/3 done.** Headline InternVL3: `direction_follow_rate` 0.1035 [0.0981, 0.1089] → 0.0975 [0.0923, 0.1026] = −0.59 pp / **−5.8 % relative** at s* = −0.5. `exact_match` rises 0.5902 → 0.5950 (+0.49 pp). Paired anchor-damage (n_paired = 11,848 of 17,730 = 66.8 %, parse loss persists at full scale because the driver patch was applied *during* the run, not before): em(TO) 0.6325, em(num@0) 0.5938, em(num@s*) 0.5977 → damage **−3.87 pp** and recovery **+0.40 pp = 10.2 % of damage**. **The 10 %-relative-reduction roadmap target is missed on InternVL3 (5.8 %)** for a structural reason — it is the H6 "distraction-not-anchoring" model, the Phase-2 full set has df₀ = 0.103 (~36 % lower than the Phase-1 stratified set's 0.161), and the mitigation effect at the working point scales with the baseline signal it is removing. The mitigation still moves the metric in the right direction, em rises, fluency is invariant (mean_dist 4.61 → 4.81). **Cross-cluster summary**: LLaVA (−17.7 % rel), ConvLLaVA (−10.6 %), InternVL3 (−5.8 %); all three rise on em (+0.49 to +1.30 pp); paired anchor-damage range −3.55 to −9.34 pp; recovery range 10.2 to 21.7 %. The anti-correlation between baseline df and mitigation effect (Phase-1 finding) holds at full scale: InternVL3 has the lowest df₀ and the smallest relative reduction, LLaVA the highest df₀ and the largest. Writeups updated: `docs/experiments/E4-mitigation.md` (+ _ko mirror) Phase 2 InternVL3 sub-section + headline tables; `docs/insights/E4-mitigation-evidence.md` (+ _ko mirror) Phase 2 headline now covers all 3 models. Phase 2 chain (`scripts/run_e4_phase2_chain.sh`) full run took 60,144 s (16.7 h) for InternVL3.
-- **2026-04-26** — **E4 Phase 2 ConvLLaVA-7b complete; mid-stack cluster Phase 2 result is 2/3 (LLaVA + ConvLLaVA done, InternVL3 in flight, will not finish in this session).** Headline ConvLLaVA: `direction_follow_rate` 0.2283 [0.2226, 0.2346] → 0.2042 [0.1982, 0.2100] = −2.42 pp / **−10.6 % relative** (Phase 1 sweep predicted −10.3 %, replicated within 0.3 pp). `exact_match` rises 0.3522 → 0.3652 (+1.30 pp). Paired anchor-damage (n_paired = 17,722, parse loss negligible): em(TO) 0.4454, em(num@0) 0.3520, em(num@s*) 0.3651 → damage **−9.34 pp** and recovery **+1.31 pp = 14.0 % of damage** at the chosen working point. **Both completed mid-stack-cluster models reproduce their Phase 1 sweep mitigation effect to within 0.3 pp on relative df reduction, with CIs ~10× narrower.** Each shows +1 pp em improvement at `s*`, anchor damage of −3.6 to −9.3 pp on the paired full set, and recovery of 14–22 % at the chosen working point. **ConvLLaVA fluency-tail caveat at full scale**: `mean_distance_to_anchor` jumps 2.99 → 53.54 on the treated cell (vs Phase 1 sweep stratified 3.18 → 3.30). Outlier samples receive predictions far from any plausible anchor, dragging the mean up by ~17×; em still rises because the bulk improves enough to net positive, and df is per-pair so it is robust. For the paper: switch to median distance + fluency-degraded fraction count. Tracked in §"open follow-ups". InternVL3 Phase 2 auto-started by the chain at 02:27 UTC; rate ~0.20 sample/sec → ETA ~24 h (multi-tile + planned driver patch not yet applied). 105 of 88,650 records at writeup time, n=16 valid triplets — figures shown in `full_validation_compare.csv` for InternVL3 are not load-bearing. **Action item before next InternVL3 session**: apply the `max_new_tokens` patch (8 → 32) gated on InternVL3 model name in `scripts/e4_attention_reweighting.py`, then decide whether to discard the partial 105 records (cleaner) or keep them via resumability (saves 3 min). Writeups updated: `docs/experiments/E4-mitigation.md` (+ _ko mirror) ConvLLaVA Phase 2 sub-section + headline tables; `docs/insights/E4-mitigation-evidence.md` (+ _ko mirror) Phase 2 headline now covers both LLaVA and ConvLLaVA.
-- **2026-04-25** — **E4 Phase 2 LLaVA-1.5-7b complete and replicates Phase 1 claim at full scale.** 88,650 records (100 %, target_only-skip optimisation). Headline: `direction_follow_rate` 0.2578 [0.2515, 0.2640] → 0.2122 [0.2060, 0.2182] = −4.55 pp / **−17.7 % relative** (Phase 1 sweep predicted exactly −17.7 %; CIs at Phase 2 are ~10× narrower). `exact_match` rises slightly: 0.3340 → 0.3418 (+0.77 pp). Paired anchor-damage table on the full dataset (n_paired = 17,724, virtually no parse loss for LLaVA): em(TO) 0.3696, em(num@0) 0.3340, em(num@s*) 0.3417 → anchor damage **−3.55 pp** (vs Phase-1 sweep's susceptibility-stratified −7.00 pp, as expected — full set has more typical samples) and recovery **+0.77 pp = 21.7 % of damage** at the chosen working point. Replication is tight on every Phase-1 metric direction; the *relative* mitigation generalises from stratified to representative. Phase 2 chain auto-continued to convllava-7b at 20:24 UTC; ConvLLaVA Phase 2 ETA ~5.7 h. InternVL3 Phase 2 will not start in this 12-h window. Writeups updated: `docs/experiments/E4-mitigation.md` (+ _ko mirror) Phase 2 sub-section + LLaVA tables; `docs/insights/E4-mitigation-evidence.md` (+ _ko mirror) Phase 2 headline section.
-- **2026-04-25** — **Phase 1 anchor-damage table corrected via paired analysis; "InternVL3 has no anchor damage" reading retracted.** Investigation of the anti-correlation surprise + parse-loss caveat (advisor-flagged) revealed two issues. **(i) Driver-side, not parser-side, parse loss.** InternVL3's prose ("Based on the image…") truncates at `max_new_tokens=8` *before any digit*; the parser already uses the project's `extract_first_number`, which falls through to its first-token fallback ("based"). Analysis-layer rescue cannot recover what was never generated. The fix is a Phase-2 driver patch (longer `max_new_tokens` 16–32, or InternVL3-specific JSON-strict prompt). Logged in §6 E4 open follow-ups. **(ii) Anchor-damage table was unpaired, fixed by intersection-of-valid-cells analysis.** The original table compared em(target_only) on n=200 against em(num@0) on n=137 for InternVL3 — different sample subsets. Paired version (sample_instance_ids valid for *every* {target_only@0, num@0, num@s*, num@saturation} cell): n_paired = 109; em(TO) = 0.734 (vs unpaired 0.567); em(num@0) = 0.633 → anchor damage **−10.1 pp** (not the unpaired +2.3 pp "no damage" cell). All three models now show coherent damage / partial-recovery pattern: damage −7 to −12.5 pp, recovery 24–43 % at saturation. Caveat: InternVL3 paired set is the model's parse-tractable subset (em(TO) is 16.7 pp higher than condition-internal); treat the InternVL3 row as "behaviour on parse-tractable items", not "InternVL3 in general". **Refined headline:** the *df-axis anti-correlation* and the *em-axis coherence* are two views of the same intervention — open question for Phase 2 whether they reflect the same underlying mechanism (anchor-signal concentration with metric-resolution differences) or two mechanisms. Paired analysis now integrated in `scripts/analyze_e4_mitigation.py` (`_paired_anchor_damage`); writes `outputs/e4_mitigation/_summary/anchor_damage_paired_{sweep,full}.csv` automatically. Phase 2 will have a paired anchor-damage table at full scale alongside the existing per-strength tables. Writeups (E4-mitigation.md / _ko.md, E4-mitigation-evidence.md / _ko.md) corrected; "anti-correlation surprise" framing now scoped to df only, em pattern reframed as "coherent damage / partial-recovery ratio across the cluster".
-- **2026-04-27** — **E5b design + plan committed; pipeline implemented and smoke-validated.** Anchor-distance robustness sweep added as new sub-experiment of E5. Stratified anchor sampling (5 strata by `|a − GT|`: [0,1] / [2,5] / [6,30] / [31,300] / [301,∞)), 500 base questions per dataset on TallyQA + VQAv2, llava-interleave-7b only. New driver path keyed off `inputs.anchor_sampling: stratified` in YAML; legacy 3-condition path untouched (regression-tested via 5-sample smoke on `configs/experiment.yaml`). Three smoke runs (VQAv2 stratified, TallyQA stratified, legacy) all pass: per-stratum mean-distance scales monotonically S1<S2<S3<S4<<S5, condition counters exact, `anchor_stratum_id` field present and None on legacy rows. Specs: `docs/experiments/E5b-anchor-distance-design.md` (+ _ko mirror), plan: `docs/experiments/E5b-anchor-distance-plan.md` (+ _ko mirror). Full run (T9) and reproducible notebook (T10) pending.
-- **2026-04-27** — **M1 added to §6 (Pending refactors): paired adoption metric.** `anchor_adopted = (pred == anchor_value)` (`src/vlm_anchor/metrics.py:40`) currently ignores the base-condition prediction, so `GT == anchor == pred` counts as adoption — silently inflates rates wherever the anchor inventory overlaps the GT support (E5b stratum 1 `(0,1)` literally permits `\|a − gt\| = 0`; main-run anchor inventory 0–9 vs GT support 0–8 has 9-in-10 overlap). Refactor to paired `(base_pred ≠ anchor_value) AND (pred == anchor_value)`: `evaluate_sample` gains `base_prediction` arg; runner runs `target_only` first per sample-instance and threads its prediction into number/neutral evaluations; `summarize_condition` mean shape preserved (binary label → reads as a rate). Re-aggregation runs from raw `predictions.{jsonl,csv}` per model (no re-inference); raw `prediction` column preserved so any downstream re-derivation is still possible. Marginal definition retired in favour of paired. M1 must land before §6 Tier 2 hardening (E5/E7) re-touches the public numbers in §3.4 / Phase A / E1 / E4. **Cross-session note:** any concurrent edit to `metrics.py` or `models.py` runner ordering should align with this refactor — see §9 caveat.
-- **2026-04-27** — **M1 landed: paired anchor-adoption metric.** `evaluate_sample` now requires `base_prediction` and computes `anchor_adopted = (base_pred ≠ anchor) AND (pred == anchor)` (commit `bbcc418`). Driver threads target_only's parsed prediction into subsequent conditions (`9c07f2e`). One-off `scripts/reaggregate_paired_adoption.py` (`220dc4b`, extended `ce1928a` for ablation/e4 schemas) re-computed adoption on all 54 existing predictions.jsonl files (35 standard + 13 causal_ablation + 6 e4_mitigation) — no re-inference needed; raw predictions preserved. Headline §3.4 paired-adoption rates: 0.019–0.059 (vs. previous marginal 0.110–0.141; ~75–90 % relative reduction). Direction-follow and accuracy values unchanged. Stale smoke-only output dirs deleted (`experiment_tallyqa`, `experiment_mathvista`, `experiment_smoke_check`, ChartQA 5-sample smoke). M1 status in §6 Pending refactors → ✅. Tier 2 hardening (E5/E5b/E7) can now proceed without further metric drift.
+- **2026-04-29 (evening)** — **E1-patch POC landed (2 archetypes).**
+  Driver: `scripts/compute_anchor_digit_bboxes.py` produces digit
+  bboxes from anchor − masked PNG diff (n=128 anchors); modified
+  `scripts/extract_attention_mass.py` accepts `--bbox-file` and emits
+  `image_anchor_digit` + `image_anchor_background` regions (normalized
+  bbox coords mapped to row-major patch grid; perfect-square spans only,
+  multi-tile / multi-scale models skip transparently); analysis via
+  `scripts/analyze_attention_patch.py`. POC on `llava-1.5-7b` and
+  `gemma4-e4b` (n=400 each, ~25 min wall). **Both models pass the
+  headline test**: `mass_digit / mass_anchor` substantially exceeds the
+  bbox area share at the digit-attention peak layer. `gemma4-e4b`:
+  L9 / 42, ratio = 0.631, concentration above fair share = **+0.404**
+  (globally digit-concentrated profile, every layer 0.5-0.6). `llava-1.5-7b`:
+  L7 / 32, ratio = 0.468, concentration above fair share = **+0.241**
+  (peaked mid-early profile, drops below fair share by L30). Two
+  qualitatively different attention pathways — Gemma SigLIP globally
+  inherits typographic feature, LLaVA mid-stack-cluster peaks at L7-L11
+  *earlier* than its E1b total-mass peak at L16. Deferred to
+  full-panel: masked-arm causal control (current `configs/experiment.yaml`
+  lacks the `masked` extra), per-encoder bbox mapping for ConvLLaVA /
+  InternVL3 / FastVLM, step-0 vs answer-step comparison. New artefacts:
+  `docs/insights/E1-patch-evidence.md`,
+  `docs/insights/_data/E1_patch_per_layer.csv`,
+  `docs/insights/_data/E1_patch_concentration_per_layer.csv`,
+  `inputs/irrelevant_number_bboxes.json`.
+- **2026-04-29 (evening)** — **L1 confidence-modulated anchoring (§6 of
+  the paper) evidence written.** Driver:
+  `scripts/analyze_confidence_anchoring.py` on 10 logit-capturing runs
+  (post-commit `5f925b2`: E5b, E5c, E5d, E5e). 112,008 (sample × arm)
+  records over 34 cells. Three confidence proxies tested:
+  `softmax_top1_prob`, `top1_minus_top2_margin`, `entropy_top_k`.
+  **Headline: `entropy_top_k` is the cleanest proxy.** Mean
+  `direction_follow_rate` Q4 − Q1 = +0.128, with 18/34 anchor cells
+  fully monotone Q1 < Q2 < Q3 < Q4. `adopt_rate` Q4 − Q1 = +0.044,
+  10/34 monotone. Worked example (E5c VQAv2 S1, llava-interleave-7b):
+  Q1 (most confident, mean exact_match_b = 0.77) → adopt 0.077 / df 0.040;
+  Q4 (most uncertain, exact_match_b = 0.07) → adopt 0.147 / df 0.113;
+  Δ = +7.0 / +7.4 pp. The wrong/correct binary in Phase A A1 is a coarse
+  projection of this continuous monotonicity. New artefacts:
+  `docs/insights/L1-confidence-modulation-evidence.md` (with §0 Intuition
+  added), `docs/insights/_data/L1_*.csv`. VQAv2 main panel logit re-run
+  is queued under §6.4 (no logit capture pre-commit `5f925b2`).
+- **2026-04-29 (evening)** — **E5e MathVista (γ-α) cross-model 4-condition
+  full run landed.** Driver `scripts/run_experiment.py
+  --config configs/experiment_e5e_mathvista_full.yaml`, 3 models × 385
+  base questions × 4 conditions = 4,620 records, total wall ~45 min on
+  H200. Headlines (M2, wrong-base S1 anchor arm): **gemma3-27b-it
+  adopt(a) = 0.194 — the largest single cell in the program** (vs. all
+  prior datasets ≤ 0.13); anchor − masked gap = +15.2 pp. llava +4.1 pp,
+  qwen +0.7 pp; all 3/3 preserve `a > m`. **`direction_follow_rate (M2)
+  = 0` on every model on every condition** — MathVista is the
+  "categorical-replace" regime where anchor either replaces base
+  outright or doesn't move it at all. Contrasts with VQAv2 / TallyQA /
+  ChartQA "graded-tilt" regime where movement-without-adoption (df_raw
+  ≫ adopt) dominates. New evidence: `docs/insights/E5e-mathvista-evidence.md`.
+  E5d MathVista C3 FAIL diagnosis (diffuse pattern across distance) was
+  a llava-specific small-n behaviour; γ-α at full integer subset reveals
+  a clean cross-model signal. `analyze_e5e_wrong_correct.py`
+  (new) writes `_data/experiment_e5e_mathvista_full_per_cell.csv`.
+- **2026-04-29** — **M2 landed.** `metrics.py` refactored to compute headline
+  rates with M2 denominators: `anchor_adoption_rate` now uses
+  `D_paired = (pb != anchor)` denominator (vs. previous `D_all`); new field
+  `anchor_direction_follow_rate` requires `pa != pb` in its numerator (vs.
+  previous `DF_raw` which counted no-change pairs). Legacy
+  `anchor_adoption_rate_marginal` and `anchor_direction_follow_rate_raw`
+  fields kept for audit. Per-row flags added: `pred_b_equal_anchor`,
+  `pred_diff_from_base`, `anchor_direction_followed_moved`. Re-aggregation
+  via `scripts/reaggregate_paired_adoption.py --apply --force` rewrote 53
+  run dirs (predictions.jsonl + summary.json); pre-M1 marginal backups
+  preserved untouched. New unit tests added (`tests/test_metrics.py` +
+  `EvaluateSampleM2FlagsTest`, `SummarizeConditionM2DenominatorTest`):
+  15 metrics tests pass. §3.3 headline tables refreshed with M2 numbers
+  and now reference E5b/E5c wrong-base + E5e cross-dataset all-base. Stale
+  smoke-only run dir `outputs/experiment/qwen2.5-vl-7b-instruct/20260427-075523/`
+  (n=25) deleted. M2 status in §8 → ✅. `docs/insights/M2-metric-definition-evidence.md`
+  remains as the definition rationale; refresh of its §5 numbers using
+  post-aggregation full set is queued.
+- **2026-04-28** — **Roadmap restructured to be paper-section-anchored,
+  in lockstep with the new `references/project.md §0` paper outline.**
+  §1 (research definition) updated to 4-condition canonical (b/a/m/d) with
+  pred_b/pred_a/pred_m/pred_d/anchor/gt naming. §2 hypothesis table adds
+  H7 (logit-based confidence monotonicity, §6 of paper). §3 status snapshot
+  consolidates the prior "completed runs / pilot / smoke / models integrated"
+  tables into one per-experiment matrix with status flags. §4 documents
+  the M2 canonical metrics (`adopt_rate = A_paired/D_paired`,
+  `direction_follow_rate = DF_moved/DD_all`, full equivalences in M2 doc).
+  §5 closes Phase A status. §6 maps every running / pending / planned
+  experiment to its paper section (§3-§8). §7 is one P0/P1/P2/P3 priority
+  queue. §8 has M2 added to pending refactors. §9 caveats updated for
+  strengthen anomaly, MathVista C3 FAIL, parse-loss, retired bilingual
+  convention. Changelog (this §10) is **append-only** and preserves all
+  prior entries unchanged. New artefacts: `references/project.md` (rewritten
+  with §0 paper outline above the preserved 2026-04-23 feasibility review),
+  `docs/insights/M2-metric-definition-evidence.md`, `scripts/analyze_metric_variants.py`,
+  `docs/insights/_data/M2_*.csv`.
+- **2026-04-27** — **E5c results: digit-pixel causality confirmed.** Stratified E5c run on llava-interleave-7b (n=1000 base questions per dataset, VQAv2 + TallyQA, 12 conditions per question = 1 baseline + 5 anchor strata + 5 masked-anchor strata + 1 neutral). Adopt_cond gap (anchor − masked) on wrong-base S1: +6.1 pp (VQAv2), +2.5 pp (TallyQA). Decays with distance to ~0 by S5. acc_drop comparison on correct-base: masked ≈ neutral (~7-9 pp VQAv2, ~2-5 pp TallyQA), confirming the anchor image background acts like a generic 2-image distractor. df_cond on wrong-base is nearly identical between anchor and masked (anchor S2 0.5198 vs masked S2 0.5223 on VQAv2) — direction-follow is dominated by uncertainty-driven directional drift, not digit pixels. Conclusion: the digit pixel is the operative cause of paired adoption; the anchor image's background offers no information beyond generic distraction. Writeups: `docs/experiments/E5c-anchor-mask-control.md`, `docs/insights/E5c-anchor-mask-evidence.md`.
+- **2026-04-27** — **E5c queued: anchor-mask control experiment.** Replaces the digit pixel region in each anchor image with a content-preserving mask (digit bbox only) to isolate the digit-specific anchoring contribution from generic second-image distraction. Runs the E5b stratified pipeline on the masked variants. Confirms whether E5b's wrong-base × S2 peak is causally driven by the digit token or by 2-image presence alone. See §6 Tier 2 row for design.
 - **2026-04-27** — **E5b results landed: anchoring is uncertainty-modulated AND plausibility-windowed.** Stratified E5b run on llava-interleave-7b (n=1000 base questions per dataset, VQAv2 + TallyQA, 5 anchor strata × 1 anchor each = 6 conditions per question) reveals two compounding gates on the cross-modal anchoring effect when measured under M1 paired conditional adoption (case 4 `base==a==pred` excluded from denominator):
     - **Uncertainty gate (A1 confirmed at scale).** Records where `target_only` was correct show essentially no anchor effect (`adopt_cond` ≤ 0.10 across all 5 strata, VQAv2 and TallyQA both). Records where `target_only` was wrong show adoption magnitudes 1.4–37× larger.
     - **Plausibility window.** On the wrong-base subset, adoption peaks at S1 [0,1] and decays sharply with distance: VQAv2 0.130 → 0.032 → 0.010 → 0.010 → 0.003 (S1→S5); TallyQA 0.092 → 0.006 → 0.003 → 0 → 0 (S5 = exactly zero adoption out of 346 wrong-base records, twice — i.e., implausible anchors are *fully* rejected).
     - **Cross-dataset robustness.** Same pattern in both datasets despite different baseline accuracies (acc(target_only) 0.62 VQAv2 vs 0.21 TallyQA), confirming the effect is not tied to a specific image domain.
   Direction-follow was attempted as the headline first but was noisier (S2 false-peak driven by case-4 records and `anchor==gt` boundary). Switching to `adopt_cond` made the pattern clean. Artefacts: `scripts/analyze_e5b_distance.py` (rewritten), `scripts/build_e5b_notebook.py`, `notebooks/E5b_anchor_distance.ipynb` (executed in place), `docs/figures/E5b_adopt_cond_curve.png` (per-dataset, base-correctness split), `docs/figures/E5b_adopt_cond_overlay.png` (cross-dataset wrong-base only), `docs/insights/_data/E5b_per_stratum.csv` (20-row table). Commits in the E5b branch: `f4ea410` (initial T10 with df-headline), `00afb81` (refactor to adopt_cond + base split).
-- **2026-04-27** — **E5c queued: anchor-mask control experiment.** Replaces the digit pixel region in each anchor image with a content-preserving mask (digit bbox only) to isolate the digit-specific anchoring contribution from generic second-image distraction. Runs the E5b stratified pipeline on the masked variants. Confirms whether E5b's wrong-base × S2 peak is causally driven by the digit token or by 2-image presence alone. See §6 Tier 2 row for design.
-- **2026-04-27** — **E5c results: digit-pixel causality confirmed.** Stratified E5c run on llava-interleave-7b (n=1000 base questions per dataset, VQAv2 + TallyQA, 12 conditions per question = 1 baseline + 5 anchor strata + 5 masked-anchor strata + 1 neutral). Adopt_cond gap (anchor − masked) on wrong-base S1: +6.1 pp (VQAv2), +2.5 pp (TallyQA). Decays with distance to ~0 by S5. acc_drop comparison on correct-base: masked ≈ neutral (~7-9 pp VQAv2, ~2-5 pp TallyQA), confirming the anchor image background acts like a generic 2-image distractor. df_cond on wrong-base is nearly identical between anchor and masked (anchor S2 0.5198 vs masked S2 0.5223 on VQAv2) — direction-follow is dominated by uncertainty-driven directional drift, not digit pixels. Conclusion: the digit pixel is the operative cause of paired adoption; the anchor image's background offers no information beyond generic distraction. Writeups: `docs/experiments/E5c-anchor-mask-control.md`, `docs/insights/E5c-anchor-mask-evidence.md`.
+- **2026-04-27** — **M1 landed: paired anchor-adoption metric.** `evaluate_sample` now requires `base_prediction` and computes `anchor_adopted = (base_pred ≠ anchor) AND (pred == anchor)` (commit `bbcc418`). Driver threads target_only's parsed prediction into subsequent conditions (`9c07f2e`). One-off `scripts/reaggregate_paired_adoption.py` (`220dc4b`, extended `ce1928a` for ablation/e4 schemas) re-computed adoption on all 54 existing predictions.jsonl files (35 standard + 13 causal_ablation + 6 e4_mitigation) — no re-inference needed; raw predictions preserved. Headline §3.4 paired-adoption rates: 0.019–0.059 (vs. previous marginal 0.110–0.141; ~75–90 % relative reduction). Direction-follow and accuracy values unchanged. Stale smoke-only output dirs deleted (`experiment_tallyqa`, `experiment_mathvista`, `experiment_smoke_check`, ChartQA 5-sample smoke). M1 status in §6 Pending refactors → ✅. Tier 2 hardening (E5/E5b/E7) can now proceed without further metric drift.
+- **2026-04-27** — **M1 added to §6 (Pending refactors): paired adoption metric.** `anchor_adopted = (pred == anchor_value)` (`src/vlm_anchor/metrics.py:40`) currently ignores the base-condition prediction, so `GT == anchor == pred` counts as adoption — silently inflates rates wherever the anchor inventory overlaps the GT support (E5b stratum 1 `(0,1)` literally permits `\|a − gt\| = 0`; main-run anchor inventory 0–9 vs GT support 0–8 has 9-in-10 overlap). Refactor to paired `(base_pred ≠ anchor_value) AND (pred == anchor_value)`: `evaluate_sample` gains `base_prediction` arg; runner runs `target_only` first per sample-instance and threads its prediction into number/neutral evaluations; `summarize_condition` mean shape preserved (binary label → reads as a rate). Re-aggregation runs from raw `predictions.{jsonl,csv}` per model (no re-inference); raw `prediction` column preserved so any downstream re-derivation is still possible. Marginal definition retired in favour of paired. M1 must land before §6 Tier 2 hardening (E5/E7) re-touches the public numbers in §3.4 / Phase A / E1 / E4. **Cross-session note:** any concurrent edit to `metrics.py` or `models.py` runner ordering should align with this refactor — see §9 caveat.
+- **2026-04-27** — **E5b design + plan committed; pipeline implemented and smoke-validated.** Anchor-distance robustness sweep added as new sub-experiment of E5. Stratified anchor sampling (5 strata by `|a − GT|`: [0,1] / [2,5] / [6,30] / [31,300] / [301,∞)), 500 base questions per dataset on TallyQA + VQAv2, llava-interleave-7b only. New driver path keyed off `inputs.anchor_sampling: stratified` in YAML; legacy 3-condition path untouched (regression-tested via 5-sample smoke on `configs/experiment.yaml`). Three smoke runs (VQAv2 stratified, TallyQA stratified, legacy) all pass: per-stratum mean-distance scales monotonically S1<S2<S3<S4<<S5, condition counters exact, `anchor_stratum_id` field present and None on legacy rows. Specs: `docs/experiments/E5b-anchor-distance-design.md` (+ _ko mirror), plan: `docs/experiments/E5b-anchor-distance-plan.md` (+ _ko mirror). Full run (T9) and reproducible notebook (T10) pending.
+- **2026-04-25** — **Phase 1 anchor-damage table corrected via paired analysis; "InternVL3 has no anchor damage" reading retracted.** Investigation of the anti-correlation surprise + parse-loss caveat (advisor-flagged) revealed two issues. **(i) Driver-side, not parser-side, parse loss.** InternVL3's prose ("Based on the image…") truncates at `max_new_tokens=8` *before any digit*; the parser already uses the project's `extract_first_number`, which falls through to its first-token fallback ("based"). Analysis-layer rescue cannot recover what was never generated. The fix is a Phase-2 driver patch (longer `max_new_tokens` 16–32, or InternVL3-specific JSON-strict prompt). Logged in §6 E4 open follow-ups. **(ii) Anchor-damage table was unpaired, fixed by intersection-of-valid-cells analysis.** The original table compared em(target_only) on n=200 against em(num@0) on n=137 for InternVL3 — different sample subsets. Paired version (sample_instance_ids valid for *every* {target_only@0, num@0, num@s*, num@saturation} cell): n_paired = 109; em(TO) = 0.734 (vs unpaired 0.567); em(num@0) = 0.633 → anchor damage **−10.1 pp** (not the unpaired +2.3 pp "no damage" cell). All three models now show coherent damage / partial-recovery pattern: damage −7 to −12.5 pp, recovery 24–43 % at saturation. Caveat: InternVL3 paired set is the model's parse-tractable subset (em(TO) is 16.7 pp higher than condition-internal); treat the InternVL3 row as "behaviour on parse-tractable items", not "InternVL3 in general". **Refined headline:** the *df-axis anti-correlation* and the *em-axis coherence* are two views of the same intervention — open question for Phase 2 whether they reflect the same underlying mechanism (anchor-signal concentration with metric-resolution differences) or two mechanisms. Paired analysis now integrated in `scripts/analyze_e4_mitigation.py` (`_paired_anchor_damage`); writes `outputs/e4_mitigation/_summary/anchor_damage_paired_{sweep,full}.csv` automatically. Phase 2 will have a paired anchor-damage table at full scale alongside the existing per-strength tables. Writeups (E4-mitigation.md / _ko.md, E4-mitigation-evidence.md / _ko.md) corrected; "anti-correlation surprise" framing now scoped to df only, em pattern reframed as "coherent damage / partial-recovery ratio across the cluster".
+- **2026-04-25** — **E4 Phase 2 LLaVA-1.5-7b complete and replicates Phase 1 claim at full scale.** 88,650 records (100 %, target_only-skip optimisation). Headline: `direction_follow_rate` 0.2578 [0.2515, 0.2640] → 0.2122 [0.2060, 0.2182] = −4.55 pp / **−17.7 % relative** (Phase 1 sweep predicted exactly −17.7 %; CIs at Phase 2 are ~10× narrower). `exact_match` rises slightly: 0.3340 → 0.3418 (+0.77 pp). Paired anchor-damage table on the full dataset (n_paired = 17,724, virtually no parse loss for LLaVA): em(TO) 0.3696, em(num@0) 0.3340, em(num@s*) 0.3417 → anchor damage **−3.55 pp** (vs Phase-1 sweep's susceptibility-stratified −7.00 pp, as expected — full set has more typical samples) and recovery **+0.77 pp = 21.7 % of damage** at the chosen working point. Replication is tight on every Phase-1 metric direction; the *relative* mitigation generalises from stratified to representative. Phase 2 chain auto-continued to convllava-7b at 20:24 UTC; ConvLLaVA Phase 2 ETA ~5.7 h. InternVL3 Phase 2 will not start in this 12-h window. Writeups updated: `docs/experiments/E4-mitigation.md` (+ _ko mirror) Phase 2 sub-section + LLaVA tables; `docs/insights/E4-mitigation-evidence.md` (+ _ko mirror) Phase 2 headline section.
+- **2026-04-26** — **E4 Phase 2 ConvLLaVA-7b complete; mid-stack cluster Phase 2 result is 2/3 (LLaVA + ConvLLaVA done, InternVL3 in flight, will not finish in this session).** Headline ConvLLaVA: `direction_follow_rate` 0.2283 [0.2226, 0.2346] → 0.2042 [0.1982, 0.2100] = −2.42 pp / **−10.6 % relative** (Phase 1 sweep predicted −10.3 %, replicated within 0.3 pp). `exact_match` rises 0.3522 → 0.3652 (+1.30 pp). Paired anchor-damage (n_paired = 17,722, parse loss negligible): em(TO) 0.4454, em(num@0) 0.3520, em(num@s*) 0.3651 → damage **−9.34 pp** and recovery **+1.31 pp = 14.0 % of damage** at the chosen working point. **Both completed mid-stack-cluster models reproduce their Phase 1 sweep mitigation effect to within 0.3 pp on relative df reduction, with CIs ~10× narrower.** Each shows +1 pp em improvement at `s*`, anchor damage of −3.6 to −9.3 pp on the paired full set, and recovery of 14–22 % at the chosen working point. **ConvLLaVA fluency-tail caveat at full scale**: `mean_distance_to_anchor` jumps 2.99 → 53.54 on the treated cell (vs Phase 1 sweep stratified 3.18 → 3.30). Outlier samples receive predictions far from any plausible anchor, dragging the mean up by ~17×; em still rises because the bulk improves enough to net positive, and df is per-pair so it is robust. For the paper: switch to median distance + fluency-degraded fraction count. Tracked in §"open follow-ups". InternVL3 Phase 2 auto-started by the chain at 02:27 UTC; rate ~0.20 sample/sec → ETA ~24 h (multi-tile + planned driver patch not yet applied). 105 of 88,650 records at writeup time, n=16 valid triplets — figures shown in `full_validation_compare.csv` for InternVL3 are not load-bearing. **Action item before next InternVL3 session**: apply the `max_new_tokens` patch (8 → 32) gated on InternVL3 model name in `scripts/e4_attention_reweighting.py`, then decide whether to discard the partial 105 records (cleaner) or keep them via resumability (saves 3 min). Writeups updated: `docs/experiments/E4-mitigation.md` (+ _ko mirror) ConvLLaVA Phase 2 sub-section + headline tables; `docs/insights/E4-mitigation-evidence.md` (+ _ko mirror) Phase 2 headline now covers both LLaVA and ConvLLaVA.
+- **2026-04-26 (evening)** — **E4 Phase 2 InternVL3-8b complete; mid-stack-cluster Phase 2 panel is 3/3 done.** Headline InternVL3: `direction_follow_rate` 0.1035 [0.0981, 0.1089] → 0.0975 [0.0923, 0.1026] = −0.59 pp / **−5.8 % relative** at s* = −0.5. `exact_match` rises 0.5902 → 0.5950 (+0.49 pp). Paired anchor-damage (n_paired = 11,848 of 17,730 = 66.8 %, parse loss persists at full scale because the driver patch was applied *during* the run, not before): em(TO) 0.6325, em(num@0) 0.5938, em(num@s*) 0.5977 → damage **−3.87 pp** and recovery **+0.40 pp = 10.2 % of damage**. **The 10 %-relative-reduction roadmap target is missed on InternVL3 (5.8 %)** for a structural reason — it is the H6 "distraction-not-anchoring" model, the Phase-2 full set has df₀ = 0.103 (~36 % lower than the Phase-1 stratified set's 0.161), and the mitigation effect at the working point scales with the baseline signal it is removing. The mitigation still moves the metric in the right direction, em rises, fluency is invariant (mean_dist 4.61 → 4.81). **Cross-cluster summary**: LLaVA (−17.7 % rel), ConvLLaVA (−10.6 %), InternVL3 (−5.8 %); all three rise on em (+0.49 to +1.30 pp); paired anchor-damage range −3.55 to −9.34 pp; recovery range 10.2 to 21.7 %. The anti-correlation between baseline df and mitigation effect (Phase-1 finding) holds at full scale: InternVL3 has the lowest df₀ and the smallest relative reduction, LLaVA the highest df₀ and the largest. Writeups updated: `docs/experiments/E4-mitigation.md` (+ _ko mirror) Phase 2 InternVL3 sub-section + headline tables; `docs/insights/E4-mitigation-evidence.md` (+ _ko mirror) Phase 2 headline now covers all 3 models. Phase 2 chain (`scripts/run_e4_phase2_chain.sh`) full run took 60,144 s (16.7 h) for InternVL3.
+- **2026-04-27** — **E5 ChartQA full run complete on existing 3-model panel (qwen2.5-vl-7b, qwen3-vl-8b, llava-next-interleaved-7b).** Driver: `scripts/run_experiment.py --config configs/experiment_chartqa.yaml`, GPU 1, 16,170 records per model (5,390 sample-instances × 3 conditions), wall ~32 min per model (advisor's 3.7 h estimate was conservative — ChartQA target images and prompts are smaller than VQAv2 Number). **Cross-dataset signature differs sharply from VQAv2:** `direction_follow_rate` is *higher* on ChartQA (0.230, 0.252, 0.394 for the three models vs VQAv2 main 0.089–0.348), `adoption_rate` is *lower* (0.015–0.022 vs VQAv2 0.110–0.141, well below chance 0.11), and `accuracy_exact` is essentially *invariant* across conditions (TO 0.654 → num 0.654 on qwen2.5-vl; TO 0.316 → num 0.305 on llava-interleave). Reading: in ChartQA the target image already contains a legible answer number, so anchor cannot *replace* the prediction (em invariant) but can *tilt* the prediction direction (df strong). VQAv2 number subset has no such target-side number anchor, so anchor competes more directly. This is a paper-grade cross-dataset finding: **anchoring magnitude varies systematically by domain, with the "tilt vs replace" decomposition driven by whether the target image carries a competing legible number**. Caveats: (i) ChartQA mean_distance_to_anchor explodes (1.1 k–33 k) because ChartQA GT distribution is much wider than 0–9, so absolute distance is not directly comparable to VQAv2; relative df / em are the load-bearing metrics. (ii) Single-prompt run (no paraphrase robustness yet — E7). (iii) 3-model panel is the Phase-1 main subset, NOT the mid-stack cluster (no E4 mitigation generalisation claim from this run yet). Open follow-ups: (a) re-run on mid-stack cluster (LLaVA-1.5, ConvLLaVA, InternVL3) if E4 generalisation to ChartQA is needed for the paper, (b) Phase A-style analysis (per-anchor digit, wrong-vs-correct stratification) on this dataset, (c) **region-aware attention re-analysis** flagged by user — current E1 measures attention on the whole anchor image span; digit-pixel patches would isolate the digit-specific signal vs background patches. Writeups (E5-chartqa.md / _ko mirror, E5-chartqa-evidence.md) deferred to next session.
+- **2026-04-25** — **E4 Phase 1 sweep complete on the full mid-stack-cluster panel; Phase 2 chain launched.** convllava-7b finished: baseline df=0.290 → s*=−2.0 df=0.260 (−10 % rel, em delta +0 pp). internvl3-8b finished: baseline df=0.161 → s*=−0.5 df=0.132 (−17.7 % rel, em delta +1.9 pp). All three models hit the ≥ 10 % `direction_follow_rate` reduction target with em either flat or rising; em(target_only) invariant on every model on every strength (LLaVA 0.435, ConvLLaVA 0.500, InternVL3 0.568). **Three Phase-1 findings worth keeping for the writeup:** (i) **per-model `s*` is required, not a single shared strength** — `s*` ranges from −0.5 (InternVL3) to −3.0 (LLaVA-1.5), an order of magnitude apart, so a shared constant would over-mitigate one and under-mitigate the others. The mitigation generalises *as a locus + selection rule*, not a single strength constant. (ii) **mitigation effect is anti-correlated with baseline anchor-pull, not proportional** — InternVL3 (lowest baseline df = 0.16, the H6 "distraction-not-anchoring" model) shows the *largest* relative drop (−17.7 % at `s*`, −61 % at saturation); LLaVA-1.5 (highest baseline df = 0.305) shows the *smallest* (−13 % at `s*`, −18 % at saturation). Mechanism conjecture: the upper-half attention pathway carries a *larger fraction* of the anchor signal in the model that uses it less, consistent with InternVL3 having a narrowly-concentrated anchor signal vs. LLaVA-cluster's broader / redundant distribution. To confirm at Phase 2 scale. (iii) **InternVL3 prose-leak parse loss caveat** — ~30 % of records drop out of the valid-triplet count because InternVL3 emits prose ("based on…") that the parser misclassifies as a numeric string ("based"); n drops from 200 to 112–137 per cell. Comparison-internally consistent (baseline and treated share the same noise floor) but absolute em comparison across conditions is approximate. Driver fix logged for Phase 2 (regex `extract_first_number` rescue from `vlm_anchor.utils`). Phase 2 chain (`scripts/run_e4_phase2_chain.sh`) now running on GPU 0 in priority order LLaVA → ConvLLaVA → InternVL3, resumable across the 12-h session boundary. Writeups updated: `docs/experiments/E4-mitigation.md` (+ `_ko.md`) cross-model summary 3/3 done; `docs/insights/E4-mitigation-evidence.md` (+ `_ko.md`) headline + anchor-damage table now include InternVL3.
+- **2026-04-25** — **E4 Phase 1 strength-sweep started; llava-1.5-7b complete.** Driver `scripts/e4_attention_reweighting.py`, analysis `scripts/analyze_e4_mitigation.py`, n=200 stratified, 7 strengths × 3 conditions = 4,200 records per model. **llava-1.5-7b:** baseline df_num=0.305 → s=−3.0 df_num=0.265 (−13 % relative; meets ≥ 10 % target); em_num 0.365 → 0.370 at s=−3.0 (well within ≤ 2 pp budget) and rises to 0.395 at saturation (s=−10⁴); em(target_only) invariant at 0.435 across all strengths confirms the hook is anchor-condition-specific (no leakage into single-image inference). **convllava-7b** sweep running on GPU 0 (≈ 60 % done at 15:25), partial baseline df_num=0.126 (lower than llava — convllava is more anchor-resistant on this stratified set), em_num=0.563 (higher); convllava effect size will be smaller in absolute terms. **internvl3-8b** queued behind. After all 3 sweeps, Phase 2 full-scale (n=17,730 × 3 conditions × 2 modes ≈ 88 k generations after target_only-skip optimization) runs in priority order (llava-1.5-7b first per advisor — cleanest E1d signal, no caveats). Phase 2 design is resumable (append-only JSONL with completed-key skip) so the run continues across the 12-h session boundary. Writeups: `docs/experiments/E4-mitigation.md` (+ `_ko.md`) and `docs/insights/E4-mitigation-evidence.md` (+ `_ko.md`); both flagged "Phase 1 in progress" until full validation lands.
+- **2026-04-25** — **E1d causal anchor-attention ablation done across the 6-model panel.** Driver `scripts/causal_anchor_ablation.py`, analysis `scripts/analyze_causal_ablation.py`, n=200 stratified per model, 7 ablation modes (`baseline`, `ablate_layer0`, `ablate_peak`, `ablate_peak_window`, `ablate_lower_half`, `ablate_upper_half`, `ablate_all`). **Three findings.** (i) **Single-layer ablation is null on 6/6 models — at the E1b peak *and* at layer 0** (`Δ direction_follow ∈ [−0.032, +0.020]` for peak, `[−0.027, +0.005]` for layer 0; all CIs overlap baseline). The layer-0 control rules out reading (b) "peak is correlational and a different single layer matters" — even on Gemma, whose E1b reported anchor↔target swaps at L0–4 (Gemma layer-0 Δ = +0.005). Multi-layer redundancy confirmed: anchor's effect is encoded redundantly across the LLM stack, so any single-layer attention-mask ablation leaves the answer unchanged. (ii) **Stack-wide ablation reduces `direction_follow` 11–22 pp universally but breaks fluency on 3/6** (mean-distance balloons 4–6× on Gemma/LLaVA-1.5/ConvLLaVA, ~3 orders of magnitude on FastVLM). The 11–22 pp drop is an *upper bound* on the causal anchor pathway, not a target. (iii) **Upper-half attention ablation is the single architecture-blind mitigation locus** that reduces direction-follow on 6/6 (−5.5 to −11.5 pp) and is fluency-clean on 4/6 (mid-stack cluster + Qwen). Mid-stack cluster is the highest-leverage E4 prototype target — three encoders, one shared upper-half-clean response. **Sub-finding flagged as caveat:** ConvLLaVA and LLaVA-1.5 share the same E1b peak/mechanism but respond *opposite* to lower-half ablation (ConvLLaVA Δ = −0.120, LLaVA-1.5 Δ = +0.165) — same-attention-signature does not imply same-causal-structure. **Roadmap effects:** §6 E1 row "causal test" open question closed; §6 E4 row updated to specify upper-half multi-layer prototype on mid-stack cluster, single-layer ruled out. Open new questions: head-level sparsity; multi-layer combinatorial ablation. Writeups: `docs/experiments/E1d-causal-ablation.md` (+ _ko mirror), `docs/insights/E1d-causal-evidence.md` (+ _ko mirror).
+- **2026-04-24** — **H3 formally retired; depth-axis framing replaces it.** Distilled insight written: `docs/insights/E1c-h3-falsified.md` (+ _ko mirror). H3's "ConvNeXt < ViT" hypothesis fails at both behavioural (E2 pilot adoption) and mechanistic (E1b per-layer) levels. Three architecturally different encoders (CLIP-ViT / InternViT / ConvNeXt) converge on the same mid-stack text-stealing profile. Paper narrative shifts from "encoder architecture modulates anchoring" to "post-projection LLM stack depth is the axis". Consequence: the originally planned E2 "encoder-ablation" subsection is no longer needed; compute can be re-routed to E5 (multi-dataset) or E7 (paraphrase robustness). H3 status in §2 updated from ⚠️ to ❌.
+- **2026-04-24** — **E1 inputs_embeds-path extension done; 6-model panel complete.** Added ConvLLaVA (ConvNeXt encoder, inputs_embeds generate path) and FastVLM (FastViT, -200-marker expansion path) to the attention extraction pipeline in `scripts/extract_attention_mass.py` via new `EagerConvLLaVARunner` / `EagerFastVLMRunner` subclasses. Full n=200 runs complete for both. **Two key new findings:** (i) **H3 "ConvNeXt < ViT" is definitively falsified at the per-layer level** — ConvLLaVA's peak layer is L16 (same as LLaVA-1.5), mechanism is text-stealing (identical), magnitude +0.022 (within 20 % of LLaVA-1.5). Three encoders (CLIP-ViT, InternViT, ConvNeXt) now form a tight "mid-stack text-stealing" cluster. (ii) **FastVLM is a new archetype:** late peak (L22, matching Qwen depth) + text-stealing budget (−0.034, matching Gemma kind) + Gemma-level magnitude (+0.047) + panel-largest A7 gap (+0.086, with n=75 and wide CI caveat). Two published VLM failure modes — typographic attack and anchor-vs-target budget confusion — appear to co-fire in FastVLM. The 3-archetype story (from the 4-model E1b) refines to 4 archetypes. E4 design can now proceed with per-family intervention sites; the mid-stack cluster is the highest-leverage target (one intervention could generalise to three encoders). See `docs/experiments/E1b-per-layer-localisation.md` for the updated 6-model panel.
+- **2026-04-24** — **E1b per-layer localisation done** (same 4 models × n=200). Peak layer differs sharply by encoder family: SigLIP-Gemma **layer 5/42** (12 % depth, δ +0.050, spike flanked by anchor/target trade-off layers), Qwen-ViT **layer 22/28** (82 %, δ +0.015, A7 gap +0.025 with bottom-decile CI including zero), CLIP-ViT (LLaVA-1.5) **layer 16/32** and InternViT (InternVL3) **layer 14/28** (both mid, δ ~+0.019). Layer-averaged E1 numbers were hiding a ~3× concentration at a single layer. **Second axis — budget decomposition:** at peak, Gemma/LLaVA-1.5/InternVL3 pull anchor mass from *text* (δ_text −0.014 to −0.038), Qwen pulls from *target image* (−0.010, text −0.005). Two distinct mechanisms: text-stealing vs target-stealing. **Candidate E4 intervention sites per family, to be tested:** Gemma → input-side pre-layer-5 KV/projection patch (denies text→anchor pull); Qwen → late-stack anchor attention re-weighting layer 22±2 gated by susceptibility (returns mass to target); CLIP/Intern → mid-stack ~14–16 (returns mass to text — less ideal, still testable). These are observational conjectures; E4 will test whether any of them actually reduce `direction_follow`. `docs/experiments/E1b-per-layer-localisation.md` (detailed) + `docs/insights/E1b-per-layer-localisation.md` (distilled).
+- **2026-04-24** — E1 extended to 4 encoder families (gemma4-e4b, qwen2.5-vl-7b, llava-1.5-7b, internvl3-8b; n=200 each). **Three claims settled at 4-model scale:** (i) anchor>neutral attention robust 4/4 (answer-step mean +0.004 to +0.007, CI excludes 0); (ii) H2 `wrong>correct` attention asymmetry falsified 4/4 — uncertainty does not modulate mean anchor attention; (iii) A7 `susceptible>resistant` holds 3/4 at answer step, inverts in Gemma-SigLIP (which also concentrates signal at step 0, consistent with typographic-attack inheritance). Candidate 3-claim paper structure emerges: anchor notice (attention) is robust; anchor pull (behaviour) is encoder-modulated; uncertainty modulates pull (Phase A) but not attention. `docs/experiments/E1-preliminary-results.md`.
+- **2026-04-24** — Bilingual docs convention adopted. Every md under references/roadmap.md or research/ now has a `_ko.md` Korean mirror. English `.md` is canonical (Claude reads/edits it first); Korean version updated in lockstep. Memory entry: `feedback_bilingual_docs.md`. **Retired 2026-04-27 (commit `84f9341`).**
+- **2026-04-24** — User decision (option 2): defer E2+E3 full 4-model run; prioritise E1 attention extraction + E4 mitigation. Pilot data + Phase A is sufficient to prototype mitigation. Re-open E2+E3 only if E1 cannot mechanistically separate anchor-pull from multi-image distraction. Phase B sequence in §7 updated.
+- **2026-04-24** — Bug fix: `vlm_anchor.data.load_number_vqa_samples` now calls `Image.verify()` and silently skips undecodable images. Prevents the `000000000136.jpg` PIL crash from killing future multi-day runs.
+- **2026-04-24** — E2 pilot (n=1,125 × 4 models) complete. **H3 in simple "Conv < ViT" form not supported** — ConvLLaVA adoption=0.156 falls inside the CLIP/SigLIP cluster CI. **New H6 added**: cross-modal failures decompose into two orthogonal axes (anchor-pull vs. multi-image distraction). InternVL3 = pure distraction (low adoption, high acc_drop), LLaVA-1.5 = pure anchoring (high adoption, low acc_drop), ConvLLaVA = both. Two-axis framing replaces "encoder family universally matters" as the candidate paper headline. See `docs/experiments/E2-pilot-results.md`. Full 17,730 runs for all 4 models queued, awaiting user signoff.
+- **2026-04-24** — Phase A complete. Headline (H2): anchoring is uncertainty-modulated **graded pull**, not categorical capture (`docs/insights/A1-asymmetric-on-wrong.md`). Per-digit asymmetry confirmed (A2). Cross-model correlations 0.15–0.31 (A7) → both encoder and content matter, motivating E1+E2. A3/A4/A5/A6 folded into `00-summary.md`. Decision triggers in §7 fired — Phase B order unchanged.
+- **2026-04-24** — Roadmap created. Status reflects: 7 models × full VQAv2 (standard + strengthen prompts) done; 5 new models integrated but not yet in main runs; 3 dataset extensions at smoke-only. Phase A queued.
