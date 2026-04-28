@@ -1,0 +1,56 @@
+seed: 42
+output_root: outputs
+
+# MathVista (γ-α) — cross-model E5e-style 4-condition run.
+#
+# Background: E5d single-model (llava-interleave) MathVista validation
+# failed C3 (S4/S5 noise floor not reached) — diffuse anchor effect with
+# no plausibility window. The pattern was robust to GT-floor filtering
+# in E5d (GT≥50 still produced S5 ≈ 0.038). γ-α tests whether this is
+# llava-specific or universal — the prediction (paper §5 contrast) is
+# that stronger / better-calibrated VLMs may either (a) replicate the
+# diffuse pattern or (b) recover the plausibility-window shape seen on
+# ChartQA / TallyQA / VQAv2.
+#
+# Single-stratum S1-only relative cutoff (|a − GT| ≤ max(1, 0.10·GT)) —
+# matches E5e ChartQA / TallyQA. No GT-floor (E5d showed it doesn't fix
+# C3); we let the cross-model panel speak.
+
+vqa_dataset:
+  local_path: inputs/mathvista_testmini
+  answer_type_filter: ["integer"]
+  answer_range: 1000
+  require_single_numeric_gt: true
+
+inputs:
+  irrelevant_number_dir: inputs/irrelevant_number
+  irrelevant_number_masked_dir: inputs/irrelevant_number_masked
+  irrelevant_neutral_dir: inputs/irrelevant_neutral
+  anchor_sampling: stratified
+  stratified_extras: ["masked", "neutral"]
+  anchor_distance_scheme: relative_s1   # |a − GT| ≤ max(1, 0.10·GT)
+
+models:
+  - name: llava-next-interleaved-7b
+    hf_model: llava-hf/llava-interleave-qwen-7b-hf
+  - name: qwen2.5-vl-7b-instruct
+    hf_model: Qwen/Qwen2.5-VL-7B-Instruct
+  - name: gemma3-27b-it
+    hf_model: google/gemma-3-27b-it
+
+sampling:
+  temperature: 0.0
+  top_p: 1.0
+  max_new_tokens: 16
+
+prompt:
+  system: |
+    You are a visual question answering system.
+    Return valid JSON only in the form {"result": <number>}.
+    Use a numeric JSON value for <number>, not a string.
+    Do not output any other keys, words, explanation, or markdown.
+    If uncertain, still output the single most likely number in that JSON format.
+  user_template: |
+    Answer the question using the provided image(s).
+    Return JSON only in the form {"result": <number>}.
+    Question: {question}

@@ -1,4 +1,130 @@
-# Cross-modal anchoring in VLMs: a candid EMNLP 2026 feasibility review
+# Cross-modal anchoring in VLMs — paper plan + 2026-04-23 feasibility review
+
+This document has two parts:
+
+1. **§0 (top, current as of 2026-04-28)** — operational paper outline.
+   `references/roadmap.md` is built against this. Read this first.
+2. **2026-04-23 feasibility review (below the divider)** — original candid
+   feasibility review. Preserved for prior-art landscape, novelty matrix,
+   acceptance-bar reasoning, and decision provenance. When the two appear
+   to disagree, §0 wins; the review remains as historical context.
+
+---
+
+## §0. Current paper outline (as of 2026-04-28)
+
+**Target venue.** EMNLP 2026 Main, ARR May 25.
+
+**Compute envelope.** 8 × H200 (one shared with vLLM Qwen2.5-32B server,
+~60 GB usable per GPU), one month at writeup.
+
+### §0.1 Headline claim
+
+> **Cross-modal numerical anchoring in VLMs is uncertainty-modulated graded
+> pull, not categorical capture, and concentrates on a digit-pixel cue
+> inside the anchor image.**
+
+Three motivating features carry the §1 lead:
+
+1. **Setup novelty.** No prior work delivers a stand-alone rendered-number
+   image as a cross-modal anchor for open numerical VQA. See "novelty
+   verdict" in the 2026-04-23 review below for the full prior-art matrix
+   and differentiation against VLMBias / typographic attacks / FigStep /
+   Tinted Frames / the LLM-anchoring lineage.
+2. **Graded vs. categorical.** Phase A
+   (`docs/insights/A1-asymmetric-on-wrong.md`) shows wrong-base
+   direction-follow exceeds correct-base by **+6.9 to +19.6 pp** on every
+   model in the 7-VLM main panel. Paired adoption (M1) is 2-6 % — the
+   model rarely *outputs* the anchor literally. The mass of the effect is
+   in graded movement toward the anchor, not literal copying.
+3. **Cognitive-science alignment.** Uncertainty-proportional anchor pull
+   matches Mussweiler & Strack's selective-accessibility model. §6
+   generalises this from the binary correctness split to a continuous
+   logit-based confidence proxy.
+
+### §0.2 Paper section structure
+
+| § | Title | Headline finding | Primary evidence | Status |
+|---|---|---|---|---|
+| 1 | Introduction | the §0.1 headline claim | A1 + E1d + E4 | writing |
+| 2 | Related work | LLM anchoring lineage, VLMBias, typographic attacks, cognitive-science prior | (review below) | writing |
+| 3 | Problem definition + canonical metrics | 4-condition prompt (`b/a/m/d`); JSON-strict template; M2 canonical `adopt_rate`, `direction_follow_rate`, `exact_match`, `anchor_effect = M(anchor) − M(neutral)` | `docs/insights/M2-metric-definition-evidence.md` | M2 refactor pending |
+| 4 | Datasets + anchor inventory | VQAv2 number, TallyQA, ChartQA, MathVista. FLUX-rendered digit anchor inventory with mask + neutral counterparts | `inputs/`, fetcher / generator scripts | covered |
+| 5 | Distance, plausibility window, digit-pixel causality | `adopt_rate` decays sharply with `\|anchor − gt\|`; digit pixel is operative cause (anchor > masked); per-dataset distance cutoffs validated; cross-model robustness | E5b + E5c + E5d + E5e | partial — cross-model expansion in flight; γ MathVista pending |
+| 6 | Confidence-modulated anchoring (logit-based) | `direction_follow_rate` is monotonic with answer-token logit / probability; the wrong/correct binary in §A1 is a coarse projection of the same effect | per-token logit captured (commit `5f925b2`); analysis pending | analysis pending P0 |
+| 7 | Attention mechanism + mitigation | anchor-image attention concentrates at per-encoder-family peak layer (E1b 4-archetype); single-layer ablation null but upper-half multi-layer ablation reduces df 5.5–11.5 pp on 6/6 models; mid-stack-cluster attention re-weighting at chosen `s*` reduces df 5.8–17.7 % rel with `exact_match` rising and `accuracy_vqa` invariant | E1 + E1b + E1d + E4 | done; digit-pixel-patch attention reanalysis pending P0 |
+| 8 | Future work | LLM/VLM architectural diff (preferred); image-vs-text anchor; reasoning-mode VLMs at scale | scoped only | future |
+
+### §0.3 Canonical metrics (M2)
+
+Settled in `docs/insights/M2-metric-definition-evidence.md` (analysis on 25
+`predictions.jsonl` files, 6+7 distinct rate variants). Choices win on rank
+consistency across signals (wrong > correct, S1 > S5, anchor > masked):
+
+```
+adopt_rate            = #(pa == anchor AND pb != anchor) / #(pb != anchor)
+direction_follow_rate = #( (pb-gt)·(pa-gt) > 0  AND  pa != pb )
+                        / #(numeric pair AND anchor present)
+exact_match           = #(pa == gt) / #(numeric pair)
+anchor_effect_M       = M(anchor arm) - M(neutral arm)
+```
+
+Notation (canonical): `pred_b / pred_a / pred_m / pred_d / anchor / gt`,
+booleans `pb_eq_a`, `pa_eq_a`, `gt_eq_a`, `pa_ne_pb`, `pb_eq_gt`. Same form
+applies to `pred_m` (mask arm).
+
+### §0.4 Model panel and dataset matrix
+
+| dataset | conditions | models with full run | status |
+|---|---|---|---|
+| VQAv2 number | b / a / d (3-cond) | 7 main + 7 strengthen | done — M2 re-aggregation pending |
+| VQAv2 number | b / a / m / d (4-cond, S1) | 0 — kept as P1 | deferred (kept) |
+| TallyQA | b / a / m / d (4-cond, S1) | 3 (E5e) | done — extending |
+| ChartQA | b / a / m / d (4-cond, S1) | 3 (E5e) | done — extending |
+| MathVista | b / a / m / d (4-cond, S1) | 0 — γ planned | P0 |
+| MathVista | reasoning-mode (β) | 0 — γ planned | P0 |
+
+E5b stratified-distance and E5c digit-mask runs are on
+`llava-next-interleaved-7b` only (cross-model expansion in flight).
+
+Mechanistic panel (E1 / E1b / E1d): 6 models (`gemma4-e4b`,
+`qwen2.5-vl-7b-instruct`, `llava-1.5-7b`, `internvl3-8b`, `convllava-7b`,
+`fastvlm-7b`) on n=200 stratified.
+
+Mitigation panel (E4): 3 mid-stack-cluster models full validation
+(`llava-1.5-7b`, `convllava-7b`, `internvl3-8b`).
+
+### §0.5 Scoped-out (paper-tier decisions)
+
+- Cognitive-load / distractor breadth — saturated, not pursued.
+- Salience / red-circle marker bias — crowded, not pursued.
+- Confirmation bias as a separate category — folded into §6 confidence
+  framing as a sub-claim of anchoring, not a standalone bias.
+- Tinted Frames-style question-form framing — distinct paper, not pursued.
+- Closed-model subset (GPT-4o / Gemini 2.5) — not pursued unless a clean
+  500-sample reviewer-defuse run becomes cheap; otherwise §"limitations".
+- Human baseline (Prolific 50 subjects) — not pursued; cost / time vs.
+  yield does not justify on the current ARR clock.
+- Dual Process Theory as organising frame — empirically contested
+  (VLMBias / LRM-judging shows reasoning can amplify); folded into §8
+  future work, not a §1 organising claim.
+
+### §0.6 Reading order for new contributors / coding agents
+
+1. This §0.
+2. `references/roadmap.md` — operational status, what runs, what blocks.
+3. `docs/insights/M2-metric-definition-evidence.md` — what metric
+   definitions the headline numbers use.
+4. `docs/insights/00-summary.md` — Phase A umbrella.
+5. `docs/insights/E1d-causal-evidence.md` and
+   `docs/insights/E4-mitigation-evidence.md` — mechanism + mitigation
+   umbrellas.
+6. The 2026-04-23 feasibility review below — prior-art context,
+   scope-decision reasoning.
+
+---
+
+## Background: 2026-04-23 feasibility review
 
 **Bottom line up front.** The core empirical claim—injecting a rendered *number image* as an anchor alongside a target VQA image, and finding that the effect is **asymmetrically stronger on items the model originally got wrong**—is genuinely novel and defensible against existing literature. However, the paper as currently scoped (7 models × ~5 cognitive biases × VQAv2, no mechanistic analysis, no mitigation) matches the empirical profile of recent cognitive-bias-in-LLM papers that landed in **Findings, not Main**, at EMNLP 2024–2025. To move from Findings-tier to Main-tier, the paper needs to (1) cut breadth and add *mechanistic depth*, (2) add at least a minimal mitigation guided by the mechanism, and (3) reframe around a single sharp scientific claim rather than a cognitive-bias grab-bag. With 8×H200 and one month, this is achievable—but only if the expansion plan is *narrowed*, not widened. The sections below lay out the prior-art landscape, a novelty verdict for each proposed extension, feasibility math, and concrete recommendations.
 

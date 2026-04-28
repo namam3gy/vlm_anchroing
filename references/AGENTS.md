@@ -6,12 +6,33 @@ Single source of truth for contributors and coding agents working in this repo.
 ## What this project does
 
 Evaluates **cross-modal anchoring bias** in VLMs: does showing an irrelevant
-image containing a number bias a model's numeric answer to a VQAv2 question?
-Three conditions are compared across multiple HuggingFace VLMs:
+image containing a number bias a model's numeric answer? Up to four
+conditions per `sample_instance`, with canonical short names used in code,
+docs, and analysis:
 
-- `target_only` — question + target image.
-- `target_plus_irrelevant_number` — add an extra image showing a number (the anchor).
-- `target_plus_irrelevant_neutral` — add an extra image with no digits/text.
+| short | code label | second image |
+|---|---|---|
+| `b` | `target_only` | none (baseline) |
+| `a` | `target_plus_irrelevant_number(_S?)` | image with one digit (the anchor) |
+| `m` | `target_plus_irrelevant_number_masked(_S?)` | same anchor image, digit pixel inpainted out |
+| `d` | `target_plus_irrelevant_neutral` | digit-free FLUX render (2-image-distraction control) |
+
+Predictions are written `pred_b / pred_a / pred_m / pred_d`; ground truth is
+`gt`; anchor value is `anchor`. Boolean flags use the prefix:
+`pb_eq_a = (pred_b == anchor)`, `pa_ne_pb`, `gt_eq_a`, etc.
+
+Canonical metrics (M2, settled 2026-04-28; see
+`docs/insights/M2-metric-definition-evidence.md`):
+
+```
+adopt_rate            = #(pa == anchor AND pb != anchor) / #(pb != anchor)
+direction_follow_rate = #( (pb-gt)·(pa-gt) > 0  AND  pa != pb )
+                        / #(numeric pair AND anchor present)
+exact_match           = #(pa == gt) / #(numeric pair)
+anchor_effect_M       = M(a-arm) - M(d-arm)
+```
+
+Same form on the m-arm (substitute `pred_m`).
 
 ## Layout
 
@@ -33,9 +54,12 @@ src/vlm_anchor/      library code
 tests/               unittest-based tests, run via pytest
 ```
 
-`references/` is the reading list: start every task by consulting `project.md`
-(candid feasibility review) and `roadmap.md` (operational plan). Update
-`roadmap.md` §3/§5/§6/§10 as work progresses.
+`references/` is the reading list: start every task by consulting
+`project.md §0` (current paper outline as of 2026-04-28; the 2026-04-23
+candid feasibility review is preserved below the divider in the same file)
+and `roadmap.md` (paper-section-anchored operational plan). Update
+`roadmap.md` §3 (status snapshot) / §6 (per-section experiment matrix) /
+§7 (priority queue) / §10 (changelog) as work progresses.
 
 ## Setup
 
@@ -68,7 +92,7 @@ pipeline.
 |---|---|
 | `data.py` | Load the VQAv2 JSONL snapshot, assign irrelevant images, emit per-condition dicts via `build_conditions()` |
 | `models.py` | `HFAttentionRunner` wrapping `AutoModelForImageTextToText` with a `generate_number()` helper |
-| `metrics.py` | Per-sample evaluation (`evaluate_sample`) and condition/experiment summarization |
+| `metrics.py` | Per-sample evaluation (`evaluate_sample`) and condition/experiment summarization. M2 canonical adopt + direction_follow definitions live here (refactor pending — `docs/insights/M2-metric-definition-evidence.md`) |
 | `visualization.py` | Experiment-result chart rendering (`save_experiment_analysis_figures`) |
 | `analysis.py` | Post-experiment pandas analysis + plotting (matplotlib/plotly/seaborn), used by notebooks |
 | `utils.py` | File I/O, number parsing (`extract_first_number`, `normalize_numeric_text`), YAML/seed helpers |
@@ -79,7 +103,7 @@ pipeline.
 configs/experiment.yaml
   → load_number_vqa_samples()   # reads inputs/<snapshot>/questions.jsonl + images
   → assign_irrelevant_images()  # adds irrelevant_number_image / irrelevant_neutral_image fields
-  → build_conditions()          # yields 3 condition dicts per sample-instance
+  → build_conditions()          # yields up to 4 condition dicts per sample-instance (b/a/m/d)
   → HFAttentionRunner.generate_number()
   → evaluate_sample()           # → VQASampleEval
   → outputs/<model>/predictions.{jsonl,csv} + summary.json
