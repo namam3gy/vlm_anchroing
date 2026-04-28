@@ -70,7 +70,7 @@ in-flight · ☐ not started.
 | `experiment_e5e_chartqa_full` | ChartQA | b/a/m/d (S1) | llava-interleave-7b, qwen2.5-vl-7b, gemma3-27b-it | ✅ |
 | `experiment_e5e_tallyqa_full` | TallyQA | b/a/m/d (S1) | same 3 | ✅ |
 | `experiment_e5e_mathvista_full` (γ-α) | MathVista | b/a/m/d (S1) | llava-interleave-7b, qwen2.5-vl-7b, gemma3-27b-it | ✅ landed 2026-04-29 — `docs/insights/E5e-mathvista-evidence.md` |
-| MathVista (γ-β) reasoning-mode | MathVista | b/a/m/d (S1) | qwen3-vl-8b-instruct + qwen3-vl-8b-thinking | ⏳ launched 2026-04-28 |
+| MathVista (γ-β) reasoning-mode | MathVista | b/a/m/d (S1) | qwen3-vl-8b-instruct + qwen3-vl-8b-thinking | ✅ landed 2026-04-28 — thinking *amplifies* anchor pull (df C-form 0.094 → 0.291, ×3.1; adopt 0.055 → 0.117, ×2.1). VLMBias / LRM-judging gain confirmed |
 | VQAv2 4-condition (b/a/m/d) | VQAv2 | full grid cross-model | TBD | ☐ P1 (kept, time-permitting) |
 
 ### 3.2 Mechanistic runs
@@ -239,7 +239,7 @@ robustness).
 | **E5e S1-only cross-model** | b/a/m/d × ChartQA + TallyQA × 3 models | ✅ |
 | **E5b/c cross-model expansion** | extend E5b + E5c to 3-model E5e panel (qwen2.5-vl-7b, gemma3-27b-it ∪ llava-interleave-7b) on VQAv2 + TallyQA | ⏳ in flight (user 2026-04-28) |
 | **E5e MathVista (γ-α)** | MathVista b/a/m/d (S1) × 3 models | ✅ landed 2026-04-29 — gemma3-27b adopt(a, wrong-base) = 0.194; df(M2) = 0 universally → categorical-replace regime |
-| **E5e MathVista (γ-β)** | reasoning-mode VLM × MathVista — Qwen3-VL-8B-Instruct vs. Qwen3-VL-8B-Thinking (separate weights), 4-cond S1, max_new_tokens=512, runner is `</think>`-aware | ⏳ launched 2026-04-28 — `configs/experiment_e5e_mathvista_reasoning.yaml`; instruct ETA ~40min, thinking ETA ~15h |
+| **E5e MathVista (γ-β)** | reasoning-mode VLM × MathVista — Qwen3-VL-8B-Instruct vs. Qwen3-VL-8B-Thinking (separate weights), 4-cond S1, max_new_tokens=512, runner is `</think>`-aware | ✅ landed 2026-04-28. Headline (C-form, S1 anchor arm, all-base): instruct adopt=0.055 / df=0.094, thinking adopt=0.117 / df=0.291. Thinking amplifies anchor pull on every metric (×2 — ×3) — direction-agnostic hypothesis (H4) lands on the *amplification* side, consistent with VLMBias / Wang LRM-judging |
 | **VQAv2 4-condition** | b/a/m/d cross-model VQAv2 | ☐ P1 (kept) |
 
 ### 6.4 §6 — Confidence-modulated anchoring (logit-based)
@@ -287,7 +287,7 @@ bearing. P2 = ideation depth. P3 = future / parallel.
 | **P1** | E1-patch full panel — masked arm causal control + 4 remaining archetypes | §6.5 E1-patch | ~1.5d |
 | **P0** | Per-token logit confidence analysis (L1–L4) | §6.4 | analysis only, ~3-4h |
 | ~~P0~~ ✅ | E5e MathVista (γ-α) — 3-model b/a/m/d × S1 | §6.3 | landed 2026-04-29 |
-| **P0** | MathVista (γ-β) — reasoning-mode | §6.3 | ⏳ in flight (launched 2026-04-28; thinking ETA ~15h) |
+| ~~P0~~ ✅ | MathVista (γ-β) — reasoning-mode | §6.3 | landed 2026-04-28 — thinking amplifies anchor pull |
 | **P0** | E5b / E5c cross-model expansion (in flight, finish) | §6.3 | 1-1.5d |
 | **P1** | VQAv2 4-condition cross-model (kept) | §6.3 | ~1d (3 models) — opportunistic |
 | **P1** | M2 unit tests | §6.1 | 0.5d |
@@ -342,6 +342,23 @@ bearing. P2 = ideation depth. P3 = future / parallel.
   M2 evidence numbers refresh accordingly.
 
 ## 10. Changelog
+
+- **2026-04-28** — **γ-β MathVista (reasoning-mode) landed: thinking amplifies anchor pull.**
+  Background `btymeywv9` finished overnight; results on
+  `outputs/experiment_e5e_mathvista_reasoning/qwen3-vl-8b-thinking/20260428-114421/`,
+  reaggregated post-C-form. Per-arm headline (S1 anchor, all-base):
+  instruct (Qwen3-VL-8B-Instruct) `adopt(a) = 0.055`, `df(a) C-form = 0.094`;
+  thinking (Qwen3-VL-8B-Thinking) `adopt(a) = 0.117`, `df(a) C-form = 0.291`
+  — thinking is **×2.1 on adopt and ×3.1 on direction-follow**. Masked-arm
+  digit-pixel causality is preserved on both (anchor > masked on every
+  metric, both models). Thinking acc(b) = 0.196 (slightly below
+  instruct's 0.216 — reasoning trace does not gain accuracy on this
+  panel, but loses anchor robustness). H4 ("reasoning reduces anchoring")
+  lands on the *amplification* side, consistent with VLMBias and Wang
+  LRM-judging. The γ-β result is the strongest single
+  reasoning-amplifies-bias finding in our panel and a paper-tier hook.
+  Pre-reaggregate (driver-bug 0) results preserved at
+  `outputs/before_C_form/experiment_e5e_mathvista_reasoning/qwen3-vl-8b-thinking_postlanding/`.
 
 - **2026-04-28** — **direction_follow_rate refactor — C-form (pa-pb)·(anchor-pb).**
   An audit triggered by γ-β `df_M2 = 0` exposed two compounding bugs:

@@ -20,9 +20,9 @@ touched.
 
 ## Coverage
 
-- Cells compared: **194**
+- Cells compared: **207**
 - Experiments: **14**
-- Models: **13**
+- Models: **14**
 
 ## Main panel — VQAv2 number subset (7 models)
 
@@ -56,7 +56,7 @@ Average across {b, d, anchor} conditions per model:
 | experiment_e5d_mathvista_validation | 8 | 0.1975 | 0.2518 | 0.0543 | 0.1473 |
 | experiment_e5e_chartqa_full | 17 | 0.0588 | 0.0895 | 0.0307 | 0.0382 |
 | experiment_e5e_mathvista_full | 18 | 0.0000 | 0.0992 | 0.0992 | 0.2164 |
-| experiment_e5e_mathvista_reasoning | 13 | 0.0000 | 0.1951 | 0.1951 | 0.6667 |
+| experiment_e5e_mathvista_reasoning | 26 | 0.1000 | 0.2124 | 0.1951 | 0.6667 |
 | experiment_e5e_tallyqa_full | 11 | 0.0458 | 0.0452 | -0.0234 | 0.0652 |
 | experiment_encoder_pilot | 13 | 0.1732 | 0.1940 | 0.0208 | 0.0729 |
 
@@ -106,6 +106,7 @@ Average across {b, d, anchor} conditions per model:
 | experiment_e5e_mathvista_reasoning | analysis | no data |  |  |
 | experiment_e5e_mathvista_reasoning | qwen3-vl-8b-instruct | REVEALED (was 0, now > 0) | 0.0000 | 0.0427 |
 | experiment_e5e_mathvista_reasoning | qwen3-vl-8b-thinking | REVEALED (was 0, now > 0) | 0.0000 | 0.5000 |
+| experiment_e5e_mathvista_reasoning | qwen3-vl-8b-thinking_postlanding | no data |  |  |
 | experiment_e5e_tallyqa_full | analysis | no data |  |  |
 | experiment_e5e_tallyqa_full | llava-next-interleaved-7b | stronger (after > before) | 0.0434 | 0.0610 |
 | experiment_e5e_tallyqa_full | qwen2.5-vl-7b-instruct | weakened (after < before) | 0.0938 | 0.0295 |
