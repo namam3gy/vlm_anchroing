@@ -2,6 +2,17 @@
 
 **Status:** Phase-A finding. Source data: `_data/A2_per_anchor_value.csv`. Script: `scripts/phase_a_data_mining.py::a2_per_anchor_value`.
 
+> **2026-04-28 metric note.** The headline "adoption rate by anchor
+> digit" table below uses the **pre-M1 marginal** definition
+> `pred == anchor / total` (the form in use when this doc was
+> written, before the M1/M2 refactor). The same per-digit ranking
+> survives qualitatively under M2 paired adoption — see the
+> regenerated `_data/A2_per_anchor_value.csv` for the M2 numbers
+> (`adoption_rate` column) and the Phase A pull-form
+> (`moved_closer_rate` column). Llava digit 2 = .300 (marginal)
+> becomes .118 (M2 paired), but it is still the largest cell on
+> the row; digits 1/2/4 sticky vs 7/8 inert holds in both forms.
+
 ## The question
 
 Does the bias depend on *which* digit is rendered into the anchor image? A flat per-digit profile would say "anchoring is content-agnostic — just any extra image with text"; a sharply varying profile would say "specific digits are stickier than others".

@@ -11,8 +11,9 @@ same 4-condition stimuli. The only delta is the trained reasoning
 behaviour.
 
 This aligns with recent text-only LRM literature [Wang et al.,
-"Judging Bias in Large Reasoning Models", 2025; Nguyen et al.,
-VLMBias on reasoning models, 2025]: reasoning trace can *amplify*
+"Assessing Judging Bias in Large Reasoning Models",
+arXiv:2504.09946, 2025; Nguyen et al., VLMBias on reasoning
+models, arXiv:2505.23941, 2025]: reasoning trace can *amplify*
 biases by giving the model more elaboration steps over which the
 biased anchor information accumulates, without the trace itself
 catching the bias.

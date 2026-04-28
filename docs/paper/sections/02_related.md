@@ -6,15 +6,20 @@ The cognitive-anchoring effect is one of the most-replicated findings
 in heuristics-and-biases research [Tversky-Kahneman 1974;
 Mussweiler-Strack's selective accessibility model, 1997;
 Jacowitz-Kahneman's plausibility-window account, 1995]. Its first
-LLM-side investigation came from Jones-Steinhardt [NeurIPS 2022], who
-documented anchoring along with availability and representativeness in
-GPT-3. Echterhoff et al. [EMNLP Findings 2024] expanded the panel to
-13,465 prompts × 5 biases × 4+ models and proposed a debiasing method.
-Lou-Sun [2024] partitioned by model strength and reported that stronger
-LLMs anchor *more*, not less. "Understanding the Anchoring Effect of
-LLM" [arXiv:2505.15392, 2025] introduced the A-Index and R-Error
+LLM-side investigation came from Jones-Steinhardt ["Capturing
+Failures of Large Language Models via Human Cognitive Biases",
+NeurIPS 2022, arXiv:2202.12299], who documented anchoring along with
+the framing effect, availability heuristic, and attribute substitution
+in GPT-3 / Codex / CodeGen. Echterhoff et al. ["Cognitive Bias in Decision-Making with
+LLMs", EMNLP Findings 2024, arXiv:2403.00811] expanded the panel to
+13,465 prompts × 5 biases × 4+ models and proposed a debiasing method
+(BiasBuster). Lou-Sun ["Anchoring Bias in Large Language Models: An
+Experimental Study", arXiv:2412.06593, 2024] partitioned by model
+strength and reported that stronger LLMs anchor *more*, not less.
+Huang et al. ["Understanding the Anchoring Effect of LLM",
+arXiv:2505.15392, 2025] introduced the A-Index and R-Error
 metrics that we adopt as comparison points. Recent work on reasoning
-models [Wang et al., "Judging Bias in Large Reasoning Models", 2025]
+models [Wang et al., "Assessing Judging Bias in Large Reasoning Models", arXiv:2504.09946, 2025]
 shows that reasoning-mode LRMs can be *more* susceptible to several
 biases than their non-reasoning counterparts — a result we confirm
 on a VLM in §7-§8. All of these are text-only.
@@ -27,8 +32,9 @@ memorized-subject labels (e.g. "Aston Martin DB5") cause counterfactual
 counting failures on images containing the named subject. AIpsych
 [Liu et al., arXiv:2507.03123, 2025] is a psychology-grounded VLM
 cognitive-bias benchmark; it focuses on sycophancy, appeal-to-authority,
-and logical-consistency biases. CIVET [EMNLP Findings 2025]
-systematises position-understanding evaluation. Tinted Frames
+and logical-consistency biases. CIVET [Rizzoli et al.,
+arXiv:2506.05146, EMNLP Findings 2025] systematises VLM understanding
+evaluation, including position-bias robustness. Tinted Frames
 [Fan et al., arXiv:2603.19203, 2026] varies question-form framing in
 VLMs.
 
@@ -57,21 +63,22 @@ grounding.
 causal control; we add the masked arm specifically to isolate the digit
 pixels from the anchor scene's background distraction.
 
-FigStep [Gong et al., AAAI 2025] renders harmful instructions as an
-image to bypass safety-tuned LLMs. It shares the rendered-text-as-image
-mechanism but targets jailbreaking, not numeric estimation.
+FigStep [Gong et al., AAAI 2025, arXiv:2311.05608] renders harmful
+instructions as an image to bypass safety-tuned LLMs. It shares the
+rendered-text-as-image mechanism but targets jailbreaking, not numeric
+estimation.
 
 ## 2.4 Mechanism-localising VLM work
 
-Goh et al.'s "Multimodal Neurons" [2021] is the canonical "in-image
-text → concept-neuron activation" reference. Hufe et al.'s
+Goh et al.'s "Multimodal Neurons" [Distill, 2021] is the canonical
+"in-image text → concept-neuron activation" reference. Hufe et al.'s
 "Dyslexify" [arXiv:2508.20570, 2025] localises typographic-attack
 susceptibility to a circuit of attention heads in the latter half of
 CLIP's vision encoder, and proposes head ablation as a mitigation.
-Weng et al.'s "Images Speak Louder than Words" [EMNLP 2024 Main] is
-the gold-standard "behavioural finding + causal-mediation analysis +
-22 % mitigation" template — what an EMNLP-Main-tier paper looks like
-for a multimodal behavioural finding. We follow that template here
+Weng et al.'s "Images Speak Louder than Words" [arXiv:2407.02814,
+EMNLP 2024 Main] is the gold-standard "behavioural finding +
+causal-mediation analysis + 22 % mitigation" template — what an
+EMNLP-Main-tier paper looks like for a multimodal behavioural finding. We follow that template here
 (§5 behavioural / §7 attention-locus / §7 mitigation). Our §7 result
 that **upper-half** attention re-weighting on the LLM stack reduces
 direction-follow on 6/6 archetypes is consistent in spirit with

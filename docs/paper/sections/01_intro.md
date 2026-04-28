@@ -95,8 +95,9 @@ A pair-comparison on MathVista — Qwen3-VL-8B-Instruct vs. the
 separately-trained Qwen3-VL-8B-Thinking checkpoint — shows the
 Thinking variant *amplifies* anchor pull on every metric (adopt
 ×1.6, direction-follow ×2.9), confirming on a VLM what VLMBias
-[Nguyen et al. 2025] and Wang et al. ["Judging Bias in Large
-Reasoning Models", 2025] established for text-only LRMs. Reasoning
+[Nguyen et al. 2025] and Wang et al. ["Assessing Judging Bias
+in Large Reasoning Models", arXiv:2504.09946, 2025] established
+for text-only LRMs. Reasoning
 trace does not buy accuracy on this panel; it simply lowers anchor
 robustness (§7-§8).
 
