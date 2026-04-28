@@ -91,9 +91,11 @@ parameter count.
 | E1 attention-mass | VQAv2 stratified | 6 | 200 × 3 cond | 3,600 |
 | E1d causal ablation | VQAv2 stratified | 6 | 200 × 3 cond × 7 modes | 25,200 |
 | E4 Phase 1 sweep | VQAv2 stratified | 3 | 200 × 3 cond × 7 strengths | 12,600 |
-| E4 Phase 2 full | VQAv2 | 3 | 17,730 × 3 cond × 2 modes | 319,140 |
+| E4 Phase 2 full | VQAv2 | 3 | 17,730 × 5 cond (target_only-skip optimisation: 1 b + 2 modes × 2 anchor-arms) | 265,950 |
 
-Total ~1.7 M model generations across all experiments.
+Total ~1.6 M model generations across all experiments at target
+completion (verified column-sum on the table above; the in-flight
+TallyQA × gemma3-27b cell is included in the target count).
 
 ## 4.5 Compute
 
