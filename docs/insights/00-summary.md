@@ -1,5 +1,15 @@
 # Phase-A summary — what 17,730 samples × 7 models actually say
 
+> **[Phase-A umbrella — pre-M2 numbers.]** The numbers below predate the
+> M2 metric refactor (2026-04-29) and the C-form direction-follow refactor
+> (2026-04-28). The headline framings (graded vs categorical, anchor-pull,
+> uncertainty modulation) survive both refactors qualitatively, but the
+> exact percentages quoted in this file should be cross-referenced against
+> the C-form re-aggregated numbers in `references/roadmap.md` §3.3 and
+> the corresponding `docs/insights/A*-*.md` files for the canonical M2
+> figures. See `docs/insights/C-form-migration-report.md` for the
+> before/after table.
+
 **Source data:** `outputs/experiment/<model>/<run>/predictions.csv`, processed by `scripts/phase_a_data_mining.py`. Outlier filter from `analysis.filter_anchor_distance_outliers` applied (IQR×1.5 on per-sample anchor-GT distance, default settings). All numbers come from `docs/insights/_data/*.csv`.
 
 This file is the cross-cutting roll-up. Long-form discussion of the strongest individual findings lives in the per-insight files (`A1-…`, `A2-…`, `A7-…`).
