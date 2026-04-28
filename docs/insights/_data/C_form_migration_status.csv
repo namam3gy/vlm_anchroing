@@ -41,6 +41,7 @@ experiment_e5e_mathvista_full,qwen2.5-vl-7b-instruct,"REVEALED (was 0, now > 0)"
 experiment_e5e_mathvista_reasoning,analysis,no data,,
 experiment_e5e_mathvista_reasoning,qwen3-vl-8b-instruct,"REVEALED (was 0, now > 0)",0.0,0.0427
 experiment_e5e_mathvista_reasoning,qwen3-vl-8b-thinking,"REVEALED (was 0, now > 0)",0.0,0.5
+experiment_e5e_mathvista_reasoning,qwen3-vl-8b-thinking_postlanding,no data,,
 experiment_e5e_tallyqa_full,analysis,no data,,
 experiment_e5e_tallyqa_full,llava-next-interleaved-7b,stronger (after > before),0.0434,0.061
 experiment_e5e_tallyqa_full,qwen2.5-vl-7b-instruct,weakened (after < before),0.0938,0.0295
