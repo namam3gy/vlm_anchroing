@@ -1,5 +1,16 @@
 # E5c — the digit pixels are the operative cause; the anchor scene is not
 
+> **2026-04-28 update.** Re-run on C-form re-aggregated data: the cited
+> `adopt_cond` digit-pixel gaps (VQAv2 wrong-base S1 +6.1 pp,
+> TallyQA wrong-base S1 +2.5 pp) are **unchanged** — adopt is
+> independent of the direction-follow numerator. Under C-form,
+> `df_cond` for anchor on VQAv2 wrong-base S1 is 0.208 (was ~0.520
+> under anchor·gt form) and for masked is 0.155, giving a +5.3 pp
+> df-gap (under anchor·gt form, df_cond was nearly identical between
+> anchor and masked, masking the digit-pixel df contribution; under
+> C-form a df-gap also emerges). Pre-refactor results archived at
+> `outputs/before_C_form/experiment_e5c_*/`.
+
 **Status:** Sub-experiment of E5; distilled insight. Source data: `outputs/experiment_e5c_{vqa,tally}/llava-next-interleaved-7b/<latest>/predictions.jsonl`. Aggregate table: `docs/insights/_data/E5c_per_cell.csv`. Figures: `docs/figures/E5c_anchor_vs_masked_adopt.png`, `docs/figures/E5c_anchor_vs_masked_df.png`, `docs/figures/E5c_acc_drop_3way.png`, `docs/figures/E5c_correct_vs_wrong_adopt.png`. Full writeup: `docs/experiments/E5c-anchor-mask-control.md`.
 
 ## The claim and the test

@@ -18,7 +18,7 @@ Variants:
 
   direction-follow   numerator                                              denominator
   ----------------   ---------                                              -----------
-  DF_raw             (pb-gt)*(px-gt) > 0                                    DD_all      — numeric pair
+  DF_raw             (px-pb)*(anchor-pb) > 0                                DD_all      — numeric pair
   DF_moved           DF_raw AND px != pb                                    DD_moved    — numeric pair AND px != pb
   DF_clean           DF_raw AND px != pb AND gt != anchor                   DD_clean    — numeric pair AND px != pb AND gt != anchor
 
@@ -178,8 +178,8 @@ def compute_flags(b_row: dict, x_row: dict) -> PairFlags:
 
     df_raw = False
     if numeric_ok and anchor is not None:
-        pb_i, px_i, gt_i = int(pred_b), int(pred_x), int(gt)
-        df_raw = (pb_i - gt_i) * (px_i - gt_i) > 0
+        pb_i, px_i, anchor_i = int(pred_b), int(pred_x), int(anchor)
+        df_raw = (px_i - pb_i) * (anchor_i - pb_i) > 0
 
     return PairFlags(
         pred_b=pred_b,

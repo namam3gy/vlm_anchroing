@@ -37,17 +37,22 @@ not defined (no anchor in scene); accuracy comparisons use `pred_d` as the
 
 ```
 adopt_rate              = #(pa == anchor  AND  pb != anchor) / #(pb != anchor)
-direction_follow_rate   = #( (pb - gt)·(pa - gt) > 0  AND  pa != pb )
+direction_follow_rate   = #( (pa - pb)·(anchor - pb) > 0  AND  pa != pb )
                           / #(numeric pair AND anchor present)
 ```
 
 with `pred_x` substituted for `pred_a` on the mask/anchor arms (same form
 applies to `pred_m`).
 
-The `direction_follow_rate` numerator's `pa != pb` clause matters: without
-it, "no-change" pairs where `pa == pb` are counted as direction-follow hits
-when `(pb - gt)·(pb - gt) > 0`, i.e. whenever `pred_b ≠ gt`. That trivially
-fires in 100 % of wrong-base cells regardless of the anchor.
+The `direction_follow_rate` numerator measures whether `pa` shifted **from
+the baseline `pb` toward the anchor side of `pb`**. The `pa != pb` clause
+is structurally redundant under the C-form (when `pa == pb` the product
+factor `(pa - pb)` is exactly zero, so the numerator already excludes
+no-movement pairs), but is kept explicit for clarity and to harden against
+edge cases where `pa - pb = 0` arises from upstream parsing collapse rather
+than genuine no-movement. Using `pb` (not `gt`) as the reference makes the
+metric depend only on model outputs and the anchor draw — a direct measure
+of anchor pull, robust to per-question stimulus and gt variability.
 
 These definitions correspond to the variants `A_paired__D_paired` (adopt)
 and `DF_moved__DD_all` (direction-follow) in §3 below — both top-ranked
@@ -88,7 +93,7 @@ the cited number is.
 
 | numerator | predicate |
 |---|---|
-| `DF_raw` | `(pb - gt)·(pa - gt) > 0` (sign-based) |
+| `DF_raw` | `(pa - pb)·(anchor - pb) > 0` (sign-based, C-form) |
 | `DF_moved` | `DF_raw AND pa_ne_pb` |
 | `DF_clean` | `DF_moved AND NOT gt_eq_a` |
 
@@ -221,7 +226,7 @@ adopt_rate = (
 
 # Direction-follow rate
 direction_follow_rate = (
-    sum(  ( (pb - gt) * (pa - gt) > 0 )  AND  pa_ne_pb  )
+    sum(  ( (pa - pb) * (anchor - pb) > 0 )  AND  pa_ne_pb  )
     /
     sum(  numeric_pair AND anchor_present  )
 )
@@ -317,16 +322,15 @@ each):**
 |---|---|---|
 | `adopt_rate` (M2 paired, paired denominator) | 0.021 – 0.066 | slight rise vs. marginal (denominator narrows) |
 | `adopt_rate_marginal` (M2 paired, all-sample denominator) | 0.019 – 0.059 | matches §3.4 pre-M2 row in `roadmap` (within Δ ≤ 0.001 from M1 numbers) |
-| `direction_follow_rate` (M2 sign-based AND `pa != pb`) | 0.063 – 0.193 | drops 50–60 % vs. raw — most pairs have `pa == pb` (no movement), and the old raw definition counted those as direction-follow whenever `pb ≠ gt` |
-| `direction_follow_rate_raw` (M2 sign-based, no movement filter) | 0.239 – 0.349 | matches the §3.4 pre-M2 row exactly (within Δ ≤ 0.001) |
+| `direction_follow_rate` (C-form, sign-based AND `pa != pb`) | 0.085 – 0.274 | C-form numbers from the 2026-04-28 reaggregate sweep. Under C-form, `(pa-pb) = 0` makes the no-movement case structurally yield 0 in the numerator, so `direction_follow_rate == direction_follow_rate_raw` per cell. |
 
-The big movement on `direction_follow_rate` is the headline conceptual
-correction: the older raw rate inflated direction-follow by treating
-"prediction unchanged from base" as a follow-toward-anchor event. M2
-direction-follow only counts pairs that actually moved. This makes §6
-(uncertainty-modulated *graded* pull) cleaner — direction-follow becomes
-a measure of pull amplitude conditional on movement, decoupled from
-"does the model decline to update at all".
+The C-form refactor is what makes §6 (uncertainty-modulated *graded* pull)
+cleaner: direction-follow becomes a measure of anchor pull amplitude
+conditional on movement, with the anchor stimulus actually appearing in
+the formula (gt-free). The older legacy ranges (`direction_follow_rate
+0.063 – 0.193`, `direction_follow_rate_raw 0.239 – 0.349`) were measured
+under the buggy anchor·gt form — see `references/roadmap.md` §10
+correction entry (2026-04-28) and `docs/insights/C-form-migration-report.md`.
 
 **Adopt rate stability across the M2 / M1-paired pair is not a coincidence.**
 The denominator switches from `D_all` (every record) to `D_paired`

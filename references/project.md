@@ -63,7 +63,7 @@ consistency across signals (wrong > correct, S1 > S5, anchor > masked):
 
 ```
 adopt_rate            = #(pa == anchor AND pb != anchor) / #(pb != anchor)
-direction_follow_rate = #( (pb-gt)·(pa-gt) > 0  AND  pa != pb )
+direction_follow_rate = #( (pa-pb)·(anchor-pb) > 0  AND  pa != pb )
                         / #(numeric pair AND anchor present)
 exact_match           = #(pa == gt) / #(numeric pair)
 anchor_effect_M       = M(anchor arm) - M(neutral arm)

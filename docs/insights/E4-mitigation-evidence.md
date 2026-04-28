@@ -1,5 +1,14 @@
 # E4 — upper-half attention re-weighting reduces anchor pull on the mid-stack cluster
 
+> **2026-04-28 update.** Re-run on C-form re-aggregated e4_mitigation
+> data (sweep + full): numerical results are **unchanged within ±0.1
+> pp** on every cited df-drop and em-delta (verified against refreshed
+> `outputs/e4_mitigation/_summary/full_validation_compare.csv` and
+> paired `anchor_damage_paired_{sweep,full}.csv`). Headline relative
+> reductions (LLaVA −17.7 %, ConvLLaVA −10.6 %, InternVL3 −5.8 %) and
+> em rises (+0.49 to +1.30 pp) hold exactly under both forms. Pre-
+> refactor results archived at `outputs/before_C_form/e4_mitigation/`.
+
 **Status:** Phase 1 sweep complete on all 3 mid-stack-cluster models
 (llava-1.5-7b, convllava-7b, internvl3-8b). **Phase 2 full-scale validation: llava-1.5-7b
 complete (88,650 records, 100 %), convllava-7b in flight, internvl3-8b queued.**
