@@ -114,7 +114,7 @@ The two cross-modal anchoring rates are defined as
 
 ```
 adopt_rate            = #(pa == anchor  AND  pb != anchor) / #(pb != anchor)
-direction_follow_rate = #( (pb − gt)·(pa − gt) > 0  AND  pa != pb )
+direction_follow_rate = #( (pa − pb)·(anchor − pb) > 0  AND  pa != pb )
                         / #(numeric pair AND anchor present)
 exact_match           = #(pa == gt) / #(numeric pair)
 anchor_effect_M       = M(a-arm) − M(d-arm)         (M ∈ {adopt_rate,
@@ -137,14 +137,16 @@ restriction `pb != anchor` further removes the unidentifiable
 "already-matched" sub-population from the base rate.
 
 `direction_follow_rate` measures the fraction of items on which the
-prediction *moves toward* the anchor relative to the ground truth. A
-sign-based criterion `(pb − gt)·(pa − gt) > 0` catches movement toward
-the anchor without requiring it to land on the anchor exactly. The
-numerator's `pa != pb` clause excludes "no-change" pairs: in cells where
-`pred_b ≠ gt`, every no-change pair trivially satisfies the sign-product
-predicate and would be silently counted as direction-follow under the
-`pa = pb` carry-through. The clause restricts the metric to items on
-which the anchor *moved* the prediction.
+prediction *moves toward* the anchor relative to the model's anchor-free
+baseline. A sign-based criterion `(pa − pb)·(anchor − pb) > 0` catches
+movement from `pred_b` toward the anchor without requiring `pa` to land
+on the anchor exactly. This **C-form** is gt-free: it asks whether the
+anchor stimulus shifted the prediction, irrespective of where the ground
+truth sits, which makes the rate robust to per-question stimulus draws.
+The numerator's `pa != pb` clause is structurally redundant under the
+C-form (when `pa = pb`, the first factor is 0 and the predicate fails)
+but is kept explicit to lock the "no-change" interpretation: only items
+on which the anchor *moved* the prediction count.
 
 `exact_match` is the per-arm task accuracy. We report it on every arm
 (`b`, `a`, `m`, `d`) so that anchor effect on accuracy can be read
@@ -188,20 +190,28 @@ directories on 2026-04-29.
 
 ### Reading the metrics together
 
-Two diagnostic patterns recur in §5 and §6:
+Across our seven-model panel × four-dataset matrix, the recurring
+pattern under C-form is **graded tilt**: `direction_follow_rate(a) >
+adopt_rate(a)` on every cell, with `exact_match(a) ≈ exact_match(b)`.
+The anchor moves predictions toward itself but rarely lands on the
+anchor's literal value; the mass of the effect lives in baseline-relative
+shift, not categorical replacement. The dataset with the largest
+single cell is **MathVista on `gemma3-27b-it`** (wrong-base S1
+`adopt_rate = 0.230`, `direction_follow_rate = 0.332`), and the
+smallest is ChartQA on `qwen2.5-vl-7b` (all-base `adopt_rate = 0.017`,
+`direction_follow_rate = 0.030`). Adopt magnitudes are 2-7 % on VQAv2,
+1-4 % on ChartQA, 2-18 % on MathVista; direction-follow magnitudes
+are correspondingly larger and more dispersed, consistent with the
+graded-tilt reading.
 
-* **Graded-tilt regime.** `direction_follow_rate(a) ≫ adopt_rate(a)` and
-  `exact_match(a) ≈ exact_match(b)`. The anchor moves predictions toward
-  itself but rarely far enough to land on the anchor's value. Examples:
-  VQAv2 number, TallyQA, ChartQA across all model panels.
-* **Categorical-replace regime.** `direction_follow_rate(a) ≈ 0` while
-  `adopt_rate(a)` is large and `exact_match(a) < exact_match(b)`. The
-  anchor either replaces the base prediction outright or does not move
-  it at all. Example: MathVista on `gemma3-27b-it`, where
-  `adopt_rate(a, wrong-base) = 0.194` (the largest single cell in the
-  program) coincides with `direction_follow_rate(a) = 0` on every model
-  on every condition.
-
-The two regimes are mutually exclusive on the same cell but coexist
-across our matrix, and §6 connects them to the underlying logit-confidence
-distribution.
+> **Historical note.** A pre-2026-04-28 framing distinguished a
+> "categorical-replace regime" (`direction_follow_rate ≈ 0`, large
+> `adopt_rate`) on MathVista. That apparent regime was a driver-bug
+> artefact: `direction_follow_rate` was being read as 0 on directly-
+> launched runs because three M2 row-dict fields were never threaded
+> from `evaluate_sample` into `predictions.jsonl`. After the fix and
+> re-aggregation (changelog entry 2026-04-28), every cell in the
+> matrix is in the graded-tilt regime; "categorical replacement" as
+> a separate phenomenon does not survive C-form re-aggregation. §6
+> connects the *magnitude* gradient across cells to the underlying
+> logit-confidence distribution.

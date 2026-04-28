@@ -210,17 +210,18 @@ models and datasets.
   for audit. **DO NOT reference those for analysis** — see backup
   README for the full notice.
 
-## 8. Open follow-ups
+## 9. Open follow-ups
 
-1. **γ-β reasoning-mode** (Qwen3-VL with thinking on/off) on the same
-   MathVista subset. Tests whether reasoning amplifies or suppresses the
-   categorical-replace pattern.
+1. ~~**γ-β reasoning-mode**~~ ✅ landed 2026-04-28 — see §6 above; thinking
+   amplifies anchor pull (adopt ×1.6, df ×2.9) over instruct on the same
+   panel. The amplification is graded, not categorical.
 2. **Cross-model expansion** to the mid-stack-cluster panel
    (LLaVA-1.5 / ConvLLaVA / InternVL3) — connects γ-α to the §7
    mitigation locus story.
 3. **Per-task-type breakdown**: MathVista has multiple task types
-   (geometry / algebra / arithmetic / chart). Does the categorical-replace
-   pattern concentrate on a specific task type?
+   (geometry / algebra / arithmetic / chart). Does the *magnitude* of the
+   graded-tilt effect concentrate on a specific task type?
 4. **Cross-dataset confidence (§6 L1) on MathVista** — re-run
-   `analyze_confidence_anchoring.py` once γ-α evidence stabilises;
-   expect Q4 (uncertain base) to dominate adoption events.
+   `analyze_confidence_anchoring.py` against γ-α/γ-β; expect Q4 (uncertain
+   base) to dominate both adoption and direction-follow events given
+   §7.3's prediction.

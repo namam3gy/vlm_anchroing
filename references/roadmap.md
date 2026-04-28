@@ -68,9 +68,9 @@ in-flight · ☐ not started.
 | `experiment_e5d_chartqa_validation` | ChartQA | per-dataset cutoff validation | llava-interleave-7b | ✅ S1-only relative cutoff adopted |
 | `experiment_e5d_mathvista_validation` | MathVista | same | llava-interleave-7b | ⚠ C3 FAIL — see §9 (MathVista (γ) supersedes) |
 | `experiment_e5e_chartqa_full` | ChartQA | b/a/m/d (S1) | llava-interleave-7b, qwen2.5-vl-7b, gemma3-27b-it | ✅ |
-| `experiment_e5e_tallyqa_full` | TallyQA | b/a/m/d (S1) | same 3 | ✅ |
+| `experiment_e5e_tallyqa_full` | TallyQA | b/a/m/d (S1) | same 3 | 🟡 llava + qwen2.5-vl ✅; gemma3-27b ⏳ in flight (launched 2026-04-28 00:39 UTC, contended GPU 1, ETA ~30-35h total wall) |
 | `experiment_e5e_mathvista_full` (γ-α) | MathVista | b/a/m/d (S1) | llava-interleave-7b, qwen2.5-vl-7b, gemma3-27b-it | ✅ landed 2026-04-29 — `docs/insights/E5e-mathvista-evidence.md` |
-| MathVista (γ-β) reasoning-mode | MathVista | b/a/m/d (S1) | qwen3-vl-8b-instruct + qwen3-vl-8b-thinking | ✅ landed 2026-04-28 — thinking *amplifies* anchor pull (df C-form 0.094 → 0.291, ×3.1; adopt 0.055 → 0.117, ×2.1). VLMBias / LRM-judging gain confirmed |
+| MathVista (γ-β) reasoning-mode | MathVista | b/a/m/d (S1) | qwen3-vl-8b-instruct + qwen3-vl-8b-thinking | ✅ landed 2026-04-28 — thinking *amplifies* anchor pull (S1 anchor arm, all-base, n=365: instruct adopt(a)=0.074 df(a)=0.102 → thinking adopt(a)=0.117 df(a)=0.291; ratios ×1.6 adopt, ×2.9 df). VLMBias / LRM-judging gain confirmed |
 | VQAv2 4-condition (b/a/m/d) | VQAv2 | full grid cross-model | TBD | ☐ P1 (kept, time-permitting) |
 
 ### 3.2 Mechanistic runs
@@ -138,17 +138,21 @@ Wrong-base S1 `adopt_rate` gap (anchor − masked) under M2:
 
 #### E5e S1-only 4-condition full — 3-model panel × ChartQA + TallyQA
 
-All-base `adopt_rate` (M2):
+All-base, S1 anchor / masked, C-form (numbers cross-checked against
+`outputs/experiment_e5e_*_full/<model>/<ts>/summary.json` and
+`docs/insights/_data/experiment_e5e_*_per_cell.csv` 2026-04-28):
 
-| dataset | model | acc(b) | acc(a) | adopt(a) | adopt(m) | direction_follow(a) |
-|---|---|---:|---:|---:|---:|---:|
-| ChartQA | gemma3-27b-it | 0.217 | 0.218 | **0.037** | 0.022 | 0.057 |
-| ChartQA | llava-interleave-7b | 0.113 | 0.110 | **0.028** | 0.009 | 0.116 |
-| ChartQA | qwen2.5-vl-7b | 0.255 | 0.253 | **0.017** | 0.013 | 0.025 |
-| TallyQA | llava-interleave-7b | 0.236 | 0.233 | **0.026** | 0.015 | 0.047 |
+| dataset | model | acc(b) | acc(a) | adopt(a) | adopt(m) | df(a) C-form | df(m) C-form |
+|---|---|---:|---:|---:|---:|---:|---:|
+| ChartQA | gemma3-27b-it | 0.217 | 0.218 | **0.037** | 0.022 | **0.096** | 0.079 |
+| ChartQA | llava-interleave-7b | 0.113 | 0.110 | **0.028** | 0.009 | **0.152** | 0.115 |
+| ChartQA | qwen2.5-vl-7b | 0.255 | 0.253 | **0.017** | 0.013 | **0.051** | 0.046 |
+| TallyQA | llava-interleave-7b | 0.236 | 0.233 | **0.026** | 0.014 | **0.066** | 0.056 |
+| TallyQA | qwen2.5-vl-7b | 0.230 | 0.226 | **0.011** | 0.011 | **0.029** | 0.030 |
 
-Gemma3-27b and qwen2.5-vl TallyQA E5e runs are queued (dirs created
-2026-04-28, predictions.jsonl pending).
+TallyQA × gemma3-27b-it cell is in flight on GPU 1 (launched 2026-04-28
+00:39, full 38,245-question integer subset, contended GPU, ETA ~30-35h
+total wall, ~15-20h remaining).
 
 E1d upper-half ablation: −5.5 to −11.5 pp `direction_follow` on 6/6 models;
 fluency-clean on 4/6 (mid-stack cluster + Qwen).
@@ -208,9 +212,9 @@ or pending. Priorities (P0 / P1 / P2 / P3) are listed in §7.
 | ID | Task | Status | Notes |
 |---|---|---|---|
 | **M2-evidence** | Metric-definition analysis (18 variants × known-signal preservation) | ✅ `docs/insights/M2-metric-definition-evidence.md`, 2026-04-28 | re-runs as more `predictions.jsonl` arrive; recommendation is rank-driven, robust |
-| **M2-refactor** | `metrics.py` refactor + re-aggregation | ⏳ pending user signoff | `summarize_condition` rates use `D_paired` denominator; `direction_follow_rate` numerator gains `pa != pb`; helper `scripts/reaggregate_paired_adoption.py` extended to refresh ≥ 25 existing run dirs from raw `predictions.jsonl` (no re-inference) |
-| **M2-tests** | Unit tests on the new rate definitions | ☐ | small fixture-based tests under `tests/` to lock the canonical formulas |
-| **§3-prose** | Problem-definition body (4-condition setup, JSON-strict prompt, M2 metrics, graded-tilt vs categorical-replace reading) | ✅ `docs/insights/paper-section-3-problem-definition.md`, 2026-04-29 | drawn from project.md §0.3 + M2-evidence + slides 5-7 of paper_summary_slides.md |
+| **M2-refactor** | `metrics.py` refactor + re-aggregation | ✅ landed 2026-04-29; C-form follow-up landed 2026-04-28 | `summarize_condition` rates use `D_paired` denominator; `direction_follow_rate` is C-form `(pa-pb)·(anchor-pb) > 0 AND pa != pb`; 53 run dirs re-aggregated; pre-refactor backup at `outputs/before_C_form/`; migration report at `docs/insights/C-form-migration-report.md` |
+| **M2-tests** | Unit tests on the new rate definitions | ✅ `tests/test_metrics.py` (15 tests) + `DriverRowSchemaRegressionTest` schema guard + `scripts/verify_m2_schema.py` CI guard (61/61 jsonls pass) |
+| **§3-prose** | Problem-definition body (4-condition setup, JSON-strict prompt, M2 metrics, universal graded-tilt reading post-C-form) | ✅ `docs/insights/paper-section-3-problem-definition.md` + paper draft `docs/paper/sections/03_method.md` | drawn from project.md §0.3 + M2-evidence + slides 5-7 of paper_summary_slides.md. C-form refresh 2026-04-28: `(pa-pb)·(anchor-pb) > 0` numerator, "categorical-replace regime" framing retracted as driver-bug artefact |
 
 ### 6.2 §4 — Datasets and anchor inventory
 
@@ -238,8 +242,8 @@ robustness).
 | **E5d per-dataset cutoff** | ChartQA: S1-only relative `\|a-gt\| ≤ max(1, 0.1·gt)`; TallyQA: absolute `[0,5]`; VQAv2: range `{0..9}`; MathVista: C3 FAIL, scope-out as plausibility-window contrast (or rerun stricter) | ✅ except MathVista — see γ |
 | **E5e S1-only cross-model** | b/a/m/d × ChartQA + TallyQA × 3 models | ✅ |
 | **E5b/c cross-model expansion** | extend E5b + E5c to 3-model E5e panel (qwen2.5-vl-7b, gemma3-27b-it ∪ llava-interleave-7b) on VQAv2 + TallyQA | ⏳ in flight (user 2026-04-28) |
-| **E5e MathVista (γ-α)** | MathVista b/a/m/d (S1) × 3 models | ✅ landed 2026-04-29 — gemma3-27b adopt(a, wrong-base) = 0.194; df(M2) = 0 universally → categorical-replace regime |
-| **E5e MathVista (γ-β)** | reasoning-mode VLM × MathVista — Qwen3-VL-8B-Instruct vs. Qwen3-VL-8B-Thinking (separate weights), 4-cond S1, max_new_tokens=512, runner is `</think>`-aware | ✅ landed 2026-04-28. Headline (C-form, S1 anchor arm, all-base): instruct adopt=0.055 / df=0.094, thinking adopt=0.117 / df=0.291. Thinking amplifies anchor pull on every metric (×2 — ×3) — direction-agnostic hypothesis (H4) lands on the *amplification* side, consistent with VLMBias / Wang LRM-judging |
+| **E5e MathVista (γ-α)** | MathVista b/a/m/d (S1) × 3 models | ✅ landed 2026-04-29; **C-form refresh 2026-04-28**: gemma3-27b wrong-base S1 `adopt(a) = 0.230`, `df(a) = 0.332` (panel-largest cell). All 3 models in graded-tilt regime under C-form (df > 0 universally); pre-refactor "categorical-replace df=0" reading was a driver-bug artefact, retracted in `E5e-mathvista-evidence.md` §5 |
+| **E5e MathVista (γ-β)** | reasoning-mode VLM × MathVista — Qwen3-VL-8B-Instruct vs. Qwen3-VL-8B-Thinking (separate weights), 4-cond S1, max_new_tokens=512, runner is `</think>`-aware | ✅ landed 2026-04-28. Headline (C-form, S1 anchor arm, all-base, n=365): instruct adopt(a)=0.074 / df(a)=0.102, thinking adopt(a)=0.117 / df(a)=0.291. Thinking amplifies anchor pull (×1.6 adopt, ×2.9 df) — direction-agnostic hypothesis (H4) lands on the *amplification* side, consistent with VLMBias / Wang LRM-judging |
 | **VQAv2 4-condition** | b/a/m/d cross-model VQAv2 | ☐ P1 (kept) |
 
 ### 6.4 §6 — Confidence-modulated anchoring (logit-based)
@@ -252,10 +256,11 @@ the coarsest possible projection of this monotonicity.
 | ID | Task | Status |
 |---|---|---|
 | **L1** | per-token logit / softmax-prob already captured (commit `5f925b2`) on E5b/E5c/E5e + 7 main runs | ✅ data |
-| **L2** | confidence-proxy menu — `top1_softmax_prob`, `top1_minus_top2_margin`, `entropy_top_k` — script in `scripts/analyze_confidence_anchoring.py` (to write) | ☐ P0 |
-| **L3** | per-confidence-quartile `adopt_rate` and `direction_follow_rate` table, model × dataset; compare to A1 binary split | ☐ P0 |
-| **L4** | report — pick the proxy + quartile shape with cleanest monotone trend; lift over A1 in `docs/insights/L1-confidence-modulation-evidence.md` | ☐ P0 |
-| **L5** | re-cast §6 narrative — "wrong/correct gap is a coarse projection of confidence monotonicity" | ☐ writing |
+| **L2** | confidence-proxy menu — `top1_softmax_prob`, `top1_minus_top2_margin`, `entropy_top_k` — `scripts/analyze_confidence_anchoring.py` | ✅ landed 2026-04-29 |
+| **L3** | per-confidence-quartile `adopt_rate` and `direction_follow_rate` table, model × dataset; compare to A1 binary split | ✅ 112,008 (sample × arm) records over 34 cells; `_data/L1_*.csv` |
+| **L4** | report — pick the proxy + quartile shape with cleanest monotone trend; lift over A1 | ✅ `docs/insights/L1-confidence-modulation-evidence.md` — `entropy_top_k` wins; Q4 − Q1 mean df = +0.152 (C-form refreshed), 23/35 anchor cells fully monotone |
+| **L5** | re-cast §6 narrative — "wrong/correct gap is a coarse projection of confidence monotonicity" | ✅ paper draft `docs/paper/sections/06_confidence.md` |
+| **L6** | VQAv2 main panel logit re-run (no logit capture pre-commit `5f925b2`) | ☐ P1 — opportunistic |
 
 ### 6.5 §7 — Attention mechanism + mitigation
 
@@ -280,20 +285,33 @@ the coarsest possible projection of this monotonicity.
 P0 = blocks paper sections, do this week. P1 = strengthens but not load-
 bearing. P2 = ideation depth. P3 = future / parallel.
 
+**As of 2026-04-28** — most P0s have landed (M2-refactor + C-form, L1-L4
+confidence, γ-α + γ-β MathVista, E1-patch POC, paper §3/§7.4/§8 prose).
+The remaining paper-blockers are the cross-model E5e/E5b/E5c gemma3-27b
+TallyQA cell (in flight on GPU 1 since 2026-04-28 00:39) and the
+qwen2.5-vl-7b expansion of E5b/E5c.
+
 | P | Task | Source | ETA / compute |
 |---|---|---|---|
-| **P0** | M2 `metrics.py` refactor + re-aggregate ≥ 25 run dirs | §6.1 M2-refactor | code 0.5d, re-aggregate ~30min |
-| ~~P0~~ ✅ | Attention digit-pixel-patch reanalysis POC (2 models) | §6.5 E1-patch | landed 2026-04-29 |
-| **P1** | E1-patch full panel — masked arm causal control + 4 remaining archetypes | §6.5 E1-patch | ~1.5d |
-| **P0** | Per-token logit confidence analysis (L1–L4) | §6.4 | analysis only, ~3-4h |
-| ~~P0~~ ✅ | E5e MathVista (γ-α) — 3-model b/a/m/d × S1 | §6.3 | landed 2026-04-29 |
-| ~~P0~~ ✅ | MathVista (γ-β) — reasoning-mode | §6.3 | landed 2026-04-28 — thinking amplifies anchor pull |
-| **P0** | E5b / E5c cross-model expansion (in flight, finish) | §6.3 | 1-1.5d |
-| **P1** | VQAv2 4-condition cross-model (kept) | §6.3 | ~1d (3 models) — opportunistic |
-| **P1** | M2 unit tests | §6.1 | 0.5d |
-| ~~P2~~ ✅ | §8 LLM/VLM architectural-diff ideation paragraph + design sketch (F1) | §6.6 | landed 2026-04-29 |
+| **P0** | E5e TallyQA gemma3-27b cross-model cell (in flight on GPU 1) | §6.3 E5b/c cross-model expansion | ~30-35h total wall (15.2h elapsed at 15:53 2026-04-28; competing with `physical_mode_activation` on GPU 1, no streaming write — disk dir empty until completion) |
+| **P0** | qwen2.5-vl-7b on E5c VQAv2 + TallyQA (stratified, b + a×S1-5 + m×S1-5 + d) | §6.3 E5b/c cross-model expansion | ~3h × 2 datasets on H200 — queue once GPU 1 frees |
+| **P0** | gemma3-27b on E5c VQAv2 (TallyQA stratified is infeasible at full n=1000 base; use `max_samples=300` if launched) | §6.3 E5b/c cross-model expansion | ~5-6h on H200 |
+| **P1** | E1-patch full panel — masked arm causal control + 4 remaining archetypes (qwen2.5-vl-7b, internvl3-8b, convllava-7b, fastvlm-7b) | §6.5 E1-patch | ~1.5h attention extraction (n=200 each) + analysis |
+| **P1** | VQAv2 4-condition cross-model (b/a/m/d, S1 only, kept) | §6.3 | ~1d (3 models) — opportunistic |
+| **P1** | Citation verification — every 2026 arXiv ID in `references/project.md` and §2 paper draft must resolve to a real paper | §9 caveat | hours of manual verification, reviewer-defuse |
 | **P3** | E4 generalisation to other archetypes (Gemma / Qwen / FastVLM) | §6.5 | days |
 | **P3** | Image-vs-text anchor (F2) follow-up paper | §6.6 | future |
+| **P3** | VQAv2 main panel logit re-run (L6 — no logit capture pre-commit `5f925b2`) | §6.4 | opportunistic |
+
+**Recently landed (struck from queue 2026-04-28):**
+
+- ~~M2 `metrics.py` refactor + re-aggregation~~ ✅ (M2 + C-form follow-up)
+- ~~Per-token logit confidence analysis (L1–L4)~~ ✅
+- ~~E5e MathVista (γ-α + γ-β)~~ ✅
+- ~~E1-patch POC (2 archetypes)~~ ✅
+- ~~M2 unit tests~~ ✅ (`tests/test_metrics.py`)
+- ~~§8 F1 ideation paragraph~~ ✅
+- ~~Paper §3 / §7.4 / §8 prose~~ ✅ (`docs/insights/paper-section-*.md` + `docs/paper/sections/*.md`)
 
 ## 8. Pending refactors
 
@@ -305,9 +323,9 @@ bearing. P2 = ideation depth. P3 = future / parallel.
 ## 9. Caveats — carry these into every analysis
 
 - **Strengthen-prompt anomaly.** Under `experiment_anchor_strengthen_prompt`,
-  three Gemma models show pathological `mean_distance_to_anchor`
-  (gemma3-27b 2617, gemma4-31b 511, qwen2.5-vl 1519 — see 2026-04-23
-  changelog). The "must output a number" instruction induces large-number
+  three models show pathological `mean_distance_to_anchor` (gemma3-27b
+  2617, qwen2.5-vl-7b 1519, gemma4-31b 511 — see 2026-04-23 changelog).
+  The "must output a number" instruction induces large-number
   hallucination, *not* anchor adoption. Filter or report with a robust
   statistic before quantitative claims.
 - **`MathVista` C3 FAIL.** E5d MathVista validation rejected the S1-only
@@ -343,13 +361,135 @@ bearing. P2 = ideation depth. P3 = future / parallel.
 
 ## 10. Changelog
 
+- **2026-04-28 (overnight polish, second pass)** — **§5.2 / §5.4 / §6 / §7 / §9 / §4 cross-checks; γ-β number propagation; A1 CSV smoke-run pollution fix.**
+  Continuation of the doc-only polish session while gemma3-27b TallyQA
+  E5e is still on GPU 1. (i) **Phase A `_data/A1_*.csv` regenerated**
+  — `scripts/phase_a_data_mining.py::_resolve_model_runs` was picking
+  the alphabetically-latest run dir per model, which silently selected
+  a 45-record smoke run from `outputs/experiment/qwen2.5-vl-7b-instruct/20260428-140004/`
+  over the canonical 53,190-record full run from `20260411-213927/`,
+  pumping qwen2.5-vl out of all A1-A7 aggregates. The function now
+  picks the *largest* run with `n ≥ 100` records; A1-A7 CSVs
+  regenerated to include all 7 models. The user-facing A1 evidence
+  doc `docs/insights/A1-asymmetric-on-wrong.md` already had the correct
+  numbers (its `2026-04-28 verification` note is hand-cited from the
+  prediction.jsonl raw computation, not the CSV). (ii) **Paper §5.2
+  numbers verified** — wrong-correct moved-closer gap from
+  `_data/A1_asymmetric_wide.csv`: gemma4-e4b +19.6, gemma3-27b +15.9,
+  qwen3-vl-30b +12.2, gemma4-31b +8.4, qwen3-vl-8b +8.0,
+  llava-interleave +7.2, qwen2.5-vl-7b +6.9 — all 7 match paper
+  §5.2 within ±0.1 pp. The paper's "+6.9 to +19.6 pp on 7/7 models"
+  range stands. Note: §5.2 metric is the **pull-form** moved-closer
+  rate (`|pa−anchor| < |pb−anchor|`, distance-based), distinct from
+  §3.3 / §5.1's **C-form** `direction_follow_rate` (sign-based).
+  Both detect the same phenomenon; magnitudes differ by 0.5-2.6 pp
+  on this panel (C-form gives +7.4 to +22.2 pp). The paper uses
+  pull-form in §5.2 because it is Phase A's original definition.
+  (iii) **Paper §5.3 distance-decay numbers verified** against
+  `_data/E5b_per_stratum.csv` — VQAv2 wrong-base 0.130 / 0.032 /
+  0.010 / 0.010 / 0.003 and TallyQA 0.092 / 0.006 / 0.003 / 0.000 /
+  0.000 are exactly correct. (iv) **Paper §5.4 digit-pixel-causality
+  numbers verified** against `_data/E5c_per_cell.csv` — VQAv2
+  wrong-base S1 anchor 0.129 / masked 0.068 / gap +6.1 pp; TallyQA
+  0.110 / 0.084 / +2.6 pp (paper rounds to +2.5). VQAv2 distance-decay
+  gap S1→S5 = 0.061 / 0.016 / 0.013 / 0.012 / 0.008 — all match.
+  (v) **§5.6 cross-dataset gap verified** — MathVista gemma3-27b
+  wrong-base S1 a-arm − m-arm gap = 0.230 − 0.051 = +17.97 pp,
+  rounded to "+17.9 pp" in §5.6. (vi) **Paper §6 confidence numbers
+  verified** — Q4-Q1 entropy_top_k mean = +0.152, 23/35 fully
+  monotone, worked example (E5c VQAv2 llava S1) Q1 0.043 → Q4 0.172
+  on adopt and Q1 0.032 → Q4 0.210 on direction-follow all match
+  `_data/L1_confidence_quartile_long.csv`. (vii) **Paper §7
+  mitigation numbers verified** — LLaVA-1.5 −17.7 % rel df,
+  ConvLLaVA −10.6 %, InternVL3 −5.8 %; em rises +0.49 to +1.30 pp;
+  recovery 21.7 % / 14.0 % / 10.2 % — all match
+  `docs/insights/E4-mitigation-evidence.md`. (viii) **γ-β instruct
+  numbers in roadmap fixed** — three places (`§3.1` row, `§6.3`
+  row, `§10` 2026-04-28 changelog entry) cited
+  `instruct adopt(a) = 0.055`, `df(a) C-form = 0.094` which were
+  pre-C-form / wrong-source numbers. Real numbers from
+  `outputs/experiment_e5e_mathvista_reasoning/qwen3-vl-8b-instruct/20260428-114421/summary.json`
+  are `adopt(a) = 0.074`, `df(a) C-form = 0.102`; ratios become
+  ×1.6 adopt and ×2.9 df (was claimed ×2.1 / ×3.1). Paper §1
+  abstract and §6.5 already used the correct ×1.6 / ×2.9 ratios; the
+  roadmap was the only stale surface. (ix) **§9 caveat fixed** —
+  "three Gemma models" mislabel (the trio is gemma3-27b 2617 +
+  gemma4-31b 511 + qwen2.5-vl-7b 1519; only 2/3 are Gemma).
+  (x) **§4 sample-size table fixed** — line 86 labeled the older
+  3-cond `experiment_chartqa` run (5,390 × 3 cond, 48,510) as
+  "E5e ChartQA full" which conflicts with the 4-cond
+  `experiment_e5e_chartqa_full` (705 × 4 cond, 8,460) actually used
+  by §5.5. Split into two rows. TallyQA E5e count clarified
+  ("2 done + 1 in flight"). (xi) **`scripts/run_e5b_e5c_cross_model_chain.sh`
+  pre-staged** — sequential launcher for qwen2.5-vl-7b and
+  gemma3-27b on E5c VQAv2 + TallyQA on GPU 1, gated on the in-flight
+  TallyQA gemma3-27b job releasing the GPU. Ready to launch after
+  pre-flight `nvidia-smi --query-compute-apps` check. (xii) Roadmap
+  §3.1 `experiment_e5e_tallyqa_full` row updated to reflect that
+  qwen2.5-vl-7b cell is finished (was marked queued).
+
+- **2026-04-28 (overnight polish)** — **Roadmap §6/§7 stale-status sweep + paper §5.5 number-correction + §2 citation audit.**
+  Five categories of drift caught in a non-GPU polish pass while GPU 1
+  is occupied by the gemma3-27b TallyQA E5e run. (i) **§7 priority queue
+  refresh** — struck five P0s that had landed but never moved off the
+  queue (M2-refactor, L1–L4, γ-α, γ-β, M2-tests, paper §3/§7.4/§8 prose);
+  rebuilt §7 around the actually-blocking items: TallyQA gemma3-27b
+  in flight, qwen2.5-vl on E5c VQAv2/TallyQA, gemma3-27b on E5c VQAv2
+  (subsampled); citation verification surfaced as P1 reviewer-defuse.
+  (ii) **§6.1 / §6.4 status flips** — M2-refactor / M2-tests / L2-L4 /
+  L5 all flipped to ✅ with cross-pointers to the landed evidence.
+  (iii) **Paper §5.5 numeric fix** — eight cells of `df(a)` / `df(m)`
+  in the cross-dataset E5e table were stale (drawn from a pre-C-form
+  source); cross-checked all 12 numbers against
+  `outputs/experiment_e5e_*_full/*/summary.json` and per-cell CSVs and
+  rewrote the table with authoritative values. ChartQA × 3 models and
+  TallyQA × llava-interleave-7b were the off cells; MathVista row was
+  already correct. Also added the newly-completed TallyQA × qwen2.5-vl
+  cell (`adopt(a) = 0.011`, `df(a) = 0.029`) — that run had been
+  marked "queued, predictions.jsonl pending" in §3.3 but is in fact
+  finished as of `outputs/experiment_e5e_tallyqa_full/qwen2.5-vl-7b-instruct/20260427-235812/`.
+  Same correction applied to roadmap §3.3 E5e table. (iv) **§3 prose
+  C-form alignment** — `docs/insights/paper-section-3-problem-definition.md`
+  (committed before the C-form refactor) carried the old
+  `(pb − gt)·(pa − gt)` numerator and the buggy
+  "categorical-replace regime → df = 0 on MathVista" reading. Both
+  superseded: §3.3 now states the C-form `(pa − pb)·(anchor − pb)` numerator
+  with rationale, and the regime distinction is replaced by a graded-
+  tilt-is-universal reading with a historical retraction note. The
+  paper draft `docs/paper/sections/03_method.md` was already C-form
+  correct; this fixes the older insight doc + propagates to
+  `docs/insights/E5e-mathvista-evidence.md` open-follow-ups (§9 was
+  duplicated as §8 — fixed) and `docs/insights/paper-section-7-4-mitigation-free-lunch.md`
+  (single sentence about "graded-tilt vs categorical-replace regime"
+  reframed to "graded-tilt magnitude varies by dataset"). (v) **§2
+  citation audit** — verified six arXiv IDs: `2603.19203` Tinted Frames
+  (real, Fan et al. 2026), `2505.23941` VLMBias (real, Vo+Nguyen et al.),
+  `2505.15392` Huang et al. anchoring (real, A-Index/R-Error confirmed),
+  `2507.03123` AIpsych (**author wrong** — was "Jin et al.", actually
+  Liu et al.), `2508.20570` (**description wrong** — was "early-layer
+  CLIP/SigLIP", actually Hufe et al. "Dyslexify" later-half CLIP-only
+  attention-head circuit), `2502.08193` Wang-Zhao-Larson NAACL 2025
+  multi-image typographic attack (newly added — §2.3 had cited
+  Wang-Zhao-Larson with the *wrong* arXiv 2508.20570 ID, conflating
+  it with Dyslexify). §1 intro had a parallel "Jin et al. 2025"
+  attribution for the LLM anchoring lineage — fixed to "Huang et al.
+  2025" to match the §2 reference. §2.4 description of Dyslexify
+  refactored to match its actual content (later-half CLIP attention-head
+  circuit + ablation mitigation), and a one-sentence connection to
+  our §7 upper-half LLM-stack finding added. New artefact:
+  `configs/experiment_e5c_vqa.yaml` and `configs/experiment_e5c_tally.yaml`
+  pre-staged with `qwen2.5-vl-7b-instruct` and `gemma3-27b-it` rows
+  added (ready to launch once GPU 1 is freed by the in-flight
+  TallyQA gemma3-27b run, no `run_experiment.py` invocation made
+  this session).
+
 - **2026-04-28** — **γ-β MathVista (reasoning-mode) landed: thinking amplifies anchor pull.**
   Background `btymeywv9` finished overnight; results on
   `outputs/experiment_e5e_mathvista_reasoning/qwen3-vl-8b-thinking/20260428-114421/`,
-  reaggregated post-C-form. Per-arm headline (S1 anchor, all-base):
-  instruct (Qwen3-VL-8B-Instruct) `adopt(a) = 0.055`, `df(a) C-form = 0.094`;
+  reaggregated post-C-form. Per-arm headline (S1 anchor, all-base, n=365):
+  instruct (Qwen3-VL-8B-Instruct) `adopt(a) = 0.074`, `df(a) C-form = 0.102`;
   thinking (Qwen3-VL-8B-Thinking) `adopt(a) = 0.117`, `df(a) C-form = 0.291`
-  — thinking is **×2.1 on adopt and ×3.1 on direction-follow**. Masked-arm
+  — thinking is **×1.6 on adopt and ×2.9 on direction-follow**. Masked-arm
   digit-pixel causality is preserved on both (anchor > masked on every
   metric, both models). Thinking acc(b) = 0.196 (slightly below
   instruct's 0.216 — reasoning trace does not gain accuracy on this
