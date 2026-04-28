@@ -107,6 +107,13 @@ def _load_model(model: str) -> pd.DataFrame | None:
                 "anchor_value": _parse_int(r.get("anchor_value")),
                 "parsed_number": _parse_int(r.get("parsed_number")),
                 "error": r.get("error"),
+                # M2 / C-form per-row flags written by reaggregate_paired_adoption.py.
+                # Use these directly so this script's rates match the canonical
+                # `metrics.py::summarize_condition` definitions used in §3.3 / §5.
+                "anchor_adopted_M2": int(r.get("anchor_adopted") or 0),
+                "anchor_direction_followed_moved": int(r.get("anchor_direction_followed_moved") or 0),
+                "pred_b_equal_anchor": int(r.get("pred_b_equal_anchor") or 0),
+                "numeric_distance_to_anchor": r.get("numeric_distance_to_anchor"),
                 "_run_order": run_dir.name,
             })
     if not rows:
@@ -137,47 +144,83 @@ def _build_triplets(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def _compute_metrics(triplets: pd.DataFrame) -> dict[str, float | int]:
+    """Per-cell M2 / C-form rates.
+
+    Pre-2026-04-28 this used the Phase-A pull-form
+    `(|num_pred − anchor| < |base_pred − anchor|).mean()` plus pre-M1
+    marginal adoption `(num_pred == anchor).mean()`. Refactored to read the
+    canonical M2 flags written by `reaggregate_paired_adoption.py`:
+
+      direction_follow_rate = #(C-form moved) / #(numeric pair AND anchor present)
+      adoption_rate         = #(pa == anchor AND pb != anchor) / #(pb != anchor)
+      mean_distance         = mean(|pa − anchor|) over the same numeric-anchor subset
+
+    so that §7 ablation deltas match the §3.3 / §5 headline metrics by
+    construction.
+    """
     valid = triplets.dropna(subset=["base_pred", "num_pred", "anchor_value"])
-    n = len(valid)
-    if n == 0:
+    if valid.empty:
         return {"n": 0, "direction_follow_rate": np.nan, "adoption_rate": np.nan,
                 "mean_distance_to_anchor": np.nan}
-    diff_base = (valid["base_pred"] - valid["anchor_value"]).abs()
-    diff_num = (valid["num_pred"] - valid["anchor_value"]).abs()
-    pulled = (diff_num < diff_base).sum()
-    adopted = (valid["num_pred"] == valid["anchor_value"]).sum()
-    mean_dist = float(diff_num.mean())
+
+    df_eligible = valid[valid["numeric_distance_to_anchor"].notna()]
+    n_df = len(df_eligible)
+    pulled = int(df_eligible["anchor_direction_followed_moved"].sum()) if n_df else 0
+
+    adopt_eligible = valid[valid["pred_b_equal_anchor"] == 0]
+    n_adopt = len(adopt_eligible)
+    adopted = int(adopt_eligible["anchor_adopted_M2"].sum()) if n_adopt else 0
+
     return {
-        "n": int(n),
-        "direction_follow_rate": float(pulled / n),
-        "adoption_rate": float(adopted / n),
-        "mean_distance_to_anchor": mean_dist,
+        "n": int(n_df),
+        "n_pb_ne_anchor": int(n_adopt),
+        "direction_follow_rate": float(pulled / n_df) if n_df else np.nan,
+        "adoption_rate": float(adopted / n_adopt) if n_adopt else np.nan,
+        "mean_distance_to_anchor": (
+            float(df_eligible["numeric_distance_to_anchor"].astype(float).mean())
+            if n_df else np.nan
+        ),
     }
 
 
 def _bootstrap_ci(triplets: pd.DataFrame, metric: str, n_boot: int, seed: int) -> tuple[float, float]:
+    """C-form / M2 bootstrap CI matching `_compute_metrics`.
+
+    Each bootstrap draw resamples valid triplets uniformly; the per-draw
+    rate uses the same M2 predicates as the point estimate (paired denominators
+    for adoption, numeric-pair-with-anchor denominator for direction-follow).
+    """
     valid = triplets.dropna(subset=["base_pred", "num_pred", "anchor_value"]).reset_index(drop=True)
     n = len(valid)
     if n == 0:
         return (np.nan, np.nan)
     rng = np.random.default_rng(seed)
     draws = np.empty(n_boot, dtype=float)
-    base_pred = valid["base_pred"].to_numpy()
-    num_pred = valid["num_pred"].to_numpy()
-    anchor = valid["anchor_value"].to_numpy()
-    diff_b = np.abs(base_pred - anchor)
-    diff_n = np.abs(num_pred - anchor)
+    df_moved_arr = valid["anchor_direction_followed_moved"].astype(float).to_numpy()
+    adopt_arr = valid["anchor_adopted_M2"].astype(float).to_numpy()
+    pb_eq_a_arr = valid["pred_b_equal_anchor"].astype(float).to_numpy()
+    dist_arr = valid["numeric_distance_to_anchor"].astype(float).to_numpy()  # NaN where None
+    df_eligible_mask = ~np.isnan(dist_arr)
     for i in range(n_boot):
         idx = rng.integers(0, n, size=n)
         if metric == "direction_follow_rate":
-            draws[i] = (diff_n[idx] < diff_b[idx]).mean()
+            elig = df_eligible_mask[idx]
+            n_elig = int(elig.sum())
+            draws[i] = float(df_moved_arr[idx][elig].sum() / n_elig) if n_elig else np.nan
         elif metric == "adoption_rate":
-            draws[i] = (num_pred[idx] == anchor[idx]).mean()
+            elig = (pb_eq_a_arr[idx] == 0.0)
+            n_elig = int(elig.sum())
+            draws[i] = float(adopt_arr[idx][elig].sum() / n_elig) if n_elig else np.nan
         elif metric == "mean_distance_to_anchor":
-            draws[i] = diff_n[idx].mean()
+            elig = df_eligible_mask[idx]
+            d = dist_arr[idx][elig]
+            draws[i] = float(d.mean()) if d.size else np.nan
         else:
             raise ValueError(metric)
-    return (float(np.percentile(draws, 2.5)), float(np.percentile(draws, 97.5)))
+    valid_draws = draws[~np.isnan(draws)]
+    if valid_draws.size == 0:
+        return (np.nan, np.nan)
+    return (float(np.percentile(valid_draws, 2.5)), float(np.percentile(valid_draws, 97.5)))
 
 
 def _load_susceptibility() -> dict[int, str]:

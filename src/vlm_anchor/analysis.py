@@ -345,20 +345,35 @@ def summarize_run_overview(records_df: pd.DataFrame, paired_df: pd.DataFrame) ->
 
 
 def summarize_condition_metrics(records_df: pd.DataFrame) -> pd.DataFrame:
+    """Per (model, condition) summary used by notebooks.
+
+    The `anchor_direction_follow_rate` aggregation reads the canonical
+    M2 `_moved` flag (C-form `(pa-pb)·(anchor-pb) > 0 AND pa != pb`) so
+    notebook-side summaries match `metrics.py::summarize_condition`. The
+    raw flag mean is retained as `anchor_direction_follow_rate_raw` for
+    audit; under C-form the two are equal per cell because no-movement
+    structurally yields 0 in the numerator.
+    """
     grouped = records_df.groupby(["model", "condition"], observed=True, sort=True)
-    summary_df = (
-        grouped
-        .agg(
-            record_count=("sample_instance_id", "count"),
-            sample_instance_count=("sample_instance_id", "nunique"),
-            numeric_prediction_rate=("is_numeric_prediction", "mean"),
-            accuracy_vqa=("standard_vqa_accuracy", "mean"),
-            accuracy_exact=("exact_match", "mean"),
-            anchor_adoption_rate=("anchor_adopted", "mean"),
-            anchor_direction_follow_rate=("anchor_direction_followed", "mean"),
-        )
-        .reset_index()
+    agg_kwargs = dict(
+        record_count=("sample_instance_id", "count"),
+        sample_instance_count=("sample_instance_id", "nunique"),
+        numeric_prediction_rate=("is_numeric_prediction", "mean"),
+        accuracy_vqa=("standard_vqa_accuracy", "mean"),
+        accuracy_exact=("exact_match", "mean"),
+        anchor_adoption_rate=("anchor_adopted", "mean"),
+        anchor_direction_follow_rate_raw=("anchor_direction_followed", "mean"),
     )
+    if "anchor_direction_followed_moved" in records_df.columns:
+        agg_kwargs["anchor_direction_follow_rate"] = (
+            "anchor_direction_followed_moved",
+            "mean",
+        )
+    else:
+        # Pre-M2 / pre-C-form predictions.jsonl — fall back to raw form
+        # with a sentinel so callers can detect schema drift.
+        agg_kwargs["anchor_direction_follow_rate"] = ("anchor_direction_followed", "mean")
+    summary_df = grouped.agg(**agg_kwargs).reset_index()
     summary_df["condition_label"] = summary_df["condition"].map(CONDITION_LABELS)
     return summary_df.sort_values(["model", "condition"]).reset_index(drop=True)
 

@@ -20,7 +20,7 @@ concentrates at four encoder-family-specific peak layers, but
 single-layer ablation is causally null on 6/6 models — the anchor
 signal is multi-layer-redundant. Upper-half attention re-weighting on
 the mid-stack-cluster (LLaVA-1.5 / ConvLLaVA / InternVL3) reduces
-direction-follow by 5.8-17.7 % relative while exact-match *rises* by
+direction-follow by 5.8-14.6 % relative while exact-match *rises* by
 0.49-1.30 pp ("free-lunch" mitigation). A sharper finding: a
 reasoning-mode VLM (Qwen3-VL-8B-Thinking) **amplifies** rather than
 suppresses anchor pull on MathVista (adopt ×1.6, direction-follow
@@ -84,7 +84,7 @@ Anchor attention concentrates at one peak layer per encoder family
 FastVLM L22). But single-layer attention-mask ablation is causally
 null on 6/6 models: the anchor signal is multi-layer-redundant.
 Upper-half attention re-weighting on the mid-stack cluster reduces
-direction-follow by 5.8-17.7 % relative with exact-match *rising*
+direction-follow by 5.8-14.6 % relative with exact-match *rising*
 0.49-1.30 pp and target-only accuracy invariant — a "free-lunch"
 mitigation that generalises across CLIP-ViT / ConvNeXt / InternViT
 encoders at the same depth (§7).

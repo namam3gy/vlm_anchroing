@@ -79,7 +79,7 @@ in-flight · ☐ not started.
 |---|---|---|---|
 | E1 attention-mass | gemma4-e4b, qwen2.5-vl-7b, llava-1.5-7b, internvl3-8b, convllava-7b, fastvlm-7b | 200 stratified | ✅ |
 | E1b per-layer localisation | same 6 | 200 | ✅ — 4 archetypes (SigLIP-Gemma early, mid-stack cluster CLIP-ViT/InternViT/ConvNeXt, Qwen-ViT late, FastVLM late text-stealing) |
-| E1d causal ablation | same 6 | 200 | ✅ — single-layer null on 6/6; upper-half multi-layer −5.5 to −11.5 pp on 6/6 |
+| E1d causal ablation | same 6 | 200 | ✅ — single-layer null on 6/6; upper-half multi-layer **−4.0 to −10.5 pp** (C-form) on 6/6 |
 | E1 digit-pixel-patch reanalysis | same 6 (reuse n=200 dump) | analysis only | ☐ P0 |
 | E4 mitigation Phase 1 (sweep) | llava-1.5-7b, convllava-7b, internvl3-8b | 200 × 7 strengths | ✅ |
 | E4 mitigation Phase 2 (full validation) | same 3 | 17,730 | ✅ |
@@ -154,12 +154,13 @@ TallyQA × gemma3-27b-it cell is in flight on GPU 1 (launched 2026-04-28
 00:39, full 38,245-question integer subset, contended GPU, ETA ~30-35h
 total wall, ~15-20h remaining).
 
-E1d upper-half ablation: −5.5 to −11.5 pp `direction_follow` on 6/6 models;
-fluency-clean on 4/6 (mid-stack cluster + Qwen).
+E1d upper-half ablation: **−4.0 to −10.5 pp** `direction_follow` (C-form)
+on 6/6 models; fluency-clean on 4/6 (mid-stack cluster + Qwen).
 
-E4 Phase 2 full mid-stack-cluster: `direction_follow_rate` reduction
-LLaVA-1.5 −17.7 % rel, ConvLLaVA −10.6 %, InternVL3 −5.8 %; `exact_match`
-rises +0.49 to +1.30 pp; `accuracy_vqa(b)` invariant — anchor-condition
+E4 Phase 2 full mid-stack-cluster (C-form): `direction_follow_rate`
+reduction LLaVA-1.5 **−14.6 %** rel, ConvLLaVA **−9.6 %**, InternVL3
+**−5.8 %**; `exact_match` rises +0.49 to +1.30 pp; `accuracy_vqa(b)`
+invariant — anchor-condition
 specific.
 
 ## 4. Canonical metrics (M2)
@@ -360,6 +361,78 @@ qwen2.5-vl-7b expansion of E5b/E5c.
   M2 evidence numbers refresh accordingly.
 
 ## 10. Changelog
+
+- **2026-04-28 (B안 — full C-form propagation to E1d / E4 / §7).**
+  Closing the metric-consistency gap between §3.3 / §5 (C-form) and
+  §7 (Phase A pull-form) by switching `analyze_causal_ablation.py` and
+  `analyze_e4_mitigation.py` to read the canonical M2
+  `anchor_direction_followed_moved` flag instead of computing a
+  pull-form `(|num_pred − anchor| < |base_pred − anchor|)` directly.
+  The `_moved` flag is the post-C-form refactor M2 numerator
+  `(pa-pb)·(anchor-pb) > 0 AND pa != pb`, written into every
+  `predictions.jsonl` by `reaggregate_paired_adoption.py`.
+  Adoption rate also switched from pre-M1 marginal to M2 paired
+  (denominator: `pred_b != anchor`).
+  
+  **Refactor scope:** (i) `_load_model` in causal_ablation grabs the
+  M2 flags into the in-memory frame; (ii) `_compute_metrics` and
+  `_bootstrap_ci` in both scripts use the M2 predicates per draw;
+  (iii) `_build_triplets` in e4 carries M2 columns through the merge;
+  (iv) the InternVL3 prose-leak `_to_int(rescue_text=decoded)` rescue
+  is retained on `em_num` (gt-comparison), but dropped on the M2
+  anchoring rates — matching the §3.3 / §5 main-panel handling
+  (no rescue), making §7 consistent with the canonical metric.
+
+  **Number changes (Phase 2, full-scale 88,650 records / model):**
+
+  | model | df₀ pull → C-form | df at s* pull → C-form | rel reduction pull → C-form |
+  |---|---|---|---|
+  | LLaVA-1.5-7b | 0.258 → **0.288** | 0.212 → **0.246** | −17.7 % → **−14.6 %** |
+  | ConvLLaVA-7b | 0.228 → **0.258** | 0.204 → **0.233** | −10.6 % → **−9.6 %** |
+  | InternVL3-8b | 0.103 → **0.126** | 0.098 → **0.119** | −5.8 % → **−5.8 %** |
+
+  **E1d ablation deltas (n=200 stratified, 6 models):**
+
+  | mode | pull-form range | C-form range |
+  |---|---|---|
+  | `ablate_peak` | \|Δ\| ≤ 3.2 pp | \|Δ\| ≤ 2.0 pp |
+  | `ablate_layer0` | Δ ∈ [−2.7, +0.5] pp | same range |
+  | `ablate_upper_half` | −5.5 to −11.5 pp | **−4.0 to −10.5 pp** |
+  | `ablate_all` | −10 to −22 pp | **−9.6 to −24.5 pp** |
+
+  **em-based metrics unchanged** (em is gt-comparison; pull-form vs
+  C-form divergence does not affect it). Paired anchor-damage /
+  recovery numbers in §7.4 (21.7 % / 14.0 % / 10.2 %) are preserved.
+
+  **Phase 1 vs Phase 2 s*** caveat — under C-form, the Phase 1 sweep
+  would prefer s*=−5.0 for LLaVA / ConvLLaVA (instead of −3.0 / −2.0)
+  to clear the same ≥10 % rel df reduction threshold. Phase 2 was
+  launched at the original pull-form-optimal s*; we have not re-run
+  Phase 2 at C-form-optimal s*. §7.4 paragraph + E4 evidence doc
+  explicitly note this. `outputs/e4_mitigation/_summary/chosen_strength.json`
+  is pinned to the historical Phase 2 s* values (with a `_note` key
+  explaining the situation) so future re-runs of `--phase full` do
+  not silently switch.
+
+  **Surfaces updated:** `scripts/analyze_causal_ablation.py`,
+  `scripts/analyze_e4_mitigation.py`, `outputs/e4_mitigation/_summary/{full_validation,full_validation_compare,sweep_pareto,anchor_damage_paired_full,anchor_damage_paired_sweep,chosen_strength}.{csv,json,png}`,
+  `outputs/causal_ablation/_summary/{per_model_per_mode,by_stratum,fig_direction_follow,fig_adoption}.{csv,png}`,
+  `docs/insights/E4-mitigation-evidence.md` (Phase 2 + Phase 1 tables
+  + InternVL3 stratified-vs-full paragraph + anti-correlation paragraph),
+  `docs/insights/E1d-causal-evidence.md` (mode results table +
+  upper-half range + lower-half ConvLLaVA/LLaVA delta values),
+  `docs/insights/paper-section-7-4-mitigation-free-lunch.md` (Phase 2
+  table + anti-correlation prose), `docs/paper/sections/07_mechanism_mitigation.md`
+  §7.3 ablation table + §7.4 Phase 2 table + s*-Phase 1-vs-Phase 2
+  C-form caveat paragraph + anti-correlation prose,
+  `docs/paper/sections/01_intro.md` (×2 abstract / §1.5 references
+  to "5.8-17.7 %" → "5.8-14.6 %"), `references/roadmap.md` §3.2 +
+  §3.3 headline numbers.
+
+  **Test suite still green** (74/74) — the two analysis scripts have
+  no unit-test coverage on the metric formula directly; the rates are
+  re-validated end-to-end by reading the canonical M2 flag, which is
+  itself tested in `tests/test_metrics.py` (15 metrics tests).
 
 - **2026-04-28 (overnight polish, second pass)** — **§5.2 / §5.4 / §6 / §7 / §9 / §4 cross-checks; γ-β number propagation; A1 CSV smoke-run pollution fix.**
   Continuation of the doc-only polish session while gemma3-27b TallyQA

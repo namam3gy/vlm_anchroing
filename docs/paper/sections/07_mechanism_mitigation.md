@@ -56,10 +56,10 @@ for each of the 6 models, n=200 stratified, three conditions.
 
 | Mode | Result |
 |---|---|
-| `ablate_peak` (E1b's headline) | **Null on 6/6 models** (\|Δ df\| ≤ 3.2 pp; all CIs overlap baseline) |
-| `ablate_layer0` (non-peak control) | Null on 6/6 models (Δ df ∈ [−0.027, +0.005]) |
-| `ablate_all` | −10 to −22 pp on direction-follow, but **fluency degrades on 3/6 models** (mean-distance balloons 4-6× or 1000×) |
-| `ablate_upper_half` (mitigation candidate) | **−5.5 to −11.5 pp** on **6/6 models**, fluency-clean on 4/6 (mid-stack cluster + Qwen) |
+| `ablate_peak` (E1b's headline) | **Null on 6/6 models** (\|Δ df\| ≤ 2.0 pp; all CIs overlap baseline) |
+| `ablate_layer0` (non-peak control) | Null on 6/6 models (Δ df ∈ [−2.7, +0.5] pp) |
+| `ablate_all` | **−9.6 to −24.5 pp** on direction-follow, but **fluency degrades on 3/6 models** (mean-distance balloons 4-6× or 1000×) |
+| `ablate_upper_half` (mitigation candidate) | **−4.0 to −10.5 pp** on **6/6 models**, fluency-clean on 4/6 (mid-stack cluster + Qwen) |
 | `ablate_lower_half` (diagnostic) | **Heterogeneous: 3/6 BACKFIRE, 1/6 reduce, 2/6 flat** |
 
 The single-layer ablation null at the E1b peak *and* at layer 0
@@ -86,16 +86,21 @@ questions × 3 conditions × 2 modes per model.
 
 | Model | s* | df baseline | df treated | df Δ pp | df rel | em baseline | em treated | em Δ pp |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
-| LLaVA-1.5-7b | −3.0 | 0.258 | 0.212 | **−4.55** | **−17.7 %** | 0.334 | 0.342 | +0.77 |
-| ConvLLaVA-7b | −2.0 | 0.228 | 0.204 | **−2.42** | **−10.6 %** | 0.352 | 0.365 | +1.30 |
-| InternVL3-8b | −0.5 | 0.103 | 0.098 | −0.59 | −5.8 % | 0.590 | 0.595 | +0.49 |
+| LLaVA-1.5-7b | −3.0 | 0.288 | 0.246 | **−4.19** | **−14.6 %** | 0.334 | 0.342 | +0.77 |
+| ConvLLaVA-7b | −2.0 | 0.258 | 0.233 | **−2.49** | **−9.6 %** | 0.352 | 0.365 | +1.30 |
+| InternVL3-8b | −0.5 | 0.126 | 0.119 | −0.74 | −5.8 % | 0.590 | 0.595 | +0.49 |
 
 **Three patterns hold across the panel:**
 
 - df decreases on all three; em rises on all three (+0.49 to +1.30 pp).
 - Per-model `s*` is required (range −0.5 to −3.0, an order of
   magnitude). The mitigation generalises *as a locus + selection
-  rule*, not as a single strength constant.
+  rule*, not as a single strength constant. (The `s*` values were
+  selected by the original Phase 1 sweep under the Phase A pull-form
+  direction-follow rate; under the canonical C-form sweep
+  re-aggregation a slightly stronger `s*` is preferred for
+  LLaVA-1.5/ConvLLaVA, but Phase 2 full-scale validation only exists
+  at the historical pull-form `s*` and is reported here under C-form.)
 - `accuracy_vqa(b)` (target-only baseline) is invariant on every
   strength on every model. The hook does not leak into single-image
   inference; it acts only on the anchor pathway.
@@ -115,9 +120,9 @@ the upper-half re-weighting recovers 10-22 % of that damage with no
 target-only side-effect.
 
 The relative df-reduction is *anti-correlated* with the model's
-baseline anchor-pull — InternVL3 (lowest df₀ = 0.103) shows the
+baseline anchor-pull — InternVL3 (lowest df₀ = 0.126) shows the
 smallest relative reduction (−5.8 %), LLaVA-1.5 (highest df₀ =
-0.258) shows the largest (−17.7 %). Conjecture (testable in a
+0.288) shows the largest (−14.6 %). Conjecture (testable in a
 follow-up): the upper-half attention pathway carries a *larger
 fraction* of the anchor signal in models that use it less; LLaVA
 and ConvLLaVA's anchor signals are broadly distributed and the
@@ -152,7 +157,7 @@ pathway with one observable peak per encoder family. Single-layer
 attention-mask ablation is causally null on 6/6 models, ruling out
 the "peak = causal site" reading. Upper-half attention re-weighting
 on the mid-stack-cluster is a fluency-clean mitigation that reduces
-direction-follow by 5.8-17.7 % relative while exact-match rises
+direction-follow by 5.8-14.6 % relative while exact-match rises
 0.49-1.30 pp and target-only accuracy is invariant — the
 "free-lunch" claim. The mitigation is per-model-`s*`-tuned at the
 locus + rule level, not at a single strength constant.
