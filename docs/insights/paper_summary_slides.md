@@ -433,22 +433,32 @@ em ↑ · acc invariant.
 
 ## 발표자 부록 — 자주 묻는 질문 (FAQ)
 
-**Q1. 왜 7B 모델에서 categorical-replace (MathVista) regime이 보이지 않고
-27B에서만 보이는가?**
-- gemma3-27b의 high-acc는 wrong-base subset을 cleanly delineated
-  uncertainty subset으로 만듦. 7B는 wrong-base가 더 많지만 wrong이라는
-  사실 자체가 noisy.
-- 추가 가설: SigLIP encoder의 typographic weakness — gemma3-27b도
-  SigLIP. E1-patch에서 후속 검증 (digit-pixel 집중도가 SigLIP에서 큰지).
+**Q1. 왜 MathVista에서 anchor 효과가 가장 큰가? (gemma3-27b 패널-최대 셀)**
+- C-form 재집계 (2026-04-28) 후 모든 셀이 graded-tilt regime이며 (df > 0
+  on every cell), 과거 보고된 "categorical-replace regime: df = 0 on
+  MathVista" 결론은 driver-bug artefact로 retracted. 실제 gemma3-27b
+  wrong-base S1: adopt(a)=0.230, df(a)=0.332 — 패널 최대.
+- 가설: gemma3-27b의 high-acc는 wrong-base subset을 cleanly delineated
+  uncertainty subset으로 만듦. SigLIP encoder의 typographic weakness도
+  기여 가능 — gemma3-27b도 SigLIP. E1-patch POC (gemma4-e4b digit
+  concentration +0.404 above fair share) consistent with SigLIP가 digit
+  pixel을 선택적으로 강조한다는 가설.
 
 **Q2. attention digit-pixel patch (E1-patch) 결과는?**
-- POC 진행 중 (llava-1.5-7b + gemma4-e4b on n=400 stratified). 결과는
-  `docs/insights/E1-patch-evidence.md` 에 추가될 예정.
+- POC 완료 (2026-04-29, n=400 stratified, 2 archetypes):
+  gemma4-e4b digit/anchor=0.631 (peak L9, +0.404 above fair share),
+  llava-1.5-7b digit/anchor=0.468 (peak L7, +0.241). Two profiles —
+  Gemma globally digit-concentrated, llava peaked mid-early.
+  `docs/insights/E1-patch-evidence.md` 참조. 4 archetypes (Qwen / InternVL3
+  / ConvLLaVA / FastVLM) 확장은 per-encoder bbox-mapping dev 필요.
 
 **Q3. M2 metric refactor가 기존 publishing numbers를 바꾸는가?**
-- adopt_rate는 ~10% 상승 (denominator 좁아짐). direction_follow_rate는
-  큰 폭 하락 (no-change pair가 numerator에서 빠짐 → 진짜 movement만 카운트).
-- 모든 변경은 mechanical, 새 데이터 아님. M1 backup 보존.
+- adopt_rate: pre-M1 marginal → M2 paired는 denominator 좁아져서 낮은
+  rate가 나오지만 (e.g. llava digit 2 marginal 0.300 → M2 0.118),
+  수치만 다르고 모든 qualitative ranking은 유지. direction_follow_rate:
+  C-form 재집계 후 일부 셀에서 ×2-2.7 *상승* (qwen2.5-vl df_moved
+  0.079 → 0.094 등). 모든 변경 mechanical, 새 데이터 아님. M1 / pre-C-form
+  backup 보존 (`outputs/before_C_form/`).
 
 **Q4. 왜 closed model (GPT-4o, Gemini 2.5)을 안 쓰는가?**
 - API 비용 + 5월 25일 마감 + Findings/Main 등급 결정 lever는 closed model
