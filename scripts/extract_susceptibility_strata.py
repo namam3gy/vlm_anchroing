@@ -19,9 +19,35 @@ import pandas as pd
 from vlm_anchor.analysis import build_paired_dataframe, filter_anchor_distance_outliers
 
 
-PROJECT = Path(__file__).resolve().parents[2]
+PROJECT = Path(__file__).resolve().parents[1]
 ROOT = PROJECT / "outputs" / "experiment"
-OUT = PROJECT / "research" / "insights" / "_data" / "susceptibility_strata.csv"
+OUT = PROJECT / "docs" / "insights" / "_data" / "susceptibility_strata.csv"
+
+
+def _pick_canonical_run(model_dir: Path, min_records: int = 100) -> Path | None:
+    """Pick the run dir with the largest predictions.csv (≥ min_records).
+
+    Earlier "alphabetically-latest" rule silently picked verification
+    smoke runs over canonical full runs — see
+    `scripts/phase_a_data_mining.py::_resolve_model_runs` for the
+    reference implementation and `tests/test_phase_a_run_resolver.py`
+    for the regression guard.
+    """
+    candidates: list[tuple[int, Path]] = []
+    for p in model_dir.iterdir():
+        if not p.is_dir():
+            continue
+        csv_path = p / "predictions.csv"
+        if not csv_path.exists():
+            continue
+        with csv_path.open() as fh:
+            n_rows = sum(1 for _ in fh) - 1
+        if n_rows >= min_records:
+            candidates.append((n_rows, p))
+    if not candidates:
+        return None
+    candidates.sort()
+    return candidates[-1][1]
 
 
 def _load() -> pd.DataFrame:
@@ -29,12 +55,12 @@ def _load() -> pd.DataFrame:
     for model_dir in sorted(p for p in ROOT.iterdir() if p.is_dir()):
         if model_dir.name == "analysis":
             continue
-        cand = sorted(p for p in model_dir.iterdir() if p.is_dir() and (p / "predictions.csv").exists())
-        if not cand:
+        run_dir = _pick_canonical_run(model_dir)
+        if run_dir is None:
             continue
-        df = pd.read_csv(cand[-1] / "predictions.csv", low_memory=False)
+        df = pd.read_csv(run_dir / "predictions.csv", low_memory=False)
         df["model"] = model_dir.name
-        df["model_root"] = str(cand[-1].resolve())
+        df["model_root"] = str(run_dir.resolve())
         df["experiment_root"] = str(ROOT.resolve())
         df["experiment_name"] = ROOT.resolve().name
         frames.append(df)
