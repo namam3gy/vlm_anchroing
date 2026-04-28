@@ -170,8 +170,10 @@ def summarize_condition(records: list[dict], condition_name: str) -> dict:
 
     n_pb_ne_a = sum(1 for r in subset if not _flag(r, "pred_b_equal_anchor"))
 
-    # numeric_distance_to_anchor is set IFF pa, gt, anchor are all int and anchor present
-    # (see evaluate_sample); reuse it as the denominator predicate.
+    # numeric_distance_to_anchor is set IFF pa and anchor are both int-parseable
+    # AND anchor is present (see evaluate_sample line 117); gt does NOT gate
+    # the predicate. Reuse it as the "numeric pair AND anchor present" denominator
+    # for direction_follow_rate.
     n_numeric_with_anchor = sum(1 for r in subset if r.get("numeric_distance_to_anchor") is not None)
 
     sum_adopt = sum(_flag(r, "anchor_adopted") for r in subset)
