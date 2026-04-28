@@ -35,10 +35,12 @@ mechanistic question:
 
 The minimal experiment isolates modality-of-delivery while controlling
 for everything else. (i) Pair each VLM in our panel with its underlying
-LLM (the Vicuna behind LLaVA-1.5, the Qwen2.5 behind Qwen2.5-VL, the
-InternLM behind InternVL3, the Gemma-3 behind Gemma-4, etc.; this
-pairing is exact for a subset of our panel and only approximate for
-the rest, which becomes a scope decision). (ii) Build a text-anchored
+LLM (e.g. the Vicuna behind LLaVA-1.5, the Qwen2.5 behind Qwen2.5-VL,
+the InternLM behind InternVL3); this pairing is exact for a subset of
+the panel and only approximate (different post-training, different
+instruction-tuning) for the rest. The exact-pair subset carries the
+load-bearing comparison; the approximate-pair models contribute a
+robustness check. (ii) Build a text-anchored
 counterpart of the four-condition prompt: instead of a second image
 containing the digit, append a JSON-like fragment in the user message
 (e.g. *"For reference, an unrelated number is 7."*) so that the anchor

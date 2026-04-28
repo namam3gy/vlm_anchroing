@@ -49,11 +49,11 @@ models, three properties hold simultaneously at the Phase-1-chosen `s*`:
 > **`direction_follow_rate(a)` decreases**, **`exact_match(a)` rises**,
 > and **`exact_match(b)` is invariant.**
 
-| Model | `s*` | df(a) `s=0` → `s*` | rel Δ df(a) | em(a) `s=0` → `s*` | abs Δ em(a) | em(b) at `s*` | invariant? |
-|---|---:|---:|---:|---:|---:|---:|:---:|
-| `llava-1.5-7b` | −3.0 | 0.2578 → 0.2122 | **−17.7 %** | 0.3340 → 0.3418 | **+0.77 pp** | 0.3696 | ✓ |
-| `convllava-7b` | −2.0 | 0.2283 → 0.2042 | **−10.6 %** | 0.3522 → 0.3652 | **+1.30 pp** | 0.4454 | ✓ |
-| `internvl3-8b` | −0.5 | 0.1035 → 0.0975 | **−5.8 %** | 0.5902 → 0.5950 | **+0.49 pp** | 0.6325 | ✓ |
+| Model | `s*` | df(a) `s=0` → `s*` | rel Δ df(a) | em(a) `s=0` → `s*` | abs Δ em(a) | em(b) `s=0` | em(b) `s*` | em(b) flat? |
+|---|---:|---:|---:|---:|---:|---:|---:|:---:|
+| `llava-1.5-7b` | −3.0 | 0.2578 → 0.2122 | **−17.7 %** | 0.3340 → 0.3418 | **+0.77 pp** | 0.3696 | 0.3696 | ✓ |
+| `convllava-7b` | −2.0 | 0.2283 → 0.2042 | **−10.6 %** | 0.3522 → 0.3652 | **+1.30 pp** | 0.4454 | 0.4454 | ✓ |
+| `internvl3-8b` | −0.5 | 0.1035 → 0.0975 | **−5.8 %** | 0.5902 → 0.5950 | **+0.49 pp** | 0.6325 | 0.6325 | ✓ |
 
 `em(b)` is the model's `exact_match` on the `target_only` condition
 measured on the same paired sample-instances used for the anchor arm.

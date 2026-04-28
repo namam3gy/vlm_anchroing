@@ -166,10 +166,18 @@ moves the same number by 1.4× to 7×. We resolved the ambiguity empirically:
 across 18 numerator × denominator variants applied to 25 `predictions.jsonl`
 files spanning the seven-model main panel and the cross-dataset E5b/E5c/E5e
 runs, the variants `A_paired__D_paired` (adopt) and `DF_moved__DD_all`
-(direction-follow) are the unique pair that simultaneously preserves three
-independent known-signal contrasts: wrong > correct on the S0/S1 cells
-(22/22 wins, mean gap +0.040), S1 > S5 on the wrong-base distance sweep,
-and anchor > masked on the digit-pixel contrast. Pre-M1 marginal definitions
+(direction-follow) are the top-ranked variants on three independent
+known-signal contrasts: wrong > correct on the S0/S1 cells (22/22 wins,
+mean gap +0.040 — the largest gap among adopt variants that also clears
+22/22), S1 > S5 on the wrong-base distance sweep, and anchor > masked
+on the digit-pixel contrast. Several adjacent variants (notably
+`A_paired__D_all` at 22/22 with gap +0.037, and `A_paired__D_clean` at
+21/22 with gap +0.019) preserve the same wrong > correct contrast; we
+prefer `D_paired` over `D_all` because it removes the unidentifiable
+`pred_b == anchor` sub-population from the base rate, and over `D_clean`
+because the additional `gt != anchor` filter trades signal magnitude for
+a confound (the `gt == anchor` cell carries genuine anchoring evidence
+that the `D_clean` denominator silently drops). Pre-M1 marginal definitions
 *invert* the wrong > correct contrast on adopt because of the
 `gt == anchor` confound: items where the anchor happens to equal the
 ground truth become ineligible for the predicate `pred_b ≠ anchor` and
