@@ -203,6 +203,7 @@ or pending. Priorities (P0 / P1 / P2 / P3) are listed in §7.
 | **M2-evidence** | Metric-definition analysis (18 variants × known-signal preservation) | ✅ `docs/insights/M2-metric-definition-evidence.md`, 2026-04-28 | re-runs as more `predictions.jsonl` arrive; recommendation is rank-driven, robust |
 | **M2-refactor** | `metrics.py` refactor + re-aggregation | ⏳ pending user signoff | `summarize_condition` rates use `D_paired` denominator; `direction_follow_rate` numerator gains `pa != pb`; helper `scripts/reaggregate_paired_adoption.py` extended to refresh ≥ 25 existing run dirs from raw `predictions.jsonl` (no re-inference) |
 | **M2-tests** | Unit tests on the new rate definitions | ☐ | small fixture-based tests under `tests/` to lock the canonical formulas |
+| **§3-prose** | Problem-definition body (4-condition setup, JSON-strict prompt, M2 metrics, graded-tilt vs categorical-replace reading) | ✅ `docs/insights/paper-section-3-problem-definition.md`, 2026-04-29 | drawn from project.md §0.3 + M2-evidence + slides 5-7 of paper_summary_slides.md |
 
 ### 6.2 §4 — Datasets and anchor inventory
 
@@ -256,14 +257,14 @@ the coarsest possible projection of this monotonicity.
 | **E1 / E1b / E1c / E1d** | full anchor-image attention pipeline (mass + per-layer + H3-falsified writeup + causal ablation) | ✅ |
 | **E1-patch (POC)** | digit-pixel-patch attention reanalysis on 2 representative archetypes (llava-1.5-7b mid-stack, gemma4-e4b SigLIP-early). bbox JSON via `scripts/compute_anchor_digit_bboxes.py`; extraction via `scripts/extract_attention_mass.py --bbox-file`; analysis via `scripts/analyze_attention_patch.py`. **POC headline (2026-04-29)**: gemma4-e4b digit/anchor = 0.631 (peak L9, +0.404 above fair share); llava-1.5-7b digit/anchor = 0.468 (peak L7, +0.241 above fair share). Two profiles: gemma globally digit-concentrated, llava peaked mid-early. `docs/insights/E1-patch-evidence.md`. | ✅ POC landed 2026-04-29; full 6-model panel + masked-arm causal control deferred |
 | **E4 Phase 1 + 2** | mid-stack-cluster attention re-weighting (LLaVA-1.5 / ConvLLaVA / InternVL3) | ✅ |
-| **E4 §7.4 paper rendering** | report `direction_follow_rate` reduction, `exact_match` rise, `accuracy_vqa(b)` invariance side by side; the "free lunch" framing | ☐ writing |
+| **E4 §7.4 paper rendering** | report `direction_follow_rate` reduction, `exact_match` rise, `accuracy_vqa(b)` invariance side by side; the "free lunch" framing | ✅ `docs/insights/paper-section-7-4-mitigation-free-lunch.md` (2026-04-29) |
 | **E1-patch generalises mitigation?** | does upper-half attention mass concentrate on the digit patch only? if yes, mitigation can shrink target region | ☐ P3 |
 
 ### 6.6 §8 — Future work (scope only)
 
 | ID | Direction | Status |
 |---|---|---|
-| **F1 (preferred)** | LLM/VLM architectural diff — same anchor delivered as text to LLM vs. as image to VLM, compare layer-wise integration profile (§7-style attention) | ☐ ideation only — paragraph in §8 |
+| **F1 (preferred)** | LLM/VLM architectural diff — same anchor delivered as text to LLM vs. as image to VLM, compare layer-wise integration profile (§7-style attention) | ✅ ideation paragraph drafted — `docs/insights/paper-section-8-f1-future-work.md` (2026-04-29) |
 | **F2** | image-vs-text anchor — anchor image described as text and given to the same VLM; effect-size delta | ☐ ideation only |
 | **F3** | Reasoning-mode VLM at scale — Qwen3-VL thinking, etc., on E5e cross-dataset matrix | ☐ scope only (γ-β is the minimal §8 stake) |
 
@@ -283,7 +284,7 @@ bearing. P2 = ideation depth. P3 = future / parallel.
 | **P0** | E5b / E5c cross-model expansion (in flight, finish) | §6.3 | 1-1.5d |
 | **P1** | VQAv2 4-condition cross-model (kept) | §6.3 | ~1d (3 models) — opportunistic |
 | **P1** | M2 unit tests | §6.1 | 0.5d |
-| **P2** | §8 LLM/VLM architectural-diff ideation paragraph + design sketch (F1) | §6.6 | writing |
+| ~~P2~~ ✅ | §8 LLM/VLM architectural-diff ideation paragraph + design sketch (F1) | §6.6 | landed 2026-04-29 |
 | **P3** | E4 generalisation to other archetypes (Gemma / Qwen / FastVLM) | §6.5 | days |
 | **P3** | Image-vs-text anchor (F2) follow-up paper | §6.6 | future |
 
@@ -335,6 +336,37 @@ bearing. P2 = ideation depth. P3 = future / parallel.
 
 ## 10. Changelog
 
+- **2026-04-29 (late evening)** — **Paper-section prose for §3, §7.4, §8/F1 landed.**
+  Three first-draft paper-ready writeups committed under
+  `docs/insights/`: (i) `paper-section-3-problem-definition.md` covers
+  the 4-condition setup (`b/a/m/d`), the three pairwise gaps that
+  underwrite §5/§6/§7, the JSON-strict inference template, and the
+  four canonical metrics (`adopt_rate`, `direction_follow_rate`,
+  `exact_match`, `anchor_effect_M`) with the graded-tilt vs.
+  categorical-replace diagnostic reading; (ii)
+  `paper-section-7-4-mitigation-free-lunch.md` carries the upper-half
+  attention re-weighting from E1d hard-mask to E4 soft-strength,
+  reports the Phase 2 full-scale free-lunch table (df ↓ −5.8 to
+  −17.7 % rel · em(a) ↑ +0.49 to +1.30 pp · em(b) invariant on 3/3
+  mid-stack-cluster models), unpacks why "free lunch" means three
+  things together, and quantifies the 10–22 % anchor-damage recovery
+  ratio with three named caveats; (iii)
+  `paper-section-8-f1-future-work.md` is the §8 entry-point paragraph
+  for the LLM-vs-VLM architectural-diff direction (F1) — paired
+  LLM↔VLM panel, text-anchor vs image-anchor four-condition prompt,
+  same §3 metrics + §7 attention extraction transferred to LLM stacks,
+  with three named outcome patterns (A: same locus / B: same
+  magnitude different depth / C: asymmetric magnitude) and the
+  one-figure-one-table deliverable. Roadmap §6.1 gets a `§3-prose`
+  row, §6.5 `E4 §7.4 paper rendering` flips to ✅, §6.6 `F1` flips
+  to ✅, §7 P2 row strikes through. Git hygiene pass alongside:
+  6 deleted `inputs/` files removed from the index (`inputs/` already
+  gitignored upstream); the paper-summary deck pipeline lands as
+  `scripts/build_paper_figures.py` + `scripts/build_paper_pptx.js` +
+  the four `paper_*.png` figures + the speaker-notes companion
+  `docs/insights/paper_summary_slides.md`; heavy regenerable artefacts
+  (`paper_summary.pdf`, `paper_summary.pptx`, `slide-*.jpg`) added to
+  `.gitignore` and rebuilt on demand from the two scripts.
 - **2026-04-29 (evening)** — **E1-patch POC landed (2 archetypes).**
   Driver: `scripts/compute_anchor_digit_bboxes.py` produces digit
   bboxes from anchor − masked PNG diff (n=128 anchors); modified
