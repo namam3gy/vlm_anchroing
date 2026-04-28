@@ -1,0 +1,72 @@
+seed: 42
+output_root: outputs
+
+# MathVista (γ-β) — reasoning-mode anchoring on MathVista.
+#
+# Background: γ-α (configs/experiment_e5e_mathvista_full.yaml) already gave
+# us a 3-model b/a/m/d × S1 cross-section on the MathVista integer subset.
+# Headline: gemma3-27b adopt(a) = 0.194 — the largest single cell in the
+# program — but `direction_follow_rate (M2) = 0` on every model, every
+# condition, i.e. MathVista is the "categorical-replace" regime, not the
+# "graded-tilt" regime VQAv2 / TallyQA / ChartQA live in.
+#
+# γ-β tests whether reasoning-mode (chain-of-thought) lifts the model out
+# of that categorical regime — does an explicit think-then-answer pipeline
+# (a) reduce adopt(a) and (b) re-introduce direction_follow > 0?
+#
+# Direction-agnostic. VLMBias / Wang LRM-judging suggests reasoning can
+# *amplify* some biases (System-2 audit failure mode). We ship the
+# experiment without a pre-committed direction.
+#
+# Pair: Qwen3-VL-8B-Instruct (thinking-off) vs. Qwen3-VL-8B-Thinking
+# (thinking-on, separate weights — Qwen3-VL Thinking is published as a
+# distinct checkpoint, not an enable_thinking flag). Same architecture,
+# same chat template, same 4-condition stimuli — the only delta is the
+# trained reasoning behaviour.
+#
+# Single-stratum S1-only relative cutoff (|a − GT| ≤ max(1, 0.10·GT)) —
+# matches γ-α and the rest of E5e.
+#
+# Parser note: the runner detects the literal `</think>` marker in raw_text
+# and parses the answer from the post-trace tail (see models.py
+# _summarize_generation + tests/test_utils.py::ExtractLastNumberTest).
+# max_new_tokens is 512 to give Thinking enough budget for a typical
+# 100-300 token CoT trace + final JSON answer (γ-α smoke saw 116 tokens
+# for one example, 20.8 tok/s on H200).
+
+vqa_dataset:
+  local_path: inputs/mathvista_testmini
+  answer_type_filter: ["integer"]
+  answer_range: 1000
+  require_single_numeric_gt: true
+
+inputs:
+  irrelevant_number_dir: inputs/irrelevant_number
+  irrelevant_number_masked_dir: inputs/irrelevant_number_masked
+  irrelevant_neutral_dir: inputs/irrelevant_neutral
+  anchor_sampling: stratified
+  stratified_extras: ["masked", "neutral"]
+  anchor_distance_scheme: relative_s1   # |a − GT| ≤ max(1, 0.10·GT)
+
+models:
+  - name: qwen3-vl-8b-instruct
+    hf_model: Qwen/Qwen3-VL-8B-Instruct
+  - name: qwen3-vl-8b-thinking
+    hf_model: Qwen/Qwen3-VL-8B-Thinking
+
+sampling:
+  temperature: 0.0
+  top_p: 1.0
+  max_new_tokens: 512
+
+prompt:
+  system: |
+    You are a visual question answering system.
+    Return valid JSON only in the form {"result": <number>}.
+    Use a numeric JSON value for <number>, not a string.
+    Do not output any other keys, words, explanation, or markdown.
+    If uncertain, still output the single most likely number in that JSON format.
+  user_template: |
+    Answer the question using the provided image(s).
+    Return JSON only in the form {"result": <number>}.
+    Question: {question}

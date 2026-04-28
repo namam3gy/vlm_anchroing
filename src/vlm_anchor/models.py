@@ -63,6 +63,8 @@ class _BaseRunner:
             kw["top_p"] = self.cfg.top_p
         return kw
 
+    THINKING_MARKER = "</think>"
+
     def _summarize_generation(
         self,
         *,
@@ -88,9 +90,25 @@ class _BaseRunner:
                 }
             )
 
-        answer_number = extract_first_number(decoded)
+        # Reasoning-mode VLMs emit `<think>...</think>\n\n<final>` — keep the
+        # full trace in raw_text but parse the answer from the post-trace tail
+        # so trace-internal numerals (e.g. "let me count: 1, 2, 3") don't get
+        # picked up as the prediction. For non-thinking models the marker is
+        # absent, post_trace == decoded, and behaviour is unchanged.
+        marker = self.THINKING_MARKER
+        marker_idx = decoded.rfind(marker)
+        post_trace = decoded[marker_idx + len(marker):] if marker_idx >= 0 else decoded
+        answer_number = extract_first_number(post_trace)
+
+        # Match answer token by reverse iteration so we lock onto the final
+        # answer token rather than an earlier same-valued numeral inside the
+        # trace. BPE tokenizers don't allow safe text-position arithmetic, so
+        # we trust generation order: the final answer is the latest match.
         answer_token = next(
-            (t for t in token_info if extract_first_number(t["token_text"]) == answer_number and answer_number),
+            (
+                t for t in reversed(token_info)
+                if answer_number and extract_first_number(t["token_text"]) == answer_number
+            ),
             None,
         )
 
@@ -103,6 +121,13 @@ class _BaseRunner:
             "answer_token_probability": answer_token["probability"] if answer_token else None,
             "answer_token_id": answer_token["token_id"] if answer_token else None,
             "answer_token_text": answer_token["token_text"] if answer_token else None,
+            # Reasoning-mode bookkeeping. `thinking_marker_present` is False
+            # whenever max_new_tokens cut off the trace before `</think>`,
+            # so post-trace parsing fell back to the full decoded string —
+            # the prediction may then be a trace-internal numeral. Always
+            # filter on this in any thinking-mode analysis.
+            "thinking_marker_present": marker_idx >= 0,
+            "n_generated_tokens": len(gen_ids),
         }
 
 
