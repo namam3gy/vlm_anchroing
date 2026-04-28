@@ -77,14 +77,19 @@ def paired_adoption(parsed_pred: str | None, anchor_value: str | None,
     return int(p == a and b != a)
 
 
-def direction_follow(parsed_pred: str | None, anchor_value: str | None,
-                     ground_truth: str | None) -> int:
+def direction_follow(parsed_pred: str | None, base_pred: str | None,
+                     anchor_value: str | None) -> int:
+    """C-form direction-follow numerator: did pa shift from pb toward anchor?
+
+    Returns ``int((pa - pb) * (anchor - pb) > 0)`` when all three are
+    integer-parseable, else 0.
+    """
     a = _normalized_int_str(anchor_value)
     p = _normalized_int_str(parsed_pred)
-    g = _normalized_int_str(ground_truth)
-    if a is None or p is None or g is None:
+    b = _normalized_int_str(base_pred)
+    if a is None or p is None or b is None:
         return 0
-    return int((int(p) - int(g)) * (int(a) - int(g)) > 0)
+    return int((int(p) - int(b)) * (int(a) - int(b)) > 0)
 
 
 def numeric_distance_to_anchor(parsed_pred: str | None,
@@ -231,7 +236,7 @@ def reaggregate_ablation_like(run_dir: Path, records: list[dict[str, Any]],
                 target_only_count += 1
             else:
                 r["anchor_adopted"] = paired_adoption(parsed, anchor, base_parsed)
-                df_raw = direction_follow(parsed, anchor, gt)
+                df_raw = direction_follow(parsed, base_parsed, anchor)
                 r["anchor_direction_followed"] = df_raw
                 pa_n = _normalized_int_str(parsed)
                 pb_n = _normalized_int_str(base_parsed)
