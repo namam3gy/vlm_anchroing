@@ -1,5 +1,14 @@
 # E5c — the digit pixels are the operative cause; the anchor scene is not
 
+> **2026-04-28 note.** `adopt_cond` and `df_cond` numbers below were
+> measured under the M2 era (pre-C-form). Outputs re-aggregated to
+> C-form direction-follow numerator. Pre-refactor results archived at
+> `outputs/before_C_form/experiment_e5c_*/`. The headline finding —
+> anchor > masked at every distance stratum, gap fades to noise by S5,
+> masked ≈ neutral on `acc_drop` — is unchanged. Exact pp-shifts in
+> direction-follow comparisons will be re-rendered in the follow-up
+> sweep.
+
 **Status:** Sub-experiment of E5; distilled insight. Source data: `outputs/experiment_e5c_{vqa,tally}/llava-next-interleaved-7b/<latest>/predictions.jsonl`. Aggregate table: `docs/insights/_data/E5c_per_cell.csv`. Figures: `docs/figures/E5c_anchor_vs_masked_adopt.png`, `docs/figures/E5c_anchor_vs_masked_df.png`, `docs/figures/E5c_acc_drop_3way.png`, `docs/figures/E5c_correct_vs_wrong_adopt.png`. Full writeup: `docs/experiments/E5c-anchor-mask-control.md`.
 
 ## The claim and the test

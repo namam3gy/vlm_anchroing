@@ -1,5 +1,15 @@
 # E4 — upper-half attention re-weighting reduces anchor pull on the mid-stack cluster
 
+> **2026-04-28 note.** `direction_follow_rate` numbers and percentage
+> reductions below predate the C-form refactor (commit 6cba878). The
+> e4_mitigation tree under `outputs/` has been re-aggregated to C-form
+> (sweep + full); pre-refactor results archived at
+> `outputs/before_C_form/e4_mitigation/`. Per the migration report, the
+> qualitative claim — upper-half attention re-weighting reduces df on
+> 6/6 models, with a "free-lunch" exact-match rise on the mid-stack
+> cluster — survives. Exact pp-shifts will be re-rendered in the
+> follow-up sweep.
+
 **Status:** Phase 1 sweep complete on all 3 mid-stack-cluster models
 (llava-1.5-7b, convllava-7b, internvl3-8b). **Phase 2 full-scale validation: llava-1.5-7b
 complete (88,650 records, 100 %), convllava-7b in flight, internvl3-8b queued.**
