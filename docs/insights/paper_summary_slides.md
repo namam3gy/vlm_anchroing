@@ -121,7 +121,7 @@ attention mass · causal ablation · mid-stack mitigation · confidence proxy.
 
 ```
 adopt_rate          = #(pa == anchor AND pb != anchor) / #(pb != anchor)
-direction_follow    = #( (pb-gt)·(pa-gt) > 0 AND pa != pb ) / #(numeric pair)
+direction_follow    = #( (pa-pb)·(anchor-pb) > 0 AND pa != pb ) / #(numeric pair)
 exact_match         = #(pa == gt) / #(numeric pair)
 anchor_effect_M     = M(anchor arm) − M(neutral arm)
 ```

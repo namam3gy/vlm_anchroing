@@ -37,17 +37,22 @@ not defined (no anchor in scene); accuracy comparisons use `pred_d` as the
 
 ```
 adopt_rate              = #(pa == anchor  AND  pb != anchor) / #(pb != anchor)
-direction_follow_rate   = #( (pb - gt)·(pa - gt) > 0  AND  pa != pb )
+direction_follow_rate   = #( (pa - pb)·(anchor - pb) > 0  AND  pa != pb )
                           / #(numeric pair AND anchor present)
 ```
 
 with `pred_x` substituted for `pred_a` on the mask/anchor arms (same form
 applies to `pred_m`).
 
-The `direction_follow_rate` numerator's `pa != pb` clause matters: without
-it, "no-change" pairs where `pa == pb` are counted as direction-follow hits
-when `(pb - gt)·(pb - gt) > 0`, i.e. whenever `pred_b ≠ gt`. That trivially
-fires in 100 % of wrong-base cells regardless of the anchor.
+The `direction_follow_rate` numerator measures whether `pa` shifted **from
+the baseline `pb` toward the anchor side of `pb`**. The `pa != pb` clause
+is structurally redundant under the C-form (when `pa == pb` the product
+factor `(pa - pb)` is exactly zero, so the numerator already excludes
+no-movement pairs), but is kept explicit for clarity and to harden against
+edge cases where `pa - pb = 0` arises from upstream parsing collapse rather
+than genuine no-movement. Using `pb` (not `gt`) as the reference makes the
+metric depend only on model outputs and the anchor draw — a direct measure
+of anchor pull, robust to per-question stimulus and gt variability.
 
 These definitions correspond to the variants `A_paired__D_paired` (adopt)
 and `DF_moved__DD_all` (direction-follow) in §3 below — both top-ranked
@@ -88,7 +93,7 @@ the cited number is.
 
 | numerator | predicate |
 |---|---|
-| `DF_raw` | `(pb - gt)·(pa - gt) > 0` (sign-based) |
+| `DF_raw` | `(pa - pb)·(anchor - pb) > 0` (sign-based, C-form) |
 | `DF_moved` | `DF_raw AND pa_ne_pb` |
 | `DF_clean` | `DF_moved AND NOT gt_eq_a` |
 
@@ -221,7 +226,7 @@ adopt_rate = (
 
 # Direction-follow rate
 direction_follow_rate = (
-    sum(  ( (pb - gt) * (pa - gt) > 0 )  AND  pa_ne_pb  )
+    sum(  ( (pa - pb) * (anchor - pb) > 0 )  AND  pa_ne_pb  )
     /
     sum(  numeric_pair AND anchor_present  )
 )

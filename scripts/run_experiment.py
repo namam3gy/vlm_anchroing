@@ -170,6 +170,9 @@ def main() -> None:
                     "exact_match": sample_eval.exact_match,
                     "anchor_adopted": sample_eval.anchor_adopted,
                     "anchor_direction_followed": sample_eval.anchor_direction_followed,
+                    "anchor_direction_followed_moved": sample_eval.anchor_direction_followed_moved,
+                    "pred_b_equal_anchor": sample_eval.pred_b_equal_anchor,
+                    "pred_diff_from_base": sample_eval.pred_diff_from_base,
                     "numeric_distance_to_anchor": sample_eval.numeric_distance_to_anchor,
                     "input_image_paths": [str(x) if isinstance(x, (str, Path)) else "<dataset_image>" for x in cond["input_images"]],
                 }
