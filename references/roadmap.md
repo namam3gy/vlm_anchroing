@@ -226,7 +226,7 @@ the coarsest possible projection of this monotonicity.
 | **E1-patch masked-arm causal control** | re-run extraction on the 4-model panel using a 4-cond config (b/a/m/d) instead of the existing 3-cond `configs/experiment.yaml`. Pairs `image_anchor_digit` on the anchor arm against the masked arm's anchor-region attention as a digit-pixel causal control. Adds ~1 hour GPU per model + 4-cond config wiring. | ☐ P3 (deferred 2026-04-29 — independent of the non-square work above) |
 | **E4 Phase 1 + 2** | mid-stack-cluster attention re-weighting (LLaVA-1.5 / ConvLLaVA / InternVL3) | ✅ |
 | **E4 §7.4 paper rendering** | report `direction_follow_rate` reduction, `exact_match` rise, `accuracy_vqa(b)` invariance side by side; the "free lunch" framing | ✅ `docs/insights/paper-section-7-4-mitigation-free-lunch.md` (2026-04-29) |
-| **E6 — anchor-agnostic steering vector mitigation (§7.4.5)** | residual-stream offset `−α · v_{L*}` calibrated from existing E5c S1 wrong-base (a, m) pairs (399 pairs verified on llava-next-interleaved-7b VQAv2); **inference requires zero anchor labels** (deployable, unlike E4). Single-layer scope (residual-stream, not refuted by E1d's attention-pathway null). **PoC on llava-next-interleaved-7b** (the §3.3 main panel). Phase 0 (calibration extraction) + Phase 0.5 (wiring smoke) + Phase 1 (n=200 stratified sweep, 42 cells) all complete 2026-04-29. **8/42 cells pass selection rule; chosen L30/α=1/v_wrong gives df −14.2 % rel with em_b/em_d/em_a all within ±0.5 pp of baseline.** Effect size matches E4 (−14.6 % on LLaVA-1.5) but at single-layer scope and zero inference-time labels — the §7.4.5 deployability gap is closed. Results: `docs/experiments/E6-steering-vector.md`. Phase 2a (full VQAv2 n=17,730) + Phase 2b (cross-dataset VQAv2/TallyQA/ChartQA/MathVista) gated on user signoff. | ✅ Phase 1 PoC (2026-04-29) — branch `e6-steering-vector-mitigation` |
+| **E6 — anchor mitigation search (multi-method, §7.4.5)** | Phase 1 single-direction ActAdd PoC ran VQAv2-only (df −14.2 % rel) but cross-dataset failed (TallyQA +5.5 %, ChartQA +1.3-4.5 %; reverse-direction cal also fails on self-test α=1). Pivoting to multi-method search per `~/.claude/plans/task-notification-task-id-bugsfzyep-tas-lively-dongarra.md`: Method 1 (multi-direction subspace projection — CIPHER/VCE/RepE), Method 2 (query-adaptive offset — AFTER QAO), Method 3 (MIA-DPO LoRA), + 9 extras. **New experiment policy:** test on TallyQA+ChartQA subsets first, VQAv2 only after cross-dataset proves out. Worst-case fallback: scope §7.4.5 to single-domain on VQAv2 with cross-dataset failure as the §7.4.5 contribution itself. | 🟡 multi-method search in flight (Method 1 queued for next session) |
 | **E1-patch generalises mitigation?** | does upper-half attention mass concentrate on the digit patch only? if yes, mitigation can shrink target region | ☐ P3 (subsumed by E6 — digit-bbox-scoped attention surgery (N1/N2 in 2026-04-29 brainstorm) needs anchor label at inference, so reframed as **mechanistic analysis tool** under §7.2 rather than a deployable mitigation) |
 
 ### 6.6 §8 — Future work (scope only)
@@ -250,9 +250,10 @@ E5c VQAv2 + TallyQA**). No P0 outstanding. New P1: **E6 anchor-agnostic
 steering-vector PoC** (deployable mitigation, motivated by the
 inference-label gap E4 inherently has — see §6.5 row).
 
-| **P1** | **E6 Phase 2a — full VQAv2 validation at chosen cell (L30/α=1/v_wrong)**. Phase 1 PoC ✅; chosen cell delivers df −14.2 % rel with deployable em invariance. Phase 2a tightens n=200 → n=17,730 CIs and produces the §7.4.5 paper-grade headline number. Triggers `docs/insights/E6-steering-evidence.md` writeup. Unlocks E4 vs E6 panel-comparison framing in paper. | §6.5 E6 | ~20–40 h H200 (resumable) + analyze ~1 day |
-| **P1** | **E6 Phase 2b — cross-dataset deployability** at chosen cell. Calibrate `v` once on llava-next-interleaved-7b VQAv2 wrong-base S1 (already done in Phase 0); apply to TallyQA / ChartQA / MathVista E5* sample sets without re-calibration. Free reviewer-defuse on "single dataset" complaint. | §6.5 E6 | ~5–10 h × 3 datasets = 15–30 h H200 |
-| **P3** | **E6 Phase 2c — LLaVA-1.5-7b head-to-head port** (optional). Same chosen-cell methodology applied to E4 panel models for direct same-model E4 vs E6 comparison. Triggered only on reviewer pushback. | §6.5 E6 | ~1 day/model |
+| **P1** | **E6 Method 1 — multi-direction subspace projection (CIPHER/VCE/RepE)**. Replaces single-direction subtraction with top-K SVD basis from per-pair (h_a − h_m) residuals pooled across VQAv2 + TallyQA + ChartQA. Drop-in for existing offset hook. **Test on TallyQA + ChartQA subsets (n=100-200) FIRST** per new experiment policy; graduate to VQAv2 only after cross-dataset proves out. Selection rule: ≥ 5 % rel df reduction on ≥ 2 of 3 datasets, em metrics within ± 2 pp. | §6.5 E6 | ½ day implementation + 3 × 15 min calibration extraction + 3-6 h sweep H200 + ½ day analysis = 1.5-2 days |
+| **P1** | **E6 Method 2 — query-adaptive offset (AFTER QAO)**. Trigger only if Method 1 fails. Tiny probe estimates per-input correction; v_general + δ_input. | §6.5 E6 | 2 days |
+| **P3** | **E6 Method 3 — MIA-DPO LoRA**. Trigger only if Method 2 fails. Multi-image preference fine-tune; weakens "train-free" claim. | §6.5 E6 | 3-4 days |
+| **P3** | **E6 Methods 4+ extras (CogBias / Spherical Steering / LEACE / DSO / Dual Steering / PAI / VCD-family / CIPHER-exact / CAST)** — held in reserve, triggered only if Methods 1-3 all fail or specific failure modes motivate a different family. | §6.5 E6 | per-method ½–4 days |
 | **P3** | E1-patch full panel non-square archetypes — InternVL3-8b (multi-tile bbox routing) and Qwen2.5-VL-7b (`grid_thw` plumbing). 2026-04-29 audit re-budgeted the original §7 1.5h estimate to 4–7 days panel-wide after finding the bbox-to-token mapping is per-encoder (POC's `int(math.isqrt(n)) ** 2 == n` gate returns None on multi-tile / rectangular grids). ConvLLaVA-7b + FastVLM-7b were perfect-square and landed in the 4-model panel 2026-04-29. | §6.5 E1-patch | ~1–2 days/model implementation + ~12 min/model H200 extraction |
 | **P3** | E1-patch masked-arm causal control — re-run extraction on 4-model panel under 4-cond config | §6.5 E1-patch | 4-cond config wiring + ~1h GPU/model |
 | **P1** | VQAv2 4-condition cross-model (b/a/m/d, S1 only, kept) | §6.3 | ~1d (3 models) — opportunistic |
@@ -326,6 +327,50 @@ inference-label gap E4 inherently has — see §6.5 row).
   TallyQA gemma3-27b cell).
 
 ## 10. Changelog
+
+- **2026-04-29 (E6 mitigation-search frame — single-direction
+  failed, pivoting to multi-method search across multiple sessions).**
+  After Phase 1 PoC landed VQAv2-only df −14.2 % rel, cross-dataset
+  testing on TallyQA + ChartQA showed **the VQAv2-calibrated v
+  backfires** (+5.5 % / +1.3-4.5 %). User-driven reverse-direction
+  calibration (TallyQA-cal, ChartQA-cal) confirmed the failure is
+  structural — `cos(v_VQA, v_tally) = 0.98` at L=30 yet behaviour
+  differs by target dataset; TallyQA-cal v even **backfires on its
+  own dataset at α=1** (+4.3 %). Single-direction subtraction is
+  hitting the n≈350 / d=4096 SNR floor.
+
+  Deep paper-search-mcp survey (14 axes, 22 methods on arXiv +
+  Semantic Scholar) produced a 3-method pivot plan in the canonical
+  plan file at
+  `~/.claude/plans/task-notification-task-id-bugsfzyep-tas-lively-dongarra.md`:
+
+  - Method 1 (PRIMARY): multi-direction subspace projection
+    (CIPHER / VCE / RepE family) — top-K SVD basis, drop-in for the
+    existing offset hook
+  - Method 2 (FALLBACK 1): query-adaptive offset (AFTER QAO) — small
+    probe estimates per-input correction
+  - Method 3 (FALLBACK 2): MIA-DPO LoRA fine-tune — multi-image
+    preference optimisation
+
+  Plus 9 extras held in reserve (CogBias, Spherical Steering, LEACE,
+  DSO, Dual Steering, PAI/AIR/Modality-Bias, VCD-family, CIPHER-exact,
+  CAST). User policy update: **every new method tested first on
+  TallyQA + ChartQA SUBSETS, only graduate to VQAv2 after cross-
+  dataset proves out** (reverses prior VQAv2-first default;
+  cross-dataset failure is the binding problem).
+
+  Em invariance ✓ on every cross-test → deployable safety claim
+  intact even though mitigation claim doesn't transfer for
+  single-direction. Worst-case fallback: scope §7.4.5 down to
+  "single-domain on VQAv2" and frame cross-dataset failure as the
+  §7.4.5 empirical contribution itself.
+
+  Status: **Method 1 implementation queued for next session**; deep
+  lit survey + reverse-cal results landed in
+  `docs/experiments/E6-steering-vector.md` (governing experiment
+  markdown — every method's per-dataset result table appends here).
+  Memory `project_next_cleaner_mitigation.md` rewritten to point at
+  the multi-method tracker.
 
 - **2026-04-29 (E6 Phase 1 PoC ✅ — anchor-agnostic mitigation works).**
   Phase 0 (calibration `v.pt` extraction, 230 s wall, 32 layers ×

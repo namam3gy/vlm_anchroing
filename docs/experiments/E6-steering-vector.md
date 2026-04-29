@@ -243,6 +243,37 @@ Two failure modes are possible:
 Reverse-calibration test (Phase 1.5) and method-pivot decisions are
 captured below.
 
+## Multi-method search frame (2026-04-29 onwards)
+
+The work below this point is one method in a **multi-method
+mitigation search** spanning multiple sessions. The canonical tracker
+is the plan file at
+`~/.claude/plans/task-notification-task-id-bugsfzyep-tas-lively-dongarra.md`
+(read it first when resuming). Each method's per-dataset result table
+appends here as it lands, in the same format. Methods so far:
+
+- **Method 0a — VQAv2-cal single-dir ActAdd ❌** (Phase 1 PoC above;
+  works on VQAv2 in isolation, fails cross-dataset)
+- **Method 0b — TallyQA-cal single-dir ActAdd ❌** (this section,
+  cross-direction transfer to VQAv2 works one direction; self-test
+  fails at α=1)
+- **Method 0c — ChartQA-cal single-dir ActAdd** (calibration extracted
+  but cross-dataset sweep deferred — low-priority sanity)
+- **Method 1 — multi-direction subspace projection (next)** —
+  CIPHER/VCE/RepE family; replaces single mean v with top-K SVD basis.
+  Implementation queued for next session.
+- **Method 2 / 3 / 4+ — fallbacks** documented in plan file and the
+  "Three-method pivot plan" section above.
+
+**Experiment policy (effective 2026-04-29).** Every new method tested
+first on **TallyQA + ChartQA SUBSETS (n=100–200 wrong-base sids)**.
+Only graduate to VQAv2 after cross-dataset proves out. Reverses the
+prior VQAv2-first default — cross-dataset failure is the binding
+problem.
+
+**Selection rule (universal).** ≥ 5 % rel df reduction on ≥ 2 of 3
+datasets, em(b) / em(d) / em(a) within ± 2 pp of baseline.
+
 ## Phase 1.5 — reverse-direction calibration results (2026-04-29)
 
 User-driven hypothesis: VQAv2 may be the noisier calibration source;
