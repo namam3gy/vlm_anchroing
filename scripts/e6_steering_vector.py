@@ -95,7 +95,9 @@ CALIB_CONDITIONS = {
 
 def _parse_args() -> argparse.Namespace:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--phase", choices=("calibrate", "smoke", "sweep", "tiebreaker"),
+    ap.add_argument("--phase",
+                    choices=("calibrate", "smoke", "sweep", "tiebreaker",
+                             "calibrate-subspace", "smoke-subspace", "sweep-subspace"),
                     required=True)
     ap.add_argument("--model", required=True,
                     help="Project model id (e.g. llava-next-interleaved-7b)")
@@ -140,6 +142,14 @@ def _parse_args() -> argparse.Namespace:
                          "calibration_<tag>/ instead of the default "
                          "calibration/ (VQAv2). Used for cross-direction "
                          "transfer experiments.")
+    ap.add_argument("--max-calibrate-pairs", type=int, default=400,
+                    help="calibrate-subspace: cap on D matrix rows per dataset.")
+    ap.add_argument("--subspace-path", default=None,
+                    help="smoke-subspace / sweep-subspace: path to precomputed "
+                         "subspace .pt (n_layers, K_max, d_model).")
+    ap.add_argument("--subspace-scope", default="pooled",
+                    help="Label for the subspace scope; written into records and "
+                         "output directory name (e.g. 'pooled', 'vqa').")
     return ap.parse_args()
 
 
@@ -782,6 +792,90 @@ SWEEP_CONDITIONS = (
 )
 
 
+# ─── Method 1: subspace projection (CIPHER / VCE / RepE style) ─────────────
+
+
+def _make_subspace_projection_hook(V_K: torch.Tensor, alpha: float):
+    """At prefill last token: h ← h − α · V_K^T · V_K · h.
+
+    V_K is (K, d_model); rows are top-K right singular vectors of the pooled
+    D matrix. Decode steps (seq_len == 1) are skipped so the effect propagates
+    through the KV cache (same convention as the ActAdd offset hook).
+    """
+    if alpha == 0:
+        return None
+
+    def hook(module, args, output):
+        hidden = output[0] if isinstance(output, tuple) else output
+        if not isinstance(hidden, torch.Tensor) or hidden.dim() != 3:
+            return output
+        if hidden.shape[1] <= 1:
+            return output  # decode step — no-op
+        V_cast = V_K.to(device=hidden.device, dtype=hidden.dtype)  # (K, d)
+        last = hidden[:, -1, :]  # (batch, d)
+        proj = (last @ V_cast.T) @ V_cast  # (batch, d)
+        hidden[:, -1, :] = last - alpha * proj
+        return output
+
+    return hook
+
+
+def _install_projection_hook(layers, layer_idx: int, V_K: torch.Tensor, alpha: float):
+    """Install subspace projection hook on layers[layer_idx]; return handle list."""
+    if alpha == 0:
+        return []
+    hook = _make_subspace_projection_hook(V_K, alpha)
+    if hook is None:
+        return []
+    return [layers[layer_idx].register_forward_hook(hook)]
+
+
+def _subspace_sweep_cells() -> list[dict]:
+    """Method 1 grid: 5×4×4 = 80 steered cells + 1 baseline = 81 total."""
+    L_values = [16, 22, 28, 30, 31]
+    K_values = [2, 4, 8, 16]
+    alphas = [0.5, 1.0, 2.0, 4.0]
+    cells: list[dict] = [{"layer": -1, "alpha": 0.0, "K": 0, "label": "baseline"}]
+    for L in L_values:
+        for K in K_values:
+            for a in alphas:
+                cells.append({"layer": L, "alpha": a, "K": K,
+                               "label": f"L{L:02d}_K{K:02d}_a{a}"})
+    return cells  # 81 total
+
+
+def _load_subspace(subspace_path: "str | Path") -> torch.Tensor:
+    """Load precomputed subspace tensor. Shape: (n_layers, K_max, d_model)."""
+    p = Path(subspace_path)
+    if not p.is_absolute():
+        p = PROJECT_ROOT / p
+    return torch.load(p, weights_only=True)
+
+
+def _load_completed_keys_subspace(path: Path) -> set:
+    """(sid, condition, layer, K, alpha) tuples already in sweep-subspace output."""
+    if not path.exists():
+        return set()
+    completed: set = set()
+    with path.open() as fh:
+        for line in fh:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                r = json.loads(line)
+                completed.add((
+                    str(r["sample_instance_id"]),
+                    str(r["condition"]),
+                    int(r["cell_layer"]),
+                    int(r["subspace_K"]),
+                    float(r["cell_alpha"]),
+                ))
+            except (json.JSONDecodeError, KeyError, TypeError, ValueError):
+                continue
+    return completed
+
+
 def _phase_sweep(args, config) -> None:
     v, meta = _load_v(args.model)
     n_layers = meta["n_layers"]
@@ -1061,6 +1155,414 @@ def _phase_tiebreaker(args, config) -> None:
     print(f"[done] saved {out_path}")
 
 
+def _phase_calibrate_subspace(args, config) -> None:
+    """Phase calibrate-subspace: save per-pair D matrices (n_pairs, n_layers, d_model)
+    alongside v.pt for subsequent SVD in e6_compute_subspace.py."""
+    if args.predictions_path:
+        _calibrate_subspace_from_predictions(args, config)
+    else:
+        _calibrate_subspace_from_e5c(args, config)
+
+
+def _calibrate_subspace_from_e5c(args, config) -> None:
+    """Collect per-pair diff tensors from VQAv2 (E5c run) for SVD."""
+    e5c_run = (PROJECT_ROOT / args.e5c_run_dir).resolve()
+    wrong_sids = _read_wrong_base_sids(e5c_run)
+    print(f"[setup] wrong-base sids from {e5c_run.name}: {len(wrong_sids)}")
+    enriched = _load_calibration_samples(args, config)
+    max_pairs = args.max_calibrate_pairs
+
+    # Prioritize wrong-base samples for maximum D_wrong coverage
+    enriched = (
+        [s for s in enriched if str(s["sample_instance_id"]) in wrong_sids]
+        + [s for s in enriched if str(s["sample_instance_id"]) not in wrong_sids]
+    )
+
+    runner, layers = _build_runner_and_layers(args, config)
+    n_layers = len(layers)
+    out_dir = (PROJECT_ROOT / "outputs" / "e6_steering" / args.model
+               / "calibration_vqa")
+    out_dir.mkdir(parents=True, exist_ok=True)
+    print(f"[setup] writing to {out_dir}  (max_pairs={max_pairs})")
+
+    diffs_wrong: list[torch.Tensor] = []
+    diffs_all: list[torch.Tensor] = []
+    n_skipped = 0
+    t0 = time.time()
+    for i, sample in enumerate(enriched):
+        if len(diffs_all) >= max_pairs:
+            break
+        sid = str(sample["sample_instance_id"])
+        a_res, m_res = None, None
+        for cond in build_conditions(sample):
+            if cond["condition"] not in CALIB_CONDITIONS:
+                continue
+            try:
+                res = _capture_last_token_residuals(runner, cond)
+            except Exception as exc:
+                print(f"  [error] sid={sid}: {exc}")
+                continue
+            if cond["condition"].endswith("masked_S1"):
+                m_res = res
+            else:
+                a_res = res
+        if a_res is None or m_res is None:
+            n_skipped += 1
+            continue
+        diff = a_res - m_res
+        diffs_all.append(diff)
+        if sid in wrong_sids:
+            diffs_wrong.append(diff)
+        n_pairs_so_far = len(diffs_all)
+        if n_pairs_so_far % 20 == 0 or n_pairs_so_far == 1:
+            elapsed = time.time() - t0
+            print(f"  [progress] {n_pairs_so_far}/{max_pairs} pairs "
+                  f"(wrong-base: {len(diffs_wrong)}); elapsed={elapsed:.1f}s")
+
+    _save_D_and_v(out_dir, diffs_wrong, diffs_all, n_layers, n_skipped, args,
+                  "vqa", time.time() - t0)
+
+
+def _calibrate_subspace_from_predictions(args, config) -> None:
+    """Collect per-pair diff tensors from any E5e dataset predictions.jsonl."""
+    pred_path = Path(args.predictions_path)
+    if not pred_path.is_absolute():
+        pred_path = PROJECT_ROOT / args.predictions_path
+    dataset_tag = args.dataset_tag
+    if dataset_tag is None:
+        try:
+            dataset_tag = pred_path.parents[2].name
+        except IndexError:
+            dataset_tag = "alt"
+    max_pairs = args.max_calibrate_pairs
+    print(f"[setup] {dataset_tag}: reading {pred_path}  (max_pairs={max_pairs})")
+
+    by_sid_cond: dict = defaultdict(dict)
+    for line in pred_path.open():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            r = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        by_sid_cond[r["sample_instance_id"]][r["condition"]] = r
+
+    eligible_sids = [
+        sid for sid, d in by_sid_cond.items()
+        if all(c in d for c in (
+            "target_only",
+            "target_plus_irrelevant_number_S1",
+            "target_plus_irrelevant_number_masked_S1",
+        ))
+    ]
+    wrong_sids = {sid for sid in eligible_sids
+                  if by_sid_cond[sid]["target_only"].get("exact_match") == 0}
+    print(f"[setup] {len(eligible_sids)} eligible sids, {len(wrong_sids)} wrong-base")
+
+    # Prioritize wrong-base sids so D_wrong gets max coverage before hitting max_pairs
+    ordered_sids = ([s for s in eligible_sids if s in wrong_sids]
+                    + [s for s in eligible_sids if s not in wrong_sids])
+
+    runner, layers = _build_runner_and_layers(args, config)
+    n_layers = len(layers)
+    out_dir = (PROJECT_ROOT / "outputs" / "e6_steering" / args.model
+               / f"calibration_{dataset_tag}")
+    out_dir.mkdir(parents=True, exist_ok=True)
+    print(f"[setup] writing to {out_dir}")
+
+    from PIL import Image as _Image
+    diffs_wrong: list[torch.Tensor] = []
+    diffs_all: list[torch.Tensor] = []
+    n_skipped = 0
+    t0 = time.time()
+
+    for sid in ordered_sids:
+        if len(diffs_all) >= max_pairs:
+            break
+        a_rec = by_sid_cond[sid].get("target_plus_irrelevant_number_S1")
+        m_rec = by_sid_cond[sid].get("target_plus_irrelevant_number_masked_S1")
+        if a_rec is None or m_rec is None:
+            n_skipped += 1
+            continue
+        a_res, m_res = None, None
+        for rec, slot in ((a_rec, "a"), (m_rec, "m")):
+            try:
+                images = [_Image.open(p).convert("RGB")
+                          for p in (rec.get("input_image_paths") or [])]
+                res = _capture_last_token_residuals(
+                    runner, {"question": rec["question"], "input_images": images})
+                if slot == "a":
+                    a_res = res
+                else:
+                    m_res = res
+            except Exception as exc:
+                print(f"  [error] sid={sid} slot={slot}: {exc}")
+        if a_res is None or m_res is None:
+            n_skipped += 1
+            continue
+        diff = a_res - m_res
+        diffs_all.append(diff)
+        if sid in wrong_sids:
+            diffs_wrong.append(diff)
+        n_pairs_so_far = len(diffs_all)
+        if n_pairs_so_far % 20 == 0 or n_pairs_so_far == 1:
+            elapsed = time.time() - t0
+            print(f"  [progress] {n_pairs_so_far}/{max_pairs} pairs "
+                  f"(wrong-base: {len(diffs_wrong)}); elapsed={elapsed:.1f}s")
+
+    _save_D_and_v(out_dir, diffs_wrong, diffs_all, n_layers, n_skipped, args,
+                  dataset_tag, time.time() - t0)
+
+
+def _save_D_and_v(out_dir: Path, diffs_wrong: list, diffs_all: list,
+                  n_layers: int, n_skipped: int, args,
+                  dataset_tag: str, wall_seconds: float) -> None:
+    """Save D_wrong.pt, D_all.pt, v.pt, and v_meta.json."""
+    if not diffs_all:
+        raise RuntimeError(f"no calibration pairs collected for {dataset_tag!r}")
+    D_all = torch.stack(diffs_all)   # (n_all, n_layers, d_model)
+    D_wrong = (torch.stack(diffs_wrong) if diffs_wrong
+               else torch.zeros(0, n_layers, D_all.shape[-1], dtype=D_all.dtype))
+    torch.save(D_all, out_dir / "D_all.pt")
+    torch.save(D_wrong, out_dir / "D_wrong.pt")
+    v_all = D_all.mean(0)
+    v_wrong = D_wrong.mean(0) if len(diffs_wrong) else torch.zeros_like(v_all)
+    torch.save(torch.stack([v_wrong, v_all]), out_dir / "v.pt")
+    sidecar = {
+        "model": args.model, "hf_model": args.hf_model,
+        "dataset_tag": dataset_tag,
+        "n_wrong": len(diffs_wrong), "n_all": len(diffs_all),
+        "n_skipped": n_skipped, "n_layers": n_layers,
+        "d_model": int(D_all.shape[-1]),
+        "D_wrong_shape": list(D_wrong.shape),
+        "D_all_shape": list(D_all.shape),
+        "v_index_0": "v_wrong", "v_index_1": "v_all",
+        "wall_seconds": wall_seconds,
+    }
+    (out_dir / "v_meta.json").write_text(json.dumps(sidecar, indent=2))
+    print(f"[done] {dataset_tag}: D_wrong={tuple(D_wrong.shape)} "
+          f"D_all={tuple(D_all.shape)} wall={wall_seconds:.1f}s; saved {out_dir}")
+
+
+def _phase_smoke_subspace(args, config) -> None:
+    """10-pair wiring smoke for subspace projection hook (Method 1)."""
+    if not args.subspace_path:
+        raise ValueError("--phase smoke-subspace requires --subspace-path")
+    if not args.predictions_path:
+        raise ValueError("--phase smoke-subspace requires --predictions-path")
+    V_all = _load_subspace(args.subspace_path)  # (n_layers, K_max, d_model)
+    # Use aggressive parameters: large alpha to ensure discrete output can change
+    L_smoke, K_smoke, alpha_smoke = 30, 16, 4.0
+    V_K_smoke = V_all[L_smoke, :K_smoke, :]
+    print(f"[setup] smoke-subspace: L={L_smoke} K={K_smoke} alpha={alpha_smoke}")
+
+    pred_path = Path(args.predictions_path)
+    if not pred_path.is_absolute():
+        pred_path = PROJECT_ROOT / args.predictions_path
+    by_sid_cond: dict = defaultdict(dict)
+    for line in pred_path.open():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            r = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        by_sid_cond[r["sample_instance_id"]][r["condition"]] = r
+
+    eligible_sids = [
+        sid for sid, d in by_sid_cond.items()
+        if ("target_only" in d
+            and d["target_only"].get("exact_match") == 0
+            and "target_plus_irrelevant_number_S1" in d)
+    ]
+    n_smoke = args.max_samples or 10
+    eligible_sids = eligible_sids[:n_smoke]
+    print(f"[setup] smoke set: {len(eligible_sids)} wrong-base sids")
+
+    runner, layers = _build_runner_and_layers(args, config)
+    dataset_tag = args.dataset_tag or "ds"
+    out_dir = (PROJECT_ROOT / "outputs" / "e6_steering" / args.model
+               / f"smoke_subspace_{dataset_tag}")
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    from PIL import Image as _Image
+    results = []
+    n_changed = 0
+    t0 = time.time()
+    for sid in eligible_sids:
+        r0 = by_sid_cond[sid].get("target_plus_irrelevant_number_S1")
+        if r0 is None:
+            continue
+        images = [_Image.open(p).convert("RGB")
+                  for p in (r0.get("input_image_paths") or [])]
+        base_out = runner.generate_number(question=r0["question"], images=images,
+                                          max_new_tokens=args.max_new_tokens)
+        handles = _install_projection_hook(layers, L_smoke, V_K_smoke, alpha_smoke)
+        try:
+            steer_out = runner.generate_number(question=r0["question"], images=images,
+                                               max_new_tokens=args.max_new_tokens)
+        finally:
+            for h in handles:
+                h.remove()
+        changed = base_out["raw_text"] != steer_out["raw_text"]
+        n_changed += int(changed)
+        results.append({"sid": sid, "baseline": base_out["raw_text"],
+                        "steered": steer_out["raw_text"], "changed": changed})
+
+    summary = {"model": args.model, "L": L_smoke, "K": K_smoke, "alpha": alpha_smoke,
+               "n_pairs": len(results), "n_changed": n_changed,
+               "wall_seconds": time.time() - t0, "details": results}
+    (out_dir / "smoke_results.json").write_text(json.dumps(summary, indent=2))
+    print(f"[smoke-subspace] {n_changed}/{len(results)} predictions changed")
+    print(f"[smoke-subspace] saved {out_dir / 'smoke_results.json'}")
+    if n_changed == 0:
+        raise RuntimeError(
+            "smoke-subspace FAIL: 0 predictions changed — projection hook not wiring"
+        )
+
+
+def _phase_sweep_subspace(args, config) -> None:
+    """Method 1 sweep: 61 cells × sids × 4 conditions with subspace projection."""
+    if not args.subspace_path:
+        raise ValueError("--phase sweep-subspace requires --subspace-path")
+    if not args.predictions_path:
+        raise ValueError("--phase sweep-subspace requires --predictions-path")
+    V_all = _load_subspace(args.subspace_path)  # (n_layers, K_max, d_model)
+    K_max = V_all.shape[1]
+    cells = _subspace_sweep_cells()
+    print(f"[setup] sweep-subspace: {len(cells)} cells, K_max={K_max}")
+
+    pred_path = Path(args.predictions_path)
+    if not pred_path.is_absolute():
+        pred_path = PROJECT_ROOT / args.predictions_path
+    dataset_tag = args.dataset_tag
+    if dataset_tag is None:
+        try:
+            dataset_tag = pred_path.parents[2].name
+        except IndexError:
+            dataset_tag = "dataset"
+    scope = args.subspace_scope
+    print(f"[setup] dataset_tag={dataset_tag} scope={scope}")
+
+    by_sid_cond: dict = defaultdict(dict)
+    for line in pred_path.open():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            r = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        by_sid_cond[r["sample_instance_id"]][r["condition"]] = r
+
+    target_conds = (
+        "target_only",
+        "target_plus_irrelevant_number_S1",
+        "target_plus_irrelevant_number_masked_S1",
+        "target_plus_irrelevant_neutral",
+    )
+    eligible_sids = [
+        sid for sid, d in by_sid_cond.items()
+        if (all(c in d for c in target_conds)
+            and d["target_only"].get("exact_match") == 0)
+    ]
+    print(f"[setup] eligible wrong-base sids (all 4 conds): {len(eligible_sids)}")
+    if args.max_samples:
+        eligible_sids = eligible_sids[:args.max_samples]
+        print(f"[setup] capped to {len(eligible_sids)}")
+
+    out_dir = (PROJECT_ROOT / "outputs" / "e6_steering" / args.model
+               / f"sweep_subspace_{dataset_tag}_{scope}")
+    out_dir.mkdir(parents=True, exist_ok=True)
+    out_path = out_dir / "predictions.jsonl"
+    completed = _load_completed_keys_subspace(out_path)
+    print(f"[setup] writing to {out_path}; resumed={len(completed)}")
+
+    runner, layers = _build_runner_and_layers(args, config)
+
+    from PIL import Image as _Image
+    total_target = len(eligible_sids) * len(target_conds) * len(cells)
+    n_done = 0
+    n_skipped = 0
+    t0 = time.time()
+    with out_path.open("a") as fh:
+        for cell in cells:
+            L = cell["layer"]
+            K = cell["K"]
+            alpha = cell["alpha"]
+            handles = []
+            if alpha != 0 and K > 0 and K <= K_max:
+                V_K = V_all[L, :K, :]  # (K, d)
+                handles = _install_projection_hook(layers, L, V_K, alpha)
+            try:
+                for sid in eligible_sids:
+                    for cond_name in target_conds:
+                        r0 = by_sid_cond[sid].get(cond_name)
+                        if r0 is None:
+                            continue
+                        key = (sid, cond_name, int(L), int(K), float(alpha))
+                        if key in completed:
+                            n_skipped += 1
+                            continue
+                        try:
+                            img_paths = r0.get("input_image_paths") or []
+                            images = [_Image.open(p).convert("RGB") for p in img_paths]
+                            out = runner.generate_number(
+                                question=r0["question"], images=images,
+                                max_new_tokens=args.max_new_tokens)
+                            err = None
+                        except Exception as exc:
+                            out = {"raw_text": None, "parsed_number": None}
+                            err = str(exc)
+                        anchor_int = None
+                        if r0.get("anchor_value") is not None:
+                            try:
+                                anchor_int = int(str(r0["anchor_value"]).strip())
+                            except (ValueError, TypeError):
+                                pass
+                        rec = {
+                            "model": args.model,
+                            "dataset_tag": dataset_tag,
+                            "subspace_scope": scope,
+                            "sample_instance_id": sid,
+                            "question_id": r0.get("question_id"),
+                            "condition": cond_name,
+                            "ground_truth": r0.get("ground_truth"),
+                            "anchor_value": anchor_int,
+                            "is_wrong_base": True,
+                            "cell_label": cell["label"],
+                            "cell_layer": L,
+                            "cell_alpha": alpha,
+                            "subspace_K": K,
+                            "raw_text": out.get("raw_text"),
+                            "parsed_number": out.get("parsed_number"),
+                            "exact_match": _exact_match(
+                                out.get("parsed_number"), r0.get("ground_truth")),
+                            "error": err,
+                        }
+                        fh.write(json.dumps(rec) + "\n")
+                        fh.flush()
+                        n_done += 1
+                        if n_done % 200 == 0 or n_done == 1:
+                            elapsed = time.time() - t0
+                            rate = n_done / max(elapsed, 1)
+                            remaining = total_target - (n_done + n_skipped)
+                            eta = remaining / max(rate, 1e-6)
+                            print(f"  [progress] cell={cell['label']:28s} "
+                                  f"done={n_done} skipped={n_skipped} "
+                                  f"rate={rate:.1f}/s eta={eta/60:.1f}min")
+            finally:
+                for h in handles:
+                    h.remove()
+
+    elapsed = time.time() - t0
+    print(f"[done] sweep-subspace {dataset_tag}: {n_done} new + {n_skipped} resumed "
+          f"= {n_done + n_skipped}/{total_target} wall={elapsed/60:.1f}min")
+    print(f"[done] saved {out_path}")
+
+
 def main() -> None:
     args = _parse_args()
     set_seed(args.seed)
@@ -1074,6 +1576,12 @@ def main() -> None:
         _phase_sweep(args, config)
     elif args.phase == "tiebreaker":
         _phase_tiebreaker(args, config)
+    elif args.phase == "calibrate-subspace":
+        _phase_calibrate_subspace(args, config)
+    elif args.phase == "smoke-subspace":
+        _phase_smoke_subspace(args, config)
+    elif args.phase == "sweep-subspace":
+        _phase_sweep_subspace(args, config)
     else:
         raise ValueError(f"unknown phase: {args.phase}")
 
