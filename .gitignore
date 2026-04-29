@@ -26,8 +26,10 @@ outputs/
 # Claude Code local settings
 .claude/
 
-# Generated paper-summary deliverables (regenerable from scripts/build_paper_pptx.js)
-docs/figures/paper_summary.pdf
-docs/figures/paper_summary.pptx
-docs/figures/slide-*.jpg
+# PowerPoint decks — keep local only, regenerable from scripts/build_paper_pptx.js
+*.pptx
+
+# Other paper-summary deliverables (regenerable; previews of paper_summary.pptx)
+docs/ppt/paper_summary.pdf
+docs/ppt/slide-*.jpg
 
