@@ -831,17 +831,17 @@ def _install_projection_hook(layers, layer_idx: int, V_K: torch.Tensor, alpha: f
 
 
 def _subspace_sweep_cells() -> list[dict]:
-    """Method 1 grid: 5×4×3 = 60 steered cells + 1 baseline = 61 total."""
+    """Method 1 grid: 5×4×4 = 80 steered cells + 1 baseline = 81 total."""
     L_values = [16, 22, 28, 30, 31]
     K_values = [2, 4, 8, 16]
-    alphas = [0.25, 0.5, 1.0]
+    alphas = [0.5, 1.0, 2.0, 4.0]
     cells: list[dict] = [{"layer": -1, "alpha": 0.0, "K": 0, "label": "baseline"}]
     for L in L_values:
         for K in K_values:
             for a in alphas:
                 cells.append({"layer": L, "alpha": a, "K": K,
                                "label": f"L{L:02d}_K{K:02d}_a{a}"})
-    return cells  # 61 total
+    return cells  # 81 total
 
 
 def _load_subspace(subspace_path: "str | Path") -> torch.Tensor:
@@ -1352,7 +1352,8 @@ def _phase_smoke_subspace(args, config) -> None:
     if not args.predictions_path:
         raise ValueError("--phase smoke-subspace requires --predictions-path")
     V_all = _load_subspace(args.subspace_path)  # (n_layers, K_max, d_model)
-    L_smoke, K_smoke, alpha_smoke = 30, 4, 0.5
+    # Use aggressive parameters: large alpha to ensure discrete output can change
+    L_smoke, K_smoke, alpha_smoke = 30, 16, 4.0
     V_K_smoke = V_all[L_smoke, :K_smoke, :]
     print(f"[setup] smoke-subspace: L={L_smoke} K={K_smoke} alpha={alpha_smoke}")
 
