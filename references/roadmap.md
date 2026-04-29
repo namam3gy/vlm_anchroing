@@ -68,7 +68,7 @@ in-flight · ☐ not started.
 | `experiment_e5d_chartqa_validation` | ChartQA | per-dataset cutoff validation | llava-interleave-7b | ✅ S1-only relative cutoff adopted |
 | `experiment_e5d_mathvista_validation` | MathVista | same | llava-interleave-7b | ⚠ C3 FAIL — see §9 (MathVista (γ) supersedes) |
 | `experiment_e5e_chartqa_full` | ChartQA | b/a/m/d (S1) | llava-interleave-7b, qwen2.5-vl-7b, gemma3-27b-it | ✅ |
-| `experiment_e5e_tallyqa_full` | TallyQA | b/a/m/d (S1) | same 3 | ✅ — gemma3-27b cell completed 2026-04-28 23:28 (n=38,245); C-form re-aggregation pending before §3.3 panel insertion |
+| `experiment_e5e_tallyqa_full` | TallyQA | b/a/m/d (S1) | same 3 | ✅ — gemma3-27b cell landed 2026-04-29 (inference 2026-04-28 23:28, C-form re-aggregation 2026-04-29) |
 | `experiment_e5e_mathvista_full` (γ-α) | MathVista | b/a/m/d (S1) | llava-interleave-7b, qwen2.5-vl-7b, gemma3-27b-it | ✅ landed 2026-04-29 — `docs/insights/E5e-mathvista-evidence.md` |
 | MathVista (γ-β) reasoning-mode | MathVista | b/a/m/d (S1) | qwen3-vl-8b-instruct + qwen3-vl-8b-thinking | ✅ landed 2026-04-28 — thinking *amplifies* anchor pull (S1 anchor arm, all-base, n=365: instruct adopt(a)=0.074 df(a)=0.102 → thinking adopt(a)=0.117 df(a)=0.291; ratios ×1.6 adopt, ×2.9 df). VLMBias / LRM-judging gain confirmed |
 | VQAv2 4-condition (b/a/m/d) | VQAv2 | full grid cross-model | TBD | ☐ P1 (kept, time-permitting) |
@@ -140,22 +140,23 @@ Wrong-base S1 `adopt_rate` gap (anchor − masked) under M2:
 
 All-base, S1 anchor / masked, C-form (numbers cross-checked against
 `outputs/experiment_e5e_*_full/<model>/<ts>/summary.json` and
-`docs/insights/_data/experiment_e5e_*_per_cell.csv` 2026-04-28):
+`docs/insights/_data/experiment_e5e_*_per_cell.csv` 2026-04-29):
 
 | dataset | model | acc(b) | acc(a) | adopt(a) | adopt(m) | df(a) C-form | df(m) C-form |
 |---|---|---:|---:|---:|---:|---:|---:|
 | ChartQA | gemma3-27b-it | 0.217 | 0.218 | **0.037** | 0.022 | **0.096** | 0.079 |
 | ChartQA | llava-interleave-7b | 0.113 | 0.110 | **0.028** | 0.009 | **0.152** | 0.115 |
 | ChartQA | qwen2.5-vl-7b | 0.255 | 0.253 | **0.017** | 0.013 | **0.051** | 0.046 |
+| TallyQA | gemma3-27b-it | 0.237 | 0.236 | **0.027** | 0.016 | **0.073** | 0.060 |
 | TallyQA | llava-interleave-7b | 0.236 | 0.233 | **0.026** | 0.014 | **0.066** | 0.056 |
 | TallyQA | qwen2.5-vl-7b | 0.230 | 0.226 | **0.011** | 0.011 | **0.029** | 0.030 |
 
-TallyQA × gemma3-27b-it cell **completed 2026-04-28 23:28** (full
-38,245-question integer subset). Pre-C-form summary numbers: `acc(b) =
-0.237 / acc(d) = 0.227 / acc(a) = 0.236 / adopt(a) = 0.023 / df(a)
-pull-form = 0.174 / acc(m) = 0.239 / adopt(m) = 0.013 / df(m) pull-form
-= 0.163`. C-form re-aggregation pending (Step C); panel row will land
-once `reaggregate_paired_adoption.py` rewrites `predictions.jsonl`.
+TallyQA × gemma3-27b-it cell landed 2026-04-29 (inference completed
+2026-04-28 23:28; C-form re-aggregation 2026-04-29 via
+`reaggregate_paired_adoption.py`). Wrong-base S1 cell from the per-cell
+CSV: `adopt(a) = 0.059`, `df(a) C-form = 0.152`, `adopt(m) = 0.034`,
+`df(m) = 0.133` — matching the panel-leading TallyQA pattern (graded
+tilt with anchor > masked, S1 distance window).
 
 E1d upper-half ablation: **−4.0 to −10.5 pp** `direction_follow` (C-form)
 on 6/6 models; fluency-clean on 4/6 (mid-stack cluster + Qwen).
@@ -291,13 +292,12 @@ bearing. P2 = ideation depth. P3 = future / parallel.
 
 **As of 2026-04-29** — most P0s have landed (M2-refactor + C-form, L1-L4
 confidence, γ-α + γ-β MathVista, E1-patch POC, paper §3/§7.4/§8 prose,
-**E5e TallyQA gemma3-27b cell**). The remaining paper-blockers are the
-**C-form re-aggregation of the gemma3-27b TallyQA cell** (no compute,
-~30 min) and the **qwen2.5-vl-7b expansion of E5b/E5c**.
+**E5e TallyQA gemma3-27b cell** including C-form re-aggregation and §3.3
+panel insertion). The remaining paper-blocker is the **qwen2.5-vl-7b
+expansion of E5b/E5c** (running 2026-04-29 in parallel on GPU 0/1).
 
 | P | Task | Source | ETA / compute |
 |---|---|---|---|
-| **P0** | C-form re-aggregation of gemma3-27b TallyQA cell + §3.3 panel insertion | §6.3 E5b/c cross-model expansion | ~30 min, no GPU (raw `predictions.jsonl` already on disk at `outputs/experiment_e5e_tallyqa_full/gemma3-27b-it/20260428-003945/`) |
 | **P0** | qwen2.5-vl-7b on E5c VQAv2 + TallyQA (stratified, b + a×S1-5 + m×S1-5 + d) | §6.3 E5b/c cross-model expansion | ~3h × 2 datasets on H200 (running 2026-04-29 in parallel on GPU 0/1) |
 | **P0** | gemma3-27b on E5c VQAv2 (TallyQA stratified is infeasible at full n=1000 base; use `max_samples=300` if launched) | §6.3 E5b/c cross-model expansion | ~5-6h on H200 |
 | **P1** | E1-patch full panel — masked arm causal control + 4 remaining archetypes (qwen2.5-vl-7b, internvl3-8b, convllava-7b, fastvlm-7b) | §6.5 E1-patch | ~1.5h attention extraction (n=200 each) + analysis |
@@ -309,7 +309,8 @@ confidence, γ-α + γ-β MathVista, E1-patch POC, paper §3/§7.4/§8 prose,
 
 **Recently landed (struck from queue 2026-04-29):**
 
-- ~~E5e TallyQA gemma3-27b cell~~ ✅ (inference completed 2026-04-28 23:28; C-form re-aggregation pending P0 above)
+- ~~E5e TallyQA gemma3-27b cell~~ ✅ (inference 2026-04-28 23:28; C-form re-aggregation 2026-04-29 — `predictions.jsonl` rewritten with `_moved` flag, `summary.json` refreshed, `docs/insights/_data/experiment_e5e_tallyqa_full_per_cell.csv` rebuilt with the new model row, §3.3 panel updated)
+- ~~C-form re-aggregation of gemma3-27b TallyQA cell + §3.3 panel insertion~~ ✅ (2026-04-29; folded into above)
 
 **Recently landed (struck from queue 2026-04-28):**
 
@@ -369,19 +370,26 @@ confidence, γ-α + γ-β MathVista, E1-patch POC, paper §3/§7.4/§8 prose,
 
 ## 10. Changelog
 
-- **2026-04-29 (E5e TallyQA gemma3-27b cell landed — status sync).**
-  Inference for the last cross-model E5e TallyQA cell (gemma3-27b-it,
-  full 38,245-question integer subset, b/a/m/d S1) finished 2026-04-28
-  23:28 UTC, well ahead of the originally projected 30–35h wall budget.
-  Pre-C-form headline (raw `summary.json`): `acc(b) = 0.237 / acc(d) =
-  0.227 / acc(a) = 0.236 / adopt(a) = 0.023 / df(a) pull-form = 0.174 /
-  acc(m) = 0.239 / adopt(m) = 0.013 / df(m) pull-form = 0.163`.
-  C-form re-aggregation via `scripts/reaggregate_paired_adoption.py` is
-  pending; §3.3 panel row will be added once `predictions.jsonl` carries
-  the canonical M2 `_moved` flag. §3.1 row 11 flipped from 🟡 to ✅ with
-  the carryover note; §7 P0 entry replaced with the no-compute
-  re-aggregation task; running qwen2.5-vl-7b E5c VQAv2 + TallyQA on
-  GPU 0/1 in parallel (2026-04-29).
+- **2026-04-29 (E5e TallyQA gemma3-27b cell landed end-to-end).**
+  Inference finished 2026-04-28 23:28 UTC (n=38,245, full integer
+  subset, b/a/m/d S1), ahead of the projected 30–35h wall budget.
+  C-form re-aggregation ran 2026-04-29 via
+  `scripts/reaggregate_paired_adoption.py --apply` (152,980 records
+  rewritten in place; `predictions.marginal.bak.jsonl` /
+  `predictions.marginal.bak.csv` / `summary.marginal.bak.json` retained
+  for audit). `docs/insights/_data/experiment_e5e_tallyqa_full_per_cell.csv`
+  was rebuilt via `scripts/analyze_e5e_wrong_correct.py --exp-dir
+  experiment_e5e_tallyqa_full` (3 run dirs, 12 → 18 rows). §3.3 panel
+  TallyQA section now carries the gemma3-27b row at the top (largest
+  TallyQA `df(a)` cell): `acc(b) = 0.237 / acc(a) = 0.236 / adopt(a) =
+  0.027 / adopt(m) = 0.016 / df(a) C-form = 0.073 / df(m) C-form =
+  0.060`. Wrong-base S1 (per-cell): `adopt(a) = 0.059`, `df(a) C-form
+  = 0.152`. §3.1 row 11 fully ✅, §7 P0 cleared.
+
+  In parallel, qwen2.5-vl-7b cross-model E5c expansion (b + a×S1-5 +
+  m×S1-5 + d on VQAv2 + TallyQA) launched 2026-04-29 on GPU 0/1
+  with `--models qwen2.5-vl-7b-instruct`; logs at
+  `outputs/_logs/e5c_*_qwen25vl_*.log`.
 
 - **2026-04-28 (B안 — full C-form propagation to E1d / E4 / §7).**
   Closing the metric-consistency gap between §3.3 / §5 (C-form) and
