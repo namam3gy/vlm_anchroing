@@ -1,7 +1,7 @@
 # 논문 스타일 요약 발표 (paper_summary.pptx) — 슬라이드별 설명
 
-**Status:** 2026-04-29 작성. PPTX 파일: `docs/figures/paper_summary.pptx`.
-PDF: `docs/figures/paper_summary.pdf`. 자료 출처:
+**Status:** 2026-04-29 작성. PPTX 파일: `docs/ppt/paper_summary.pptx`.
+PDF: `docs/ppt/paper_summary.pdf`. 자료 출처:
 `references/project.md §0`, `docs/insights/`. 한국어로 작성.
 
 > **2026-04-28 note.** 본 deck은 C-form refactor 이전 numbers로 작성됨.
@@ -13,7 +13,7 @@ PDF: `docs/figures/paper_summary.pdf`. 자료 출처:
 > + `analyze_e5e_wrong_correct.py` + `analyze_e5b_distance.py` 등
 > 의존 csv refresh 후 `scripts/build_paper_figures.py` +
 > `build_paper_pptx.js`로 재생성 필요. C-form 결과 비교는 별도 deck
-> `docs/figures/C_form_migration_report.pptx`.
+> `docs/ppt/C_form_migration_report.pptx`.
 
 이 문서는 발표자가 각 슬라이드 옆에 두고 읽을 수 있는 발표 노트.
 슬라이드의 핵심 메시지, 강조 포인트, 예상 질문 + 답변을 정리한다.
