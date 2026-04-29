@@ -6,23 +6,30 @@ doc captures motivation, objective, and the Phase-0/1/2 plan; results
 will land in a companion `docs/experiments/E6-steering-vector.md` +
 evidence doc once PoC clears Phase 1.
 
-**2026-04-29 revision** — corrects two design-review bugs:
-1. **Model panel:** original draft named LLaVA-1.5-7b for PoC and
-   referenced "E5c S1 wrong-base sids on disk" as the calibration
-   source. E5c was run on `llava-next-interleaved-7b` (the §3.3 main
-   panel), not `llava-1.5-7b` (the E4 mechanism panel). To preserve
-   the §7.4.5 "research-demo → deployable" head-to-head against E4
-   on the same model, this revision keeps the LLaVA-1.5-7b PoC and
-   replaces the "use existing E5c sids" plan with a freshly-extracted
-   calibration set on LLaVA-1.5-7b (~30–45 min H200, see Phase 0).
-   The §3.3 main-panel narrative (`llava-next-interleaved-7b` +
-   qwen2.5-vl + gemma3-27b on E5c VQAv2 + TallyQA) is kept as a
-   Phase 2 cross-panel deployability check.
-2. **`parsed_number` field:** older E5c runs persist `parsed_number =
-   None`; numeric prediction must be reconstructed via
-   `vlm_anchor.utils.extract_first_number(record['prediction'])`.
-   `record['exact_match']` is `0/1` int, not `False/True` bool — filter
-   wrong-base with `record['exact_match'] == 0`, not `is False`.
+**2026-04-29 revision history:**
+
+- **First revision** (initial review): caught two bugs — model panel
+  mismatch (original named LLaVA-1.5-7b PoC + "E5c sids on disk" but
+  E5c was on llava-next-interleaved-7b) and `parsed_number = None`
+  field bug.
+- **Second revision** (user-driven, current): flipped PoC to
+  `llava-next-interleaved-7b` itself rather than keeping LLaVA-1.5-7b
+  + fresh extraction. Reasoning: (a) llava-next is the §3.3 main
+  panel — paper-headline behavioral results already on this model; (b)
+  E5c VQAv2 wrong-base S1 sids ready on disk (399 pairs, verified
+  2026-04-29); (c) **free cross-dataset deployability check** —
+  E5c TallyQA, E5e ChartQA, E5e MathVista already on this model, so
+  Phase 2 can test "calibrate v on VQAv2, deploy on TallyQA / ChartQA /
+  MathVista" without re-calibration; (d) cross-dataset robustness is a
+  stronger §7.4.5 reviewer-defuse than same-model E4 head-to-head. E4
+  comparison becomes a narrative reference (E4's published numbers in
+  §7.4) rather than a re-run.
+
+**`parsed_number` bug** (still applies). Older E5c runs persist
+`parsed_number = None`; numeric prediction must be reconstructed via
+`vlm_anchor.utils.extract_first_number(record['prediction'])`.
+`record['exact_match']` is `0/1` int, not `False/True` bool — filter
+wrong-base with `record['exact_match'] == 0`, not `is False`.
 
 ## Goal
 
@@ -33,7 +40,7 @@ the residual stream reduces `direction_follow_rate(a)` by ≥ 10 % rel,
 while keeping `exact_match(target_only)` and
 `exact_match(target_plus_irrelevant_neutral)` invariant within ± 2 pp.
 
-Concrete success criteria (PoC, LLaVA-1.5-7b):
+Concrete success criteria (PoC, llava-next-interleaved-7b):
 
 ```
 df(a)         decreases ≥ 10 % rel  on n=200 stratified  (anchor-arm S1)
@@ -43,8 +50,10 @@ em(a)         decreases ≤ 2 pp OR rises                  (does not damage anch
 mean_distance_to_anchor(a)  within ± 1 unit of baseline  (fluency guard)
 ```
 
-If those clear, expand to Phase 2 (full n=17,730) and the E4 panel
-({llava-1.5-7b, convllava-7b, internvl3-8b}) for direct E4-vs-E6 comparison.
+If those clear, expand to Phase 2 — cross-dataset deployability check
+(VQAv2-calibrated `v` deployed on TallyQA / ChartQA / MathVista E5c
+data, all already on disk for this model) plus optional E4 panel port
+for head-to-head reporting.
 
 ## Motivation — the anchor-agnostic-at-inference axis
 
@@ -72,11 +81,9 @@ requirement**:
 
 E6 sits in the same deployable bucket as fine-tuning, but **train-free**:
 calibration is a single forward-pass sweep on a small labelled set
-(VQAv2 wrong-base S1 (a, m) pairs), then inference applies a fixed
-residual-stream offset universally. The labelled set is constructed
-fresh on the PoC model (LLaVA-1.5-7b) since the §3.3 E5c data is on a
-different model panel — see Phase 0 for the construction; ~30–45 min
-H200 cost.
+(VQAv2 wrong-base S1 (a, m) pairs from existing E5c data on
+`llava-next-interleaved-7b` — 399 pairs verified 2026-04-29), then
+inference applies a fixed residual-stream offset universally.
 
 This factoring also reframes E4 — it is **not** dropped from the paper;
 it remains the §7.4 mechanism story (validates the upper-half locus
@@ -122,19 +129,17 @@ Three independently necessary properties:
 
 ## Phase 0 — calibration vector extraction
 
-**Calibration set construction** (LLaVA-1.5-7b, no existing E5c run on
-this model — extract fresh):
+**Calibration set construction** (llava-next-interleaved-7b, leveraging
+existing E5c data):
 
-1. Run b condition (`target_only`) on the full VQAv2 number subset
-   (n=1000 base sids per `configs/experiment.yaml`); cache
-   `extract_first_number(prediction)` and ground truth → identify
-   wrong-base sids `{ sid : pred_b != gt }`. Empirical wrong-base
-   fraction on the §3.3 main panel is 30–40 % (`exact_match == 0`),
-   so expect ~300–400 wrong-base sids on LLaVA-1.5-7b.
-2. For each wrong-base sid, run two further forward passes with
-   residual-stream hooks installed: condition `a-S1` (anchor) and
-   `m-S1` (masked). Total ≈ 1000 (b) + 2 × ~350 (a/m) = ~1700 forward
-   passes ≈ **30–45 min on H200**.
+1. Identify wrong-base sids from
+   `outputs/experiment_e5c_vqa/llava-next-interleaved-7b/20260427-123331/predictions.jsonl`
+   — filter `record['condition'] == 'target_only' AND record['exact_match'] == 0`.
+   **Empirically verified 2026-04-29: 399 wrong-base S1 pairs on this
+   model.** No fresh b-condition pass needed.
+2. For each wrong-base sid, run two forward passes with residual-stream
+   hooks installed: condition `a-S1` (anchor) and `m-S1` (masked).
+   Total ≈ 2 × 399 = ~800 forward passes ≈ **15–20 min on H200**.
 
 **Residual capture position.** Output of LLM decoder layer L at the
 **last input token, before any generation** (canonical ActAdd position;
@@ -160,7 +165,7 @@ Phase 1 sweeps both as a sub-axis (settles the open "wrong-base only or
 all-base?" question empirically).
 
 `v_*[L]` lives in the residual-stream embedding dim (4096 for
-LLaVA-1.5-7b). Save as a `(2, n_layers, d_model)` tensor at
+llava-next-interleaved-7b). Save as a `(2, n_layers, d_model)` tensor at
 `outputs/e6_steering/<model>/calibration/v.pt` plus a JSON sidecar with
 `{n_wrong, n_all, n_layers, d_model, model, source_run, base_acc}` for
 audit.
@@ -179,8 +184,8 @@ audit.
 
 **Phase 0.5 — wiring smoke test (10 min, before Phase 1).** On 10 held-
 out wrong-base anchor-arm forward passes, install the
-`_make_residual_offset_hook` (Phase 1's hook) at one layer near E1b
-peak (L=16 for LLaVA-1.5) with `α=2.0` and verify:
+`_make_residual_offset_hook` (Phase 1's hook) at a generic mid-stack
+layer (`n_layers // 2`) with `α=2.0` and verify:
 
 - The output digit token (or its top-3 logit ranking) actually changes
   between baseline and steered runs.
@@ -193,23 +198,27 @@ diagnose before burning the 5–7 h sweep budget.
 
 ## Phase 1 — (L, α) sweep on n=200 stratified
 
-**What.** For LLaVA-1.5-7b, run the existing E1b stratified n=200 set
+**What.** For llava-next-interleaved-7b, run the existing E1b stratified n=200 set
 (top-decile susceptible × 100 + bottom-decile resistant × 100, same set
 E1d/E4 used) under **4 conditions** (b / a-S1 / m-S1 / d) × **(L × α)
 grid**, with `−α · v[L]` added to the residual at layer L.
 
-**Sweep grid:**
+**Sweep grid** (`n_layers` = N is read from the model's LLM stack at
+runtime; for llava-next-interleaved-7b expect N ≈ 28–32 depending on
+the Qwen variant inside):
 
 ```
-L      ∈ {2, 8, 14, 16, 18, 22, 28}      # 7 layers, dense around E1b peak L16
+L      ∈ {2, N//4, N//2 - 2, N//2, N//2 + 2, 3N//4, N - 2}   # 7 layers, dense mid-stack
 α      ∈ {1.0, 2.0, 4.0}                 # 3 magnitudes (geometric, raw scalar on ‖v‖)
 v-var  ∈ {v_wrong, v_all}                # both calibration variants from Phase 0
 ```
 
 7 × 3 × 2 = 42 (L, α, v-var) cells × 4 conditions × 200 samples = 33.6k
 generations. Plus baseline (α = 0, no v): 4 × 200 = 800. Total ~34k
-forward passes ≈ **5–7 h on H200** for LLaVA-1.5-7b. Resumable, same
-protocol as E4.
+forward passes ≈ **5–7 h on H200** for llava-next-interleaved-7b.
+Resumable, same protocol as E4. No prior E1b peak measurement on this
+model (mechanism panel is the 6 different models); the L sweep is the
+discovery itself.
 
 If Phase 0.5 smoke shows the hook is wired but predictions barely move
 at α = 1.0, expand α grid upward (e.g., {2, 4, 8}). If predictions move
@@ -245,10 +254,10 @@ em(a, L, α)  ≥  em(a, baseline) − 0.02              # anchor-arm not damage
 mean_distance_to_anchor(a, L, α)  ≤  baseline + 1.0 # fluency guard
 ```
 
-If multiple cells satisfy, tiebreakers in order: (i) layer closest to
-E1b peak L16 (maximum mechanism-narrative coherence); (ii) smaller |α|;
-(iii) `v_wrong` over `v_all` (cleaner signal-to-noise on the
-calibration set).
+If multiple cells satisfy, tiebreakers in order: (i) smaller |α|
+(minimum offset magnitude); (ii) `v_wrong` over `v_all` (cleaner
+signal-to-noise on the calibration set); (iii) layer closer to mid-
+stack (more interpretable as "anchor signal site").
 
 **Failure escalation paths:**
 
@@ -266,59 +275,82 @@ calibration set).
   direction is too coarse (likely entangled with non-anchor-specific
   prediction direction).
 
-## Phase 2 — full validation (LLaVA-1.5-7b head-to-head, then panels)
+## Phase 2 — cross-dataset deployability + full validation
 
-If Phase 1 clears on LLaVA-1.5-7b, Phase 2 runs in two stages:
+If Phase 1 clears, Phase 2 runs in two stages.
 
-### Phase 2a — E4 head-to-head on LLaVA-1.5-7b
+### Phase 2a — Full VQAv2 validation on llava-next-interleaved-7b
 
 Full VQAv2 number subset (n=17,730 sample-instances × b/a-S1/m-S1/d ×
-{baseline, steering at (L*, α*, v-var*)}) on LLaVA-1.5-7b. ≈ 142k
-generations × ~0.5–1 s ≈ **20–40 h on H200** — same scale as E4 Phase 2
-single model. This is the §7.4.5 paper headline.
+{baseline, steering at (L*, α*, v-var*)}) on llava-next-interleaved-7b.
+≈ 142k generations × ~0.5–1 s ≈ **20–40 h on H200** — same scale as E4
+Phase 2 single model. Tightens Phase 1's n=200 confidence intervals on
+the same model.
 
-**E4-vs-E6 head-to-head reporting** on LLaVA-1.5-7b:
+**Reporting (paper §7.4.5 headline):**
 
-| metric | baseline | E4 (s* = −3.0, upper-half attention) | E6 (L*, α*, v-var*, residual offset) |
-|---|---|---|---|
-| df(a) | 0.288 | 0.246 (−14.6 %) | TBD |
-| em(b) | invariant | invariant (E4 verified) | **must verify** |
-| em(d) | TBD | TBD (re-aggregate E4 from raw) | **must verify** |
-| em(a) | 0.334 | 0.342 (+0.8 pp) | TBD |
-| **inference-time anchor label needed?** | n/a | ✓ (anchor span) | **✗** |
+| metric | baseline | E6 (L*, α*, v-var*, residual offset) |
+|---|---|---|
+| df(a) S1 | TBD (from main-panel `experiment` baseline) | TBD |
+| em(b) | TBD | **must remain within ±2 pp** |
+| em(d) | TBD | **must remain within ±2 pp** |
+| em(a) | TBD | TBD |
+| **inference-time anchor label needed?** | n/a | **✗** |
 
-The last row is the headline E6 contribution.
+E4 narrative reference. §7.4 reports E4 on its own panel
+({LLaVA-1.5-7b, ConvLLaVA-7b, InternVL3-8b}); §7.4.5 reports E6 on the
+§3.3 main-panel model and notes that E4's published numbers
+(df 0.288 → 0.246, −14.6 % rel) are **not directly comparable** because
+the model panel is different. The E6-vs-E4 contribution is the
+**axis** (anchor-label-at-inference: required → not required), not a
+same-model number race.
 
-### Phase 2b — panel expansion (gated on Phase 2a)
+### Phase 2b — cross-dataset deployability (the §7.4.5 closer)
 
-If 2a lands cleanly, expand to:
+The `v` calibrated in Phase 0 from VQAv2 wrong-base S1 pairs is applied
+**without re-calibration** on:
 
-- **E4 panel** (ConvLLaVA-7b, InternVL3-8b) — same head-to-head story,
-  3-model panel. Per-model `(L*, α*, v-var*)` expected (different
-  encoders).
-- **§3.3 main panel cross-dataset check** (deferred candidate, not
-  blocking) — calibrate `v` on llava-next-interleaved-7b VQAv2 E5c
-  (data ready), apply on TallyQA E5c (data also ready). If df reduction
-  generalises across datasets without re-calibration, that's a strong
-  cross-domain deployability claim. Cheap because both calibration
-  source and deployment target use existing E5c data — only the
-  residual extraction passes are new (~30 min/dataset).
+| dataset | source data | scale |
+|---|---|---|
+| TallyQA | `outputs/experiment_e5c_tally/llava-next-interleaved-7b/<run>/predictions.jsonl` (E5c TallyQA already on disk) | n=12,000 records |
+| ChartQA | `outputs/experiment_e5e_chartqa_full/llava-next-interleaved-7b/<run>/predictions.jsonl` | n=TBD |
+| MathVista | `outputs/experiment_e5e_mathvista_full/llava-next-interleaved-7b/<run>/predictions.jsonl` | n=TBD |
+
+Deployability test: rerun the (steered, baseline) ×
+{anchor-arm, target_only, neutral-arm} forward passes on each dataset's
+sample set with the **VQAv2-calibrated v** (no per-dataset retuning).
+If df reduction generalises (≥ 5 % rel on each, em(b) / em(d) within
+± 2 pp), the §7.4.5 claim is "calibrate once on VQAv2, deploy on any
+numerical-VQA dataset." Cheap because the data exists; only the
+forward passes with the steering hook are new.
+
+Estimated cost: ~5–10 h H200 per dataset (smaller scales than
+Phase 2a; not all sids need to be hit — match each E5e/E5c run's
+sample size).
+
+### Phase 2c (optional) — port to E4 panel for direct head-to-head
+
+Only if §7.4.5 needs the same-model E4 vs E6 comparison after all
+(reviewer pushback). PoC-grade port to LLaVA-1.5-7b: identify
+wrong-base sids on LLaVA-1.5 by running b condition once (~10 min),
+extract residuals on those sids' a/m S1 pairs (~20 min), reuse Phase 1
+sweep harness. Total ~1 day/model. Not on the critical path.
 
 ## Code structure
 
 Three files. Two new scripts + one writeup pair.
 
 - **`scripts/e6_steering_vector.py`** — main driver. Sub-commands:
-  - `--phase calibrate` — Phase 0: run b on full VQAv2 number subset to
-    identify wrong-base sids; run a-S1 / m-S1 forward passes with
-    residual-stream hooks at every LLM decoder layer's last-input-token
-    position; emit `v_wrong` and `v_all` to `v.pt` + sidecar. For PoC
-    model (LLaVA-1.5-7b) where no E5c run exists, this generates the
-    calibration data fresh; for §3.3-panel models with existing E5c
-    runs, this can be sped up by reading wrong-base sids from
-    `outputs/experiment_e5c_vqa/<model>/<run>/predictions.jsonl` (with
-    the `parsed_number → extract_first_number(prediction)` and
-    `exact_match == 0` int-not-bool fixes noted in the status block).
+  - `--phase calibrate` — Phase 0: read wrong-base sids from
+    `outputs/experiment_e5c_vqa/<model>/<run>/predictions.jsonl`
+    (`condition == 'target_only' AND exact_match == 0`); run a-S1 /
+    m-S1 forward passes with residual-stream hooks at every LLM
+    decoder layer's last-input-token position; emit `v_wrong` and
+    `v_all` to `v.pt` + sidecar. For models without E5c data
+    (e.g., LLaVA-1.5-7b in Phase 2c), the b-condition pass is run
+    inline first to identify wrong-base sids. The
+    `parsed_number → extract_first_number(prediction)` and
+    `exact_match == 0` int-not-bool fixes apply.
   - `--phase smoke` — Phase 0.5: 10-pair wiring test, ~10 min.
   - `--phase sweep` — Phase 1: 42 (L, α, v-var) cells × 4 conditions ×
     n=200 stratified. Resumable.
@@ -378,20 +410,19 @@ outputs/e6_steering/
 
 ## Open questions for the writeup stage
 
-- **Cross-model `v` portability.** Does `v` extracted on LLaVA-1.5-7b
-  transfer to ConvLLaVA-7b (both CLIP-mid-stack)? If yes, that is a
-  paper-grade finding about cross-encoder residual-stream geometry.
-  Out of scope for the PoC; flagged as F4 future-work candidate.
-- **Cross-domain `v` portability.** Does `v` calibrated on VQAv2 wrong-
-  base pairs reduce anchor pull on TallyQA and ChartQA? If yes, the
-  steering direction is dataset-agnostic. Cheap to test on existing E5e
-  data.
-- **Per-model L* coherence with E1b peak.** E1b peaks: gemma4-e4b L5,
-  llava-1.5 L16, convllava L16, internvl3 L14, qwen2.5-vl L22, fastvlm
-  L22. If E6's `L*` aligns with E1b's per-model peak, that strengthens
-  the §7 mechanism-mitigation coherence claim. If `L*` is uniformly mid-
-  stack regardless of E1b peak, the residual-stream story is decoupled
-  from the attention-peak story (interesting on its own).
+- **Cross-model `v` portability.** Does `v` extracted on
+  llava-next-interleaved-7b transfer to other §3.3 main-panel models
+  (qwen2.5-vl, gemma3-27b)? Strong cross-encoder residual-stream
+  geometry claim if yes. Out of scope for the PoC; F4 future-work.
+- **Cross-domain `v` portability** is now Phase 2b primary, not future
+  work — VQAv2-calibrated `v` deployed on TallyQA/ChartQA/MathVista
+  without retuning. Result becomes the §7.4.5 closer.
+- **Per-model L\* vs encoder mechanism.** llava-next-interleaved-7b is
+  not in the E1 mechanism panel (which is gemma4-e4b, qwen2.5-vl-7b,
+  llava-1.5-7b, internvl3-8b, convllava-7b, fastvlm-7b). So no E1b
+  peak prior. Phase 1 sweep discovers L\* directly. Whether L\* aligns
+  with the E1b per-encoder-family pattern (mid-stack cluster ~ L16,
+  Gemma early, FastVLM late) is itself a finding.
 - **Projection vs. subtraction.** Subtraction (`h ← h − α·v`) is the
   ActAdd default. Projection (`h ← h − (h·v̂)·v̂`) is more principled when
   the goal is "remove the v-component" rather than "translate by α·v".
@@ -402,7 +433,7 @@ outputs/e6_steering/
 
 - §6.5 add new row `E6 — anchor-agnostic steering vector` (status flips
   from `☐ design` → `🟡 Phase 1` → `✅ Phase 2 land`).
-- §7 add P1 entry "E6 PoC on LLaVA-1.5-7b"; demote to P3 if Phase 1
+- §7 add P1 entry "E6 PoC on llava-next-interleaved-7b"; demote to P3 if Phase 1
   fails. Promote to P0 if Phase 1 succeeds and §7.4.5 paper-section
   becomes the headline mitigation claim.
 - §10 changelog entry at each phase landing.

@@ -226,7 +226,7 @@ the coarsest possible projection of this monotonicity.
 | **E1-patch masked-arm causal control** | re-run extraction on the 4-model panel using a 4-cond config (b/a/m/d) instead of the existing 3-cond `configs/experiment.yaml`. Pairs `image_anchor_digit` on the anchor arm against the masked arm's anchor-region attention as a digit-pixel causal control. Adds ~1 hour GPU per model + 4-cond config wiring. | ☐ P3 (deferred 2026-04-29 — independent of the non-square work above) |
 | **E4 Phase 1 + 2** | mid-stack-cluster attention re-weighting (LLaVA-1.5 / ConvLLaVA / InternVL3) | ✅ |
 | **E4 §7.4 paper rendering** | report `direction_follow_rate` reduction, `exact_match` rise, `accuracy_vqa(b)` invariance side by side; the "free lunch" framing | ✅ `docs/insights/paper-section-7-4-mitigation-free-lunch.md` (2026-04-29) |
-| **E6 — anchor-agnostic steering vector mitigation (§7.4.5)** | residual-stream offset `−α · v_{L*}` calibrated from E5c S1 wrong-base (a, m) pairs; **inference requires zero anchor labels** (deployable, unlike E4). Single-layer scope (residual-stream, not refuted by E1d's attention-pathway null). PoC on LLaVA-1.5-7b first; Phase 2 expansion to E4 panel for direct head-to-head | ☐ design (`docs/experiments/E6-steering-vector-design.md`, 2026-04-29) — branch `e6-steering-vector-mitigation` |
+| **E6 — anchor-agnostic steering vector mitigation (§7.4.5)** | residual-stream offset `−α · v_{L*}` calibrated from existing E5c S1 wrong-base (a, m) pairs (399 pairs verified on llava-next-interleaved-7b VQAv2); **inference requires zero anchor labels** (deployable, unlike E4). Single-layer scope (residual-stream, not refuted by E1d's attention-pathway null). **PoC on llava-next-interleaved-7b** (the §3.3 main panel — paper headline ties cleanly; cross-dataset E5c TallyQA + E5e ChartQA + E5e MathVista all on same model, free Phase 2b deployability check). E4 panel head-to-head demoted to optional Phase 2c | ☐ design (`docs/experiments/E6-steering-vector-design.md`, 2026-04-29 v2) — branch `e6-steering-vector-mitigation` |
 | **E1-patch generalises mitigation?** | does upper-half attention mass concentrate on the digit patch only? if yes, mitigation can shrink target region | ☐ P3 (subsumed by E6 — digit-bbox-scoped attention surgery (N1/N2 in 2026-04-29 brainstorm) needs anchor label at inference, so reframed as **mechanistic analysis tool** under §7.2 rather than a deployable mitigation) |
 
 ### 6.6 §8 — Future work (scope only)
@@ -250,7 +250,7 @@ E5c VQAv2 + TallyQA**). No P0 outstanding. New P1: **E6 anchor-agnostic
 steering-vector PoC** (deployable mitigation, motivated by the
 inference-label gap E4 inherently has — see §6.5 row).
 
-| **P1** | **E6 steering-vector PoC (LLaVA-1.5-7b, anchor-agnostic-at-inference mitigation)** — Phase 0 calibration vector extraction from E5c S1 wrong-base (a, m) pairs; Phase 1 (L × α) sweep on n=200 stratified; selection rule from `docs/experiments/E6-steering-vector-design.md`. Unlocks paper §7.4.5 "from research demonstration to deployable intervention". If PoC clears, Phase 2 expansion to E4 3-model panel for direct head-to-head reporting. | §6.5 E6 | Phase 0 ~30 min H200 + Phase 1 ~5–7 h H200 + analyze ~1 day |
+| **P1** | **E6 steering-vector PoC (llava-next-interleaved-7b, anchor-agnostic-at-inference mitigation)** — Phase 0 calibration on 399 existing E5c VQAv2 wrong-base S1 pairs; Phase 0.5 wiring smoke (10 pairs); Phase 1 (L × α × v-var) sweep on n=200 stratified; selection rule + tiebreakers per `docs/experiments/E6-steering-vector-design.md`. Unlocks paper §7.4.5 "from research demonstration to deployable intervention". If PoC clears, Phase 2a (full VQAv2 n=17,730) + Phase 2b (cross-dataset deployability — calibrate on VQAv2, deploy on TallyQA/ChartQA/MathVista E5* data without retuning). Phase 2c (E4 panel head-to-head port to LLaVA-1.5-7b) optional. | §6.5 E6 | Phase 0 ~15–20 min H200 + Phase 0.5 ~10 min + Phase 1 ~5–7 h H200 + analyze ~1 day |
 | **P3** | E1-patch full panel non-square archetypes — InternVL3-8b (multi-tile bbox routing) and Qwen2.5-VL-7b (`grid_thw` plumbing). 2026-04-29 audit re-budgeted the original §7 1.5h estimate to 4–7 days panel-wide after finding the bbox-to-token mapping is per-encoder (POC's `int(math.isqrt(n)) ** 2 == n` gate returns None on multi-tile / rectangular grids). ConvLLaVA-7b + FastVLM-7b were perfect-square and landed in the 4-model panel 2026-04-29. | §6.5 E1-patch | ~1–2 days/model implementation + ~12 min/model H200 extraction |
 | **P3** | E1-patch masked-arm causal control — re-run extraction on 4-model panel under 4-cond config | §6.5 E1-patch | 4-cond config wiring + ~1h GPU/model |
 | **P1** | VQAv2 4-condition cross-model (b/a/m/d, S1 only, kept) | §6.3 | ~1d (3 models) — opportunistic |
@@ -326,27 +326,39 @@ inference-label gap E4 inherently has — see §6.5 row).
 ## 10. Changelog
 
 - **2026-04-29 (E6 anchor-agnostic steering-vector mitigation —
-  branch + design doc).** New mitigation track opened. Branch
-  `e6-steering-vector-mitigation` cut from master at commit `6eee87f`.
-  Design doc at `docs/experiments/E6-steering-vector-design.md` —
-  motivation grounded in the **calibration-vs-inference label axis**:
-  E4 (and the N1/N2 digit-bbox sharpenings brainstormed alongside
-  E6) all need anchor-image labels at inference, making them research
-  demonstrations rather than deployable interventions. E6 (ActAdd-class
-  residual-stream offset, train-free) calibrates `v_{L*}` once from
-  E5c S1 wrong-base (a, m) pairs and applies a fixed offset
-  universally at inference — **zero anchor labels needed at deploy
-  time**. Mechanistic justification: E1d's single-layer null is on
-  the *attention pathway only*; residual-stream interventions are not
-  refuted (Turner 2023 / Rimsky 2024 lineage). PoC plan:
-  LLaVA-1.5-7b, Phase 0 calibration extraction (~30 min H200) →
-  Phase 1 (L × α) sweep on n=200 stratified (~5–7 h H200) →
-  Phase 2 full validation (~20–40 h H200) only if PoC clears the
-  selection rule (df ↓ ≥ 10 % rel, em(b) / em(d) invariant ± 2 pp,
-  fluency guard). E4 not retracted — kept as §7.4 mechanism story;
-  E6 added as §7.4.5 deployability story. N1/N2 reframed as
-  mechanistic analysis tools under §7.2. Roadmap §6.5 (new E6 row),
-  §7 (new P1 entry) updated.
+  branch + design doc, post-review v2).** New mitigation track opened.
+  Branch `e6-steering-vector-mitigation` cut from master at commit
+  `6eee87f`. Design doc at
+  `docs/experiments/E6-steering-vector-design.md` (commits `0471e52`
+  initial, `0588ff6` first revision, current commit second revision)
+  — motivation grounded in the **calibration-vs-inference label
+  axis**: E4 (and the N1/N2 digit-bbox sharpenings brainstormed
+  alongside E6) all need anchor-image labels at inference, making
+  them research demonstrations rather than deployable interventions.
+  E6 (ActAdd-class residual-stream offset, train-free) calibrates
+  `v_{L*}` once from E5c S1 wrong-base (a, m) pairs and applies a
+  fixed offset universally at inference — **zero anchor labels needed
+  at deploy time**. Mechanistic justification: E1d's single-layer
+  null is on the *attention pathway only*; residual-stream
+  interventions are not refuted (Turner 2023 / Rimsky 2024 lineage).
+
+  **PoC model = llava-next-interleaved-7b** (post-review v2 flip from
+  original LLaVA-1.5-7b). Drives: §3.3 main-panel coherence,
+  pre-existing E5c VQAv2 calibration data on disk (399 wrong-base S1
+  pairs verified), free Phase 2b cross-dataset deployability check
+  (E5c TallyQA + E5e ChartQA + E5e MathVista all on same model). E4
+  same-model head-to-head dropped from critical path; if reviewers
+  ask, Phase 2c ports to LLaVA-1.5-7b cheaply (~1 day).
+
+  PoC plan: Phase 0 calibration extraction (~15–20 min H200, leverages
+  existing E5c sids) → Phase 0.5 wiring smoke (10-pair, ~10 min) →
+  Phase 1 (L × α × v-var) sweep on n=200 stratified (~5–7 h H200) →
+  Phase 2a full VQAv2 (~20–40 h H200) + Phase 2b cross-dataset
+  (~5–10 h × 3 datasets) only if PoC clears the selection rule
+  (df ↓ ≥ 10 % rel, em(b) / em(d) invariant ± 2 pp, fluency guard).
+  E4 not retracted — kept as §7.4 mechanism story; E6 added as §7.4.5
+  deployability story. N1/N2 reframed as mechanistic analysis tools
+  under §7.2. Roadmap §6.5 (new E6 row), §7 (new P1 entry) updated.
 
 - **2026-04-29 (gemma3-27b-it E5c cross-model expansion landed —
   closes the last paper-blocking P0).** Two runs of `experiment_e5c_*`
