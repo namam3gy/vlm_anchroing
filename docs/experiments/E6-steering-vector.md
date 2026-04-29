@@ -193,3 +193,124 @@ qualitatively different".
 3. **Phase 2c (optional)** — port to LLaVA-1.5-7b for direct E4
    head-to-head. ~1 day. Triggered only if reviewer pushback on
    "different model panels" framing.
+
+## Cross-dataset tiebreaker (2026-04-29 — VQAv2 → TallyQA + ChartQA)
+
+Phase 2b miniature: VQAv2-calibrated `v` (chosen cell L30/α=1/v_wrong)
+applied unchanged to TallyQA E5c (n=346 wrong-base S1) and ChartQA E5e
+(n=416 wrong-base S1). **Sign of df change reverses on cross-dataset.**
+
+| dataset | baseline df_a | L30/α=1/v_wrong df_a | rel% | L30/α=4/v_wrong df_a | rel% |
+|---|---:|---:|---:|---:|---:|
+| VQAv2 (Phase 1) | 0.1915 | 0.1643 | **−14.2 %** | 0.1631 | −14.8 % |
+| TallyQA | 0.2342 | 0.2472 | **+5.5 %** | 0.2388 | +2.0 % |
+| ChartQA | 0.2178 | 0.2206 | +1.3 % | 0.2277 | **+4.5 %** |
+
+Em metrics remain invariant on cross-dataset (em_b within ±0.6 pp on
+all 3 datasets at both cells), so the **deployable safety claim
+holds** — applying the steering universally does not damage anchor-
+free inputs on any dataset. The **mitigation claim**, however, does
+not transfer: VQAv2-calibrated `v` does *not* reduce anchor pull on
+TallyQA or ChartQA.
+
+Statistical caveats:
+- VQAv2 paired-valid n = 141; TallyQA n = 269; ChartQA n = 349.
+  Binomial SE on baseline df ≈ 3–4 pp on each. The −14 % Phase 1
+  effect = −2.7 pp absolute is ≈ 1 SE; the cross-dataset +1 to +5 %
+  changes are also ≈ 1 SE. **All Phase 1 effects are at the noise
+  floor of n=200 stratified evaluation; Phase 2a (n=17,730) is
+  required to land statistically clean numbers.**
+- α=1 vs α=4 on the same dataset: differences within the same SE
+  band on every dataset. Tiebreaker is essentially under-determined
+  at this scale.
+
+**Implication.** Single-direction VQAv2-calibrated `v` is not a
+universal cross-domain deployable mitigation. The §7.4.5 paper
+headline "calibrate once, deploy anywhere" claim does not survive.
+Two failure modes are possible:
+
+1. **Calibration source dependency.** VQAv2 wrong-base may capture a
+   direction that's specific to VQAv2's question/answer distribution.
+   Reverse calibration (TallyQA → VQAv2, ChartQA → VQAv2) would tell
+   us if the issue is "VQAv2-specific direction" or "all per-dataset
+   directions are dataset-bound".
+2. **Fundamental method limitation.** Single-direction subtraction may
+   simply not have enough degrees of freedom to capture the anchor-
+   pull subspace as it manifests in different question distributions.
+   Multi-direction PCA / LEACE / decode-time intervention could be
+   structurally better fits.
+
+Reverse-calibration test (Phase 1.5) and method-pivot decisions are
+captured below.
+
+## Literature survey — alternative mitigation methods (2026-04-29)
+
+Surveyed 2023–2026 arxiv on residual-stream interventions, decode-time
+methods, VLM hallucination mitigation, and lightweight training-time
+alternatives. Top candidates ranked by fit to this project's setup
+(LLaVA-NeXT-Interleave-7B, ~1k pairs/dataset, train-free or light-
+touch, no inference-time labels, cross-domain generalization required):
+
+| Rank | Method | 1-line | Implementation cost | Why it might fix cross-domain |
+|---|---|---|---|---|
+| 1 | **VCD** (Visual Contrastive Decoding) [2311.16922] | `logits_final = (1+α)·logits(I_clean) − α·logits(I_distorted)` | low — 2 forward passes/token, no training, mature OSS impl | per-input correction; no dataset-specific direction needed |
+| 2 | **M3ID / image-CFG** [2403.14003] | CFG-style: amplify mutual info between visual prompt and output via negative branch (text-only or image-noised pass) | low — same family as VCD; γ tuned once globally | per-token, per-input correction; b/a/d arms in our config already give negative branches |
+| 3 | **PAI** (image-attention amplification) [2407.21771] | up-weight attention to image tokens at selected layers; subtract pure-text logits | low — open-source ECCV'24 code on LLaVA-NeXT | structural (image-token-positions) not direction-based; should generalize |
+| 4 | **Multi-direction PCA / RepE** [2310.01405] | top-K PCs of (h_a − h_m) diff matrix, project onto K-dim subspace and subtract instead of single direction | trivial — change one matmul in our hook | if cross-dataset failure = "wrong direction" not "wrong functional form", a K=4–8 subspace covers all datasets |
+| 5 | **LEACE** (linear concept erasure) [2306.03819] | closed-form affine projection that makes "anchor present" linearly undecodable while minimum-norm; idempotent on non-anchor inputs | low — `EleutherAI/concept-erasure` package, closed-form fit in seconds | erases ALL linearly-decodable anchor info, not just one direction |
+| 6 | **CAST** (conditional ActAdd) [2409.05907] | small probe gates whether to apply the steering vector per input | low — logistic regression on hidden states; no input labels at inference | restores over-corrected non-anchor cases; surgical fix to ActAdd's symptom |
+| 7 | **V-DPO / OPA-DPO** [2411.02712, 2505.15963] | LoRA + DPO on (anchor-confused vs. correct) preference pairs | medium — ~1k pairs, hours not days, TRL recipes exist | preference signal generalizes; deployment cost = LoRA adapter, still cheap |
+| 8 | **SAE feature steering** [2408.05147 Gemma Scope] | clamp SAE features that activate on "anchor digit present" to zero | medium-high — no public SAE for llava-next-interleaved-7b; requires training one (a few H100-days) | sparser features → cleaner cross-domain transfer; but cost too high for "light-touch" |
+
+**Recommended sequence after the reverse-calibration result:**
+
+A. **If reverse calibration (TallyQA → VQAv2) works** — single-direction
+   ActAdd is salvageable, but per-dataset calibration is necessary.
+   Then: **multi-direction PCA** (#4) is the cheap extension that
+   might unify multiple dataset-specific directions in one v-subspace.
+
+B. **If reverse calibration also fails** — single-direction ActAdd is
+   structurally too narrow. **Pivot to VCD/M3ID** (#1, #2) for
+   decode-time per-input correction; this is the highest-fit
+   replacement and integrates naturally with the b/a/d/m arms we
+   already produce.
+
+C. **Combine** — VCD as primary mitigation, multi-direction
+   residual offset as analysis tool (paper §7.4 mechanism story stays;
+   §7.4.5 deployability story switches to VCD).
+
+D. **CAST** (#6) is the cheapest patch to keep ActAdd alive
+   conditionally — adds a probe gate on the steering. Worth ~1 day if
+   we want to preserve the ActAdd contribution.
+
+**Heavy fallback if all train-free approaches fail:** V-DPO with LoRA.
+Still deployable (LoRA adapter), but not train-free.
+
+References (verified arxiv IDs):
+- VCD [2311.16922](https://arxiv.org/abs/2311.16922) · CRG [2403.02325](https://arxiv.org/abs/2403.02325)
+- M3ID [2403.14003](https://arxiv.org/abs/2403.14003)
+- PAI [2407.21771](https://arxiv.org/abs/2407.21771)
+- RepE [2310.01405](https://arxiv.org/abs/2310.01405) · RepE in VLMs [2503.22720](https://arxiv.org/abs/2503.22720)
+- LEACE [2306.03819](https://arxiv.org/abs/2306.03819) · code: github.com/EleutherAI/concept-erasure
+- CAST [2409.05907](https://arxiv.org/abs/2409.05907)
+- V-DPO [2411.02712](https://arxiv.org/abs/2411.02712) · OViP [2505.15963](https://arxiv.org/abs/2505.15963)
+- Index: github.com/showlab/Awesome-MLLM-Hallucination
+
+## Phase 1.5 — reverse-direction calibration (in flight 2026-04-29)
+
+User-driven hypothesis: VQAv2 may be the noisier calibration source;
+TallyQA or ChartQA may yield a more transferable `v`. To test:
+
+- v_tally calibrated on TallyQA E5c wrong-base S1 (346 pairs)
+- v_chartqa calibrated on ChartQA E5e wrong-base S1 (416 pairs)
+- Each tested on (i) own dataset (self-test sanity), (ii) VQAv2
+  (cross-direction transfer)
+
+Decision tree:
+- All three v's reduce df on VQAv2 → calibration source matters; pick
+  best one as new chosen
+- Self-tests pass but cross-tests fail → same single-direction
+  limitation; pivot to multi-direction PCA or VCD per Method survey
+- Self-tests fail → calibration setup itself is broken; debug
+
+Results to be appended below as the runs land.
