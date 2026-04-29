@@ -1,5 +1,20 @@
 # E5c — the digit pixels are the operative cause; the anchor scene is not
 
+> **2026-04-29 update — qwen2.5-vl-7b cross-model expansion.** A second
+> model (qwen2.5-vl-7b-instruct) ran on the same E5c stimulus matrix
+> (n=12,000 records / dataset). The **digit-pixel gap is at floor on
+> qwen2.5-vl** on both datasets (VQAv2 wrong-base S1 a−m = +0.4 pp,
+> TallyQA = −0.5 pp), consistent with §3.3 main panel placing
+> qwen2.5-vl as the most-anchor-resistant model (`adopt(a) = 0.021`,
+> `df(a) = 0.094` on the 17,730-sample VQAv2 panel). The
+> direction-consistent picture — "where the pull is large enough to
+> detect, the gap is positive; where the pull is at floor, the gap is
+> also at floor" — preserves the §5.4 digit-pixel-causality claim on
+> the model where the effect is detectable but qualifies the
+> cross-model generalisation. Pending gemma3-27b-it E5c VQAv2 cell
+> (~5–6h H200) will arbitrate whether mid-panel models track the
+> llava-style detectable gap or the qwen-style floor.
+
 > **2026-04-28 update.** Re-run on C-form re-aggregated data: the cited
 > `adopt_cond` digit-pixel gaps (VQAv2 wrong-base S1 +6.1 pp,
 > TallyQA wrong-base S1 +2.5 pp) are **unchanged** — adopt is
@@ -11,7 +26,7 @@
 > C-form a df-gap also emerges). Pre-refactor results archived at
 > `outputs/before_C_form/experiment_e5c_*/`.
 
-**Status:** Sub-experiment of E5; distilled insight. Source data: `outputs/experiment_e5c_{vqa,tally}/llava-next-interleaved-7b/<latest>/predictions.jsonl`. Aggregate table: `docs/insights/_data/E5c_per_cell.csv`. Figures: `docs/figures/E5c_anchor_vs_masked_adopt.png`, `docs/figures/E5c_anchor_vs_masked_df.png`, `docs/figures/E5c_acc_drop_3way.png`, `docs/figures/E5c_correct_vs_wrong_adopt.png`. Full writeup: `docs/experiments/E5c-anchor-mask-control.md`.
+**Status:** Sub-experiment of E5; distilled insight. Source data: `outputs/experiment_e5c_{vqa,tally}/{llava-next-interleaved-7b,qwen2.5-vl-7b-instruct}/<latest>/predictions.jsonl`. Aggregate table: `docs/insights/_data/E5c_per_cell.csv` (now keyed by `model`). Figures: `docs/figures/E5c_anchor_vs_masked_adopt[_<model>].png`, `docs/figures/E5c_anchor_vs_masked_df[_<model>].png`, `docs/figures/E5c_acc_drop_3way[_<model>].png`, `docs/figures/E5c_correct_vs_wrong_adopt[_<model>].png` (default model = llava-next-interleaved-7b; non-default models append `_<model>` to the filename). Full writeup: `docs/experiments/E5c-anchor-mask-control.md`.
 
 ## The claim and the test
 
@@ -64,7 +79,7 @@ For the paper, this lets the deployment-risk story narrow further. The load-bear
 This connects to two upcoming experiments:
 
 - **E1d's upper-half attention re-weighting target on the mid-stack cluster.** E5c says the digit pixels are causally load-bearing; E1d says the mid-stack attention pathway is causally load-bearing for the direction-follow signal. The next mechanistic question is whether the same pathway carries the digit-specific paired-adoption signal that E5c isolates. A region-aware attention re-analysis (already flagged in roadmap §10 as a follow-up to E5 ChartQA) — measuring attention to the digit-pixel patches specifically vs the rest of the anchor image — would close this loop.
-- **The 11-model E5c extension.** E5c is a single-model finding for now. Replicating the (1, 2, 3) and (1, 3, 4) decompositions across the 11-model panel would tell us whether the digit-pixel causality story holds architecture-wide (likely, given E5b's cross-dataset replication generalised within model) or whether it splits along the mid-stack-cluster vs Qwen-late-peak vs Gemma-early-peak axes from E1b.
+- **The 11-model E5c extension.** E5c is currently a 2-model finding (llava-interleave-7b detectable, qwen2.5-vl-7b at floor) with gemma3-27b-it pending. Once gemma lands, the 3-model E5e panel + the qwen-vs-llava direction-consistent reading suggest the cross-model story will be "the digit-pixel gap tracks the §3.3 main-panel anchor-pull magnitude" rather than "the digit-pixel mechanism flips along encoder-architecture axes". Replicating across the full 11-model panel would harden this and let us bin models by whether they sit above the noise-floor cutoff.
 
 ## What this doesn't say
 

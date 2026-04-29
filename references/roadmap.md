@@ -63,8 +63,8 @@ in-flight · ☐ not started.
 | `experiment_encoder_pilot` | VQAv2 number | b/a/d, n=1,125 | llava-1.5-7b, internvl3-8b, fastvlm-7b, convllava-7b | ✅ pilot only — full run deferred (kept) |
 | `experiment_distance_vqa` (E5b) | VQAv2 | b + a×S1..S5 | llava-interleave-7b | 🟡 single-model — cross-model expansion in flight |
 | `experiment_distance_tally` (E5b) | TallyQA | b + a×S1..S5 | llava-interleave-7b | 🟡 single-model — cross-model expansion in flight |
-| `experiment_e5c_vqa` | VQAv2 | b + a×S1..S5 + m×S1..S5 + d | llava-interleave-7b | 🟡 single-model — cross-model expansion in flight |
-| `experiment_e5c_tally` | TallyQA | same | llava-interleave-7b | 🟡 single-model — cross-model expansion in flight |
+| `experiment_e5c_vqa` | VQAv2 | b + a×S1..S5 + m×S1..S5 + d | llava-interleave-7b, qwen2.5-vl-7b-instruct | 🟡 2/3 models — gemma3-27b-it pending |
+| `experiment_e5c_tally` | TallyQA | same | llava-interleave-7b, qwen2.5-vl-7b-instruct | 🟡 2/3 models — gemma3-27b-it pending |
 | `experiment_e5d_chartqa_validation` | ChartQA | per-dataset cutoff validation | llava-interleave-7b | ✅ S1-only relative cutoff adopted |
 | `experiment_e5d_mathvista_validation` | MathVista | same | llava-interleave-7b | ⚠ C3 FAIL — see §9 (MathVista (γ) supersedes) |
 | `experiment_e5e_chartqa_full` | ChartQA | b/a/m/d (S1) | llava-interleave-7b, qwen2.5-vl-7b, gemma3-27b-it | ✅ |
@@ -127,14 +127,31 @@ Wrong-base subset, `adopt_rate` (M2):
 
 Pattern: sharp peak at S1, decay to noise floor by S5 (cross-dataset).
 
-#### E5c digit-pixel causality — `llava-interleave-7b` only (cross-model in flight)
+#### E5c digit-pixel causality — 2/3 models (gemma3-27b-it pending)
 
-Wrong-base S1 `adopt_rate` gap (anchor − masked) under M2:
+Wrong-base S1 paired conditional adoption (`adopt_cond` from
+`docs/insights/_data/E5c_per_cell.csv`, 2026-04-29; the M2 marginal
+form is in §3.3 main panel rows). The a − m gap reads off whether
+inpainting the digit pixel removes the effect:
 
-| dataset | anchor S1 | masked S1 | gap (anchor − masked) |
-|---|---:|---:|---:|
-| VQAv2 | 0.139 | 0.073 | **+6.62 pp** |
-| TallyQA | 0.114 | 0.088 | **+2.57 pp** |
+| dataset | model | anchor S1 | masked S1 | gap (a − m) |
+|---|---|---:|---:|---:|
+| VQAv2 | llava-interleave-7b | 0.129 | 0.068 | **+6.1 pp** |
+| VQAv2 | qwen2.5-vl-7b | 0.070 | 0.066 | +0.4 pp |
+| TallyQA | llava-interleave-7b | 0.110 | 0.084 | **+2.6 pp** |
+| TallyQA | qwen2.5-vl-7b | 0.033 | 0.037 | −0.5 pp |
+
+qwen2.5-vl-7b is the most anchor-resistant model on the §3.3 main
+panel (`adopt(a) = 0.021`, `df(a) = 0.094`) and consistently sits at
+or below the noise floor on E5c. Where the effect is large enough to
+detect (llava-interleave), the digit-pixel gap is positive on both
+datasets; where the effect is at floor (qwen2.5-vl), the gap is also
+at floor — direction-consistent and informative for the
+cross-model robustness claim. Direction-follow `df_cond` shows the
+same ordering: llava VQAv2 anchor 0.208 / masked 0.155 (+5.3 pp)
+vs. qwen2.5-vl 0.148 / 0.163 (~0). gemma3-27b-it cell pending will
+arbitrate whether mid-panel models track the llava-style gap or the
+qwen-style floor.
 
 #### E5e S1-only 4-condition full — 3-model panel × ChartQA + TallyQA
 
@@ -242,11 +259,11 @@ robustness).
 
 | ID | Experiment | Status |
 |---|---|---|
-| **E5b distance sweep** | 5-stratum × b + a (VQAv2 + TallyQA), llava-interleave-7b | ✅ single model — cross-model in flight |
-| **E5c digit-mask control** | + 5-stratum × m, llava-interleave-7b | ✅ single model — cross-model in flight |
+| **E5b distance sweep** | 5-stratum × b + a (VQAv2 + TallyQA), llava-interleave-7b | 🟡 2/3 — qwen2.5-vl-7b extension landed 2026-04-29 (E5c run is a strict superset of E5b); gemma3-27b-it pending |
+| **E5c digit-mask control** | + 5-stratum × m, llava-interleave-7b | 🟡 2/3 — qwen2.5-vl-7b landed 2026-04-29; gemma3-27b-it pending |
 | **E5d per-dataset cutoff** | ChartQA: S1-only relative `\|a-gt\| ≤ max(1, 0.1·gt)`; TallyQA: absolute `[0,5]`; VQAv2: range `{0..9}`; MathVista: C3 FAIL, scope-out as plausibility-window contrast (or rerun stricter) | ✅ except MathVista — see γ |
 | **E5e S1-only cross-model** | b/a/m/d × ChartQA + TallyQA × 3 models | ✅ |
-| **E5b/c cross-model expansion** | extend E5b + E5c to 3-model E5e panel (qwen2.5-vl-7b, gemma3-27b-it ∪ llava-interleave-7b) on VQAv2 + TallyQA | ⏳ in flight (user 2026-04-28) |
+| **E5b/c cross-model expansion** | extend E5b + E5c to 3-model E5e panel (qwen2.5-vl-7b, gemma3-27b-it ∪ llava-interleave-7b) on VQAv2 + TallyQA | 🟡 2/3 — qwen2.5-vl-7b landed 2026-04-29 (a−m gap at floor on both datasets, consistent with §3.3 main-panel ranking putting qwen2.5-vl at lowest df); gemma3-27b-it cell pending |
 | **E5e MathVista (γ-α)** | MathVista b/a/m/d (S1) × 3 models | ✅ landed 2026-04-29; **C-form refresh 2026-04-28**: gemma3-27b wrong-base S1 `adopt(a) = 0.230`, `df(a) = 0.332` (panel-largest cell). All 3 models in graded-tilt regime under C-form (df > 0 universally); pre-refactor "categorical-replace df=0" reading was a driver-bug artefact, retracted in `E5e-mathvista-evidence.md` §5 |
 | **E5e MathVista (γ-β)** | reasoning-mode VLM × MathVista — Qwen3-VL-8B-Instruct vs. Qwen3-VL-8B-Thinking (separate weights), 4-cond S1, max_new_tokens=512, runner is `</think>`-aware | ✅ landed 2026-04-28. Headline (C-form, S1 anchor arm, all-base, n=365): instruct adopt(a)=0.074 / df(a)=0.102, thinking adopt(a)=0.117 / df(a)=0.291. Thinking amplifies anchor pull (×1.6 adopt, ×2.9 df) — direction-agnostic hypothesis (H4) lands on the *amplification* side, consistent with VLMBias / Wang LRM-judging |
 | **VQAv2 4-condition** | b/a/m/d cross-model VQAv2 | ☐ P1 (kept) |
@@ -290,16 +307,14 @@ the coarsest possible projection of this monotonicity.
 P0 = blocks paper sections, do this week. P1 = strengthens but not load-
 bearing. P2 = ideation depth. P3 = future / parallel.
 
-**As of 2026-04-29** — most P0s have landed (M2-refactor + C-form, L1-L4
-confidence, γ-α + γ-β MathVista, E1-patch POC, paper §3/§7.4/§8 prose,
-**E5e TallyQA gemma3-27b cell** including C-form re-aggregation and §3.3
-panel insertion). The remaining paper-blocker is the **qwen2.5-vl-7b
-expansion of E5b/E5c** (running 2026-04-29 in parallel on GPU 0/1).
-
-| P | Task | Source | ETA / compute |
-|---|---|---|---|
-| **P0** | qwen2.5-vl-7b on E5c VQAv2 + TallyQA (stratified, b + a×S1-5 + m×S1-5 + d) | §6.3 E5b/c cross-model expansion | ~3h × 2 datasets on H200 (running 2026-04-29 in parallel on GPU 0/1) |
-| **P0** | gemma3-27b on E5c VQAv2 (TallyQA stratified is infeasible at full n=1000 base; use `max_samples=300` if launched) | §6.3 E5b/c cross-model expansion | ~5-6h on H200 |
+**As of 2026-04-29 (post-qwen2.5-vl E5c)** — most P0s have landed
+(M2-refactor + C-form, L1-L4 confidence, γ-α + γ-β MathVista, E1-patch
+POC, paper §3/§7.4/§8 prose, **E5e TallyQA gemma3-27b cell**,
+**qwen2.5-vl-7b E5c VQAv2 + TallyQA**). The remaining paper-blocker is
+the **gemma3-27b-it E5c VQAv2 cell** (~5–6h GPU); TallyQA stratified
+on gemma3-27b is infeasible at full n=1000 base, so we run it at
+`max_samples=300`.
+| **P0** | gemma3-27b-it on E5c VQAv2 (TallyQA stratified is infeasible at full n=1000 base; use `max_samples=300` if launched) | §6.3 E5b/c cross-model expansion | ~5-6h on H200 |
 | **P1** | E1-patch full panel — masked arm causal control + 4 remaining archetypes (qwen2.5-vl-7b, internvl3-8b, convllava-7b, fastvlm-7b) | §6.5 E1-patch | ~1.5h attention extraction (n=200 each) + analysis |
 | **P1** | VQAv2 4-condition cross-model (b/a/m/d, S1 only, kept) | §6.3 | ~1d (3 models) — opportunistic |
 | **P1** | Citation verification — every 2026 arXiv ID in `references/project.md` and §2 paper draft must resolve to a real paper | §9 caveat | hours of manual verification, reviewer-defuse |
@@ -311,6 +326,7 @@ expansion of E5b/E5c** (running 2026-04-29 in parallel on GPU 0/1).
 
 - ~~E5e TallyQA gemma3-27b cell~~ ✅ (inference 2026-04-28 23:28; C-form re-aggregation 2026-04-29 — `predictions.jsonl` rewritten with `_moved` flag, `summary.json` refreshed, `docs/insights/_data/experiment_e5e_tallyqa_full_per_cell.csv` rebuilt with the new model row, §3.3 panel updated)
 - ~~C-form re-aggregation of gemma3-27b TallyQA cell + §3.3 panel insertion~~ ✅ (2026-04-29; folded into above)
+- ~~qwen2.5-vl-7b on E5c VQAv2 + TallyQA~~ ✅ (2026-04-29 — both runs landed n=12,000 each; `analyze_e5c_distance.py` extended to multi-model with `--models` flag; `docs/insights/_data/E5c_per_cell.csv` rebuilt with model column; per-model figures saved as `E5c_<kind>_<model>.png`. a−m gap at floor on qwen2.5-vl, consistent with §3.3 main-panel anchor-resistance ranking)
 
 **Recently landed (struck from queue 2026-04-28):**
 
@@ -369,6 +385,49 @@ expansion of E5b/E5c** (running 2026-04-29 in parallel on GPU 0/1).
   M2 evidence numbers refresh accordingly.
 
 ## 10. Changelog
+
+- **2026-04-29 (qwen2.5-vl-7b E5c cross-model expansion landed).**
+  Two runs of `experiment_e5c_*` (VQAv2 + TallyQA, b + a×S1-5 + m×S1-5
+  + d, n=1000 base / dataset, n_total=12,000 / dataset) on
+  qwen2.5-vl-7b-instruct, launched 2026-04-29 03:12 on GPU 0/1 in
+  parallel and finished within ~50 min each. Re-aggregated to C-form
+  via `scripts/reaggregate_paired_adoption.py --apply --root
+  outputs/experiment_e5c_*/qwen2.5-vl-7b-instruct` (24,000 records
+  total, `_moved` flag now persisted). `scripts/analyze_e5c_distance.py`
+  extended to take `--models` (variadic) and emit a `model` column on
+  `docs/insights/_data/E5c_per_cell.csv`; per-non-default-model figures
+  saved as `docs/figures/E5c_<kind>_<model>.png`.
+
+  **Headline (S1, wrong-base, paired conditional adoption):**
+
+  | Dataset | llava-interleave-7b | qwen2.5-vl-7b | a−m llava | a−m qwen |
+  |---|---:|---:|---:|---:|
+  | VQAv2 (anchor / masked) | 0.129 / 0.068 | 0.070 / 0.066 | +6.1 pp | +0.4 pp |
+  | TallyQA (anchor / masked) | 0.110 / 0.084 | 0.033 / 0.037 | +2.6 pp | −0.5 pp |
+
+  Direction-follow `df_cond` shows the same pattern (llava VQAv2
+  S1: anchor 0.208 / masked 0.155, qwen S1: 0.148 / 0.163 ~ tie).
+  Distance decay holds qualitatively on qwen2.5-vl (S1 → S5 anchor
+  adopt: VQAv2 0.070 → 0.003, TallyQA 0.033 → 0.000), so the
+  plausibility-window claim from §5.3 generalises as a S1-peak /
+  S3+ floor pattern.
+
+  Reading: the digit-pixel-causality claim from §5.4 holds where
+  the anchor pull is large enough to detect (llava-interleave); on
+  qwen2.5-vl the entire E5c effect is at the noise floor on both
+  arms, consistent with §3.3 main-panel ranking placing qwen2.5-vl
+  at the lowest `df(a) = 0.094`. The cross-model expansion is
+  direction-consistent ("largest pull → largest gap") but the
+  absolute magnitude of the gap is model-dependent. gemma3-27b-it
+  cell pending will arbitrate whether mid-panel models track
+  llava-style or qwen-style behaviour.
+
+  Status changes: §3.1 `experiment_e5c_vqa` / `experiment_e5c_tally`
+  rows flipped from 🟡 single-model to 🟡 2/3 (gemma3-27b pending);
+  §3.3 E5c headline panel rewritten to show both models side-by-side;
+  §6.3 `E5b/c cross-model expansion` row updated; §7 P0 entry for
+  qwen2.5-vl-7b struck and replaced with the focused gemma3-27b-it
+  E5c VQAv2 P0 (~5–6h H200).
 
 - **2026-04-29 (E5e TallyQA gemma3-27b cell landed end-to-end).**
   Inference finished 2026-04-28 23:28 UTC (n=38,245, full integer

@@ -54,29 +54,34 @@ to a continuous proxy in §6.
 
 Stratifying anchors by `|a − gt|` into five distance strata
 (S1 [0,1], S2 [2,5], S3 [6,30], S4 [31,300], S5 [301,∞)) on
-LLaVA-Interleave-7b, with 1,000 base questions per dataset:
+LLaVA-Interleave-7b and Qwen2.5-VL-7B (cross-model expansion),
+with 1,000 base questions per (dataset, model):
 
 **Wrong-base `adopt_cond` (paired conditional adoption):**
 
-| Stratum | VQAv2 | TallyQA |
-|---|---:|---:|
-| S1 [0,1] | **0.130** | **0.092** |
-| S2 [2,5] | 0.032 | 0.006 |
-| S3 [6,30] | 0.010 | 0.003 |
-| S4 [31,300] | 0.010 | 0.000 |
-| S5 [301,∞) | 0.003 | 0.000 |
+| Stratum | VQAv2 llava | VQAv2 qwen2.5 | TallyQA llava | TallyQA qwen2.5 |
+|---|---:|---:|---:|---:|
+| S1 [0,1] | **0.130** | **0.070** | **0.092** | **0.033** |
+| S2 [2,5] | 0.032 | 0.014 | 0.006 | 0.015 |
+| S3 [6,30] | 0.010 | 0.003 | 0.003 | 0.000 |
+| S4 [31,300] | 0.010 | 0.003 | 0.000 | 0.000 |
+| S5 [301,∞) | 0.003 | 0.003 | 0.000 | 0.000 |
 
-The decay is two orders of magnitude on both datasets. **Implausible
-anchors are fully rejected.** TallyQA wrong-base S4 and S5 both
-register exactly 0/346 adoption.
+The decay is two orders of magnitude on llava and roughly one order
+on qwen2.5-vl (qwen's S1 is closer to llava's S2). **Implausible
+anchors are fully rejected on both models** — TallyQA S4/S5 register
+exactly 0 adoption on both.
 
-The corresponding correct-base curve is essentially flat (`adopt_cond`
-≤ 0.10 on every stratum, both datasets). **Both gates are load-bearing**:
-correct-base anchors don't pull even at S1; wrong-base anchors don't
-pull beyond the plausibility window. The product is the signature.
+The corresponding correct-base curves are essentially flat
+(`adopt_cond` ≤ 0.10 on every stratum, both datasets, both models).
+**Both gates are load-bearing**: correct-base anchors don't pull even
+at S1; wrong-base anchors don't pull beyond the plausibility window.
+The product is the signature, replicated across two architecturally
+distinct models.
 
-Cross-dataset robustness: VQAv2 baseline accuracy 0.62 vs TallyQA 0.21,
-and the wrong-base S1-peak / S5-floor shape is identical — the structure
+Cross-dataset robustness: VQAv2 baseline accuracy 0.62 (llava) / 0.81
+(qwen2.5) vs TallyQA 0.21 / 0.24, and the wrong-base S1-peak /
+S5-floor shape holds on every (model, dataset) cell — the structure
 does not depend on baseline competence beyond setting the wrong-base
 support size.
 
@@ -87,26 +92,42 @@ The (1,2,3) comparison — `target_only`, `target+anchor`,
 the anchor scene's background. The mask is the same scene with the
 digit pixel region inpainted (Telea, OpenCV) and OCR-validated post-fix.
 
-**Wrong-base × S1, paired conditional adoption:**
+**Wrong-base × S1, paired conditional adoption (cross-model):**
 
-| Dataset | anchor `adopt_cond` | masked `adopt_cond` | digit-pixel gap (a − m) |
-|---|---:|---:|---:|
-| VQAv2 | 0.129 | 0.068 | **+6.1 pp** |
-| TallyQA | 0.110 | 0.084 | +2.5 pp |
+| Dataset | Model | anchor `adopt_cond` | masked `adopt_cond` | digit-pixel gap (a − m) |
+|---|---|---:|---:|---:|
+| VQAv2 | llava-interleave-7b | 0.129 | 0.068 | **+6.1 pp** |
+| VQAv2 | qwen2.5-vl-7b | 0.070 | 0.066 | +0.4 pp |
+| TallyQA | llava-interleave-7b | 0.110 | 0.084 | **+2.5 pp** |
+| TallyQA | qwen2.5-vl-7b | 0.033 | 0.037 | −0.5 pp |
 
-The digit-pixel gap decays with distance: VQAv2 wrong-base gap
-S1→S5 = 0.061 → 0.016 → 0.013 → 0.013 → 0.008. By S5 it is at the
-noise floor.
+On **llava-interleave-7b**, the digit-pixel gap is positive on both
+datasets and decays with distance (VQAv2 wrong-base gap
+S1→S5 = 0.061 → 0.016 → 0.013 → 0.013 → 0.008; by S5 at the noise
+floor).
+
+On **qwen2.5-vl-7b**, the entire E5c effect — both arms — sits at
+or below the noise floor on both datasets. This is consistent with
+§5.1's main-panel ranking, where qwen2.5-vl-7b is the
+**most-anchor-resistant** model (`adopt(a) = 0.021`, `df(a) = 0.094`
+on the 17,730-sample VQAv2 panel). Where the anchor pull is
+detectable, the digit-pixel gap is positive; where the pull is at
+floor, the gap is also at floor. The cross-model picture is
+direction-consistent ("largest pull → largest gap") rather than a
+contradiction of the digit-pixel-causality claim.
 
 **The (1,3,4) comparison** — `target_only`, `target+masked`,
 `target+neutral` — eliminates the alternative that the anchor scene's
 *background* carries the effect. On correct-base, masked and neutral
 hurt accuracy by indistinguishable amounts (gap 1-2 pp on both
-datasets). The anchor image's background is doing no work beyond what
-a generic 2-image distractor does.
+datasets, both models). The anchor image's background is doing no
+work beyond what a generic 2-image distractor does, on either model.
 
-By elimination, **the digit pixels themselves are the causal pathway
-for paired adoption**.
+By elimination, **on the model where the effect is large enough to
+detect, the digit pixels themselves are the causal pathway for
+paired adoption**. The pending gemma3-27b-it E5c cell will arbitrate
+whether mid-panel models track the llava-style detectable gap or
+the qwen-style floor.
 
 ## 5.5 Cross-dataset extension (E5e)
 

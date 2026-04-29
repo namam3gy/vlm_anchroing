@@ -316,40 +316,60 @@ def plot_correct_vs_wrong_adopt(summary: pd.DataFrame, out_path: Path) -> None:
     plt.close(fig)
 
 
-def run(model: str = "llava-next-interleaved-7b") -> dict:
-    df = _load(model)
-    summary = per_cell_summary(df)
-    out_csv = PROJECT_ROOT / "docs" / "insights" / "_data" / "E5c_per_cell.csv"
-    out_csv.parent.mkdir(parents=True, exist_ok=True)
-    summary.to_csv(out_csv, index=False)
+DEFAULT_MODEL = "llava-next-interleaved-7b"
+
+
+def run(models: list[str] | str = DEFAULT_MODEL) -> dict:
+    if isinstance(models, str):
+        models = [models]
+    summaries = []
+    figures = []
     fig_dir = PROJECT_ROOT / "docs" / "figures"
     fig_dir.mkdir(parents=True, exist_ok=True)
-    plot_anchor_vs_masked_adopt(summary, fig_dir / "E5c_anchor_vs_masked_adopt.png")
-    plot_anchor_vs_masked_df(summary, fig_dir / "E5c_anchor_vs_masked_df.png")
-    plot_acc_drop_3way(summary, fig_dir / "E5c_acc_drop_3way.png")
-    plot_correct_vs_wrong_adopt(summary, fig_dir / "E5c_correct_vs_wrong_adopt.png")
+    n_records_total = 0
+    for model in models:
+        df = _load(model)
+        summary = per_cell_summary(df)
+        summary.insert(0, "model", model)
+        summaries.append(summary)
+        n_records_total += len(df)
+        suffix = "" if model == DEFAULT_MODEL else f"_{model}"
+        for kind, plotter in [
+            ("anchor_vs_masked_adopt", plot_anchor_vs_masked_adopt),
+            ("anchor_vs_masked_df", plot_anchor_vs_masked_df),
+            ("acc_drop_3way", plot_acc_drop_3way),
+            ("correct_vs_wrong_adopt", plot_correct_vs_wrong_adopt),
+        ]:
+            path = fig_dir / f"E5c_{kind}{suffix}.png"
+            plotter(summary, path)
+            figures.append(str(path.relative_to(PROJECT_ROOT)))
+    merged = pd.concat(summaries, ignore_index=True)
+    out_csv = PROJECT_ROOT / "docs" / "insights" / "_data" / "E5c_per_cell.csv"
+    out_csv.parent.mkdir(parents=True, exist_ok=True)
+    merged.to_csv(out_csv, index=False)
     return {
-        "summary": summary,
-        "n_records": len(df),
+        "summary": merged,
+        "n_records": n_records_total,
         "out_csv": str(out_csv.relative_to(PROJECT_ROOT)),
-        "figures": [
-            "docs/figures/E5c_anchor_vs_masked_adopt.png",
-            "docs/figures/E5c_anchor_vs_masked_df.png",
-            "docs/figures/E5c_acc_drop_3way.png",
-            "docs/figures/E5c_correct_vs_wrong_adopt.png",
-        ],
+        "figures": figures,
     }
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model", default="llava-next-interleaved-7b")
+    parser.add_argument(
+        "--models",
+        nargs="+",
+        default=[DEFAULT_MODEL],
+        help="One or more model names under outputs/experiment_e5c_*. The default model "
+        "writes to E5c_<kind>.png; non-default models write to E5c_<kind>_<model>.png.",
+    )
     return parser.parse_args()
 
 
 if __name__ == "__main__":
     args = parse_args()
-    out = run(model=args.model)
+    out = run(models=args.models)
     pd.set_option("display.float_format", "{:0.4f}".format)
     print(out["summary"].to_string(index=False))
     print(f"\nwrote {out['out_csv']}")
