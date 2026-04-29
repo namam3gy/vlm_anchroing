@@ -1,6 +1,29 @@
-# E5b — anchor-distance robustness sweep on llava-interleave-7b
+# E5b — anchor-distance robustness sweep (cross-model: llava-interleave-7b + qwen2.5-vl-7b)
 
-**Status:** Sub-experiment of E5; results writeup. Driver: `scripts/run_experiment.py` with `inputs.anchor_sampling: stratified`. Configs: `configs/experiment_distance_vqa.yaml`, `configs/experiment_distance_tally.yaml`. Analysis: `scripts/analyze_e5b_distance.py`. Notebook: `notebooks/E5b_anchor_distance.ipynb`. Raw outputs: `outputs/experiment_distance_{vqa,tally}/llava-next-interleaved-7b/<latest>/predictions.jsonl`. Aggregate table: `docs/insights/_data/E5b_per_stratum.csv`. Figures: `docs/figures/E5b_adopt_cond_curve.png`, `docs/figures/E5b_adopt_cond_overlay.png`. Design: `docs/experiments/E5b-anchor-distance-design.md`. Plan: `docs/experiments/E5b-anchor-distance-plan.md`.
+**Status:** Sub-experiment of E5; results writeup.
+
+> **2026-04-29 cross-model expansion.** Originally a single-model
+> writeup on llava-interleave-7b. qwen2.5-vl-7b extension landed via
+> the E5c run (E5c is a strict superset of E5b — `b + a×S1-5` strata
+> are present in the E5c dump). Wrong-base S1→S5 `adopt_cond` on
+> qwen2.5-vl: VQAv2 0.070 → 0.014 → 0.003 → 0.003 → 0.003; TallyQA
+> 0.033 → 0.015 → 0 → 0 → 0 — the S1-peak / S3+ floor structure
+> replicates qualitatively, with magnitudes about half llava-interleave's
+> (consistent with §3.3 main-panel ranking placing qwen2.5-vl at the
+> lowest df). Cross-model numbers + reasoning:
+> `docs/insights/E5c-anchor-mask-evidence.md` 2026-04-29 update +
+> `docs/insights/E5b-anchor-distance-evidence.md` 2026-04-29 banner.
+> The 2-gate (uncertainty × plausibility) claim now generalises across
+> two architecturally distinct models. gemma3-27b-it E5c VQAv2 cell
+> pending (~5–6h H200, P0 in roadmap §7).
+
+> **C-form numbers note.** The `adopt_cond` decays cited in the body
+> below are unchanged under C-form (adopt is independent of the
+> direction-follow numerator). `df` ranges have shrunk relative to the
+> anchor·gt form but the qualitative two-axis claim holds.
+> Pre-refactor results at `outputs/before_C_form/experiment_distance_*/`.
+
+Driver: `scripts/run_experiment.py` with `inputs.anchor_sampling: stratified`. Configs: `configs/experiment_distance_vqa.yaml`, `configs/experiment_distance_tally.yaml`. Analysis: `scripts/analyze_e5b_distance.py` (llava-interleave proper) + `scripts/analyze_e5c_distance.py --models llava-next-interleaved-7b qwen2.5-vl-7b-instruct` (cross-model superset). Notebook: `notebooks/E5b_anchor_distance.ipynb`. Raw outputs: `outputs/experiment_distance_{vqa,tally}/llava-next-interleaved-7b/<latest>/predictions.jsonl` + `outputs/experiment_e5c_{vqa,tally}/qwen2.5-vl-7b-instruct/<latest>/predictions.jsonl`. Aggregate tables: `docs/insights/_data/E5b_per_stratum.csv` + `docs/insights/_data/E5c_per_cell.csv` (model-keyed). Figures: `docs/figures/E5b_adopt_cond_curve.png`, `docs/figures/E5b_adopt_cond_overlay.png`. Design: `docs/experiments/E5b-anchor-distance-design.md`. Plan: `docs/experiments/E5b-anchor-distance-plan.md`.
 
 ## TL;DR — three findings
 

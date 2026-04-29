@@ -1,6 +1,16 @@
 # E1 — Attention-mass analysis: where does the anchor enter the computation?
 
-**Status:** Plan only. Implementation queued behind E2 pilot. Source: `references/roadmap.md` §6 Tier 1 E1.
+**Status:** **Executed and superseded.** This file is the original
+plan / motivation document. The actual results writeups live in
+`docs/experiments/E1-preliminary-results.md` (4-encoder n=200 panel),
+`docs/experiments/E1b-per-layer-localisation.md` (per-layer
+localisation, 6 models / 4 archetypes), and
+`docs/experiments/E1d-causal-ablation.md` (causal ablation panel).
+Digit-pixel patch reanalysis (E1-patch): `docs/experiments/E1-patch-spec.md`
++ `docs/insights/E1-patch-evidence.md` (4-model perfect-square panel
+landed 2026-04-29). Mitigation: `docs/experiments/E4-mitigation.md`
++ `docs/insights/E4-mitigation-evidence.md`. The body below is preserved
+as the original framing document.
 
 ## Question
 
