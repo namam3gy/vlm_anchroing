@@ -734,7 +734,7 @@ on gemma3-27b is infeasible at full n=1000 base, so we run it at
   trees rewrote 61 `predictions.jsonl` files. Pre-refactor results
   archived at `outputs/before_C_form/`. Side-by-side before/after
   comparison: `docs/insights/C-form-migration-report.md` (+ 7-slide
-  PPTX deck `docs/figures/C_form_migration_report.pptx`). **All
+  PPTX deck `docs/ppt/C_form_migration_report.pptx`). **All
   paper-tier qualitative claims preserved or strengthened under
   C-form.** Largest single shift: qwen2.5-vl-7b VQAv2 df_moved
   0.079 → 0.094 (modest under standard prompt; up to ×2.7 on other

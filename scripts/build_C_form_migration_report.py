@@ -7,7 +7,7 @@ deltas, generates figures + tables, and writes:
 
   - ``docs/insights/C-form-migration-report.md`` (markdown report)
   - ``docs/figures/C_form_migration_*.png`` (per-section figures)
-  - ``docs/figures/C_form_migration_report.pptx`` (presentation deck)
+  - ``docs/ppt/C_form_migration_report.pptx`` (presentation deck)
 
 The metrics inspected:
   - ``anchor_direction_follow_rate`` (df_M2 — the formula that changed)
@@ -39,7 +39,7 @@ BEFORE_ROOT = PROJECT_ROOT / "outputs" / "before_C_form"
 AFTER_ROOT = PROJECT_ROOT / "outputs"
 OUT_FIG = PROJECT_ROOT / "docs" / "figures"
 OUT_DOC = PROJECT_ROOT / "docs" / "insights" / "C-form-migration-report.md"
-OUT_PPTX = PROJECT_ROOT / "docs" / "figures" / "C_form_migration_report.pptx"
+OUT_PPTX = PROJECT_ROOT / "docs" / "ppt" / "C_form_migration_report.pptx"
 
 # Sub-trees we care about (paper-tier; skip the backup).
 EXPERIMENT_GLOBS = [

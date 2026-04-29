@@ -1,5 +1,5 @@
 // Build paper-style PPTX summary deck (Korean) for cross-modal anchoring in VLMs.
-// Outputs: docs/figures/paper_summary.pptx
+// Outputs: docs/ppt/paper_summary.pptx
 //
 // Run: node scripts/build_paper_pptx.js
 //
@@ -12,7 +12,7 @@ const fs = require("fs");
 
 const REPO_ROOT = path.resolve(__dirname, "..");
 const FIG_DIR = path.join(REPO_ROOT, "docs", "figures");
-const OUT_PATH = path.join(FIG_DIR, "paper_summary.pptx");
+const OUT_PATH = path.join(REPO_ROOT, "docs", "ppt", "paper_summary.pptx");
 
 // ---- palette ----
 const NAVY = "1E2761";
