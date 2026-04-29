@@ -49,6 +49,16 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 def _parse_args() -> argparse.Namespace:
     ap = argparse.ArgumentParser()
     ap.add_argument("--model", required=True)
+    ap.add_argument("--predictions-path", default=None,
+                    help="Override predictions.jsonl source. Default: "
+                         "outputs/e6_steering/<model>/sweep_n200/predictions.jsonl. "
+                         "Set to a tiebreaker_<dataset>/predictions.jsonl to "
+                         "analyze a tiebreaker run.")
+    ap.add_argument("--label", default="sweep",
+                    help="Short label for output dir under "
+                         "outputs/e6_steering/_summary/<label>/. "
+                         "Default 'sweep'; use 'tiebreaker_<dataset>' for "
+                         "tiebreaker runs.")
     return ap.parse_args()
 
 
@@ -184,8 +194,13 @@ def _check_selection(cell_m: dict, baseline_m: dict) -> dict:
 def main() -> None:
     args = _parse_args()
     base_dir = PROJECT_ROOT / "outputs" / "e6_steering" / args.model
-    pred_path = base_dir / "sweep_n200" / "predictions.jsonl"
-    out_dir = PROJECT_ROOT / "outputs" / "e6_steering" / "_summary"
+    if args.predictions_path:
+        pred_path = Path(args.predictions_path)
+        if not pred_path.is_absolute():
+            pred_path = PROJECT_ROOT / args.predictions_path
+    else:
+        pred_path = base_dir / "sweep_n200" / "predictions.jsonl"
+    out_dir = PROJECT_ROOT / "outputs" / "e6_steering" / "_summary" / args.label
     out_dir.mkdir(parents=True, exist_ok=True)
 
     print(f"[load] {pred_path}")

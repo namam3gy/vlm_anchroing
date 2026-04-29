@@ -62,6 +62,7 @@ import csv
 import json
 import sys
 import time
+from collections import defaultdict
 from pathlib import Path
 from typing import Any
 
@@ -94,7 +95,8 @@ CALIB_CONDITIONS = {
 
 def _parse_args() -> argparse.Namespace:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--phase", choices=("calibrate", "smoke", "sweep"), required=True)
+    ap.add_argument("--phase", choices=("calibrate", "smoke", "sweep", "tiebreaker"),
+                    required=True)
     ap.add_argument("--model", required=True,
                     help="Project model id (e.g. llava-next-interleaved-7b)")
     ap.add_argument("--hf-model", required=True,
@@ -117,6 +119,21 @@ def _parse_args() -> argparse.Namespace:
     ap.add_argument("--top-decile-n", type=int, default=100)
     ap.add_argument("--bottom-decile-n", type=int, default=100)
     ap.add_argument("--seed", type=int, default=42)
+    ap.add_argument("--predictions-path",
+                    help="Phase tiebreaker only: path to a non-VQAv2 E5* "
+                         "predictions.jsonl (TallyQA / ChartQA / MathVista) "
+                         "from which (sid, condition) records are read; "
+                         "input_image_paths field reconstructs the (target, "
+                         "irrelevant) image pair without re-loading the dataset.")
+    ap.add_argument("--cells", default="30:1.0:0,30:4.0:0",
+                    help="Phase tiebreaker only: comma-separated L:alpha:v_var_idx "
+                         "tuples specifying steered cells to compare against "
+                         "baseline. Default: chosen L30/α=1/v_wrong + alternate "
+                         "L30/α=4/v_wrong.")
+    ap.add_argument("--dataset-tag", default=None,
+                    help="Phase tiebreaker only: short label for the output dir "
+                         "(e.g. 'tally', 'chartqa'). Defaults to the parent "
+                         "experiment dir name parsed from --predictions-path.")
     return ap.parse_args()
 
 
@@ -695,6 +712,176 @@ def _phase_sweep(args, config) -> None:
     print(f"[done] wall={elapsed:.1f}s ({elapsed/60:.1f}min); saved {out_path}")
 
 
+def _parse_cell_spec(spec: str) -> dict:
+    """Parse 'L:alpha:v_var_idx' → cell dict."""
+    parts = spec.split(":")
+    if len(parts) != 3:
+        raise ValueError(f"cell spec must be 'L:alpha:v_var_idx', got {spec!r}")
+    L = int(parts[0])
+    alpha = float(parts[1])
+    vv = int(parts[2])
+    v_var_name = "v_wrong" if vv == 0 else ("v_all" if vv == 1 else f"v{vv}")
+    return {
+        "layer": L, "alpha": alpha, "v_var_idx": vv,
+        "label": f"L{L:02d}_a{alpha}_{v_var_name}",
+    }
+
+
+def _phase_tiebreaker(args, config) -> None:
+    """Cross-dataset tiebreaker. Read existing E5* predictions, reconstruct
+    (target, irrelevant) image pairs from input_image_paths, run baseline +
+    candidate cells, summarize df / em per cell."""
+    if not args.predictions_path:
+        raise ValueError("--phase tiebreaker requires --predictions-path")
+
+    v, meta = _load_v(args.model)
+    n_layers = meta["n_layers"]
+
+    # Cells: baseline + parsed candidates
+    cells = [{"layer": -1, "alpha": 0.0, "v_var_idx": -1, "label": "baseline"}]
+    for spec in args.cells.split(","):
+        cells.append(_parse_cell_spec(spec.strip()))
+    print(f"[setup] cells: {[c['label'] for c in cells]}")
+
+    pred_path = Path(args.predictions_path).resolve()
+    if not pred_path.is_absolute():
+        pred_path = PROJECT_ROOT / args.predictions_path
+    print(f"[setup] reading {pred_path}")
+
+    # Group: sid → cond → record
+    by_sid_cond: dict = defaultdict(dict)
+    for line in pred_path.open():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            r = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        by_sid_cond[r["sample_instance_id"]][r["condition"]] = r
+
+    target_conds = (
+        "target_only",
+        "target_plus_irrelevant_number_S1",
+        "target_plus_irrelevant_number_masked_S1",
+        "target_plus_irrelevant_neutral",
+    )
+
+    # Filter to wrong-base sids that have all 4 target conditions
+    eligible_sids: list[str] = []
+    for sid, d in by_sid_cond.items():
+        if not all(c in d for c in target_conds):
+            continue
+        if d["target_only"].get("exact_match") != 0:
+            continue  # not wrong-base
+        eligible_sids.append(sid)
+    print(f"[setup] eligible (wrong-base, all 4 conds): {len(eligible_sids)}")
+    if args.max_samples:
+        eligible_sids = eligible_sids[: args.max_samples]
+        print(f"[setup] capped to {len(eligible_sids)} sids")
+
+    runner, layers = _build_runner_and_layers(args, config)
+
+    dataset_tag = args.dataset_tag
+    if dataset_tag is None:
+        # outputs/<exp>/<model>/<run>/predictions.jsonl  →  <exp>
+        try:
+            dataset_tag = pred_path.parents[2].name
+        except IndexError:
+            dataset_tag = "tiebreaker"
+    out_dir = (PROJECT_ROOT / "outputs" / "e6_steering" / args.model
+               / f"tiebreaker_{dataset_tag}")
+    out_dir.mkdir(parents=True, exist_ok=True)
+    out_path = out_dir / "predictions.jsonl"
+    completed = _load_completed_keys(out_path)
+    print(f"[setup] writing to {out_path}; resuming_from={len(completed)}")
+
+    from PIL import Image
+
+    total_target = len(eligible_sids) * len(target_conds) * len(cells)
+    n_done = 0
+    n_skipped = 0
+    t0 = time.time()
+    with out_path.open("a") as fh:
+        for cell in cells:
+            handles = []
+            if cell["alpha"] != 0:
+                handles = _install_offset_hook(
+                    layers, cell["layer"], v[cell["v_var_idx"]], cell["alpha"]
+                )
+            try:
+                for sid in eligible_sids:
+                    for cond_name in target_conds:
+                        r0 = by_sid_cond[sid].get(cond_name)
+                        if r0 is None:
+                            continue
+                        key = (sid, cond_name, int(cell["layer"]),
+                               float(cell["alpha"]), int(cell["v_var_idx"]))
+                        if key in completed:
+                            n_skipped += 1
+                            continue
+
+                        # Reconstruct images from recorded paths
+                        try:
+                            img_paths = r0.get("input_image_paths") or []
+                            images = [Image.open(p).convert("RGB") for p in img_paths]
+                            out = runner.generate_number(
+                                question=r0["question"],
+                                images=images,
+                                max_new_tokens=args.max_new_tokens,
+                            )
+                            err = None
+                        except Exception as exc:
+                            out = {"raw_text": None, "parsed_number": None}
+                            err = str(exc)
+
+                        anchor_int = None
+                        if r0.get("anchor_value") is not None:
+                            try:
+                                anchor_int = int(str(r0["anchor_value"]).strip())
+                            except (ValueError, TypeError):
+                                pass
+                        rec = {
+                            "model": args.model,
+                            "dataset_tag": dataset_tag,
+                            "sample_instance_id": sid,
+                            "question_id": r0.get("question_id"),
+                            "condition": cond_name,
+                            "ground_truth": r0.get("ground_truth"),
+                            "anchor_value": anchor_int,
+                            "is_wrong_base": True,
+                            "cell_label": cell["label"],
+                            "cell_layer": cell["layer"],
+                            "cell_alpha": cell["alpha"],
+                            "cell_v_var_idx": cell["v_var_idx"],
+                            "raw_text": out.get("raw_text"),
+                            "parsed_number": out.get("parsed_number"),
+                            "exact_match": _exact_match(
+                                out.get("parsed_number"), r0.get("ground_truth")
+                            ),
+                            "error": err,
+                        }
+                        fh.write(json.dumps(rec) + "\n")
+                        fh.flush()
+                        n_done += 1
+                        if n_done % 200 == 0 or n_done == 1:
+                            elapsed = time.time() - t0
+                            rate = n_done / max(elapsed, 1)
+                            remaining = total_target - (n_done + n_skipped)
+                            eta = remaining / max(rate, 1e-6)
+                            print(f"  [progress] cell={cell['label']:25s} "
+                                  f"done={n_done} skipped={n_skipped} "
+                                  f"rate={rate:.1f}/s eta={eta/60:.1f}min")
+            finally:
+                for h in handles:
+                    h.remove()
+
+    elapsed = time.time() - t0
+    print(f"[done] tiebreaker: {n_done} new + {n_skipped} resumed = "
+          f"{n_done + n_skipped}/{total_target} target  wall={elapsed/60:.1f}min")
+    print(f"[done] saved {out_path}")
+
+
 def main() -> None:
     args = _parse_args()
     set_seed(args.seed)
@@ -706,6 +893,8 @@ def main() -> None:
         _phase_smoke(args, config)
     elif args.phase == "sweep":
         _phase_sweep(args, config)
+    elif args.phase == "tiebreaker":
+        _phase_tiebreaker(args, config)
     else:
         raise ValueError(f"unknown phase: {args.phase}")
 
