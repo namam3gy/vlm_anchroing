@@ -122,16 +122,19 @@ S1 (b/a/m/d × S1):
 | ChartQA | gemma3-27b-it | 0.037 | 0.022 | 0.096 | 0.079 |
 | ChartQA | llava-interleave | 0.028 | 0.009 | 0.152 | 0.115 |
 | ChartQA | qwen2.5-vl-7b | 0.017 | 0.013 | 0.051 | 0.046 |
+| TallyQA | gemma3-27b-it | 0.027 | 0.016 | 0.073 | 0.060 |
 | TallyQA | llava-interleave | 0.026 | 0.014 | 0.066 | 0.056 |
 | TallyQA | qwen2.5-vl-7b | 0.011 | 0.011 | 0.029 | 0.030 |
 | **MathVista** | **gemma3-27b-it** | **0.176** | 0.047 | **0.216** | 0.134 |
 | MathVista | llava-interleave | 0.066 | 0.030 | 0.205 | 0.125 |
 | MathVista | qwen2.5-vl-7b | 0.020 | 0.008 | 0.072 | 0.041 |
 
-TallyQA × gemma3-27b-it is in flight on GPU 1 (launched 2026-04-28
-00:39 UTC, full 38,245-question integer subset, ETA ~30-35h on
-contended GPU). The cell will be added once the run lands; the
-qualitative pattern across the three datasets does not depend on it.
+TallyQA × gemma3-27b-it (full 38,245-question integer subset) landed
+2026-04-29: inference completed 2026-04-28 23:28 ahead of the projected
+30–35h wall budget; C-form re-aggregation 2026-04-29. The cell sits at
+the head of the TallyQA section under both `adopt(a)` and `df(a)` and
+preserves the cross-dataset `a > m` pattern (`adopt(a) − adopt(m) =
++1.1 pp`, `df(a) − df(m) = +1.3 pp`, n=38,245, S1).
 
 Three observations:
 
