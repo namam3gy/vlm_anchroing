@@ -190,6 +190,15 @@ research/
 
 ## 10. Changelog
 
+> **Note (2026-04-29).** 2026-04-28부터 roadmap 구조가 paper-section-anchored
+> 형태로 재정비되었고 (영문 canonical `roadmap.md` §1–§9), 본 한국어 미러는
+> 그 재정비 이전 상태(§3 = Status / §6 = Phase B / §7 = 순서)로 freeze되어
+> 있습니다. 2026-04-28 이후의 모든 changelog entry는 영문 canonical에 자세히
+> 기록되어 있고, 본 §10 끝에 한국어 압축 요약 (M2 + C-form refactor, γ-β
+> 결과, paper §3/§7.4/§8 prose, E1-patch 4-model, E5c 다모델 확장, gemma3-27b
+> TallyQA 등) 만 추가되어 있습니다. §1–§9 본문은 stale — 작업은 항상
+> 영문 canonical을 먼저 참조하세요.
+
 - **2026-04-24** — Roadmap 작성. Status: 7 모델 × full VQAv2 (standard + strengthen prompt) 완료; 신규 5 모델 통합되었으나 main run 없음; 3 데이터셋 확장 smoke만. Phase A queued.
 - **2026-04-24** — Phase A 완료. Headline (H2): anchoring은 uncertainty-modulated **graded pull**, categorical capture가 아님 (`docs/insights/A1-asymmetric-on-wrong.md`). Per-digit asymmetry 확인 (A2). Cross-model correlation 0.15–0.31 (A7) → encoder와 content 둘 다 영향 → E1+E2 motivate. A3/A4/A5/A6는 `00-summary.md`에 통합. §7 결정 trigger 발화 — Phase B 순서 변경 없음.
 - **2026-04-24** — E2 pilot (n=1,125 × 4 모델) 완료. **H3 단순 "Conv < ViT" 형태 지지 안 됨** — ConvLLaVA adoption=0.156이 CLIP/SigLIP 클러스터 CI 안. **새 H6 추가**: cross-modal failure가 두 직교 축 (anchor-pull vs multi-image distraction)으로 분해. InternVL3 = pure distraction (low adoption, high acc_drop), LLaVA-1.5 = pure anchoring (high adoption, low acc_drop), ConvLLaVA = both. Two-axis framing이 "encoder family universally matters"를 paper headline candidate로 대체. `docs/experiments/E2-pilot-results.md` 참조. 4 모델 full 17,730 run은 사용자 signoff 대기.
@@ -211,3 +220,123 @@ research/
     - **Cross-dataset robustness.** baseline accuracy가 다른데도 (acc(target_only) VQAv2 0.62 vs TallyQA 0.21) 두 dataset 동일 패턴 → 효과가 특정 image domain에 묶여있지 않음.
   처음엔 direction-follow를 headline으로 했으나 noisier (S2 false-peak이 case-4 + `anchor==gt` boundary 때문). `adopt_cond` 로 전환하면서 pattern 깨끗. 산출: `scripts/analyze_e5b_distance.py` (rewrite), `scripts/build_e5b_notebook.py`, `notebooks/E5b_anchor_distance.ipynb` (in-place 실행), `docs/figures/E5b_adopt_cond_curve.png` (per-dataset, base-correctness split), `docs/figures/E5b_adopt_cond_overlay.png` (cross-dataset wrong-base only), `docs/insights/_data/E5b_per_stratum.csv` (20-row table). E5b branch commits: `f4ea410` (df-headline 초기 T10), `00afb81` (adopt_cond + base split refactor).
 - **2026-04-27** — **E5c 등록: anchor-mask control 실험.** anchor 이미지에서 digit pixel region 만 content-preserving mask 처리 (digit bbox 만) → digit-specific anchoring 기여를 일반적 두-이미지 distraction에서 분리. masked variants 위에서 E5b stratified pipeline 재실행. E5b의 wrong-base × S2 peak이 digit 자체 때문인지 2-image presence 때문인지 인과 확인. 설계는 §6 Tier 2 row 참조.
+
+---
+
+> **2026-04-28 이후 — 압축 한국어 요약** (영문 canonical `roadmap.md §10`에 상세).
+> §1–§9의 ko 본문은 이 시점 이후 동기화되지 않음.
+
+- **2026-04-28 — M2 metric refactor landed.** `metrics.py` 가
+  `anchor_adoption_rate` 분모를 `D_paired = (pb != anchor)`로, 신규
+  `anchor_direction_follow_rate` 분자에 `pa != pb` 조건을 강제. legacy
+  필드는 audit 용도로 보존. per-row M2 flag (`pred_b_equal_anchor`,
+  `pred_diff_from_base`, `anchor_direction_followed_moved`) 추가.
+  `reaggregate_paired_adoption.py --apply --force` 가 53개 run dir
+  재집계. 15개 metrics 단위 테스트 통과. M1 (paired adoption) 폐기,
+  M2 + C-form (아래) 으로 단일화.
+
+- **2026-04-28 — direction_follow_rate C-form 리팩터.** γ-β MathVista
+  의 `df_M2 = 0` 이상 결과 audit이 두 버그를 노출: (i) `metrics.py`가
+  M1 시대의 `(pa-gt)·(anchor-gt) > 0` 식을 그대로 운반, (ii)
+  `run_experiment.py`가 일부 row dict 필드를 누락. 사용자 의도 검증
+  결과 정답 form은 gt-free **C-form `(pa-pb)·(anchor-pb) > 0 AND
+  pa != pb`** — anchor pull을 baseline-relative shift로 정의하여
+  per-question stimulus draw에 robust. 코드 / 테스트 / 문서 7면
+  C-form으로 통일, driver schema regression test 추가, 17개 sub-tree
+  재집계 (61개 jsonl). pre-refactor 결과는 `outputs/before_C_form/`에
+  보존. **모든 paper-tier 정성 claim이 C-form 하에서 보존되거나 강화됨.**
+  Side-by-side: `docs/insights/C-form-migration-report.md`.
+
+- **2026-04-28 — γ-β MathVista (reasoning-mode) — thinking이 anchor
+  pull을 *증폭*.** Qwen3-VL-8B-Instruct vs Qwen3-VL-8B-Thinking
+  (별도 weight). MathVista 4-cond S1, n=365 anchor arm: instruct
+  adopt(a) = 0.074 / df(a) C-form = 0.102 → thinking adopt(a) = 0.117
+  / df(a) = 0.291. **×1.6 adopt, ×2.9 df.** masked-arm digit-pixel
+  causality는 둘 다 보존 (anchor > masked). H4 ("reasoning이 anchoring
+  완화")는 *amplification* 쪽으로 결판 — VLMBias / Wang LRM-judging과
+  일관. 본 패널에서 가장 강한 reasoning-amplifies-bias 결과이자 paper
+  §1 hook의 한 축.
+
+- **2026-04-28 — Phase 2 E4 mitigation의 C-form 풀 재집계 (B안).**
+  `analyze_causal_ablation.py` + `analyze_e4_mitigation.py`가 이제
+  canonical M2 `anchor_direction_followed_moved` flag을 읽어 §3.3 / §5
+  와 §7의 metric을 일치시킴. Phase 2 88,650 records / model: LLaVA-1.5
+  pull→C-form `direction_follow` 0.258→0.288, s* 0.212→0.246, rel
+  −17.7 %→**−14.6 %**; ConvLLaVA −10.6 %→**−9.6 %**; InternVL3
+  −5.8 %→**−5.8 %**. E1d upper-half ablation: **−4.0 ~ −10.5 pp**
+  (C-form, 6/6 모델). em-기반 metric은 변동 없음. paper draft §1
+  abstract / §7 표 / §3.3 헤드라인 모두 C-form 으로 propagate.
+
+- **2026-04-28 — Roadmap + project.md를 paper-section-anchored
+  구조로 재정비.** `references/project.md §0` 에 EMNLP 2026 Main
+  paper outline 추가 (headline claim, §1–§8 구조, M2 canonical
+  metrics, dataset / model panel, scope-out). 영문 canonical
+  `roadmap.md` §1–§10 을 §0 outline 기준 status matrix + paper-section
+  experiment matrix + priority queue 형태로 재구성. 본 ko 미러 §1–§9
+  본문은 이 시점에 freeze.
+
+- **2026-04-28 — Paper-section prose §3 / §7.4 / §8/F1 작성.**
+  `docs/insights/paper-section-3-problem-definition.md` (4-cond setup
+  + JSON-strict prompt + 4 canonical metrics);
+  `paper-section-7-4-mitigation-free-lunch.md` (Phase 2 free-lunch
+  table — df↓ −5.8 ~ −17.7 % rel · em(a)↑ +0.49 ~ +1.30 pp · em(b)
+  invariant on 3/3 mid-stack-cluster · 10–22 % anchor-damage recovery);
+  `paper-section-8-f1-future-work.md` (LLM-vs-VLM architectural-diff
+  paragraph). Paper-summary deck pipeline + 4개 figure + speaker-notes.
+
+- **2026-04-28 — L1 confidence-modulated anchoring (paper §6) 증거
+  작성.** 10개 logit-capturing run (post-`5f925b2`), 112,008 (sample
+  × arm) record, 34 cell. 세 confidence proxy 중 **`entropy_top_k`가
+  가장 깨끗** — mean df Q4 − Q1 = +0.128 (+0.152 C-form 후),
+  18/34 anchor cell이 Q1<Q2<Q3<Q4 monotone. Phase A 의 wrong/correct
+  binary는 이 continuous monotonicity의 coarse projection. 산출:
+  `docs/insights/L1-confidence-modulation-evidence.md`, `_data/L1_*.csv`.
+
+- **2026-04-28 — E5e MathVista (γ-α) cross-model 4-cond full.**
+  3 models × 385 base × 4 cond = 4,620 records, ~45 min. 헤드라인
+  (M2 wrong-base S1 anchor): gemma3-27b adopt(a) = 0.194 (program
+  최대 cell), llava +0.041, qwen +0.007; 3/3 모델 `a > m`.
+  pre-C-form driver bug에서 보고됐던 `df = 0` "categorical-replace"
+  framing은 retraction; 실제 C-form 값은 §3.3 (gemma3-27b
+  df(a) = 0.332).
+
+- **2026-04-28 — E1-patch POC (2 archetypes — 2026-04-29에 4모델로
+  확장).** `compute_anchor_digit_bboxes.py` + `extract_attention_mass.py
+  --bbox-file` + `analyze_attention_patch.py`. gemma4-e4b digit/anchor
+  = 0.631 (peak L9, +0.404 above fair share); llava-1.5-7b 0.468
+  (peak L7, +0.241). 두 가지 정성적으로 다른 attention pathway.
+
+- **2026-04-29 — E1-patch perfect-square panel을 2 → 4모델로 확장.**
+  POC (gemma4-e4b + llava-1.5-7b)에 convllava-7b (CLIP-ConvNeXt,
+  24×24=576 token square) + fastvlm-7b (FastViT, 16×16=256 token square)
+  추가, 동일한 perfect-square 경로 재사용. **4-model 헤드라인**
+  (peak digit/anchor, n=400 each): gemma4-e4b 0.631 (L9, +0.404 above
+  fair share), convllava-7b 0.552 (L7, +0.325), fastvlm-7b 0.531
+  (L4, +0.304), llava-1.5-7b 0.468 (L7, +0.241). 4/4 모델이 fair share
+  (~0.227)을 +24~+40 pp 상회. 세 정성적 profile (전역 digit-집중 /
+  mid-early peak 후 감쇠 / sharp early peak + 중기 plateau).
+  InternVL3-8b (multi-tile) + Qwen2.5-VL-7b (17×23 non-square)는
+  per-encoder bbox 매핑 작업 필요 → P3로 deferred.
+
+- **2026-04-29 — qwen2.5-vl-7b E5c cross-model 확장.** VQAv2 + TallyQA,
+  b + a×S1-5 + m×S1-5 + d, n=12,000 / dataset, GPU 0/1 병렬 ~50 min.
+  **wrong-base S1 paired conditional adoption (a / m / a−m gap):**
+  VQAv2 0.070 / 0.066 / +0.4 pp, TallyQA 0.033 / 0.037 / −0.5 pp —
+  qwen2.5-vl는 §3.3 main panel에서 가장 anchor-resistant이고 (df(a)
+  = 0.094) E5c에서도 두 dataset 모두 floor. llava-interleave-7b의
+  +6.1 pp / +2.5 pp gap과 direction-consistent ("largest pull →
+  largest gap") 이지만 절대 magnitude는 model-dependent.
+  gemma3-27b-it E5c VQAv2 cell만 cross-model gap으로 남음 (~5–6h H200).
+
+- **2026-04-29 — E5e TallyQA gemma3-27b cell 종료.** 추론 2026-04-28
+  23:28 UTC 종료 (n=38,245), C-form 재집계 2026-04-29. **§3.3 패널
+  헤드라인 (TallyQA)** : acc(b) = 0.237 / acc(a) = 0.236 / adopt(a) =
+  0.027 / adopt(m) = 0.016 / df(a) C-form = 0.073 / df(m) = 0.060.
+  wrong-base S1: adopt(a) = 0.059, df(a) = 0.152.
+
+- **2026-04-29 — doc hygiene.** Paper-deck 산출물을 `docs/figures/` →
+  `docs/ppt/`로 이동 (`8eda31c`); `*.pptx`를 git tracking에서 제거
+  (regenerable; `53d3bbd`); cached `docs/deprecated/_ko-mirrors-2026-04-27/`
+  (18개 파일) 제거 (`6fe7be2`); 5개 experiment / insight writeup의
+  stale Status banner를 2026-04-29 commit으로 backfill (`d6efecd`,
+  `dc38d6c`, `abf10b3`). 발견 사항 변경 없음.

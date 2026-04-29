@@ -1,5 +1,11 @@
 # VLM의 cross-modal anchoring: EMNLP 2026 솔직 평가 *(영문 canonical: `project.md`)*
 
+> **Note (2026-04-29).** 이 한국어 미러는 2026-04-23 feasibility review만
+> 포함합니다. **현재 paper outline (§0, 2026-04-28 작성)** — headline claim,
+> §1–§8 구조, M2 canonical metrics (C-form), 7+모델 패널, dataset matrix,
+> scope-out 결정 — 은 영문 canonical `references/project.md §0`에만 있습니다.
+> 작업 시작은 항상 영문 §0 + `roadmap.md`부터 합니다.
+
 **결론 선제시.** 핵심 경험적 주장 — target VQA 이미지 옆에 렌더링된 *숫자 이미지*를 anchor로 주입했을 때, 효과가 **원래 모델이 틀린 item에서 비대칭적으로 더 강하게 나타난다**는 발견 — 은 실제로 novel하고, 기존 문헌에 대해 방어 가능하다. 하지만 현재 스코프(7 모델 × ~5 cognitive bias × VQAv2, mechanistic 분석 없음, mitigation 없음)는 EMNLP 2024–2025에서 **Findings로 accept된** 최근 cognitive-bias-in-LLM 논문들의 empirical profile과 일치 — Main에는 못 올라갔다. Findings-tier에서 Main-tier로 움직이려면 이 논문은 (1) breadth를 줄이고 *mechanistic depth*를 추가, (2) mechanism이 가이드하는 최소한의 mitigation 추가, (3) cognitive-bias 잡화점이 아니라 sharp한 단일 과학적 주장으로 reframe이 필요. 8×H200 + 한 달이면 가능 — 단, 확장 계획을 *좁혀야* 가능하다, 넓히는 게 아니라. 이하 섹션들은 prior-art landscape, 각 제안된 확장에 대한 novelty verdict, feasibility 계산, 구체적 권고사항을 정리.
 
 ## Novelty verdict: 강한 core, 약한 extension들

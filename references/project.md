@@ -84,8 +84,10 @@ applies to `pred_m` (mask arm).
 | MathVista | b / a / m / d (4-cond, S1) | 3 (γ-α: llava-interleave, qwen2.5-vl, gemma3-27b) | ✅ landed 2026-04-28 — gemma3-27b wrong-base adopt(a) = 0.230, df(a) C-form = 0.332 (panel-largest cell) |
 | MathVista | reasoning-mode (β) | 2 (qwen3-vl-8b instruct vs thinking) | ✅ landed 2026-04-28 — thinking amplifies anchor pull (adopt ×1.6, df ×2.9) |
 
-E5b stratified-distance and E5c digit-mask runs are on
-`llava-next-interleaved-7b` only (cross-model expansion in flight).
+E5b stratified-distance and E5c digit-mask runs cover
+`llava-next-interleaved-7b` + `qwen2.5-vl-7b-instruct` (2/3 panel models,
+landed 2026-04-29 on VQAv2 + TallyQA); `gemma3-27b-it` E5c VQAv2 cell is
+the remaining cross-model gap.
 
 Mechanistic panel (E1 / E1b / E1d): 6 models (`gemma4-e4b`,
 `qwen2.5-vl-7b-instruct`, `llava-1.5-7b`, `internvl3-8b`, `convllava-7b`,
