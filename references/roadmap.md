@@ -103,9 +103,11 @@ Quick orientation:
   gemma3-27b-it VQAv2 `a−m` = **+5.69 pp adopt / +5.99 pp df**
   (anchor adopt 0.138 vs masked 0.082; df 0.280 vs 0.221 — second-largest
   cell after llava). gemma3-27b-it TallyQA at `max_samples=300`
-  shows `a−m` = **+2.05 pp adopt / −0.33 pp df** (df at noise
-  floor; matches main-panel ranking that gemma3 sits between
-  llava and qwen on TallyQA susceptibility).
+  shows `a−m` = **+2.05 pp adopt / −0.33 pp df**; the df-side −0.33 pp
+  is a 1-sample noise-floor artefact (df-eligible n≈95/arm,
+  95 % CI half-width ~±8 pp at p≈0.19), not a sign reversal —
+  consistent with main-panel ranking that gemma3 sits between
+  llava and qwen on TallyQA susceptibility.
 - **E5e ChartQA + TallyQA:** 3-model panel, all `a > m`.
 - **E4 mitigation:** LLaVA-1.5 / ConvLLaVA / InternVL3 mid-stack-cluster
   Phase 2 C-form `df` reduction −14.6 % / −9.6 % / −5.8 % rel; em ↑;
