@@ -59,15 +59,23 @@ inpainting the digit pixel removes the effect:
 | TallyQA | qwen2.5-vl-7b | 0.033 | 0.037 | −0.5 pp |
 
 (gemma3-27b-it TallyQA at `max_samples=300` per §9; full n=1000
-stratified is infeasible on this model.) Direction-follow `df_cond`
-mirrors the ranking: VQAv2 wrong-base S1 df(a)/df(m) = 0.280/0.221
-on gemma3 (+5.99 pp), 0.208/0.155 on llava (+5.3 pp), 0.148/0.163
-(~0) on qwen2.5-vl. Cross-model expansion now confirms the
-expected rank: largest pull (llava) → largest gap; mid-panel
-(gemma3) → mid gap; floor (qwen2.5-vl) → floor gap. The
-digit-pixel-causality claim from §5.4 generalises across all three
-models on VQAv2 and across the two pulled models on TallyQA, with
-qwen2.5-vl serving as the negative control.
+stratified is infeasible on this model. **Noise-floor caveat:** the
+TallyQA wrong-base S1 stratum has only n≈95 df-eligible samples
+per arm under this budget, so df-side gaps below ~±8 pp (95% CI
+half-width at p≈0.19) are sampling noise. gemma3's TallyQA df(a)−df(m)
+= −0.33 pp is one of these — corresponding to a 1-sample
+difference in the numerator, not a sign reversal. The adopt-side
+gap (+2.05 pp) survives because case4 has a different denominator
+profile.) Direction-follow `df_cond` mirrors the ranking on
+VQAv2 wrong-base S1 where stratum n is large enough to
+detect: df(a)/df(m) = 0.280/0.221 on gemma3 (+5.99 pp),
+0.208/0.155 on llava (+5.3 pp), 0.148/0.163 (~0) on qwen2.5-vl.
+Cross-model expansion confirms the expected rank: largest pull
+(llava) → largest gap; mid-panel (gemma3) → mid gap; floor
+(qwen2.5-vl) → floor gap. The digit-pixel-causality claim from §5.4
+generalises across all three models on VQAv2 and across the two
+pulled models on TallyQA (llava resolves df above noise; gemma3
+resolves on adopt; qwen2.5-vl serves as the negative control).
 
 ## E5e S1-only 4-condition full — 3-model panel × ChartQA + TallyQA
 
