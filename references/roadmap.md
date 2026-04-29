@@ -226,7 +226,8 @@ the coarsest possible projection of this monotonicity.
 | **E1-patch masked-arm causal control** | re-run extraction on the 4-model panel using a 4-cond config (b/a/m/d) instead of the existing 3-cond `configs/experiment.yaml`. Pairs `image_anchor_digit` on the anchor arm against the masked arm's anchor-region attention as a digit-pixel causal control. Adds ~1 hour GPU per model + 4-cond config wiring. | ☐ P3 (deferred 2026-04-29 — independent of the non-square work above) |
 | **E4 Phase 1 + 2** | mid-stack-cluster attention re-weighting (LLaVA-1.5 / ConvLLaVA / InternVL3) | ✅ |
 | **E4 §7.4 paper rendering** | report `direction_follow_rate` reduction, `exact_match` rise, `accuracy_vqa(b)` invariance side by side; the "free lunch" framing | ✅ `docs/insights/paper-section-7-4-mitigation-free-lunch.md` (2026-04-29) |
-| **E1-patch generalises mitigation?** | does upper-half attention mass concentrate on the digit patch only? if yes, mitigation can shrink target region | ☐ P3 |
+| **E6 — anchor-agnostic steering vector mitigation (§7.4.5)** | residual-stream offset `−α · v_{L*}` calibrated from existing E5c S1 wrong-base (a, m) pairs (399 pairs verified on llava-next-interleaved-7b VQAv2); **inference requires zero anchor labels** (deployable, unlike E4). Single-layer scope (residual-stream, not refuted by E1d's attention-pathway null). **PoC on llava-next-interleaved-7b** (the §3.3 main panel). Phase 0 (calibration extraction) + Phase 0.5 (wiring smoke) + Phase 1 (n=200 stratified sweep, 42 cells) all complete 2026-04-29. **8/42 cells pass selection rule; chosen L30/α=1/v_wrong gives df −14.2 % rel with em_b/em_d/em_a all within ±0.5 pp of baseline.** Effect size matches E4 (−14.6 % on LLaVA-1.5) but at single-layer scope and zero inference-time labels — the §7.4.5 deployability gap is closed. Results: `docs/experiments/E6-steering-vector.md`. Phase 2a (full VQAv2 n=17,730) + Phase 2b (cross-dataset VQAv2/TallyQA/ChartQA/MathVista) gated on user signoff. | ✅ Phase 1 PoC (2026-04-29) — branch `e6-steering-vector-mitigation` |
+| **E1-patch generalises mitigation?** | does upper-half attention mass concentrate on the digit patch only? if yes, mitigation can shrink target region | ☐ P3 (subsumed by E6 — digit-bbox-scoped attention surgery (N1/N2 in 2026-04-29 brainstorm) needs anchor label at inference, so reframed as **mechanistic analysis tool** under §7.2 rather than a deployable mitigation) |
 
 ### 6.6 §8 — Future work (scope only)
 
@@ -241,12 +242,17 @@ the coarsest possible projection of this monotonicity.
 P0 = blocks paper sections, do this week. P1 = strengthens but not load-
 bearing. P2 = ideation depth. P3 = future / parallel.
 
-**As of 2026-04-29 (post-gemma3-27b E5c)** — all paper-blocking P0s
-have landed (M2-refactor + C-form, L1-L4 confidence, γ-α + γ-β
-MathVista, E1-patch POC, paper §3/§7.4/§8 prose, E5e TallyQA
+**As of 2026-04-29 (post-gemma3-27b E5c + E6 design)** — all
+paper-blocking P0s have landed (M2-refactor + C-form, L1-L4 confidence,
+γ-α + γ-β MathVista, E1-patch POC, paper §3/§7.4/§8 prose, E5e TallyQA
 gemma3-27b cell, qwen2.5-vl-7b E5c VQAv2 + TallyQA, **gemma3-27b-it
-E5c VQAv2 + TallyQA**). No P0 outstanding — remaining queue is
-P1/P3 strengthening / future work.
+E5c VQAv2 + TallyQA**). No P0 outstanding. New P1: **E6 anchor-agnostic
+steering-vector PoC** (deployable mitigation, motivated by the
+inference-label gap E4 inherently has — see §6.5 row).
+
+| **P1** | **E6 Phase 2a — full VQAv2 validation at chosen cell (L30/α=1/v_wrong)**. Phase 1 PoC ✅; chosen cell delivers df −14.2 % rel with deployable em invariance. Phase 2a tightens n=200 → n=17,730 CIs and produces the §7.4.5 paper-grade headline number. Triggers `docs/insights/E6-steering-evidence.md` writeup. Unlocks E4 vs E6 panel-comparison framing in paper. | §6.5 E6 | ~20–40 h H200 (resumable) + analyze ~1 day |
+| **P1** | **E6 Phase 2b — cross-dataset deployability** at chosen cell. Calibrate `v` once on llava-next-interleaved-7b VQAv2 wrong-base S1 (already done in Phase 0); apply to TallyQA / ChartQA / MathVista E5* sample sets without re-calibration. Free reviewer-defuse on "single dataset" complaint. | §6.5 E6 | ~5–10 h × 3 datasets = 15–30 h H200 |
+| **P3** | **E6 Phase 2c — LLaVA-1.5-7b head-to-head port** (optional). Same chosen-cell methodology applied to E4 panel models for direct same-model E4 vs E6 comparison. Triggered only on reviewer pushback. | §6.5 E6 | ~1 day/model |
 | **P3** | E1-patch full panel non-square archetypes — InternVL3-8b (multi-tile bbox routing) and Qwen2.5-VL-7b (`grid_thw` plumbing). 2026-04-29 audit re-budgeted the original §7 1.5h estimate to 4–7 days panel-wide after finding the bbox-to-token mapping is per-encoder (POC's `int(math.isqrt(n)) ** 2 == n` gate returns None on multi-tile / rectangular grids). ConvLLaVA-7b + FastVLM-7b were perfect-square and landed in the 4-model panel 2026-04-29. | §6.5 E1-patch | ~1–2 days/model implementation + ~12 min/model H200 extraction |
 | **P3** | E1-patch masked-arm causal control — re-run extraction on 4-model panel under 4-cond config | §6.5 E1-patch | 4-cond config wiring + ~1h GPU/model |
 | **P1** | VQAv2 4-condition cross-model (b/a/m/d, S1 only, kept) | §6.3 | ~1d (3 models) — opportunistic |
@@ -320,6 +326,90 @@ P1/P3 strengthening / future work.
   TallyQA gemma3-27b cell).
 
 ## 10. Changelog
+
+- **2026-04-29 (E6 Phase 1 PoC ✅ — anchor-agnostic mitigation works).**
+  Phase 0 (calibration `v.pt` extraction, 230 s wall, 32 layers ×
+  4096 d, 399 wrong-base + 1000 all-base pairs) + Phase 0.5 (wiring
+  smoke, 4/10 changed) + Phase 1 (n=200 stratified × 4 conditions × 42
+  steered cells + baseline = 34,400 records, 6,455 s wall = 1.8 h on
+  H200) all landed on `llava-next-interleaved-7b` from existing E5c
+  VQAv2 (a, m) S1 pairs. **8 / 42 cells pass design-doc selection rule
+  (df ≤ 0.9 · df₀, em_b/em_d/em_a ≥ baseline − 0.02, mdist guard).**
+
+  **Chosen cell:** L30 / α=1.0 / v_wrong (smallest |α| tiebreaker
+  among −14 %-class passers).
+
+  | metric | baseline | E6 chosen | Δ |
+  |---|---:|---:|---:|
+  | df_a (C-form) | 0.1915 | **0.1643** | **−14.2 % rel** |
+  | adopt_a | 0.1206 | 0.1214 | +0.08 pp |
+  | em(target_only) | 0.585 | 0.580 | −0.5 pp ✓ |
+  | em(neutral d) | 0.570 | 0.565 | −0.5 pp ✓ |
+  | em(anchor a-S1) | 0.540 | 0.540 | invariant |
+  | mdist | 1.105 | 1.095 | −0.01 (clean) |
+
+  E4 (LLaVA-1.5-7b mid-stack-cluster panel, df −14.6 % rel) and E6
+  (llava-next-interleaved-7b, this PoC, df −14.2 % rel) match in effect
+  size at vastly different deployment cost: E4 needs anchor-token span
+  at inference (research demo); E6 applies a fixed residual offset
+  universally at L30 (deployable). **The §7.4.5 deployability gap is
+  closed at PoC scale.** Full results writeup at
+  `docs/experiments/E6-steering-vector.md` (governing experiment
+  markdown; will be updated in-place as Phase 2 numbers land per user
+  instruction 2026-04-29).
+
+  Other Phase 1 findings: (i) `cos(v_wrong, v_all) ∈ [0.96, 0.99]`
+  across all L — wrong-base filter mostly scales magnitude, doesn't
+  change direction; Phase 1 confirms cells pair up similarly across
+  the v-var axis. (ii) ‖v[L]‖ peaks at L=30 (near final layer of the
+  32-layer Qwen-7B backbone), *not* at the E1b mid-stack L=16 of the
+  CLIP-ViT panel — residual-stream encoding profile differs from
+  attention encoding profile. (iii) `adopt_a` barely moves; df_a
+  drops — mitigation operates on graded pull, not categorical
+  adoption (matches §1 headline). (iv) L24/α=4 backfires at +14 % df
+  — α-overshoot regime to flag. (v) L24/α=2/v_wrong achieves the
+  largest df reduction (−16.7 %) but breaks em_b (−4.9 pp), exactly
+  the failure mode the deployability check catches.
+
+  Status changes: §6.5 E6 row flipped from `☐ design v2` to
+  `✅ Phase 1 PoC`; §7 P1 entries updated to point at Phase 2a (full
+  VQAv2) and Phase 2b (cross-dataset deployability), with Phase 2c
+  (LLaVA-1.5-7b head-to-head port) as P3 optional.
+
+- **2026-04-29 (E6 anchor-agnostic steering-vector mitigation —
+  branch + design doc, post-review v2).** New mitigation track opened.
+  Branch `e6-steering-vector-mitigation` cut from master at commit
+  `6eee87f`. Design doc at
+  `docs/experiments/E6-steering-vector-design.md` (commits `0471e52`
+  initial, `0588ff6` first revision, current commit second revision)
+  — motivation grounded in the **calibration-vs-inference label
+  axis**: E4 (and the N1/N2 digit-bbox sharpenings brainstormed
+  alongside E6) all need anchor-image labels at inference, making
+  them research demonstrations rather than deployable interventions.
+  E6 (ActAdd-class residual-stream offset, train-free) calibrates
+  `v_{L*}` once from E5c S1 wrong-base (a, m) pairs and applies a
+  fixed offset universally at inference — **zero anchor labels needed
+  at deploy time**. Mechanistic justification: E1d's single-layer
+  null is on the *attention pathway only*; residual-stream
+  interventions are not refuted (Turner 2023 / Rimsky 2024 lineage).
+
+  **PoC model = llava-next-interleaved-7b** (post-review v2 flip from
+  original LLaVA-1.5-7b). Drives: §3.3 main-panel coherence,
+  pre-existing E5c VQAv2 calibration data on disk (399 wrong-base S1
+  pairs verified), free Phase 2b cross-dataset deployability check
+  (E5c TallyQA + E5e ChartQA + E5e MathVista all on same model). E4
+  same-model head-to-head dropped from critical path; if reviewers
+  ask, Phase 2c ports to LLaVA-1.5-7b cheaply (~1 day).
+
+  PoC plan: Phase 0 calibration extraction (~15–20 min H200, leverages
+  existing E5c sids) → Phase 0.5 wiring smoke (10-pair, ~10 min) →
+  Phase 1 (L × α × v-var) sweep on n=200 stratified (~5–7 h H200) →
+  Phase 2a full VQAv2 (~20–40 h H200) + Phase 2b cross-dataset
+  (~5–10 h × 3 datasets) only if PoC clears the selection rule
+  (df ↓ ≥ 10 % rel, em(b) / em(d) invariant ± 2 pp, fluency guard).
+  E4 not retracted — kept as §7.4 mechanism story; E6 added as §7.4.5
+  deployability story. N1/N2 reframed as mechanistic analysis tools
+  under §7.2. Roadmap §6.5 (new E6 row), §7 (new P1 entry) updated.
 
 - **2026-04-29 (gemma3-27b-it E5c cross-model expansion landed —
   closes the last paper-blocking P0).** Two runs of `experiment_e5c_*`
