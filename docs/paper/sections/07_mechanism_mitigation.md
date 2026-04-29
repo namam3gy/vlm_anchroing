@@ -48,6 +48,60 @@ architecturally different encoders converge on the same mid-stack
 signature; the depth-axis framing replaces the architecture-axis
 framing for §7.)
 
+### 7.2.1 Digit-pixel concentration within the anchor (E1-patch)
+
+E1b localises *which layers* concentrate attention on the anchor; a
+sharper companion question is *where within the anchor* that attention
+goes. We add a digit-bbox lookup to the same n=200 stratified attention
+dump (bbox JSON computed by diffing each anchor PNG against its masked
+PNG counterpart) and aggregate the per-layer digit-fraction-of-anchor-mass
+on the answer step. The panel covers four of six E1b archetypes — the
+ones whose anchor span is a perfect square in the LLM input sequence:
+
+| model | encoder archetype | digit/anchor at peak | peak L | concentration above fair share |
+|---|---|---:|---:|---:|
+| gemma4-e4b | SigLIP-Gemma early | **0.631** | L9 / 42 | **+0.404** |
+| convllava-7b | CLIP-ConvNeXt mid-stack | **0.552** | L7 / 32 | **+0.325** |
+| fastvlm-7b | FastViT late | **0.531** | L4 / 28 | **+0.304** |
+| llava-1.5-7b | CLIP-ViT mid-stack | **0.468** | L7 / 32 | **+0.241** |
+
+The fair-share baseline (~0.227, the mean ratio of the digit bbox to
+the full anchor image area across 128 anchors) is the digit-fraction
+under uniform attention. **Every model in the 4-model panel exceeds
+fair share by +24 to +40 pp at its peak layer** — anchor attention
+isn't just elevated on the anchor image as a whole, it concentrates
+on the digit pixels themselves.
+
+Three qualitative profile shapes emerge:
+
+1. **Globally digit-concentrated** (gemma4-e4b) — every layer 0.50-0.63;
+   SigLIP "sees" the digit globally across the LLM stack, consistent
+   with the early SigLIP typographic-attack inheritance documented in
+   the literature.
+2. **Peaked mid-early then decay** (llava-1.5-7b, convllava-7b) — sharp
+   peak at L7 (0.47 / 0.55) that decays to fair share by L15-L17 and
+   sub-fair by L29-L31. Two architecturally distinct mid-stack-cluster
+   encoders converge on the same shape.
+3. **Sharp early peak with sustained mid-stack plateau** (fastvlm-7b)
+   — peak at L4 (0.53), drops to ~0.32 at L6, then maintains a
+   0.35-0.45 plateau through L12; falls to fair share by L18.
+
+The two non-square archetypes (internvl3-8b multi-tile, qwen2.5-vl-7b
+non-square 17×23 grid) remain deferred pending per-encoder
+bbox-to-token mapping logic; full 6-model coverage and the masked-arm
+causal control are §8 future work. Detailed numbers and per-layer
+profiles: `docs/insights/E1-patch-evidence.md`.
+
+**Note on locus.** The digit-attention concentration peak (L7 on the
+mid-stack-cluster, L4 on FastViT, L9 on Gemma) sits *earlier* in the
+LLM stack than the total-anchor-mass peak from §7.2 (L16 / L22 / L5).
+The two metrics are complementary, not redundant: E1-patch shows
+*where in the anchor* attention concentrates (digit pixels), while E1b
+shows *which layers* concentrate it (mid-stack on the cluster). The
+upper-half mitigation in §7.4 acts on a *broader* pathway than the
+digit-attention peak alone — the locus and the concentration site are
+correlated but not identical.
+
 ## 7.3 Causal ablation — single-layer null, upper-half mitigation works (E1d)
 
 We ablate the anchor span at six different layer sets (single peak,
