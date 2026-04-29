@@ -1,11 +1,22 @@
 """E6 — anchor-agnostic steering-vector mitigation.
 
-Phase 0 (calibrate): for each calibration sid (matched to E5c S1 anchor + masked
-pair), run two forward passes (a-S1 and m-S1), capture the residual stream at
-the last input token across all LLM decoder layers, and compute two `v` vectors:
+Three sub-commands share this script.
 
-  v_wrong[L] = mean over wrong-base sids of  ( h_anchor[L] − h_masked[L] )
-  v_all  [L] = mean over all calibration sids of  ( h_anchor[L] − h_masked[L] )
+  --phase calibrate : Phase 0. Run forward passes on (a-S1, m-S1) calibration
+                      pairs, capture residuals at the last input token across
+                      all LLM decoder layers, emit v_wrong + v_all.
+
+  --phase smoke     : Phase 0.5. 10-pair wiring smoke for the steering hook.
+                      Compares baseline vs. (L=N//2, α=2, v=v_wrong) on
+                      wrong-base anchor-arm forward passes. Proves the hook
+                      attaches to the right thing (output digit changes;
+                      fluency does not explode).
+
+  --phase sweep     : Phase 1. (L × α × v-var) sweep on n=200 stratified
+                      samples × 4 conditions (b / a-S1 / m-S1 / d). Sweep
+                      grid: 7 L × 3 α × 2 v-var = 42 cells + baseline.
+                      Uses susceptibility_strata.csv top-decile +
+                      bottom-decile per E1d/E4 convention.
 
 Wrong-base sids are read from an existing E5c VQAv2 run's predictions.jsonl
 (`condition == 'target_only' AND exact_match == 0`). Calibration pairs are
@@ -13,20 +24,35 @@ generated from `configs/experiment_e5c_vqa.yaml` with the same seed, which
 deterministically reproduces the (sid → irrelevant_image) assignment of the
 E5c run; the model only sees images already on disk.
 
-Output:
+Output (Phase 0):
   outputs/e6_steering/<model>/calibration/v.pt              # (2, n_layers, d_model), [v_wrong, v_all]
   outputs/e6_steering/<model>/calibration/v_meta.json
   outputs/e6_steering/<model>/calibration/norms_per_layer.csv
 
-Usage (full PoC, ~15-20 min H200 on llava-next-interleaved-7b):
-    CUDA_VISIBLE_DEVICES=0 uv run python scripts/e6_steering_vector.py \\
-        --phase calibrate \\
-        --model llava-next-interleaved-7b \\
+Output (Phase 0.5):
+  outputs/e6_steering/<model>/smoke/smoke_results.json
+
+Output (Phase 1):
+  outputs/e6_steering/<model>/sweep_n200/predictions.jsonl  (resumable)
+
+Usage:
+    # Phase 0 (full calibration, ~4 min H200)
+    CUDA_VISIBLE_DEVICES=1 uv run python scripts/e6_steering_vector.py \\
+        --phase calibrate --model llava-next-interleaved-7b \\
         --hf-model llava-hf/llava-interleave-qwen-7b-hf \\
         --e5c-run-dir outputs/experiment_e5c_vqa/llava-next-interleaved-7b/20260427-123331
 
-Smoke (2 sids, ~30 s wall):
-    [add --max-samples 2]
+    # Phase 0.5 (smoke, ~1 min)
+    CUDA_VISIBLE_DEVICES=1 uv run python scripts/e6_steering_vector.py \\
+        --phase smoke --model llava-next-interleaved-7b \\
+        --hf-model llava-hf/llava-interleave-qwen-7b-hf \\
+        --e5c-run-dir outputs/experiment_e5c_vqa/llava-next-interleaved-7b/20260427-123331
+
+    # Phase 1 (sweep, ~5-7 h, resumable)
+    CUDA_VISIBLE_DEVICES=1 uv run python scripts/e6_steering_vector.py \\
+        --phase sweep --model llava-next-interleaved-7b \\
+        --hf-model llava-hf/llava-interleave-qwen-7b-hf \\
+        --e5c-run-dir outputs/experiment_e5c_vqa/llava-next-interleaved-7b/20260427-123331
 """
 
 from __future__ import annotations
@@ -52,7 +78,10 @@ from vlm_anchor.utils import set_seed
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from causal_anchor_ablation import _get_llm_layers  # noqa: E402
-from extract_attention_mass import build_eager_runner  # noqa: E402
+from extract_attention_mass import (  # noqa: E402
+    _select_susceptibility_strata,
+    build_eager_runner,
+)
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -65,7 +94,7 @@ CALIB_CONDITIONS = {
 
 def _parse_args() -> argparse.Namespace:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--phase", choices=("calibrate",), required=True)
+    ap.add_argument("--phase", choices=("calibrate", "smoke", "sweep"), required=True)
     ap.add_argument("--model", required=True,
                     help="Project model id (e.g. llava-next-interleaved-7b)")
     ap.add_argument("--hf-model", required=True,
@@ -77,7 +106,16 @@ def _parse_args() -> argparse.Namespace:
                     help="Must match the config used by the source E5c run "
                          "(same seed + same vqa_dataset slice → same sid → image mapping)")
     ap.add_argument("--max-samples", type=int, default=None,
-                    help="Cap calibration sids (smoke testing).")
+                    help="Cap calibration sids (smoke testing). For smoke phase, "
+                         "default = 10 wrong-base sids; for sweep phase, default "
+                         "= 200 stratified sids.")
+    ap.add_argument("--max-new-tokens", type=int, default=8,
+                    help="generate_number budget. Match standard inference (8).")
+    ap.add_argument("--susceptibility-csv",
+                    default="docs/insights/_data/susceptibility_strata.csv",
+                    help="Phase 1 stratified set source.")
+    ap.add_argument("--top-decile-n", type=int, default=100)
+    ap.add_argument("--bottom-decile-n", type=int, default=100)
     ap.add_argument("--seed", type=int, default=42)
     return ap.parse_args()
 
@@ -124,6 +162,154 @@ def _load_calibration_samples(args: argparse.Namespace, config: dict) -> list[di
     return enriched
 
 
+def _make_residual_offset_hook(v_layer: torch.Tensor, alpha: float):
+    """Forward post-hook on an LLM decoder layer.
+
+    On the prefill forward (seq_len > 1), subtract `alpha * v_layer` from the
+    residual at the last input position. On decode steps (seq_len == 1) this
+    is a no-op — the offset's downstream effect propagates through the KV
+    cache from the prefill (canonical ActAdd; Turner et al. 2023).
+
+    `v_layer` is one row of the saved (n_layers, d_model) tensor (i.e.,
+    `v[v_var_idx, L]`). It is moved to the layer's device/dtype lazily on
+    first call to avoid eager copies.
+    """
+    if alpha == 0:
+        return None
+
+    def hook(module, args, output):
+        if isinstance(output, tuple):
+            hidden = output[0]
+        else:
+            hidden = output
+        if not isinstance(hidden, torch.Tensor) or hidden.dim() != 3:
+            return output  # unexpected shape; skip safely
+        seq_len = hidden.shape[1]
+        if seq_len <= 1:
+            return output  # decode step
+        # Cast `v` lazily; first call sees the layer's actual dtype/device.
+        v_cast = v_layer.to(device=hidden.device, dtype=hidden.dtype)
+        hidden[:, -1, :] = hidden[:, -1, :] - alpha * v_cast
+        return output
+
+    return hook
+
+
+def _install_offset_hook(layers, layer_idx: int, v: torch.Tensor, alpha: float):
+    """Install the offset hook on layers[layer_idx]; return a list of handles."""
+    if alpha == 0:
+        return []
+    hook = _make_residual_offset_hook(v[layer_idx], alpha)
+    if hook is None:
+        return []
+    return [layers[layer_idx].register_forward_hook(hook)]
+
+
+def _sweep_cells(n_layers: int) -> list[dict]:
+    """Phase 1 sweep grid. Returns list of cell dicts.
+
+    Each cell: {layer, alpha, v_var_idx, label}. Includes a baseline cell
+    (alpha=0) at the head; v_var_idx for the baseline is irrelevant and set
+    to -1.
+    """
+    L_values = sorted(set([
+        2,
+        n_layers // 4,
+        n_layers // 2 - 2,
+        n_layers // 2,
+        n_layers // 2 + 2,
+        3 * n_layers // 4,
+        n_layers - 2,
+    ]))
+    alphas = [1.0, 2.0, 4.0]
+    v_var_names = ["v_wrong", "v_all"]  # idx 0, 1
+
+    cells: list[dict] = [
+        {"layer": -1, "alpha": 0.0, "v_var_idx": -1, "label": "baseline"}
+    ]
+    for L in L_values:
+        for a in alphas:
+            for vv_idx, vv_name in enumerate(v_var_names):
+                cells.append({
+                    "layer": L,
+                    "alpha": a,
+                    "v_var_idx": vv_idx,
+                    "label": f"L{L:02d}_a{a}_{vv_name}",
+                })
+    return cells
+
+
+def _load_v(model: str) -> tuple[torch.Tensor, dict]:
+    """Load the calibration tensor + sidecar from Phase 0 output."""
+    cal_dir = PROJECT_ROOT / "outputs" / "e6_steering" / model / "calibration"
+    v = torch.load(cal_dir / "v.pt", weights_only=True)  # (2, n_layers, d_model)
+    meta = json.loads((cal_dir / "v_meta.json").read_text())
+    return v, meta
+
+
+def _select_phase1_sids(args: argparse.Namespace, all_sids: list[str]) -> set[str]:
+    """Pick the n=200 stratified set used by E1d / E4 (top-decile susceptible
+    + bottom-decile resistant). Falls back to deterministic random subset
+    if the susceptibility CSV is missing or the question_ids don't intersect.
+    """
+    susc_path = PROJECT_ROOT / args.susceptibility_csv
+    n_target = args.top_decile_n + args.bottom_decile_n
+    if susc_path.exists():
+        target_qids = _select_susceptibility_strata(
+            susc_path, args.top_decile_n, args.bottom_decile_n, args.seed
+        )
+        # sample_instance_id = "{question_id}_{image_id}_set{idx}"; split on "_".
+        kept = {
+            sid for sid in all_sids
+            if int(sid.split("_")[0]) in target_qids
+        }
+        if len(kept) >= 0.5 * n_target:
+            print(f"[setup] Phase 1 sids from susceptibility CSV: "
+                  f"{len(kept)}/{n_target}")
+            return kept
+        print(f"[warn] susceptibility CSV intersects only {len(kept)} sids "
+              f"of {n_target}; falling back to random {n_target}")
+
+    import random as _random
+    rng = _random.Random(args.seed)
+    pool = list(all_sids)
+    rng.shuffle(pool)
+    kept = set(pool[:n_target])
+    print(f"[setup] Phase 1 sids from random seed-{args.seed} subset: {len(kept)}")
+    return kept
+
+
+@torch.no_grad()
+def _generate_with_cell(runner: Any, cond: dict, cell: dict,
+                        layers, v: torch.Tensor, max_new_tokens: int) -> dict:
+    """Run generate_number on (sample, condition) with the cell's hook
+    installed; return the standard runner output dict."""
+    handles: list = []
+    if cell["alpha"] != 0:
+        handles = _install_offset_hook(
+            layers, cell["layer"], v[cell["v_var_idx"]], cell["alpha"]
+        )
+    try:
+        out = runner.generate_number(
+            question=cond["question"],
+            images=cond["input_images"],
+            max_new_tokens=max_new_tokens,
+        )
+    finally:
+        for h in handles:
+            h.remove()
+    return out
+
+
+def _exact_match(parsed, ground_truth) -> int:
+    if parsed is None or ground_truth is None:
+        return 0
+    try:
+        return int(int(parsed) == int(str(ground_truth).strip()))
+    except (ValueError, TypeError):
+        return 0
+
+
 @torch.no_grad()
 def _capture_last_token_residuals(runner: Any, cond: dict) -> torch.Tensor:
     """Run a single prefill forward pass on (sample, condition); return residuals
@@ -148,18 +334,7 @@ def _capture_last_token_residuals(runner: Any, cond: dict) -> torch.Tensor:
     return layer_residuals  # (n_layers, d_model)
 
 
-def main() -> None:
-    args = _parse_args()
-    set_seed(args.seed)
-    config = yaml.safe_load((PROJECT_ROOT / args.config).read_text())
-
-    e5c_run = (PROJECT_ROOT / args.e5c_run_dir).resolve()
-    wrong_sids = _read_wrong_base_sids(e5c_run)
-    print(f"[setup] wrong-base sids from {e5c_run.name}: {len(wrong_sids)}")
-
-    enriched = _load_calibration_samples(args, config)
-    print(f"[setup] enriched samples (calibration sids): {len(enriched)}")
-
+def _build_runner_and_layers(args, config):
     sampling = config["sampling"]
     prompt_cfg = config["prompt"]
     inference_cfg = InferenceConfig(
@@ -172,8 +347,20 @@ def main() -> None:
     print(f"[setup] loading {args.hf_model}")
     runner = build_eager_runner(args.hf_model, inference_config=inference_cfg)
     layers = _get_llm_layers(runner.model)
+    print(f"[setup] LLM layers detected: {len(layers)}")
+    return runner, layers
+
+
+def _phase_calibrate(args, config) -> None:
+    e5c_run = (PROJECT_ROOT / args.e5c_run_dir).resolve()
+    wrong_sids = _read_wrong_base_sids(e5c_run)
+    print(f"[setup] wrong-base sids from {e5c_run.name}: {len(wrong_sids)}")
+
+    enriched = _load_calibration_samples(args, config)
+    print(f"[setup] enriched samples (calibration sids): {len(enriched)}")
+
+    runner, layers = _build_runner_and_layers(args, config)
     n_layers = len(layers)
-    print(f"[setup] LLM layers detected: {n_layers}")
 
     out_dir = PROJECT_ROOT / "outputs" / "e6_steering" / args.model / "calibration"
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -261,6 +448,266 @@ def main() -> None:
     print(f"[done] n_wrong={len(diffs_wrong)} n_all={len(diffs_all)} "
           f"n_layers={n_layers} d_model={v.shape[-1]} wall={elapsed:.1f}s")
     print(f"[done] saved {out_dir / 'v.pt'}")
+
+
+def _phase_smoke(args, config) -> None:
+    """Phase 0.5 — wiring smoke for the steering hook."""
+    v, meta = _load_v(args.model)
+    n_layers = meta["n_layers"]
+    print(f"[setup] loaded v.pt: shape={tuple(v.shape)} n_wrong={meta['n_wrong']}")
+
+    e5c_run = (PROJECT_ROOT / args.e5c_run_dir).resolve()
+    wrong_sids = _read_wrong_base_sids(e5c_run)
+    enriched = _load_calibration_samples(args, config)
+    enriched_wrong = [s for s in enriched if str(s["sample_instance_id"]) in wrong_sids]
+    n_smoke = args.max_samples or 10
+    enriched_wrong = enriched_wrong[:n_smoke]
+    print(f"[setup] smoke set: first {len(enriched_wrong)} wrong-base sids")
+
+    runner, layers = _build_runner_and_layers(args, config)
+
+    cell = {
+        "layer": n_layers // 2,
+        "alpha": 2.0,
+        "v_var_idx": 0,  # v_wrong
+        "label": f"L{n_layers // 2:02d}_a2.0_v_wrong",
+    }
+    print(f"[setup] smoke cell: {cell}")
+
+    out_dir = PROJECT_ROOT / "outputs" / "e6_steering" / args.model / "smoke"
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    results = []
+    n_changed = 0
+    n_anchor_adopted_baseline = 0
+    n_anchor_adopted_steered = 0
+    t0 = time.time()
+    for sample in enriched_wrong:
+        sid = str(sample["sample_instance_id"])
+        for cond in build_conditions(sample):
+            if cond["condition"] != "target_plus_irrelevant_number_S1":
+                continue
+            base_out = _generate_with_cell(
+                runner, cond,
+                {"layer": -1, "alpha": 0.0, "v_var_idx": -1, "label": "baseline"},
+                layers, v, args.max_new_tokens,
+            )
+            steered_out = _generate_with_cell(
+                runner, cond, cell, layers, v, args.max_new_tokens,
+            )
+            base_pn = base_out["parsed_number"]
+            steered_pn = steered_out["parsed_number"]
+            anchor_v = cond.get("anchor_value_for_metrics") or cond.get("anchor_value")
+            try:
+                anchor_int = int(anchor_v) if anchor_v is not None else None
+            except (ValueError, TypeError):
+                anchor_int = None
+            try:
+                base_int = int(base_pn) if base_pn is not None else None
+            except (ValueError, TypeError):
+                base_int = None
+            try:
+                steered_int = int(steered_pn) if steered_pn is not None else None
+            except (ValueError, TypeError):
+                steered_int = None
+
+            adopted_base = (base_int is not None and anchor_int is not None
+                            and base_int == anchor_int)
+            adopted_steer = (steered_int is not None and anchor_int is not None
+                             and steered_int == anchor_int)
+            n_anchor_adopted_baseline += int(adopted_base)
+            n_anchor_adopted_steered += int(adopted_steer)
+            changed = (base_pn != steered_pn) or (base_out["raw_text"] != steered_out["raw_text"])
+            n_changed += int(changed)
+
+            results.append({
+                "sample_instance_id": sid,
+                "condition": cond["condition"],
+                "anchor_value": anchor_int,
+                "ground_truth": cond["ground_truth"],
+                "baseline_pn": base_pn,
+                "steered_pn": steered_pn,
+                "baseline_text": base_out["raw_text"],
+                "steered_text": steered_out["raw_text"],
+                "changed": changed,
+            })
+            break  # only S1 anchor — one cond per sid
+
+    summary = {
+        "model": args.model,
+        "cell": cell,
+        "n_pairs": len(results),
+        "n_changed": n_changed,
+        "n_anchor_adopted_baseline": n_anchor_adopted_baseline,
+        "n_anchor_adopted_steered": n_anchor_adopted_steered,
+        "wall_seconds": time.time() - t0,
+        "details": results,
+    }
+    (out_dir / "smoke_results.json").write_text(json.dumps(summary, indent=2))
+    print(f"[smoke] {n_changed}/{len(results)} predictions changed under steering "
+          f"at L={cell['layer']} α={cell['alpha']} v=v_wrong")
+    print(f"[smoke] anchor adoption: baseline {n_anchor_adopted_baseline} → "
+          f"steered {n_anchor_adopted_steered}  (lower under steering = good)")
+    print(f"[smoke] wall: {summary['wall_seconds']:.1f}s; saved {out_dir/'smoke_results.json'}")
+    if n_changed == 0:
+        raise RuntimeError(
+            "smoke FAIL: 0 predictions changed under steering — hook not "
+            "wiring correctly. Check residual position / layer indexing / "
+            "device-dtype casting."
+        )
+
+
+def _sweep_output_path(model: str) -> Path:
+    return PROJECT_ROOT / "outputs" / "e6_steering" / model / "sweep_n200" / "predictions.jsonl"
+
+
+def _load_completed_keys(path: Path) -> set[tuple[str, str, int, float, int]]:
+    """(sid, condition, L, alpha, v_var_idx) tuples already written."""
+    if not path.exists():
+        return set()
+    completed: set = set()
+    with path.open() as fh:
+        for line in fh:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                r = json.loads(line)
+                completed.add((
+                    str(r["sample_instance_id"]),
+                    str(r["condition"]),
+                    int(r["cell_layer"]),
+                    float(r["cell_alpha"]),
+                    int(r["cell_v_var_idx"]),
+                ))
+            except (json.JSONDecodeError, KeyError, TypeError, ValueError):
+                continue
+    return completed
+
+
+SWEEP_CONDITIONS = (
+    "target_only",
+    "target_plus_irrelevant_number_S1",
+    "target_plus_irrelevant_number_masked_S1",
+    "target_plus_irrelevant_neutral",
+)
+
+
+def _phase_sweep(args, config) -> None:
+    v, meta = _load_v(args.model)
+    n_layers = meta["n_layers"]
+    cells = _sweep_cells(n_layers)
+    print(f"[setup] sweep grid: {len(cells)} cells (1 baseline + {len(cells) - 1} steered)")
+
+    e5c_run = (PROJECT_ROOT / args.e5c_run_dir).resolve()
+    wrong_sids = _read_wrong_base_sids(e5c_run)
+    enriched = _load_calibration_samples(args, config)
+    all_sids = [str(s["sample_instance_id"]) for s in enriched]
+    chosen_sids = _select_phase1_sids(args, all_sids)
+    enriched = [s for s in enriched if str(s["sample_instance_id"]) in chosen_sids]
+    if args.max_samples:
+        enriched = enriched[: args.max_samples]
+    print(f"[setup] Phase 1 calibration sample-instances: {len(enriched)}")
+
+    runner, layers = _build_runner_and_layers(args, config)
+    out_path = _sweep_output_path(args.model)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    completed = _load_completed_keys(out_path)
+    print(f"[setup] writing to {out_path}; resuming_from={len(completed)}")
+
+    total_target = len(enriched) * len(SWEEP_CONDITIONS) * len(cells)
+    n_done = 0
+    n_skipped = 0
+    t0 = time.time()
+    with out_path.open("a") as fh:
+        # Outer loop on cells: install hook once per cell, run all (sid, cond)
+        # under it, remove.
+        for cell in cells:
+            handles = []
+            if cell["alpha"] != 0:
+                handles = _install_offset_hook(
+                    layers, cell["layer"], v[cell["v_var_idx"]], cell["alpha"]
+                )
+            try:
+                for sample in enriched:
+                    sid = str(sample["sample_instance_id"])
+                    for cond in build_conditions(sample):
+                        if cond["condition"] not in SWEEP_CONDITIONS:
+                            continue
+                        key = (sid, cond["condition"], int(cell["layer"]),
+                               float(cell["alpha"]), int(cell["v_var_idx"]))
+                        if key in completed:
+                            n_skipped += 1
+                            continue
+                        try:
+                            out = runner.generate_number(
+                                question=cond["question"],
+                                images=cond["input_images"],
+                                max_new_tokens=args.max_new_tokens,
+                            )
+                            err = None
+                        except Exception as exc:
+                            out = {"raw_text": None, "parsed_number": None}
+                            err = str(exc)
+
+                        anchor_v = cond.get("anchor_value_for_metrics") or cond.get("anchor_value")
+                        try:
+                            anchor_int = int(anchor_v) if anchor_v is not None else None
+                        except (ValueError, TypeError):
+                            anchor_int = None
+                        record = {
+                            "model": args.model,
+                            "sample_instance_id": sid,
+                            "question_id": cond["question_id"],
+                            "condition": cond["condition"],
+                            "ground_truth": cond["ground_truth"],
+                            "anchor_value": anchor_int,
+                            "is_wrong_base": sid in wrong_sids,
+                            "cell_label": cell["label"],
+                            "cell_layer": cell["layer"],
+                            "cell_alpha": cell["alpha"],
+                            "cell_v_var_idx": cell["v_var_idx"],
+                            "raw_text": out.get("raw_text"),
+                            "parsed_number": out.get("parsed_number"),
+                            "exact_match": _exact_match(out.get("parsed_number"),
+                                                        cond["ground_truth"]),
+                            "error": err,
+                        }
+                        fh.write(json.dumps(record) + "\n")
+                        fh.flush()
+                        n_done += 1
+                        if n_done % 200 == 0 or n_done == 1:
+                            elapsed = time.time() - t0
+                            done_total = n_done + n_skipped
+                            rate = n_done / max(elapsed, 1)
+                            remaining = total_target - done_total
+                            eta = remaining / max(rate, 1e-6)
+                            print(f"  [progress] cell={cell['label']:30s} "
+                                  f"done={n_done} skipped={n_skipped} "
+                                  f"rate={rate:.1f}/s eta={eta/60:.1f}min")
+            finally:
+                for h in handles:
+                    h.remove()
+
+    elapsed = time.time() - t0
+    print(f"[done] sweep written: {n_done} new + {n_skipped} resumed = "
+          f"{n_done + n_skipped}/{total_target} target")
+    print(f"[done] wall={elapsed:.1f}s ({elapsed/60:.1f}min); saved {out_path}")
+
+
+def main() -> None:
+    args = _parse_args()
+    set_seed(args.seed)
+    config = yaml.safe_load((PROJECT_ROOT / args.config).read_text())
+
+    if args.phase == "calibrate":
+        _phase_calibrate(args, config)
+    elif args.phase == "smoke":
+        _phase_smoke(args, config)
+    elif args.phase == "sweep":
+        _phase_sweep(args, config)
+    else:
+        raise ValueError(f"unknown phase: {args.phase}")
 
 
 if __name__ == "__main__":
