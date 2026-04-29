@@ -131,9 +131,15 @@ def _parse_args() -> argparse.Namespace:
                          "baseline. Default: chosen L30/α=1/v_wrong + alternate "
                          "L30/α=4/v_wrong.")
     ap.add_argument("--dataset-tag", default=None,
-                    help="Phase tiebreaker only: short label for the output dir "
-                         "(e.g. 'tally', 'chartqa'). Defaults to the parent "
-                         "experiment dir name parsed from --predictions-path.")
+                    help="Phase tiebreaker / calibrate-from-predictions: short "
+                         "label for the output dir (e.g. 'tally', 'chartqa'). "
+                         "Defaults to the parent experiment dir name parsed "
+                         "from --predictions-path.")
+    ap.add_argument("--calibration-tag", default=None,
+                    help="Phase tiebreaker only: load v.pt from "
+                         "calibration_<tag>/ instead of the default "
+                         "calibration/ (VQAv2). Used for cross-direction "
+                         "transfer experiments.")
     return ap.parse_args()
 
 
@@ -256,9 +262,15 @@ def _sweep_cells(n_layers: int) -> list[dict]:
     return cells
 
 
-def _load_v(model: str) -> tuple[torch.Tensor, dict]:
-    """Load the calibration tensor + sidecar from Phase 0 output."""
-    cal_dir = PROJECT_ROOT / "outputs" / "e6_steering" / model / "calibration"
+def _load_v(model: str, tag: str | None = None) -> tuple[torch.Tensor, dict]:
+    """Load the calibration tensor + sidecar from Phase 0 output.
+
+    `tag=None` reads `calibration/v.pt` (default VQAv2 calibration);
+    `tag='tally'` reads `calibration_tally/v.pt`, etc. — used for
+    cross-direction transfer experiments.
+    """
+    sub = "calibration" if not tag else f"calibration_{tag}"
+    cal_dir = PROJECT_ROOT / "outputs" / "e6_steering" / model / sub
     v = torch.load(cal_dir / "v.pt", weights_only=True)  # (2, n_layers, d_model)
     meta = json.loads((cal_dir / "v_meta.json").read_text())
     return v, meta
@@ -369,6 +381,10 @@ def _build_runner_and_layers(args, config):
 
 
 def _phase_calibrate(args, config) -> None:
+    if args.predictions_path:
+        _phase_calibrate_from_predictions(args, config)
+        return
+
     e5c_run = (PROJECT_ROOT / args.e5c_run_dir).resolve()
     wrong_sids = _read_wrong_base_sids(e5c_run)
     print(f"[setup] wrong-base sids from {e5c_run.name}: {len(wrong_sids)}")
@@ -465,6 +481,162 @@ def _phase_calibrate(args, config) -> None:
     print(f"[done] n_wrong={len(diffs_wrong)} n_all={len(diffs_all)} "
           f"n_layers={n_layers} d_model={v.shape[-1]} wall={elapsed:.1f}s")
     print(f"[done] saved {out_dir / 'v.pt'}")
+
+
+def _phase_calibrate_from_predictions(args, config) -> None:
+    """Reverse-direction calibration: extract `v_wrong`/`v_all` from any E5*
+    dataset (TallyQA, ChartQA, ...) by reading its predictions.jsonl, filtering
+    to wrong-base S1 pairs, reconstructing images from `input_image_paths`,
+    and capturing residuals at the last input position.
+
+    Produces `outputs/e6_steering/<model>/calibration_<dataset_tag>/v.pt`,
+    which `_load_v(model, tag=...)` callers can use for cross-direction
+    transfer experiments.
+    """
+    pred_path = Path(args.predictions_path)
+    if not pred_path.is_absolute():
+        pred_path = PROJECT_ROOT / args.predictions_path
+    print(f"[setup] reverse-calibration source: {pred_path}")
+
+    dataset_tag = args.dataset_tag
+    if dataset_tag is None:
+        try:
+            dataset_tag = pred_path.parents[2].name
+        except IndexError:
+            dataset_tag = "alt"
+    print(f"[setup] dataset_tag = {dataset_tag}")
+
+    # Group records by sid → cond
+    by_sid_cond: dict = defaultdict(dict)
+    for line in pred_path.open():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            r = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        by_sid_cond[r["sample_instance_id"]][r["condition"]] = r
+
+    target_conds_calib = (
+        "target_only",
+        "target_plus_irrelevant_number_S1",
+        "target_plus_irrelevant_number_masked_S1",
+    )
+    eligible_sids: list[str] = []
+    for sid, d in by_sid_cond.items():
+        if not all(c in d for c in target_conds_calib):
+            continue
+        eligible_sids.append(sid)
+    print(f"[setup] sids with (b, a-S1, m-S1): {len(eligible_sids)}")
+    wrong_sids = {sid for sid in eligible_sids
+                  if by_sid_cond[sid]["target_only"].get("exact_match") == 0}
+    print(f"[setup] wrong-base subset: {len(wrong_sids)}")
+    if args.max_samples:
+        eligible_sids = eligible_sids[: args.max_samples]
+        print(f"[setup] capped to {len(eligible_sids)} sids")
+
+    runner, layers = _build_runner_and_layers(args, config)
+    n_layers = len(layers)
+
+    out_dir = (PROJECT_ROOT / "outputs" / "e6_steering" / args.model
+               / f"calibration_{dataset_tag}")
+    out_dir.mkdir(parents=True, exist_ok=True)
+    print(f"[setup] writing to {out_dir}")
+
+    from PIL import Image as _Image
+
+    diffs_wrong: list[torch.Tensor] = []
+    diffs_all: list[torch.Tensor] = []
+    n_pairs, n_skipped = 0, 0
+    t0 = time.time()
+
+    for i, sid in enumerate(eligible_sids):
+        a_rec = by_sid_cond[sid].get("target_plus_irrelevant_number_S1")
+        m_rec = by_sid_cond[sid].get("target_plus_irrelevant_number_masked_S1")
+        if a_rec is None or m_rec is None:
+            n_skipped += 1
+            continue
+
+        a_res, m_res = None, None
+        for rec, slot in ((a_rec, "a"), (m_rec, "m")):
+            try:
+                paths = rec.get("input_image_paths") or []
+                images = [_Image.open(p).convert("RGB") for p in paths]
+                cond_dict = {
+                    "question": rec["question"],
+                    "input_images": images,
+                }
+                res = _capture_last_token_residuals(runner, cond_dict)
+                if slot == "a":
+                    a_res = res
+                else:
+                    m_res = res
+            except Exception as exc:
+                print(f"  [error] sid={sid} slot={slot}: {exc}")
+
+        if a_res is None or m_res is None:
+            n_skipped += 1
+            continue
+        diff = a_res - m_res
+        diffs_all.append(diff)
+        if sid in wrong_sids:
+            diffs_wrong.append(diff)
+        n_pairs += 1
+        if n_pairs % 20 == 0 or n_pairs == 1:
+            elapsed = time.time() - t0
+            eta = elapsed * (len(eligible_sids) - i - 1) / max(n_pairs, 1)
+            print(f"  [progress] {n_pairs}/{len(eligible_sids)} pairs "
+                  f"(wrong-base subset: {len(diffs_wrong)}); "
+                  f"elapsed={elapsed:.1f}s eta={eta:.1f}s")
+
+    if not diffs_all:
+        raise RuntimeError("no calibration pairs collected — check predictions path")
+    if not diffs_wrong:
+        print("[warn] no wrong-base pairs found; v_wrong falls back to zeros")
+
+    v_all = torch.stack(diffs_all).mean(dim=0)
+    v_wrong = (torch.stack(diffs_wrong).mean(dim=0)
+               if diffs_wrong else torch.zeros_like(v_all))
+
+    v = torch.stack([v_wrong, v_all], dim=0)
+    torch.save(v, out_dir / "v.pt")
+
+    sidecar = {
+        "model": args.model,
+        "hf_model": args.hf_model,
+        "dataset_tag": dataset_tag,
+        "n_wrong": len(diffs_wrong),
+        "n_all": len(diffs_all),
+        "n_skipped": n_skipped,
+        "n_layers": n_layers,
+        "d_model": int(v.shape[-1]),
+        "source_predictions": str(args.predictions_path),
+        "config": args.config,
+        "seed": args.seed,
+        "v_index_0": "v_wrong",
+        "v_index_1": "v_all",
+        "wall_seconds": time.time() - t0,
+    }
+    (out_dir / "v_meta.json").write_text(json.dumps(sidecar, indent=2))
+
+    with (out_dir / "norms_per_layer.csv").open("w", newline="") as fh:
+        w = csv.writer(fh)
+        w.writerow(["layer", "norm_v_wrong", "norm_v_all", "cos_wrong_all"])
+        for L in range(n_layers):
+            nw = float(v_wrong[L].norm().item())
+            na = float(v_all[L].norm().item())
+            cos = float(
+                torch.nn.functional.cosine_similarity(
+                    v_wrong[L].unsqueeze(0), v_all[L].unsqueeze(0), dim=1
+                ).item()
+            )
+            w.writerow([L, f"{nw:.4f}", f"{na:.4f}", f"{cos:.4f}"])
+
+    elapsed = time.time() - t0
+    print(f"[done] reverse-calibrate: n_wrong={len(diffs_wrong)} "
+          f"n_all={len(diffs_all)} n_layers={n_layers} d={v.shape[-1]} "
+          f"wall={elapsed:.1f}s; saved {out_dir/'v.pt'}")
 
 
 def _phase_smoke(args, config) -> None:
@@ -734,8 +906,12 @@ def _phase_tiebreaker(args, config) -> None:
     if not args.predictions_path:
         raise ValueError("--phase tiebreaker requires --predictions-path")
 
-    v, meta = _load_v(args.model)
+    v, meta = _load_v(args.model, tag=args.calibration_tag)
     n_layers = meta["n_layers"]
+    print(f"[setup] loaded v from calibration"
+          f"{'_' + args.calibration_tag if args.calibration_tag else ''}/ "
+          f"(n_wrong={meta.get('n_wrong')}, source="
+          f"{meta.get('dataset_tag') or 'vqa'})")
 
     # Cells: baseline + parsed candidates
     cells = [{"layer": -1, "alpha": 0.0, "v_var_idx": -1, "label": "baseline"}]
@@ -789,8 +965,11 @@ def _phase_tiebreaker(args, config) -> None:
             dataset_tag = pred_path.parents[2].name
         except IndexError:
             dataset_tag = "tiebreaker"
+    sub_name = f"tiebreaker_{dataset_tag}"
+    if args.calibration_tag:
+        sub_name = f"{sub_name}__from_{args.calibration_tag}"
     out_dir = (PROJECT_ROOT / "outputs" / "e6_steering" / args.model
-               / f"tiebreaker_{dataset_tag}")
+               / sub_name)
     out_dir.mkdir(parents=True, exist_ok=True)
     out_path = out_dir / "predictions.jsonl"
     completed = _load_completed_keys(out_path)
