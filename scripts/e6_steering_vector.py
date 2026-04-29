@@ -1171,6 +1171,13 @@ def _calibrate_subspace_from_e5c(args, config) -> None:
     print(f"[setup] wrong-base sids from {e5c_run.name}: {len(wrong_sids)}")
     enriched = _load_calibration_samples(args, config)
     max_pairs = args.max_calibrate_pairs
+
+    # Prioritize wrong-base samples for maximum D_wrong coverage
+    enriched = (
+        [s for s in enriched if str(s["sample_instance_id"]) in wrong_sids]
+        + [s for s in enriched if str(s["sample_instance_id"]) not in wrong_sids]
+    )
+
     runner, layers = _build_runner_and_layers(args, config)
     n_layers = len(layers)
     out_dir = (PROJECT_ROOT / "outputs" / "e6_steering" / args.model
