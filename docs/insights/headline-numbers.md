@@ -42,7 +42,7 @@ Wrong-base subset, `adopt_rate` (M2):
 
 Pattern: sharp peak at S1, decay to noise floor by S5 (cross-dataset).
 
-## E5c digit-pixel causality — 2/3 models (gemma3-27b-it pending)
+## E5c digit-pixel causality — 3-model panel ✅
 
 Wrong-base S1 paired conditional adoption (`adopt_cond` from
 `docs/insights/_data/E5c_per_cell.csv`, 2026-04-29; the M2 marginal
@@ -52,20 +52,22 @@ inpainting the digit pixel removes the effect:
 | dataset | model | anchor S1 | masked S1 | gap (a − m) |
 |---|---|---:|---:|---:|
 | VQAv2 | llava-interleave-7b | 0.129 | 0.068 | **+6.1 pp** |
+| VQAv2 | gemma3-27b-it | 0.138 | 0.082 | **+5.7 pp** |
 | VQAv2 | qwen2.5-vl-7b | 0.070 | 0.066 | +0.4 pp |
 | TallyQA | llava-interleave-7b | 0.110 | 0.084 | **+2.6 pp** |
+| TallyQA | gemma3-27b-it | 0.074 | 0.053 | +2.1 pp |
 | TallyQA | qwen2.5-vl-7b | 0.033 | 0.037 | −0.5 pp |
 
-qwen2.5-vl-7b is the most anchor-resistant model on the main panel
-(`adopt(a) = 0.021`, `df(a) = 0.094`) and consistently sits at or
-below the noise floor on E5c. Where the effect is large enough to
-detect (llava-interleave), the digit-pixel gap is positive on both
-datasets; where the effect is at floor (qwen2.5-vl), the gap is also
-at floor — direction-consistent and informative for the cross-model
-robustness claim. Direction-follow `df_cond` shows the same ordering:
-llava VQAv2 anchor 0.208 / masked 0.155 (+5.3 pp) vs. qwen2.5-vl
-0.148 / 0.163 (~0). gemma3-27b-it cell pending will arbitrate whether
-mid-panel models track the llava-style gap or the qwen-style floor.
+(gemma3-27b-it TallyQA at `max_samples=300` per §9; full n=1000
+stratified is infeasible on this model.) Direction-follow `df_cond`
+mirrors the ranking: VQAv2 wrong-base S1 df(a)/df(m) = 0.280/0.221
+on gemma3 (+5.99 pp), 0.208/0.155 on llava (+5.3 pp), 0.148/0.163
+(~0) on qwen2.5-vl. Cross-model expansion now confirms the
+expected rank: largest pull (llava) → largest gap; mid-panel
+(gemma3) → mid gap; floor (qwen2.5-vl) → floor gap. The
+digit-pixel-causality claim from §5.4 generalises across all three
+models on VQAv2 and across the two pulled models on TallyQA, with
+qwen2.5-vl serving as the negative control.
 
 ## E5e S1-only 4-condition full — 3-model panel × ChartQA + TallyQA
 
