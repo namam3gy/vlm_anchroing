@@ -80,7 +80,7 @@ in-flight · ☐ not started.
 | E1 attention-mass | gemma4-e4b, qwen2.5-vl-7b, llava-1.5-7b, internvl3-8b, convllava-7b, fastvlm-7b | 200 stratified | ✅ |
 | E1b per-layer localisation | same 6 | 200 | ✅ — 4 archetypes (SigLIP-Gemma early, mid-stack cluster CLIP-ViT/InternViT/ConvNeXt, Qwen-ViT late, FastVLM late text-stealing) |
 | E1d causal ablation | same 6 | 200 | ✅ — single-layer null on 6/6; upper-half multi-layer **−4.0 to −10.5 pp** (C-form) on 6/6 |
-| E1 digit-pixel-patch reanalysis | same 6 (reuse n=200 dump) | analysis only | ☐ P0 |
+| E1-patch (digit-pixel attention) | gemma4-e4b, llava-1.5-7b, convllava-7b, fastvlm-7b (4 perfect-square archetypes, n=400 each) | analysis + 2026-04-29 extension extraction | ✅ 4/6 — peak digit/anchor 0.468–0.631 (+24 to +40 pp above fair share) on every panel model. internvl3-8b (multi-tile) + qwen2.5-vl-7b (17×23 non-square) deferred (see §6.5 "E1-patch non-square archetypes") |
 | E4 mitigation Phase 1 (sweep) | llava-1.5-7b, convllava-7b, internvl3-8b | 200 × 7 strengths | ✅ |
 | E4 mitigation Phase 2 (full validation) | same 3 | 17,730 | ✅ |
 | E4 generalisation to other archetypes | gemma4-e4b, qwen2.5-vl-7b, fastvlm-7b | TBD | ☐ P3 |
@@ -289,7 +289,9 @@ the coarsest possible projection of this monotonicity.
 | ID | Experiment | Status |
 |---|---|---|
 | **E1 / E1b / E1c / E1d** | full anchor-image attention pipeline (mass + per-layer + H3-falsified writeup + causal ablation) | ✅ |
-| **E1-patch (POC)** | digit-pixel-patch attention reanalysis on 2 representative archetypes (llava-1.5-7b mid-stack, gemma4-e4b SigLIP-early). bbox JSON via `scripts/compute_anchor_digit_bboxes.py`; extraction via `scripts/extract_attention_mass.py --bbox-file`; analysis via `scripts/analyze_attention_patch.py`. **POC headline (2026-04-29)**: gemma4-e4b digit/anchor = 0.631 (peak L9, +0.404 above fair share); llava-1.5-7b digit/anchor = 0.468 (peak L7, +0.241 above fair share). Two profiles: gemma globally digit-concentrated, llava peaked mid-early. `docs/insights/E1-patch-evidence.md`. | ✅ POC landed 2026-04-29; full 6-model panel + masked-arm causal control deferred |
+| **E1-patch (POC + perfect-square panel extension)** | digit-pixel-patch attention reanalysis. POC headline (2026-04-29): gemma4-e4b digit/anchor = 0.631 (peak L9, +0.404 above fair share); llava-1.5-7b digit/anchor = 0.468 (peak L7, +0.241 above fair share). Extension 2026-04-29: ConvLLaVA-7b (CLIP-ConvNeXt, 24×24 = 576-token square span) and FastVLM-7b (FastViT, 16×16 = 256-token square span) re-use the existing perfect-square `_compute_anchor_bbox_mass` path with no new code. Pipeline: bbox JSON via `scripts/compute_anchor_digit_bboxes.py`; extraction via `scripts/extract_attention_mass.py --bbox-file`; analysis via `scripts/analyze_attention_patch.py`. `docs/insights/E1-patch-evidence.md`. | ✅ 4-model panel landed 2026-04-29 (gemma4-e4b, llava-1.5-7b, convllava-7b, fastvlm-7b); InternVL3-8b + Qwen2.5-VL-7b deferred — see "E1-patch non-square archetypes" row |
+| **E1-patch non-square archetypes** | InternVL3-8b (3328-token multi-tile span — needs per-tile bbox routing) and Qwen2.5-VL-7b (391-token = 17×23 non-square span — needs `grid_thw` plumbing through the processor). Each requires its own per-encoder bbox-to-token mapping in `_compute_anchor_bbox_mass` because the current `int(math.isqrt(n)) ** 2 == n` gate returns None on these spans by design. Estimated 1–2 days each — 4–7 days panel-wide. | ☐ P3 (deferred — 2026-04-29 audit corrected the original §7 P1 1.5h budget after discovering the actual implementation cost) |
+| **E1-patch masked-arm causal control** | re-run extraction on the 4-model panel using a 4-cond config (b/a/m/d) instead of the existing 3-cond `configs/experiment.yaml`. Pairs `image_anchor_digit` on the anchor arm against the masked arm's anchor-region attention as a digit-pixel causal control. Adds ~1 hour GPU per model + 4-cond config wiring. | ☐ P3 (deferred 2026-04-29 — independent of the non-square work above) |
 | **E4 Phase 1 + 2** | mid-stack-cluster attention re-weighting (LLaVA-1.5 / ConvLLaVA / InternVL3) | ✅ |
 | **E4 §7.4 paper rendering** | report `direction_follow_rate` reduction, `exact_match` rise, `accuracy_vqa(b)` invariance side by side; the "free lunch" framing | ✅ `docs/insights/paper-section-7-4-mitigation-free-lunch.md` (2026-04-29) |
 | **E1-patch generalises mitigation?** | does upper-half attention mass concentrate on the digit patch only? if yes, mitigation can shrink target region | ☐ P3 |
@@ -315,7 +317,8 @@ the **gemma3-27b-it E5c VQAv2 cell** (~5–6h GPU); TallyQA stratified
 on gemma3-27b is infeasible at full n=1000 base, so we run it at
 `max_samples=300`.
 | **P0** | gemma3-27b-it on E5c VQAv2 (TallyQA stratified is infeasible at full n=1000 base; use `max_samples=300` if launched) | §6.3 E5b/c cross-model expansion | ~5-6h on H200 |
-| **P1** | E1-patch full panel — masked arm causal control + 4 remaining archetypes (qwen2.5-vl-7b, internvl3-8b, convllava-7b, fastvlm-7b) | §6.5 E1-patch | ~1.5h attention extraction (n=200 each) + analysis |
+| **P3** | E1-patch full panel non-square archetypes — InternVL3-8b (multi-tile bbox routing) and Qwen2.5-VL-7b (`grid_thw` plumbing). 2026-04-29 audit re-budgeted the original §7 1.5h estimate to 4–7 days panel-wide after finding the bbox-to-token mapping is per-encoder (POC's `int(math.isqrt(n)) ** 2 == n` gate returns None on multi-tile / rectangular grids). ConvLLaVA-7b + FastVLM-7b were perfect-square and landed in the 4-model panel 2026-04-29. | §6.5 E1-patch | ~1–2 days/model implementation + ~12 min/model H200 extraction |
+| **P3** | E1-patch masked-arm causal control — re-run extraction on 4-model panel under 4-cond config | §6.5 E1-patch | 4-cond config wiring + ~1h GPU/model |
 | **P1** | VQAv2 4-condition cross-model (b/a/m/d, S1 only, kept) | §6.3 | ~1d (3 models) — opportunistic |
 | **P1** | Citation verification — every 2026 arXiv ID in `references/project.md` and §2 paper draft must resolve to a real paper | §9 caveat | hours of manual verification, reviewer-defuse |
 | **P3** | E4 generalisation to other archetypes (Gemma / Qwen / FastVLM) | §6.5 | days |
@@ -385,6 +388,49 @@ on gemma3-27b is infeasible at full n=1000 base, so we run it at
   M2 evidence numbers refresh accordingly.
 
 ## 10. Changelog
+
+- **2026-04-29 (E1-patch perfect-square panel extension — 2 → 4 models).**
+  POC (gemma4-e4b + llava-1.5-7b) extended to convllava-7b + fastvlm-7b
+  on the same n=400 stratified attention dump infrastructure.
+  Both new models have perfect-square anchor spans (convllava 576 =
+  24², fastvlm 256 = 16²), so no new bbox-to-token mapping code was
+  needed — the existing `_compute_anchor_bbox_mass` perfect-square
+  path applies. Wall: convllava 5 min, fastvlm 18 min on H200.
+
+  **4-model headline (peak `digit/anchor`, n=400 each):**
+
+  | Model | Peak L | digit/anchor | concentration above fair |
+  |---|---|---:|---:|
+  | gemma4-e4b | L9 / 42 | 0.631 | +0.404 |
+  | convllava-7b | L7 / 32 | 0.552 | +0.325 |
+  | fastvlm-7b | L4 / 28 | 0.531 | +0.304 |
+  | llava-1.5-7b | L7 / 32 | 0.468 | +0.241 |
+
+  4/4 panel models exceed fair share (~0.227) by +24 to +40 pp. Three
+  qualitative profiles: (A) globally digit-concentrated (gemma); (B)
+  peaked mid-early then decay (llava-1.5 + convllava — same shape on
+  two architecturally distinct CLIP-ViT vs CLIP-ConvNeXt encoders);
+  (C) sharp early peak with sustained mid-stack plateau (fastvlm-7b).
+
+  **Roadmap audit + scope correction.** Original §6.5 / §7 P1 row had
+  budgeted "~1.5h attention extraction" for the full 6-model E1-patch
+  panel. 2026-04-29 inspection revealed the 1.5h figure was for
+  extraction only and assumed all archetypes were drop-in
+  perfect-square; in reality InternVL3 (3328-token multi-tile) and
+  Qwen2.5-VL (391-token = 17×23 non-square) each need per-encoder
+  bbox-to-token mapping logic (1–2 days each, 4–7 days panel-wide
+  including masked-arm causal control). The 1.5h budget was
+  retrospectively rebasedto P3 in §7 with two new explicit deferred
+  rows: "E1-patch non-square archetypes" and "E1-patch masked-arm
+  causal control".
+
+  **Surfaces updated:** `docs/insights/E1-patch-evidence.md` (rewritten
+  for 4-model panel, TL;DR + §1 + §2 + §3 + §4 + §6 + §7 + §8 all
+  reflect new numbers and three-profile-shape framing);
+  `docs/paper/sections/07_mechanism_mitigation.md` (new §7.2.1
+  "Digit-pixel concentration within the anchor (E1-patch)" inserted
+  after §7.2); roadmap §3.2 (E1-patch row) + §6.5 (POC + non-square +
+  masked-arm rows) + §7 P3 (deferred non-square + masked control).
 
 - **2026-04-29 (qwen2.5-vl-7b E5c cross-model expansion landed).**
   Two runs of `experiment_e5c_*` (VQAv2 + TallyQA, b + a×S1-5 + m×S1-5
