@@ -1253,6 +1253,10 @@ def _calibrate_subspace_from_predictions(args, config) -> None:
                   if by_sid_cond[sid]["target_only"].get("exact_match") == 0}
     print(f"[setup] {len(eligible_sids)} eligible sids, {len(wrong_sids)} wrong-base")
 
+    # Prioritize wrong-base sids so D_wrong gets max coverage before hitting max_pairs
+    ordered_sids = ([s for s in eligible_sids if s in wrong_sids]
+                    + [s for s in eligible_sids if s not in wrong_sids])
+
     runner, layers = _build_runner_and_layers(args, config)
     n_layers = len(layers)
     out_dir = (PROJECT_ROOT / "outputs" / "e6_steering" / args.model
@@ -1266,7 +1270,7 @@ def _calibrate_subspace_from_predictions(args, config) -> None:
     n_skipped = 0
     t0 = time.time()
 
-    for sid in eligible_sids:
+    for sid in ordered_sids:
         if len(diffs_all) >= max_pairs:
             break
         a_rec = by_sid_cond[sid].get("target_plus_irrelevant_number_S1")
