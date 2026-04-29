@@ -464,7 +464,7 @@ References (verified via paper-search-mcp on arXiv + Semantic Scholar):
 
 ## Method 1 — Multi-direction subspace projection (CIPHER/VCE/RepE)
 
-**Status (2026-04-30): ⏳ sweep in flight on GPU 0**
+**Status (2026-04-30): ❌ FAILED cross-dataset — TallyQA ✅ 11/81, ChartQA ✅ 3/81, overlap = 0**
 
 **Hypothesis.** Replace the noisy single mean direction with a richer
 K-dim subspace obtained by SVD of the pooled per-pair diff matrix
@@ -474,11 +474,12 @@ Label-free at inference; closed-form calibration.
 **Calibration** (2026-04-30):
 - TallyQA: `calibration_tally/D_wrong.pt` — shape (400, 32, 4096), wall ~204 s
 - ChartQA: `calibration_chartqa/D_wrong.pt` — shape (400, 32, 4096), wall ~204 s
-- VQAv2: `calibration_vqa/D_wrong.pt` — running (expected ~400 pairs)
+- VQAv2: `calibration_vqa/D_wrong.pt` — shape (399, 32, 4096)
+- Pooled SVD: `_subspace/subspace_pooled_K16.pt` — shape (32, 16, 4096)
 
-**Sweep grid (61 cells):**
-- L ∈ {16, 22, 28, 30, 31} × K ∈ {2, 4, 8, 16} × α ∈ {0.25, 0.5, 1.0}
-- Baseline (α=0) always included
+**Sweep grid (81 cells):**
+- L ∈ {16, 22, 28, 30, 31} × K ∈ {2, 4, 8, 16} × α ∈ {0.5, 1.0, 2.0, 4.0}
+- Baseline (α=0) always included; 5×4×4+1 = 81 total
 
 **Implementation:**
 - `scripts/e6_steering_vector.py --phase {calibrate-subspace,smoke-subspace,sweep-subspace}`
@@ -488,12 +489,54 @@ Label-free at inference; closed-form calibration.
 
 **Selection rule:** ≥ 5 % rel df reduction AND em within ±2 pp on ≥ 2/3 datasets.
 
+### TallyQA subset results (n=100 wrong-base sids, 2026-04-30)
+
+- Baseline: df=0.1414, em_a=0.1616
+- **11/81 cells pass** (≥5% rel df drop, em ±2 pp)
+- Best cell: `L28_K02_a4.0` — df=0.0800 (−43.4% rel), em_a=0.1700 (+0.84 pp) ✅
+
+Top passing cells (sorted by df_rel_change):
+
+| cell | L | K | α | df_a | Δ% rel | em_a | Δpp | pass |
+|---|---|---|---|---:|---:|---:|---:|---|
+| L28_K02_a4.0 | 28 | 2 | 4.0 | 0.0800 | **−43.4%** | 0.1700 | +0.84 | ✅ |
+| L28_K04_a2.0 | 28 | 4 | 2.0 | 0.0808 | −42.9% | 0.1616 | 0.00 | ✅ |
+| L31_K08_a1.0 | 31 | 8 | 1.0 | 0.0808 | −42.9% | 0.1717 | +1.01 | ✅ |
+| L31_K04_a1.0 | 31 | 4 | 1.0 | 0.0909 | −35.7% | 0.1616 | 0.00 | ✅ |
+| L16_K08_a0.5 | 16 | 8 | 0.5 | 0.0909 | −35.7% | 0.1717 | +1.01 | ✅ |
+
+Artifact: `outputs/e6_steering/llava-next-interleaved-7b/sweep_subspace_tally_pooled/_analysis/cell_summary.csv`
+
+### ChartQA subset results (n=100 wrong-base sids, 2026-04-30)
+
+- Baseline: df=0.1515, em_a=0.0404
+- **3/81 cells pass** (≥5% rel df drop, em ±2 pp)
+- Best cell: `L31_K08_a4.0` — df=0.1200 (−20.8% rel), em_a=0.0526 (+1.22 pp) ✅
+
+Passing cells: `L16_K02_a0.5` (−6.7%), `L16_K02_a4.0` (−13.3%), `L31_K08_a4.0` (−20.8%)
+
+Artifact: `outputs/e6_steering/llava-next-interleaved-7b/sweep_subspace_chartqa_pooled/_analysis/cell_summary.csv`
+
+### Cross-dataset verdict — ❌ FAILED
+
+**Zero cells pass on both TallyQA and ChartQA simultaneously.** The cells that work on
+TallyQA actively hurt ChartQA and vice versa:
+
+| cell | TallyQA df Δ | ChartQA df Δ | verdict |
+|---|---:|---:|---|
+| L28_K02_a4.0 (Tally best) | −43.4% | +73.3% ❌ | cross-dataset failure |
+| L28_K04_a2.0 | −42.9% | +66.7% ❌ | cross-dataset failure |
+| L31_K08_a4.0 (Chart best) | −67.5% (em −3.9 pp ❌) | −20.8% | em damaged on Tally |
+
+Same failure mode as Method 0: the projection direction that suppresses anchor pull
+in TallyQA's residual distribution amplifies it in ChartQA's. Pooled calibration
+across 3 datasets does not resolve the cross-dataset incompatibility.
+
 ### Per-dataset result tracker
 
-| Dataset | n | best (L, K, α) | df_a baseline | steered | Δ % rel | em(b) | em(d) | em(a) | pass? |
-|---|---:|---|---:|---:|---:|---|---|---|---|
-| TallyQA subset (n=100) | ⏳ running | TBD | TBD | TBD | TBD | TBD | TBD | TBD | TBD |
-| ChartQA subset (n=100) | ⏳ queued | TBD | TBD | TBD | TBD | TBD | TBD | TBD | TBD |
-| VQAv2 (only if ≥2/3 pass) | ☐ gated | TBD | TBD | TBD | TBD | TBD | TBD | TBD | TBD |
-
-*Results will be filled in by `scripts/analyze_e6_subspace.py` output.*
+| Dataset | n | best (L, K, α) | df_a baseline | steered | Δ% rel | em_a | pass? |
+|---|---:|---|---:|---:|---:|---:|---|
+| TallyQA subset (n=100) | 100 | L28_K02_a4.0 | 0.1414 | 0.0800 | −43.4% | 0.1700 (+0.84pp) | ✅ 11/81 |
+| ChartQA subset (n=100) | 100 | L31_K08_a4.0 | 0.1515 | 0.1200 | −20.8% | 0.0526 (+1.22pp) | ✅ 3/81 |
+| Cross-dataset (≥2/3) | — | — | — | — | — | — | ❌ 0 overlap |
+| VQAv2 (gated) | ✗ blocked | — | — | — | — | — | not attempted |
