@@ -165,7 +165,19 @@ Per-dataset documentation: each dataset gets a small markdown under `docs/insigh
 
 ## What this decision does NOT cover
 
-- **Multi-model generalisation**: this judgment is based on llava-interleave-7b only (E5b + E5c). The 11-model panel was previously run under random anchor 0-9 (the main run), which is range-restricted (B), so existing data is consistent with this rule. A multi-model E5b/E5c extension would confirm the rule transfers.
+- **Multi-model generalisation**: this judgment was originally based on
+  llava-interleave-7b only (E5b + E5c). 2026-04-29 cross-model
+  expansion to qwen2.5-vl-7b (E5c is a strict superset of E5b) shows
+  the same S1-peak / S3+ floor decay shape on a second model
+  (VQAv2 wrong-base S1→S5: 0.070 → 0.014 → 0.003 → 0.003 → 0.003;
+  TallyQA: 0.033 → 0.015 → 0 → 0 → 0). The decay rule transfers; the
+  absolute magnitudes track the §3.3 main-panel anchor-pull ranking
+  (qwen2.5-vl is the most-anchor-resistant model and sits at lower
+  absolute values throughout). gemma3-27b-it E5c VQAv2 cell pending
+  (~5–6h H200, P0 in roadmap §7) will arbitrate the mid-panel.
+  Beyond these 3, the 11-model panel was previously run under random
+  anchor 0-9 (the main run), which is range-restricted (B), so existing
+  data is consistent with this rule.
 - **Multi-prompt robustness**: E7 (paraphrase robustness, queued Tier 2) tests whether the same distance-decay shape holds across prompt phrasings. If E7 finds the decay pattern is prompt-sensitive, the cutoff in (A) may need adjustment per prompt.
 
 ## What we did NOT test in deciding this
