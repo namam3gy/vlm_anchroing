@@ -459,3 +459,41 @@ References (verified via paper-search-mcp on arXiv + Semantic Scholar):
 - SAE-based: SCAR [2411.07122](https://arxiv.org/abs/2411.07122) · CorrSteer [2508.12535](https://arxiv.org/abs/2508.12535) · SDCV [2505.15038](https://arxiv.org/abs/2505.15038) · SAE-RSV [2509.23799](https://arxiv.org/abs/2509.23799)
 - Cautionary: No Free Lunch [2511.18635](https://arxiv.org/abs/2511.18635)
 - Awesome list index: [showlab/Awesome-MLLM-Hallucination](https://github.com/showlab/Awesome-MLLM-Hallucination)
+
+---
+
+## Method 1 — Multi-direction subspace projection (CIPHER/VCE/RepE)
+
+**Status (2026-04-30): ⏳ sweep in flight on GPU 0**
+
+**Hypothesis.** Replace the noisy single mean direction with a richer
+K-dim subspace obtained by SVD of the pooled per-pair diff matrix
+D[i,L] = h_a[i,L] − h_m[i,L]. At inference: `h ← h − α·V_K(V_K^T h)`.
+Label-free at inference; closed-form calibration.
+
+**Calibration** (2026-04-30):
+- TallyQA: `calibration_tally/D_wrong.pt` — shape (400, 32, 4096), wall ~204 s
+- ChartQA: `calibration_chartqa/D_wrong.pt` — shape (400, 32, 4096), wall ~204 s
+- VQAv2: `calibration_vqa/D_wrong.pt` — running (expected ~400 pairs)
+
+**Sweep grid (61 cells):**
+- L ∈ {16, 22, 28, 30, 31} × K ∈ {2, 4, 8, 16} × α ∈ {0.25, 0.5, 1.0}
+- Baseline (α=0) always included
+
+**Implementation:**
+- `scripts/e6_steering_vector.py --phase {calibrate-subspace,smoke-subspace,sweep-subspace}`
+- `scripts/e6_compute_subspace.py --scope pooled` — SVD, saves `_subspace/subspace_pooled_K16.pt`
+- `scripts/analyze_e6_subspace.py` — 5 % rel-df threshold, ±2 pp em tolerance
+- Branch: `e6-method1-subspace-projection`
+
+**Selection rule:** ≥ 5 % rel df reduction AND em within ±2 pp on ≥ 2/3 datasets.
+
+### Per-dataset result tracker
+
+| Dataset | n | best (L, K, α) | df_a baseline | steered | Δ % rel | em(b) | em(d) | em(a) | pass? |
+|---|---:|---|---:|---:|---:|---|---|---|---|
+| TallyQA subset (n=100) | ⏳ running | TBD | TBD | TBD | TBD | TBD | TBD | TBD | TBD |
+| ChartQA subset (n=100) | ⏳ queued | TBD | TBD | TBD | TBD | TBD | TBD | TBD | TBD |
+| VQAv2 (only if ≥2/3 pass) | ☐ gated | TBD | TBD | TBD | TBD | TBD | TBD | TBD | TBD |
+
+*Results will be filled in by `scripts/analyze_e6_subspace.py` output.*
