@@ -243,74 +243,188 @@ Two failure modes are possible:
 Reverse-calibration test (Phase 1.5) and method-pivot decisions are
 captured below.
 
-## Literature survey — alternative mitigation methods (2026-04-29)
-
-Surveyed 2023–2026 arxiv on residual-stream interventions, decode-time
-methods, VLM hallucination mitigation, and lightweight training-time
-alternatives. Top candidates ranked by fit to this project's setup
-(LLaVA-NeXT-Interleave-7B, ~1k pairs/dataset, train-free or light-
-touch, no inference-time labels, cross-domain generalization required):
-
-| Rank | Method | 1-line | Implementation cost | Why it might fix cross-domain |
-|---|---|---|---|---|
-| 1 | **VCD** (Visual Contrastive Decoding) [2311.16922] | `logits_final = (1+α)·logits(I_clean) − α·logits(I_distorted)` | low — 2 forward passes/token, no training, mature OSS impl | per-input correction; no dataset-specific direction needed |
-| 2 | **M3ID / image-CFG** [2403.14003] | CFG-style: amplify mutual info between visual prompt and output via negative branch (text-only or image-noised pass) | low — same family as VCD; γ tuned once globally | per-token, per-input correction; b/a/d arms in our config already give negative branches |
-| 3 | **PAI** (image-attention amplification) [2407.21771] | up-weight attention to image tokens at selected layers; subtract pure-text logits | low — open-source ECCV'24 code on LLaVA-NeXT | structural (image-token-positions) not direction-based; should generalize |
-| 4 | **Multi-direction PCA / RepE** [2310.01405] | top-K PCs of (h_a − h_m) diff matrix, project onto K-dim subspace and subtract instead of single direction | trivial — change one matmul in our hook | if cross-dataset failure = "wrong direction" not "wrong functional form", a K=4–8 subspace covers all datasets |
-| 5 | **LEACE** (linear concept erasure) [2306.03819] | closed-form affine projection that makes "anchor present" linearly undecodable while minimum-norm; idempotent on non-anchor inputs | low — `EleutherAI/concept-erasure` package, closed-form fit in seconds | erases ALL linearly-decodable anchor info, not just one direction |
-| 6 | **CAST** (conditional ActAdd) [2409.05907] | small probe gates whether to apply the steering vector per input | low — logistic regression on hidden states; no input labels at inference | restores over-corrected non-anchor cases; surgical fix to ActAdd's symptom |
-| 7 | **V-DPO / OPA-DPO** [2411.02712, 2505.15963] | LoRA + DPO on (anchor-confused vs. correct) preference pairs | medium — ~1k pairs, hours not days, TRL recipes exist | preference signal generalizes; deployment cost = LoRA adapter, still cheap |
-| 8 | **SAE feature steering** [2408.05147 Gemma Scope] | clamp SAE features that activate on "anchor digit present" to zero | medium-high — no public SAE for llava-next-interleaved-7b; requires training one (a few H100-days) | sparser features → cleaner cross-domain transfer; but cost too high for "light-touch" |
-
-**Recommended sequence after the reverse-calibration result:**
-
-A. **If reverse calibration (TallyQA → VQAv2) works** — single-direction
-   ActAdd is salvageable, but per-dataset calibration is necessary.
-   Then: **multi-direction PCA** (#4) is the cheap extension that
-   might unify multiple dataset-specific directions in one v-subspace.
-
-B. **If reverse calibration also fails** — single-direction ActAdd is
-   structurally too narrow. **Pivot to VCD/M3ID** (#1, #2) for
-   decode-time per-input correction; this is the highest-fit
-   replacement and integrates naturally with the b/a/d/m arms we
-   already produce.
-
-C. **Combine** — VCD as primary mitigation, multi-direction
-   residual offset as analysis tool (paper §7.4 mechanism story stays;
-   §7.4.5 deployability story switches to VCD).
-
-D. **CAST** (#6) is the cheapest patch to keep ActAdd alive
-   conditionally — adds a probe gate on the steering. Worth ~1 day if
-   we want to preserve the ActAdd contribution.
-
-**Heavy fallback if all train-free approaches fail:** V-DPO with LoRA.
-Still deployable (LoRA adapter), but not train-free.
-
-References (verified arxiv IDs):
-- VCD [2311.16922](https://arxiv.org/abs/2311.16922) · CRG [2403.02325](https://arxiv.org/abs/2403.02325)
-- M3ID [2403.14003](https://arxiv.org/abs/2403.14003)
-- PAI [2407.21771](https://arxiv.org/abs/2407.21771)
-- RepE [2310.01405](https://arxiv.org/abs/2310.01405) · RepE in VLMs [2503.22720](https://arxiv.org/abs/2503.22720)
-- LEACE [2306.03819](https://arxiv.org/abs/2306.03819) · code: github.com/EleutherAI/concept-erasure
-- CAST [2409.05907](https://arxiv.org/abs/2409.05907)
-- V-DPO [2411.02712](https://arxiv.org/abs/2411.02712) · OViP [2505.15963](https://arxiv.org/abs/2505.15963)
-- Index: github.com/showlab/Awesome-MLLM-Hallucination
-
-## Phase 1.5 — reverse-direction calibration (in flight 2026-04-29)
+## Phase 1.5 — reverse-direction calibration results (2026-04-29)
 
 User-driven hypothesis: VQAv2 may be the noisier calibration source;
-TallyQA or ChartQA may yield a more transferable `v`. To test:
+TallyQA or ChartQA may yield a more transferable `v`. Three calibration
+tensors extracted at L=30 wrong-base S1 pairs:
 
-- v_tally calibrated on TallyQA E5c wrong-base S1 (346 pairs)
-- v_chartqa calibrated on ChartQA E5e wrong-base S1 (416 pairs)
-- Each tested on (i) own dataset (self-test sanity), (ii) VQAv2
-  (cross-direction transfer)
+| source | n_wrong | n_all | ‖v_wrong[L=30]‖ | wall |
+|---|---:|---:|---:|---:|
+| VQAv2 (Phase 0 baseline) | 399 | 1000 | 7.27 | 230 s |
+| TallyQA | 346 | 1000 | 7.24 | 298 s |
+| ChartQA | 416 | 632 | 6.32 | 408 s |
 
-Decision tree:
-- All three v's reduce df on VQAv2 → calibration source matters; pick
-  best one as new chosen
-- Self-tests pass but cross-tests fail → same single-direction
-  limitation; pivot to multi-direction PCA or VCD per Method survey
-- Self-tests fail → calibration setup itself is broken; debug
+**Cosine similarity between calibration directions at L=30:**
 
-Results to be appended below as the runs land.
+```
+cos(v_VQA, v_tally)    = 0.9792   ← almost identical direction
+cos(v_VQA, v_chartqa)  = 0.5594   ← partially aligned
+cos(v_tally, v_chartqa) = 0.5405
+```
+
+VQAv2 and TallyQA point essentially the same residual-stream direction
+(cos > 0.97 across all layers), with similar magnitudes. ChartQA
+points a substantially different direction. **The ‖v‖ magnitudes are
+within 15 % across all three sources** — direction-quality, not
+magnitude, is the differentiator.
+
+**v_tally tiebreaker results** (n=346 TallyQA wrong-base self-test,
+n=399 VQAv2 wrong-base cross-test, baseline + L30/α=1/v_wrong +
+L30/α=4/v_wrong):
+
+| Test | df_a baseline | L30/α=1 | rel% | L30/α=4 | rel% |
+|---|---:|---:|---:|---:|---:|
+| v_tally → VQAv2 (cross-direction transfer) | 0.2492 | 0.2337 | **−6.2 %** | 0.2347 | −5.8 % |
+| v_tally → TallyQA (self-test) | 0.2342 | 0.2444 | **+4.3 %** | 0.2293 | −2.1 % |
+
+**Two unexpected observations.**
+
+1. **Asymmetric cross-direction transfer.** v_tally → VQAv2 reduces
+   df (cross-direction transfer works), but v_VQA → TallyQA backfires
+   (cross-direction transfer fails). Combined with the cos≈0.98
+   between v_VQA and v_tally, this means the *direction* is
+   essentially the same but its *effect on each dataset* differs —
+   the failure is in how the residual offset interacts with the
+   target distribution, not in the calibrated direction itself.
+2. **Self-test fails at α=1.** TallyQA-calibrated v *backfires on its
+   own calibration source* at α=1 (+4.3 %), barely works at α=4
+   (−2.1 %). This is the canonical signature of a noisy
+   single-direction estimate — at small α the offset is dominated
+   by noise (random walk, sometimes adverse direction), at larger α
+   the true signal partially dominates.
+
+**Implication.** Single-direction residual-stream subtraction is
+**structurally limited** for this task. It is not a calibration-source
+issue; even the best per-dataset calibration is fragile at the n=346–
+399 / d=4096 SNR regime. Need to pivot to a method that either (a)
+uses more degrees of freedom (multi-direction subspace), (b) adapts
+per input (query-conditional), or (c) operates in a different
+intervention space (decode-time, training-time).
+
+**v_chartqa tiebreakers (deferred).** Calibration tensor extracted
+(2026-04-29 wall ~7 min) but cross-dataset tiebreaker chain not yet
+run; deferred to optional background task during the Method 1
+implementation. Incremental evidence — does not block plan.
+
+## Literature survey (2026-04-29 deep, paper-search-mcp across 14 axes)
+
+22 candidate methods grouped by intervention family. Each evaluated
+against the 4 hard constraints (no inference labels, cross-dataset
+robustness, accuracy preservation on anchor arm, implementation cost).
+Fit score 0–10. **Method ranking informs the 3-method pivot plan
+(see §"Three-method pivot plan" below).**
+
+### A. Residual-stream multi-direction & subspace (most directly applicable)
+
+| Method | arXiv | Year | 1-line | No inf labels? | Fit |
+|---|---|---|---|---|---:|
+| **CIPHER** (Counterfactual Image Perturbations for Hallucination Extraction & Removal) | 2603.10470 | 2026-03 | Diffusion-edited counterfactuals → contrast hidden-state shifts → low-rank subspace → project away at inference | ✓ idempotent on non-anchor | 9 |
+| **VCE** (Visual Contrastive Editing) | 2604.19412 | 2026-04 | SVD-decompose contrastive activation patterns to isolate hallucination subspace; targeted parameter edits | ✓ label-free | 9 |
+| **MSRS** (Multi-Subspace Representation Steering) | 2508.10599 | 2025-08 | Orthogonal subspace per attribute + dynamic weighting + token-level mechanism | ✓ no labels at inference | 8 |
+| **RepE** (Representation Engineering) | 2310.01405 | 2023-10 | Top-K PCA over difference matrix; multi-direction subspace projection | ✓ | 7 |
+| **LEACE** (LEAst-squares Concept Erasure) | 2306.03819 | 2023-06 (196 cites) | Closed-form affine projection; provably erases all linearly-decodable concept info while minimum-norm | ✓ idempotent | 7 |
+| **Closed-Form Concept Erasure via Double Projections** | 2604.10032 | 2026-04 | Two sequential closed-form steps; constrained left-null-space transform | ✓ | 6 |
+
+### B. Single-direction extensions (incremental over current method)
+
+| Method | arXiv | Year | 1-line | No inf labels? | Fit |
+|---|---|---|---|---|---:|
+| **Spherical Steering** | 2602.08169 | 2026-02 | Activation rotation on geodesic instead of addition; norm-preserving; +10 % on TruthfulQA | ✓ + confidence gate | 7 |
+| **Depth-Wise Activation Steering** | 2512.07667 | 2025-12 | Gaussian schedule across layer depth; outperforms single-layer baselines on 6/7 LLaMA/Qwen/Mistral models | ✓ | 6 |
+| **One-shot Optimized Steering Vectors** | 2502.18862 | 2025-02 | Optimize SVs via gradient descent on single training example; transfer via vector arithmetic | ✓ at inference | 5 |
+| **CAST** (Cross-task Activation Steering Transfer) | 2507.13236 | 2025-07 | Latent-space steering for cross-task transfer; contrastive enhanced activations from high-resource to low-resource | ✓ | 6 |
+| **DSO** (Direct Steering Optimization for Bias Mitigation) | 2512.15926 | 2025-12 (1 cite) | RL-optimized linear transformations for steering activations; tunable fairness/capability tradeoff; tested on **VLMs and LLMs** | ✓ | 7 |
+
+### C. Query / input-adaptive (per-input correction)
+
+| Method | arXiv | Year | 1-line | No inf labels? | Fit |
+|---|---|---|---|---|---:|
+| **AFTER** (Adaptive Factual-guided Visual-Textual Editing) | 2601.01957 | 2026-01 | FAS (general steering vector) + QAO (query-adaptive offset estimator); 16.3 % reduction on AMBER on 3 LVLMs | ✓ | 8 |
+| **Dual Steering** | 2602.15293 | 2026-02 | Linear-probe-based steering that optimally modifies target concept while minimizing off-target changes | ✓ | 7 |
+| **CogBias** | 2604.01366 | 2026-04 | Linear probes detect cognitive bias direction; activation steering achieves 26-32 % reduction on 8 cognitive biases including **anchoring** while preserving downstream capability on 25 benchmarks; cross-architecture (Llama, Qwen) | ✓ | 8 |
+| **CBMAS** (Cognitive Behavioral Modeling via Activation Steering) | 2601.06109 | 2026-01 | Continuous α-sweep + logit-lens-based bias curves + layer-site sensitivity; diagnostic tool for steering tipping points | (diagnostic) | 5 |
+
+### D. Decode-time / contrastive decoding (different intervention paradigm)
+
+| Method | arXiv | Year | 1-line | No inf labels? | Fit |
+|---|---|---|---|---|---:|
+| **VCD** (Visual Contrastive Decoding) | 2311.16922 | 2023-11 | Contrast logits(I_clean) vs logits(I_distorted) at decode time; suppresses prior-driven tokens | ✓ (image distortion) | 6 (sign-issue for our anchor) |
+| **Mask What Matters** | 2602.11737 | 2026-02 | VCD-extension: object-aligned auxiliary view by removing salient evidence | ✓ | 6 |
+| **VGS-Decoding** (Visual Grounding Score) | 2603.20314 | 2026-03 | Per-token visual dependency via comparing distributions from clean vs distorted images; Med-VLM, +9.12 % | ✓ | 6 |
+| **PAI** / **AIR** / **Modality-Bias** attention rebalancing | 2407.21771 / 2603.24058 / 2508.02419 | 2024-07 — 2026-03 | Up-weight image-token attention; AIR reports 35.1 % object-hallucination reduction | ✓ | 6 |
+| **PSRD** (Phase-wise Self-Reward Decoding) | 2604.17982 | 2026-04 | Lightweight reward model distilled from LVLM; phase-wise correction during decode; LLaVA-1.5 −50 % hallucination | ✓ | 5 (heavier infra) |
+| **EAZY** (Eliminate hallucinations by Zeroing image tokens) | 2503.07772 | 2025-03 | 1.5 % of image tokens with high attention drive hallucination; zero them out; +15 % on detection | ✓ | 5 (token-zeroing without anchor labels = guess) |
+| **HIME** (Hallucination Insensitivity Model Editing) | 2602.18711 | 2026-02 | Per-layer Hallucination Insensitivity Score guides selective weight edits; 61.8 % reduction | (model edit) | 5 |
+
+### E. Lightweight training (LoRA/DPO with preference pairs)
+
+| Method | arXiv | Year | 1-line | No inf labels? | Fit |
+|---|---|---|---|---|---:|
+| **MIA-DPO** (Multi-Image Augmented DPO) | 2410.17637 | 2024-10 | Multi-image preference alignment for LVLMs; attention-aware chosen/rejected selection; LLaVA-v1.5 +3.0 %, InternLM-XC2.5 +4.3 % on **5 multi-image benchmarks** | ✓ at deploy (LoRA adapter) | 8 |
+| **Antidote** | 2504.20468 | 2025-04 | Synthetic-data preference optimization for counterfactual presupposition + object-perception hallucination; +50 % CP-Bench, +30-50 % CHAIR | ✓ | 6 |
+| **TIS-DPO** (Token-level Importance Sampling DPO) | 2410.04350 | 2024-10 | Per-token reward weighting via contrastive LLM probability differences | ✓ | 5 |
+
+### F. SAE-based feature steering (heaviest infra)
+
+| Method | arXiv | Year | 1-line | No inf labels? | Fit |
+|---|---|---|---|---|---:|
+| **SCAR** (Sparse Conditioned Autoencoder) | 2411.07122 | 2024-11 | Single trained SAE module extending LLM; bidirectional concept steering | ✓ | 4 (no public SAE for llava-next) |
+| **CorrSteer** | 2508.12535 | 2025-08 | SAE feature selection via correlation with sample correctness at inference | ✓ | 4 |
+| **SDCV** (Sparse Autoencoder-Denoised Concept Vectors) | 2505.15038 | 2025-05 | SAE denoises noisy concept vectors from limited data; +4-16 % steering success | ✓ | 5 (would solve our limited-data noise BUT needs SAE) |
+| **SAE-RSV** (SAE Refinement of Steering Vectors) | 2509.23799 | 2025-09 | SAE semantically denoises + augments steering vectors from small training data | ✓ | 5 (same issue) |
+
+### G. Negative-result reference (cautionary)
+
+| Method | arXiv | Year | 1-line |
+|---|---|---|---|
+| **No Free Lunch in Bias Mitigation** | 2511.18635 | 2025-11 | Systematic eval of 4 mitigation techniques (logit steering, activation patching, BiasEdit, prompt debiasing) across 7 model families: 31.5 % of cases show collateral degradation on **untargeted** dimensions. Warns that single-target steering can worsen unrelated biases. |
+
+### Failure-mode mapping table
+
+Mapping our 4 observed failure modes (single-direction noise floor,
+dataset-bound direction effect, sign-reversal cross-dataset,
+asymmetric cross-direction transfer) to which surveyed methods
+structurally address each:
+
+| Failure mode (E6 PoC) | Methods that structurally address |
+|---|---|
+| n=200 noise-floor effect (single direction noisy) | SDCV / SAE-RSV (denoise) ; multi-direction PCA / VCE / CIPHER (more DOF) |
+| Dataset-bound direction (cross-dataset fails) | MSRS (orthogonal subspaces) ; CIPHER / VCE (low-rank subspace) ; AFTER QAO (per-input adaptation) ; MIA-DPO (preference signal) |
+| Sign-reversal cross-dataset | AFTER QAO (input-adaptive offset) ; Dual Steering (linear-probe-guided); CogBias (cognitive-bias-specific steering) |
+| Asymmetric cross-direction transfer | RepE / Multi-direction PCA pooled across datasets ; LEACE (binary concept erasure) |
+
+### Three-method pivot plan (selected from this survey)
+
+Decision criteria: (a) closed-form / lightest dev cost first, (b) most
+directly addresses the noise-floor and dataset-bound failure modes,
+(c) reuses our existing residual-capture infrastructure.
+
+1. **Method 1 (PRIMARY) — Multi-direction subspace projection**
+   (CIPHER + VCE + RepE family). Single-direction → top-K SVD basis;
+   project residual orthogonal to the anchor subspace at L=30. Drop-
+   in for the existing offset hook; uses our wrong-base pair
+   residuals (re-extracted per-pair instead of mean).
+2. **Method 2 (FALLBACK 1) — Query-adaptive offset** (AFTER QAO).
+   Tiny probe estimates per-input correction direction; runs only
+   if Method 1 fails.
+3. **Method 3 (FALLBACK 2) — MIA-DPO LoRA**. Multi-image preference
+   tuning with LoRA; runs only if Method 2 fails. Most likely to
+   land statistically clean cross-dataset reductions; deployment via
+   LoRA adapter.
+
+Method-1-first rationale: cheapest implementation (½ day), directly
+attacks the structural single-direction limitation, label-free at
+both calibration and inference. Method 2 / 3 reserved for if Method 1
+fails the cross-dataset selection rule on ≥ 2 of 3 datasets.
+
+References (verified via paper-search-mcp on arXiv + Semantic Scholar):
+
+- Multi-direction subspace: CIPHER [2603.10470](https://arxiv.org/abs/2603.10470) · VCE [2604.19412](https://arxiv.org/abs/2604.19412) · MSRS [2508.10599](https://arxiv.org/abs/2508.10599) · RepE [2310.01405](https://arxiv.org/abs/2310.01405) · LEACE [2306.03819](https://arxiv.org/abs/2306.03819) · Closed-Form Erasure [2604.10032](https://arxiv.org/abs/2604.10032)
+- Single-direction extensions: Spherical Steering [2602.08169](https://arxiv.org/abs/2602.08169) · Depth-Wise [2512.07667](https://arxiv.org/abs/2512.07667) · One-shot SVs [2502.18862](https://arxiv.org/abs/2502.18862) · CAST [2507.13236](https://arxiv.org/abs/2507.13236) · DSO [2512.15926](https://arxiv.org/abs/2512.15926)
+- Query-adaptive: AFTER [2601.01957](https://arxiv.org/abs/2601.01957) · Dual Steering [2602.15293](https://arxiv.org/abs/2602.15293) · CogBias [2604.01366](https://arxiv.org/abs/2604.01366) · CBMAS [2601.06109](https://arxiv.org/abs/2601.06109)
+- Decode-time: VCD [2311.16922](https://arxiv.org/abs/2311.16922) · Mask What Matters [2602.11737](https://arxiv.org/abs/2602.11737) · VGS-Decoding [2603.20314](https://arxiv.org/abs/2603.20314) · PAI [2407.21771](https://arxiv.org/abs/2407.21771) · AIR [2603.24058](https://arxiv.org/abs/2603.24058) · Modality-Bias [2508.02419](https://arxiv.org/abs/2508.02419) · PSRD [2604.17982](https://arxiv.org/abs/2604.17982) · EAZY [2503.07772](https://arxiv.org/abs/2503.07772) · HIME [2602.18711](https://arxiv.org/abs/2602.18711) · Med-VCD [2512.01922](https://arxiv.org/abs/2512.01922) · 3D-VCD [2604.08645](https://arxiv.org/abs/2604.08645) · ConVis [2408.13906](https://arxiv.org/abs/2408.13906) · CGD [2402.15300](https://arxiv.org/abs/2402.15300) · PM [2503.10183](https://arxiv.org/abs/2503.10183) · AVCD [2505.20862](https://arxiv.org/abs/2505.20862)
+- Lightweight training: MIA-DPO [2410.17637](https://arxiv.org/abs/2410.17637) · Antidote [2504.20468](https://arxiv.org/abs/2504.20468) · TIS-DPO [2410.04350](https://arxiv.org/abs/2410.04350)
+- SAE-based: SCAR [2411.07122](https://arxiv.org/abs/2411.07122) · CorrSteer [2508.12535](https://arxiv.org/abs/2508.12535) · SDCV [2505.15038](https://arxiv.org/abs/2505.15038) · SAE-RSV [2509.23799](https://arxiv.org/abs/2509.23799)
+- Cautionary: No Free Lunch [2511.18635](https://arxiv.org/abs/2511.18635)
+- Awesome list index: [showlab/Awesome-MLLM-Hallucination](https://github.com/showlab/Awesome-MLLM-Hallucination)
