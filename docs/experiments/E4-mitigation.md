@@ -1,9 +1,18 @@
 # E4 — attention re-weighting mitigation: results
 
-**Status:** Phase 1 sweep complete on all 3 mid-stack-cluster models
-(llava-1.5-7b, convllava-7b, internvl3-8b). Phase 2 full validation: started 2026-04-25;
-chained per `scripts/run_e4_phase2_chain.sh` in priority order
-llava-1.5-7b → convllava-7b → internvl3-8b. Resumable across the 12-h session boundary.
+**Status:** **Phase 1 + Phase 2 complete; C-form re-aggregated 2026-04-28.**
+Phase 1 sweep landed on all 3 mid-stack-cluster models (llava-1.5-7b,
+convllava-7b, internvl3-8b); Phase 2 full validation landed via
+`scripts/run_e4_phase2_chain.sh`; C-form propagation completed in
+commit `fe33a9d` (2026-04-28, B안). Paper-tier numbers live in
+`docs/insights/E4-mitigation-evidence.md` and the §7.4 free-lunch
+writeup at `docs/insights/paper-section-7-4-mitigation-free-lunch.md`.
+Headline (n=88,650 / model, C-form `direction_follow_rate`):
+LLaVA-1.5 0.288 → 0.246 (−14.6 % rel),
+ConvLLaVA 0.258 → 0.233 (−9.6 %),
+InternVL3 0.126 → 0.119 (−5.8 %); `exact_match` rises +0.49 to +1.30 pp;
+`accuracy_vqa(b)` invariant. Body below preserved as the Phase 1 design
+record.
 
 **Source data:** `outputs/e4_mitigation/<model>/sweep_n200/predictions.jsonl` (Phase 1),
 `outputs/e4_mitigation/<model>/full_n17730/predictions.jsonl` (Phase 2).

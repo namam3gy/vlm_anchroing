@@ -1,6 +1,6 @@
 # E4 — attention re-weighting mitigation prototype: design
 
-**Status:** Pre-implementation design. Approved by user 2026-04-25. Supersedes the open E4 row in `references/roadmap.md` §6 Tier 1. Will be replaced by `docs/experiments/E4-mitigation.md` (results writeup) once Phase 1 + 2 complete.
+**Status:** **Superseded by results writeup as of 2026-04-29.** Pre-implementation design (approved 2026-04-25) — preserved as the design record. Phase 1 + 2 complete; C-form re-aggregation landed 2026-04-28 (commit `fe33a9d`). Results: `docs/experiments/E4-mitigation.md` (writeup) + `docs/insights/E4-mitigation-evidence.md` (evidence) + `docs/insights/paper-section-7-4-mitigation-free-lunch.md` (paper §7.4 framing).
 
 ## Goal
 
