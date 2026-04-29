@@ -1,10 +1,28 @@
 # E6 — anchor-agnostic steering-vector mitigation: design
 
-**Status:** Pre-implementation design (2026-04-29). Branch:
-`e6-steering-vector-mitigation`. Implementation pending — this doc captures
-motivation, objective, and the Phase-0/1/2 plan; results will land in a
-companion `docs/experiments/E6-steering-vector.md` + evidence doc once
-PoC clears Phase 1.
+**Status:** Pre-implementation design (2026-04-29, revised post-review).
+Branch: `e6-steering-vector-mitigation`. Implementation pending — this
+doc captures motivation, objective, and the Phase-0/1/2 plan; results
+will land in a companion `docs/experiments/E6-steering-vector.md` +
+evidence doc once PoC clears Phase 1.
+
+**2026-04-29 revision** — corrects two design-review bugs:
+1. **Model panel:** original draft named LLaVA-1.5-7b for PoC and
+   referenced "E5c S1 wrong-base sids on disk" as the calibration
+   source. E5c was run on `llava-next-interleaved-7b` (the §3.3 main
+   panel), not `llava-1.5-7b` (the E4 mechanism panel). To preserve
+   the §7.4.5 "research-demo → deployable" head-to-head against E4
+   on the same model, this revision keeps the LLaVA-1.5-7b PoC and
+   replaces the "use existing E5c sids" plan with a freshly-extracted
+   calibration set on LLaVA-1.5-7b (~30–45 min H200, see Phase 0).
+   The §3.3 main-panel narrative (`llava-next-interleaved-7b` +
+   qwen2.5-vl + gemma3-27b on E5c VQAv2 + TallyQA) is kept as a
+   Phase 2 cross-panel deployability check.
+2. **`parsed_number` field:** older E5c runs persist `parsed_number =
+   None`; numeric prediction must be reconstructed via
+   `vlm_anchor.utils.extract_first_number(record['prediction'])`.
+   `record['exact_match']` is `0/1` int, not `False/True` bool — filter
+   wrong-base with `record['exact_match'] == 0`, not `is False`.
 
 ## Goal
 
@@ -53,9 +71,12 @@ requirement**:
 | image-dropout self-consistency | none | none (K× inference) | ✓ slow |
 
 E6 sits in the same deployable bucket as fine-tuning, but **train-free**:
-calibration is a single forward-pass sweep on a small labelled set (E5c
-S1 wrong-base pairs we already have on disk), then inference applies a
-fixed residual-stream offset universally.
+calibration is a single forward-pass sweep on a small labelled set
+(VQAv2 wrong-base S1 (a, m) pairs), then inference applies a fixed
+residual-stream offset universally. The labelled set is constructed
+fresh on the PoC model (LLaVA-1.5-7b) since the §3.3 E5c data is on a
+different model panel — see Phase 0 for the construction; ~30–45 min
+H200 cost.
 
 This factoring also reframes E4 — it is **not** dropped from the paper;
 it remains the §7.4 mechanism story (validates the upper-half locus
@@ -101,41 +122,74 @@ Three independently necessary properties:
 
 ## Phase 0 — calibration vector extraction
 
-**Source:** existing E5c S1 wrong-base sample_instance_ids
-(`pred_b != gt` AND `target_plus_irrelevant_number_S1` AND
-`target_plus_irrelevant_number_masked_S1` predictions both present).
-Identifiable via `outputs/experiment_e5c_vqa/<model>/<run>/predictions.jsonl`.
+**Calibration set construction** (LLaVA-1.5-7b, no existing E5c run on
+this model — extract fresh):
 
-**Extraction:** rerun forward passes on the identified pairs **with
-residual-stream hooks** at the output of each LLM decoder layer (post-attn
-+ post-MLP, before next layer's LayerNorm). Residuals captured at the
-**answer-step query position** — the position just before the JSON
-`{"result":` template would emit a digit token. (Concretely: tokenise the
-prompt + JSON prefix `{"result":`, take residuals at the last input
-position of that prefix.)
+1. Run b condition (`target_only`) on the full VQAv2 number subset
+   (n=1000 base sids per `configs/experiment.yaml`); cache
+   `extract_first_number(prediction)` and ground truth → identify
+   wrong-base sids `{ sid : pred_b != gt }`. Empirical wrong-base
+   fraction on the §3.3 main panel is 30–40 % (`exact_match == 0`),
+   so expect ~300–400 wrong-base sids on LLaVA-1.5-7b.
+2. For each wrong-base sid, run two further forward passes with
+   residual-stream hooks installed: condition `a-S1` (anchor) and
+   `m-S1` (masked). Total ≈ 1000 (b) + 2 × ~350 (a/m) = ~1700 forward
+   passes ≈ **30–45 min on H200**.
 
-**Pair construction:**
+**Residual capture position.** Output of LLM decoder layer L at the
+**last input token, before any generation** (canonical ActAdd position;
+Turner et al. 2023 §3). Concretely: tokenise the full prompt (image
+tokens + question + JSON-strict template + JSON prefix `{"result":`),
+take the residual at the final position before the model is asked to
+generate the digit token. No generation loop needed for calibration —
+one forward pass yields all layers' residuals at the captured position.
+
+**Pair construction.** Two `v` variants emitted side-by-side at zero
+extra inference cost (advisor 2026-04-29):
 
 ```
 for sid in calibration_set:
-    h_anchor[L] = residual at L on (sid, target_plus_irrelevant_number_S1)
-    h_masked[L] = residual at L on (sid, target_plus_irrelevant_number_masked_S1)
-v[L] = mean_sid( h_anchor[L] − h_masked[L] )    # one tensor per layer
+    h_a[L] = residual at L on (sid, target_plus_irrelevant_number_S1)
+    h_m[L] = residual at L on (sid, target_plus_irrelevant_number_masked_S1)
+
+v_wrong[L] = mean over wrong-base sids of  ( h_a[L] − h_m[L] )
+v_all  [L] = mean over all calibration sids of  ( h_a[L] − h_m[L] )
 ```
 
-`v[L]` lives in the residual-stream embedding dim (4096 for LLaVA-1.5-7b).
-Save `v` as a `(n_layers, d_model)` tensor at
+Phase 1 sweeps both as a sub-axis (settles the open "wrong-base only or
+all-base?" question empirically).
+
+`v_*[L]` lives in the residual-stream embedding dim (4096 for
+LLaVA-1.5-7b). Save as a `(2, n_layers, d_model)` tensor at
 `outputs/e6_steering/<model>/calibration/v.pt` plus a JSON sidecar with
-`{n_pairs, n_layers, d_model, source_run}` for audit.
+`{n_wrong, n_all, n_layers, d_model, model, source_run, base_acc}` for
+audit.
 
-**Cost:** PoC (LLaVA-1.5-7b, ~1000 wrong-base sids × 2 conditions × 1
-forward pass for residual capture) ≈ 2k forward passes ≈ 20–30 min H200.
+**Sanity (Phase 0 deliverables):**
 
-**Sanity:**
-- `‖v[L]‖₂` per layer — expect smooth curve, peak at one or a few layers
-- `cos(v[L_a], v[L_b])` between adjacent layers — should be high (smooth)
-- v's residual-projection on a held-out anchor pair should reproduce the
-  diff direction (cross-validation check)
+- `‖v_*[L]‖₂` per layer — expect smooth curve, peak at one or a few
+  layers; `v_wrong` should have higher norm than `v_all` if the wrong-
+  base filter is actually concentrating signal.
+- `cos(v_*[L_a], v_*[L_b])` between adjacent layers — should be high
+  (smooth across depth).
+- `cos(v_wrong[L], v_all[L])` per layer — high cosine ≥ 0.9 means the
+  wrong-base filter mostly scales an already-pointing direction;
+  low cosine means wrong-base captures a qualitatively different
+  direction (also informative).
+
+**Phase 0.5 — wiring smoke test (10 min, before Phase 1).** On 10 held-
+out wrong-base anchor-arm forward passes, install the
+`_make_residual_offset_hook` (Phase 1's hook) at one layer near E1b
+peak (L=16 for LLaVA-1.5) with `α=2.0` and verify:
+
+- The output digit token (or its top-3 logit ranking) actually changes
+  between baseline and steered runs.
+- `mean_distance_to_anchor` on the held-out 10 doesn't explode
+  (e.g., > 100 — fluency catastrophe sign).
+
+If neither happens, Phase 1 is wired wrong (residual position, layer
+indexing, hook attachment to vision tower instead of LLM stack);
+diagnose before burning the 5–7 h sweep budget.
 
 ## Phase 1 — (L, α) sweep on n=200 stratified
 
@@ -147,13 +201,20 @@ grid**, with `−α · v[L]` added to the residual at layer L.
 **Sweep grid:**
 
 ```
-L ∈ {2, 6, 10, 14, 16, 20, 24, 28}   # spans early, mid (E1b peak L16), upper
-α ∈ {0.5, 1.0, 2.0, 3.0, 5.0}
+L      ∈ {2, 8, 14, 16, 18, 22, 28}      # 7 layers, dense around E1b peak L16
+α      ∈ {1.0, 2.0, 4.0}                 # 3 magnitudes (geometric, raw scalar on ‖v‖)
+v-var  ∈ {v_wrong, v_all}                # both calibration variants from Phase 0
 ```
 
-40 (L, α) cells × 4 conditions × 200 samples = 32k generations. Plus
-baseline (α=0): 4 × 200 = 800. Total ~33k forward passes ≈ 5–7 h on H200
-for LLaVA-1.5-7b. Resumable, same protocol as E4.
+7 × 3 × 2 = 42 (L, α, v-var) cells × 4 conditions × 200 samples = 33.6k
+generations. Plus baseline (α = 0, no v): 4 × 200 = 800. Total ~34k
+forward passes ≈ **5–7 h on H200** for LLaVA-1.5-7b. Resumable, same
+protocol as E4.
+
+If Phase 0.5 smoke shows the hook is wired but predictions barely move
+at α = 1.0, expand α grid upward (e.g., {2, 4, 8}). If predictions move
+too much at α = 1.0 (em catastrophe), grid downward
+(e.g., {0.25, 0.5, 1.0}). Phase 0.5 calibrates the α range.
 
 **Why include `m` (masked) and `d` (neutral)?** Two reasons specific to
 E6 (E4's Phase 1 only ran b/a/d):
@@ -174,7 +235,7 @@ E6 (E4's Phase 1 only ran b/a/d):
 - `mean_distance_to_anchor(a)` (fluency guard)
 - All with bootstrap 95 % CIs (2,000 iter)
 
-**(L*, α*) selection rule:** smallest |α| that satisfies on `a` arm:
+**(L*, α*, v-var*) selection rule:** smallest |α| that satisfies on `a` arm:
 
 ```
 df(a, L, α)  ≤  0.9 · df(a, baseline)              # ≥ 10 % rel reduction
@@ -184,9 +245,10 @@ em(a, L, α)  ≥  em(a, baseline) − 0.02              # anchor-arm not damage
 mean_distance_to_anchor(a, L, α)  ≤  baseline + 1.0 # fluency guard
 ```
 
-If multiple (L, α) satisfy, prefer the layer closest to E1b peak L16
-(maximum mechanism-narrative coherence); tiebreaker: smaller |α|
-(minimum offset magnitude).
+If multiple cells satisfy, tiebreakers in order: (i) layer closest to
+E1b peak L16 (maximum mechanism-narrative coherence); (ii) smaller |α|;
+(iii) `v_wrong` over `v_all` (cleaner signal-to-noise on the
+calibration set).
 
 **Failure escalation paths:**
 
@@ -204,48 +266,79 @@ If multiple (L, α) satisfy, prefer the layer closest to E1b peak L16
   direction is too coarse (likely entangled with non-anchor-specific
   prediction direction).
 
-## Phase 2 — full validation (LLaVA-1.5-7b, then E4 panel)
+## Phase 2 — full validation (LLaVA-1.5-7b head-to-head, then panels)
 
-If Phase 1 clears on LLaVA-1.5-7b, run full VQAv2 number subset
-(n=17,730 sample-instances × b/a-S1/m-S1/d × {baseline, steering at (L*,
-α*)}) on LLaVA-1.5-7b first. ≈ 142k generations × ~0.5–1 s ≈ 20–40 h on
-H200 — same scale as E4 Phase 2 single model.
+If Phase 1 clears on LLaVA-1.5-7b, Phase 2 runs in two stages:
+
+### Phase 2a — E4 head-to-head on LLaVA-1.5-7b
+
+Full VQAv2 number subset (n=17,730 sample-instances × b/a-S1/m-S1/d ×
+{baseline, steering at (L*, α*, v-var*)}) on LLaVA-1.5-7b. ≈ 142k
+generations × ~0.5–1 s ≈ **20–40 h on H200** — same scale as E4 Phase 2
+single model. This is the §7.4.5 paper headline.
 
 **E4-vs-E6 head-to-head reporting** on LLaVA-1.5-7b:
 
-| metric | baseline | E4 (s* = −3.0, upper-half attention) | E6 (L*, α*, residual offset) |
+| metric | baseline | E4 (s* = −3.0, upper-half attention) | E6 (L*, α*, v-var*, residual offset) |
 |---|---|---|---|
 | df(a) | 0.288 | 0.246 (−14.6 %) | TBD |
-| em(b) | (invariant in E4) | invariant | **must verify** |
-| em(d) | (E4 not reported) | TBD | **must verify** |
+| em(b) | invariant | invariant (E4 verified) | **must verify** |
+| em(d) | TBD | TBD (re-aggregate E4 from raw) | **must verify** |
 | em(a) | 0.334 | 0.342 (+0.8 pp) | TBD |
-| inference-time anchor label needed? | n/a | ✓ (anchor span) | **✗** |
+| **inference-time anchor label needed?** | n/a | ✓ (anchor span) | **✗** |
 
 The last row is the headline E6 contribution.
 
-If LLaVA-1.5-7b lands cleanly, expand Phase 2 to ConvLLaVA-7b and
-InternVL3-8b for the same 3-model E4 panel. Per-model `(L*, α*)` is
-expected (different encoders, different L*).
+### Phase 2b — panel expansion (gated on Phase 2a)
+
+If 2a lands cleanly, expand to:
+
+- **E4 panel** (ConvLLaVA-7b, InternVL3-8b) — same head-to-head story,
+  3-model panel. Per-model `(L*, α*, v-var*)` expected (different
+  encoders).
+- **§3.3 main panel cross-dataset check** (deferred candidate, not
+  blocking) — calibrate `v` on llava-next-interleaved-7b VQAv2 E5c
+  (data ready), apply on TallyQA E5c (data also ready). If df reduction
+  generalises across datasets without re-calibration, that's a strong
+  cross-domain deployability claim. Cheap because both calibration
+  source and deployment target use existing E5c data — only the
+  residual extraction passes are new (~30 min/dataset).
 
 ## Code structure
 
 Three files. Two new scripts + one writeup pair.
 
 - **`scripts/e6_steering_vector.py`** — main driver. Sub-commands:
-  - `--phase calibrate` — Phase 0: compute `v[L]` from E5c wrong-base S1
-    pairs. Reads `outputs/experiment_e5c_vqa/<model>/<run>/predictions.jsonl`,
-    selects pairs, runs hooked forward passes, saves `v.pt` + sidecar.
-  - `--phase sweep` — Phase 1: 40 (L, α) cells × 4 conditions × n=200
-    stratified. Resumable.
-  - `--phase full` — Phase 2: chosen `(L*, α*)` × 4 conditions × full
-    n=17,730 × {baseline, steered}. Resumable, same protocol as E4.
+  - `--phase calibrate` — Phase 0: run b on full VQAv2 number subset to
+    identify wrong-base sids; run a-S1 / m-S1 forward passes with
+    residual-stream hooks at every LLM decoder layer's last-input-token
+    position; emit `v_wrong` and `v_all` to `v.pt` + sidecar. For PoC
+    model (LLaVA-1.5-7b) where no E5c run exists, this generates the
+    calibration data fresh; for §3.3-panel models with existing E5c
+    runs, this can be sped up by reading wrong-base sids from
+    `outputs/experiment_e5c_vqa/<model>/<run>/predictions.jsonl` (with
+    the `parsed_number → extract_first_number(prediction)` and
+    `exact_match == 0` int-not-bool fixes noted in the status block).
+  - `--phase smoke` — Phase 0.5: 10-pair wiring test, ~10 min.
+  - `--phase sweep` — Phase 1: 42 (L, α, v-var) cells × 4 conditions ×
+    n=200 stratified. Resumable.
+  - `--phase full` — Phase 2: chosen `(L*, α*, v-var*)` × 4 conditions ×
+    full n=17,730 × {baseline, steered}. Resumable, same protocol as E4.
 
-  Re-uses `_get_llm_layers`, `_resolve_anchor_span` (irrelevant for E6
-  but kept for layer enumeration), and `EagerAttentionRunner` family
-  from `extract_attention_mass.py` / `causal_anchor_ablation.py`. New
-  hook helper `_make_residual_offset_hook(layer_idx, v, alpha)` — adds
-  `−α · v` to the residual at the answer-step position on the forward
-  pass output of layer `layer_idx`.
+  Re-uses `_get_llm_layers` and `EagerAttentionRunner` family from
+  `extract_attention_mass.py` / `causal_anchor_ablation.py`. Two new
+  hook helpers:
+  - `_make_residual_capture_hook(layer_idx, position)` — Phase 0:
+    captures the residual-stream tensor at the last-input-token
+    position on the forward pass *output* of layer `layer_idx`.
+  - `_make_residual_offset_hook(layer_idx, v, alpha)` — Phase 1/2:
+    adds `−α · v` to the residual at the same position on the forward
+    pass output of layer `layer_idx`. Note: applies only to the
+    last-input-token slice of the seq dim during the prefill forward
+    (no per-decode-step application — the digit answer is short and
+    one prefill-time offset is sufficient; if Phase 1 finds this
+    insufficient, fall back to per-step application as a Phase 1
+    escalation).
 
 - **`scripts/analyze_e6_steering.py`** — Phase 1 Pareto + (L*, α*)
   selection per the rule above; Phase 2 full-validation table; E4-vs-E6
@@ -265,17 +358,20 @@ Three files. Two new scripts + one writeup pair.
 outputs/e6_steering/
   <model>/
     calibration/
-      v.pt                          # (n_layers, d_model) tensor
-      v_meta.json                   # {n_pairs, source_run, ...}
-      norms_per_layer.csv           # ‖v[L]‖₂ for sanity
+      base_predictions.jsonl        # Phase 0 step 1 (b on full subset)
+      v.pt                          # (2, n_layers, d_model) — [v_wrong, v_all]
+      v_meta.json                   # {n_wrong, n_all, n_layers, d_model, base_acc, ...}
+      norms_per_layer.csv           # ‖v_wrong[L]‖, ‖v_all[L]‖, cos(v_wrong, v_all) per layer
+    smoke/
+      smoke_results.json            # Phase 0.5 wiring test result
     sweep_n200/
-      predictions.jsonl             # 4 cond × 40 (L, α) × 200 = 32k records
+      predictions.jsonl             # 4 cond × 42 cells × 200 = ~34k records
     full_n17730/
       predictions.jsonl             # 4 cond × 2 modes × 17,730 records
   _summary/
     sweep_pareto.csv
     sweep_pareto.png
-    chosen_layer_alpha.json         # {model: (L*, α*)}
+    chosen_cell.json                # {model: (L*, α*, v_var*)}
     full_validation.csv
     e4_vs_e6_head_to_head.csv
 ```
