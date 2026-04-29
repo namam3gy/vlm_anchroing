@@ -63,8 +63,8 @@ in-flight · ☐ not started.
 | `experiment_encoder_pilot` | VQAv2 number | b/a/d, n=1,125 | llava-1.5-7b, internvl3-8b, fastvlm-7b, convllava-7b | ✅ pilot only — full run deferred (kept) |
 | `experiment_distance_vqa` (E5b) | VQAv2 | b + a×S1..S5 | llava-interleave-7b | 🟡 single-model — cross-model expansion in flight |
 | `experiment_distance_tally` (E5b) | TallyQA | b + a×S1..S5 | llava-interleave-7b | 🟡 single-model — cross-model expansion in flight |
-| `experiment_e5c_vqa` | VQAv2 | b + a×S1..S5 + m×S1..S5 + d | llava-interleave-7b, qwen2.5-vl-7b-instruct | 🟡 2/3 models — gemma3-27b-it pending |
-| `experiment_e5c_tally` | TallyQA | same | llava-interleave-7b, qwen2.5-vl-7b-instruct | 🟡 2/3 models — gemma3-27b-it pending |
+| `experiment_e5c_vqa` | VQAv2 | b + a×S1..S5 + m×S1..S5 + d | llava-interleave-7b, qwen2.5-vl-7b-instruct, gemma3-27b-it | ✅ 3/3 — gemma3-27b cell landed 2026-04-29 (n=12,000) |
+| `experiment_e5c_tally` | TallyQA | same | llava-interleave-7b, qwen2.5-vl-7b-instruct, gemma3-27b-it | ✅ 3/3 — gemma3-27b cell landed 2026-04-29 at `max_samples=300` (n=3,600; full n=1000 base infeasible per §9) |
 | `experiment_e5d_chartqa_validation` | ChartQA | per-dataset cutoff validation | llava-interleave-7b | ✅ S1-only relative cutoff adopted |
 | `experiment_e5d_mathvista_validation` | MathVista | same | llava-interleave-7b | ⚠ C3 FAIL — see §9 (MathVista (γ) supersedes) |
 | `experiment_e5e_chartqa_full` | ChartQA | b/a/m/d (S1) | llava-interleave-7b, qwen2.5-vl-7b, gemma3-27b-it | ✅ |
@@ -97,9 +97,15 @@ Quick orientation:
   0.085–0.274 across 7 models — graded pull, not categorical.
 - **E5b distance:** sharp S1 peak (0.134 / 0.098 wrong-base
   VQAv2 / TallyQA), floor by S5 — plausibility-windowed.
-- **E5c digit-pixel:** anchor − masked gap +6.1 pp (VQAv2) / +2.6 pp
-  (TallyQA) on llava-interleave-7b; floor on qwen2.5-vl-7b
-  (panel's most anchor-resistant model).
+- **E5c digit-pixel (3-model panel, S1, wrong-base, paired
+  conditional adopt):** llava-interleave-7b VQAv2/TallyQA `a−m` =
+  +6.1 pp / +2.6 pp; qwen2.5-vl-7b at floor on both arms (+0.4 / −0.5 pp);
+  gemma3-27b-it VQAv2 `a−m` = **+5.69 pp adopt / +5.99 pp df**
+  (anchor adopt 0.138 vs masked 0.082; df 0.280 vs 0.221 — second-largest
+  cell after llava). gemma3-27b-it TallyQA at `max_samples=300`
+  shows `a−m` = **+2.05 pp adopt / −0.33 pp df** (df at noise
+  floor; matches main-panel ranking that gemma3 sits between
+  llava and qwen on TallyQA susceptibility).
 - **E5e ChartQA + TallyQA:** 3-model panel, all `a > m`.
 - **E4 mitigation:** LLaVA-1.5 / ConvLLaVA / InternVL3 mid-stack-cluster
   Phase 2 C-form `df` reduction −14.6 % / −9.6 % / −5.8 % rel; em ↑;
@@ -183,11 +189,11 @@ robustness).
 
 | ID | Experiment | Status |
 |---|---|---|
-| **E5b distance sweep** | 5-stratum × b + a (VQAv2 + TallyQA), llava-interleave-7b | 🟡 2/3 — qwen2.5-vl-7b extension landed 2026-04-29 (E5c run is a strict superset of E5b); gemma3-27b-it pending |
-| **E5c digit-mask control** | + 5-stratum × m, llava-interleave-7b | 🟡 2/3 — qwen2.5-vl-7b landed 2026-04-29; gemma3-27b-it pending |
+| **E5b distance sweep** | 5-stratum × b + a (VQAv2 + TallyQA), llava-interleave-7b | ✅ 3/3 — qwen2.5-vl-7b landed 2026-04-29 (E5c is strict superset); gemma3-27b-it landed 2026-04-29 (TallyQA at `max_samples=300`) |
+| **E5c digit-mask control** | + 5-stratum × m, llava-interleave-7b | ✅ 3/3 — qwen2.5-vl-7b landed 2026-04-29; gemma3-27b-it landed 2026-04-29 (TallyQA at `max_samples=300`) |
 | **E5d per-dataset cutoff** | ChartQA: S1-only relative `\|a-gt\| ≤ max(1, 0.1·gt)`; TallyQA: absolute `[0,5]`; VQAv2: range `{0..9}`; MathVista: C3 FAIL, scope-out as plausibility-window contrast (or rerun stricter) | ✅ except MathVista — see γ |
 | **E5e S1-only cross-model** | b/a/m/d × ChartQA + TallyQA × 3 models | ✅ |
-| **E5b/c cross-model expansion** | extend E5b + E5c to 3-model E5e panel (qwen2.5-vl-7b, gemma3-27b-it ∪ llava-interleave-7b) on VQAv2 + TallyQA | 🟡 2/3 — qwen2.5-vl-7b landed 2026-04-29 (a−m gap at floor on both datasets, consistent with §3.3 main-panel ranking putting qwen2.5-vl at lowest df); gemma3-27b-it cell pending |
+| **E5b/c cross-model expansion** | extend E5b + E5c to 3-model E5e panel (qwen2.5-vl-7b, gemma3-27b-it ∪ llava-interleave-7b) on VQAv2 + TallyQA | ✅ 3/3 — qwen2.5-vl-7b landed 2026-04-29 (a−m at floor on both datasets); gemma3-27b-it landed 2026-04-29 (VQAv2 n=12,000 full; TallyQA at `max_samples=300`, n=3,600). Headline: VQAv2 `a−m` = +5.7 pp adopt / +6.0 pp df (second-largest, behind llava); TallyQA `a−m` = +2.1 pp adopt / df-tie. Direction-consistent with main-panel ranking |
 | **E5e MathVista (γ-α)** | MathVista b/a/m/d (S1) × 3 models | ✅ landed 2026-04-29; **C-form refresh 2026-04-28**: gemma3-27b wrong-base S1 `adopt(a) = 0.230`, `df(a) = 0.332` (panel-largest cell). All 3 models in graded-tilt regime under C-form (df > 0 universally); pre-refactor "categorical-replace df=0" reading was a driver-bug artefact, retracted in `E5e-mathvista-evidence.md` §5 |
 | **E5e MathVista (γ-β)** | reasoning-mode VLM × MathVista — Qwen3-VL-8B-Instruct vs. Qwen3-VL-8B-Thinking (separate weights), 4-cond S1, max_new_tokens=512, runner is `</think>`-aware | ✅ landed 2026-04-28. Headline (C-form, S1 anchor arm, all-base, n=365): instruct adopt(a)=0.074 / df(a)=0.102, thinking adopt(a)=0.117 / df(a)=0.291. Thinking amplifies anchor pull (×1.6 adopt, ×2.9 df) — direction-agnostic hypothesis (H4) lands on the *amplification* side, consistent with VLMBias / Wang LRM-judging |
 | **VQAv2 4-condition** | b/a/m/d cross-model VQAv2 | ☐ P1 (kept) |
@@ -233,14 +239,12 @@ the coarsest possible projection of this monotonicity.
 P0 = blocks paper sections, do this week. P1 = strengthens but not load-
 bearing. P2 = ideation depth. P3 = future / parallel.
 
-**As of 2026-04-29 (post-qwen2.5-vl E5c)** — most P0s have landed
-(M2-refactor + C-form, L1-L4 confidence, γ-α + γ-β MathVista, E1-patch
-POC, paper §3/§7.4/§8 prose, **E5e TallyQA gemma3-27b cell**,
-**qwen2.5-vl-7b E5c VQAv2 + TallyQA**). The remaining paper-blocker is
-the **gemma3-27b-it E5c VQAv2 cell** (~5–6h GPU); TallyQA stratified
-on gemma3-27b is infeasible at full n=1000 base, so we run it at
-`max_samples=300`.
-| **P0** | gemma3-27b-it on E5c VQAv2 (TallyQA stratified is infeasible at full n=1000 base; use `max_samples=300` if launched) | §6.3 E5b/c cross-model expansion | ~5-6h on H200 |
+**As of 2026-04-29 (post-gemma3-27b E5c)** — all paper-blocking P0s
+have landed (M2-refactor + C-form, L1-L4 confidence, γ-α + γ-β
+MathVista, E1-patch POC, paper §3/§7.4/§8 prose, E5e TallyQA
+gemma3-27b cell, qwen2.5-vl-7b E5c VQAv2 + TallyQA, **gemma3-27b-it
+E5c VQAv2 + TallyQA**). No P0 outstanding — remaining queue is
+P1/P3 strengthening / future work.
 | **P3** | E1-patch full panel non-square archetypes — InternVL3-8b (multi-tile bbox routing) and Qwen2.5-VL-7b (`grid_thw` plumbing). 2026-04-29 audit re-budgeted the original §7 1.5h estimate to 4–7 days panel-wide after finding the bbox-to-token mapping is per-encoder (POC's `int(math.isqrt(n)) ** 2 == n` gate returns None on multi-tile / rectangular grids). ConvLLaVA-7b + FastVLM-7b were perfect-square and landed in the 4-model panel 2026-04-29. | §6.5 E1-patch | ~1–2 days/model implementation + ~12 min/model H200 extraction |
 | **P3** | E1-patch masked-arm causal control — re-run extraction on 4-model panel under 4-cond config | §6.5 E1-patch | 4-cond config wiring + ~1h GPU/model |
 | **P1** | VQAv2 4-condition cross-model (b/a/m/d, S1 only, kept) | §6.3 | ~1d (3 models) — opportunistic |
@@ -251,6 +255,7 @@ on gemma3-27b is infeasible at full n=1000 base, so we run it at
 
 **Recently landed (struck from queue 2026-04-29):**
 
+- ~~gemma3-27b-it on E5c VQAv2 + TallyQA~~ ✅ (2026-04-29 — VQAv2 full n=12,000 ran in ~95 min on GPU 1; TallyQA at `max_samples=300` ran in ~28 min. Both re-aggregated to C-form via `reaggregate_paired_adoption.py --apply`; `docs/insights/_data/E5c_per_cell.csv` rebuilt by `analyze_e5c_distance.py --models llava-next-interleaved-7b qwen2.5-vl-7b-instruct gemma3-27b-it`. VQAv2 wrong-base S1 `a−m` = +5.69 pp adopt / +5.99 pp df — second-largest panel cell, behind llava. TallyQA wrong-base S1 `a−m` = +2.05 pp adopt / df-tie. Closes the only remaining paper-blocking P0)
 - ~~E5e TallyQA gemma3-27b cell~~ ✅ (inference 2026-04-28 23:28; C-form re-aggregation 2026-04-29 — `predictions.jsonl` rewritten with `_moved` flag, `summary.json` refreshed, `docs/insights/_data/experiment_e5e_tallyqa_full_per_cell.csv` rebuilt with the new model row, §3.3 panel updated)
 - ~~C-form re-aggregation of gemma3-27b TallyQA cell + §3.3 panel insertion~~ ✅ (2026-04-29; folded into above)
 - ~~qwen2.5-vl-7b on E5c VQAv2 + TallyQA~~ ✅ (2026-04-29 — both runs landed n=12,000 each; `analyze_e5c_distance.py` extended to multi-model with `--models` flag; `docs/insights/_data/E5c_per_cell.csv` rebuilt with model column; per-model figures saved as `E5c_<kind>_<model>.png`. a−m gap at floor on qwen2.5-vl, consistent with §3.3 main-panel anchor-resistance ranking)
@@ -307,11 +312,61 @@ on gemma3-27b is infeasible at full n=1000 base, so we run it at
   that may not resolve. Verify every cite before submission.
 - **Bilingual docs convention retired** (commit `84f9341`, 2026-04-27).
   No `_ko.md` mirrors. English `.md` is the only canonical version.
-- **In-flight inference.** Only `gemma3-27b-it` on E5c VQAv2 (~5–6h H200)
-  remains; γ-α / γ-β MathVista, qwen2.5-vl-7b E5c VQAv2 + TallyQA, and
-  E5e TallyQA gemma3-27b cell all landed 2026-04-28 / -29.
+- **In-flight inference.** None — all paper-blocking inference cells
+  have landed as of 2026-04-29 (gemma3-27b-it E5c VQAv2 + TallyQA,
+  γ-α / γ-β MathVista, qwen2.5-vl-7b E5c VQAv2 + TallyQA, E5e
+  TallyQA gemma3-27b cell).
 
 ## 10. Changelog
+
+- **2026-04-29 (gemma3-27b-it E5c cross-model expansion landed —
+  closes the last paper-blocking P0).** Two runs of `experiment_e5c_*`
+  on gemma3-27b-it:
+
+  - **VQAv2** at full config (n=1000 base × 12 conditions = 12,000
+    records) — launched 2026-04-29 17:10 on GPU 1, finished ~18:45
+    (~95 min H200 wall; well under the 5–6h budget).
+  - **TallyQA** at `max_samples=300` (per §9 infeasibility note for
+    full n=1000 stratified) — launched 2026-04-29 18:54 on GPU 1,
+    finished ~19:23 (~28 min H200 wall).
+
+  Both runs re-aggregated to C-form via
+  `scripts/reaggregate_paired_adoption.py --apply --root
+  outputs/experiment_e5c_{vqa,tally}/gemma3-27b-it` (15,600 records
+  total, `_moved` flag persisted). `scripts/analyze_e5c_distance.py
+  --models llava-next-interleaved-7b qwen2.5-vl-7b-instruct
+  gemma3-27b-it` rebuilt `docs/insights/_data/E5c_per_cell.csv` (3-model)
+  and emitted per-model figures `docs/figures/E5c_*_gemma3-27b-it.png`.
+
+  **Headline (S1, paired conditional, post-C-form):**
+
+  | Dataset | base | model | adopt(a) | adopt(m) | df(a) | df(m) | a−m adopt | a−m df |
+  |---|---|---|---:|---:|---:|---:|---:|---:|
+  | VQAv2 | all | gemma3-27b-it | 0.099 | 0.060 | 0.142 | 0.108 | +3.97 pp | +3.45 pp |
+  | VQAv2 | wrong | gemma3-27b-it | 0.138 | 0.082 | 0.280 | 0.221 | **+5.69 pp** | **+5.99 pp** |
+  | TallyQA | all | gemma3-27b-it | 0.051 | 0.028 | 0.086 | 0.069 | +2.34 pp | +1.68 pp |
+  | TallyQA | wrong | gemma3-27b-it | 0.074 | 0.053 | 0.190 | 0.193 | +2.05 pp | −0.33 pp |
+
+  **Reading.** Gemma3-27b-it sits between llava-interleave-7b
+  (largest a−m gap) and qwen2.5-vl-7b (floor) on the §3.3 main panel;
+  the E5c expansion confirms this rank: VQAv2 gemma3 a−m
+  (+5.69 pp adopt / +5.99 pp df) is **second-largest behind llava**
+  (+6.1 pp / +5.3 pp), and **clearly above qwen** (+0.4 pp / ~0).
+  TallyQA gemma3 a−m on adopt (+2.05 pp) sits between llava (+2.6 pp)
+  and qwen (−0.5 pp), with df at the noise floor on both arms —
+  consistent with TallyQA being the harder dataset for any model
+  to be pulled by an irrelevant numeric anchor (lower base accuracy
+  → less plausible-window-resolved confidence to perturb in the
+  first place). Direction-consistent across the panel: "largest
+  pull → largest gap" holds for adopt, df separates llava-only on
+  TallyQA.
+
+  **Status changes:** §3.1 `experiment_e5c_vqa` / `experiment_e5c_tally`
+  rows flipped from 🟡 2/3 to ✅ 3/3; §3.3 E5c headline now lists
+  3-model panel; §6.3 E5b distance / E5c digit-mask / E5b/c
+  cross-model expansion all flipped to ✅ 3/3; §7 P0 entry struck
+  ("no P0 outstanding" header rewritten); §9 in-flight inference
+  caveat retired.
 
 - **2026-04-29 (doc hygiene).** Paper-deck deliverables relocated from
   `docs/figures/` to `docs/ppt/` (commit `8eda31c`); `*.pptx` removed
