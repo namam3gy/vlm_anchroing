@@ -445,12 +445,16 @@ em ↑ · acc invariant.
   pixel을 선택적으로 강조한다는 가설.
 
 **Q2. attention digit-pixel patch (E1-patch) 결과는?**
-- POC 완료 (2026-04-29, n=400 stratified, 2 archetypes):
-  gemma4-e4b digit/anchor=0.631 (peak L9, +0.404 above fair share),
-  llava-1.5-7b digit/anchor=0.468 (peak L7, +0.241). Two profiles —
-  Gemma globally digit-concentrated, llava peaked mid-early.
-  `docs/insights/E1-patch-evidence.md` 참조. 4 archetypes (Qwen / InternVL3
-  / ConvLLaVA / FastVLM) 확장은 per-encoder bbox-mapping dev 필요.
+- 4-model perfect-square panel 완료 (2026-04-29, n=400 stratified each):
+  gemma4-e4b L9=0.631 (+0.404), convllava-7b L7=0.552 (+0.325),
+  fastvlm-7b L4=0.531 (+0.304), llava-1.5-7b L7=0.468 (+0.241).
+  4/4 모델이 fair-share(~0.227) 위로 +24~+40 pp.
+  Three profiles — (A) globally digit-concentrated (gemma), (B) peaked
+  mid-early then decay (llava-1.5 + convllava 동일 shape),
+  (C) sharp early peak + sustained mid-stack plateau (fastvlm).
+  `docs/insights/E1-patch-evidence.md` 참조. 2 non-square archetypes
+  (InternVL3 multi-tile, Qwen2.5-VL 17×23) + masked-arm causal control은
+  per-encoder bbox-mapping dev 필요 (P3 in roadmap §6.5).
 
 **Q3. M2 metric refactor가 기존 publishing numbers를 바꾸는가?**
 - adopt_rate: pre-M1 marginal → M2 paired는 denominator 좁아져서 낮은
