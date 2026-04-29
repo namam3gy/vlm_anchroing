@@ -1,6 +1,23 @@
-# E5c — Anchor-mask control on llava-interleave-7b
+# E5c — Anchor-mask control (cross-model: llava-interleave-7b + qwen2.5-vl-7b)
 
-**Status:** Sub-experiment of E5; results writeup. Driver: `scripts/run_experiment.py` with `inputs.anchor_sampling: stratified` and the masked-arm extension. Configs: `configs/experiment_e5c_vqa.yaml`, `configs/experiment_e5c_tally.yaml`. Analysis: `scripts/analyze_e5c_distance.py`. Notebook: `notebooks/E5c_anchor_mask_control.ipynb`. Raw outputs: `outputs/experiment_e5c_{vqa,tally}/llava-next-interleaved-7b/<latest>/predictions.jsonl`. Aggregate table: `docs/insights/_data/E5c_per_cell.csv`. Figures: `docs/figures/E5c_anchor_vs_masked_adopt.png`, `docs/figures/E5c_anchor_vs_masked_df.png`, `docs/figures/E5c_acc_drop_3way.png`, `docs/figures/E5c_correct_vs_wrong_adopt.png`.
+**Status:** Sub-experiment of E5; results writeup.
+
+> **2026-04-29 cross-model expansion.** Originally a single-model
+> writeup on llava-interleave-7b. qwen2.5-vl-7b cell landed
+> 2026-04-29 (n=12,000 records / dataset, GPU 0/1 in parallel ~50 min
+> each). On qwen2.5-vl, the digit-pixel `a − m` gap is at floor on
+> both datasets (VQAv2 wrong-base S1 +0.4 pp, TallyQA −0.5 pp),
+> consistent with §3.3 main panel placing qwen2.5-vl as the
+> most-anchor-resistant model (`df(a) = 0.094`). The cross-model
+> picture is direction-consistent — "where the anchor pull is large
+> enough to detect, the gap is positive; where the pull is at floor,
+> the gap is also at floor." Numbers, narrative, and per-model figures
+> live in `docs/insights/E5c-anchor-mask-evidence.md` 2026-04-29 update
+> + `docs/figures/E5c_*_qwen2.5-vl-7b-instruct.png`. The single-model
+> findings below remain correct for llava-interleave; gemma3-27b-it
+> E5c VQAv2 cell is pending (~5–6h H200, P0 in roadmap §7).
+
+Driver: `scripts/run_experiment.py` with `inputs.anchor_sampling: stratified` and the masked-arm extension. Configs: `configs/experiment_e5c_vqa.yaml`, `configs/experiment_e5c_tally.yaml`. Analysis: `scripts/analyze_e5c_distance.py --models llava-next-interleaved-7b qwen2.5-vl-7b-instruct`. Notebook: `notebooks/E5c_anchor_mask_control.ipynb`. Raw outputs: `outputs/experiment_e5c_{vqa,tally}/{llava-next-interleaved-7b,qwen2.5-vl-7b-instruct}/<latest>/predictions.jsonl`. Aggregate table: `docs/insights/_data/E5c_per_cell.csv` (now keyed by `model`). Figures: `docs/figures/E5c_anchor_vs_masked_adopt[_<model>].png`, `docs/figures/E5c_anchor_vs_masked_df[_<model>].png`, `docs/figures/E5c_acc_drop_3way[_<model>].png`, `docs/figures/E5c_correct_vs_wrong_adopt[_<model>].png` (default model = llava-next-interleaved-7b; non-default models append `_<model>` to the filename).
 
 ## TL;DR — three findings
 

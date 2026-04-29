@@ -1,5 +1,19 @@
 # E5b — anchoring is gated by uncertainty AND plausibility, both axes load-bearing
 
+> **2026-04-29 cross-model expansion.** qwen2.5-vl-7b E5c run
+> (`outputs/experiment_e5c_{vqa,tally}/qwen2.5-vl-7b-instruct/`)
+> is a strict superset of E5b — its `b + a×S1-5` strata cover the
+> E5b stimulus matrix on a second model. wrong-base `adopt_cond`
+> decays on qwen2.5-vl: VQAv2 0.070 → 0.014 → 0.003 → 0.003 → 0.003
+> (S1—S5); TallyQA 0.033 → 0.015 → 0 → 0 → 0. The S1-peak / S3+ floor
+> structure replicates qualitatively on qwen2.5-vl, with absolute
+> magnitudes about half llava-interleave's (consistent with §3.3
+> main-panel ranking placing qwen2.5-vl at the lowest df). The
+> two-gate claim (uncertainty × plausibility) generalises across two
+> architecturally different models. Numbers + cross-model panel:
+> `docs/insights/E5c-anchor-mask-evidence.md` 2026-04-29 update +
+> `docs/insights/_data/E5c_per_cell.csv`.
+
 > **2026-04-28 update.** Re-run on C-form re-aggregated data: the cited
 > `adopt_cond` decays (VQAv2 wrong-base 0.130 → 0.032 → 0.010 → 0.010 →
 > 0.003 across S1—S5; TallyQA 0.092 → 0.006 → 0.003 → 0 → 0) are

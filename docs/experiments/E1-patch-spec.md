@@ -1,7 +1,15 @@
 # E1-patch — Digit-pixel-restricted attention reanalysis (spec)
 
-**Status:** spec written 2026-04-29; execution pending. Listed as P0 in
-`references/roadmap.md §6.5 / §7`.
+**Status:** spec written 2026-04-29; **executed 2026-04-29 (POC) +
+extended same day to 4-model perfect-square panel**. Results doc:
+`docs/insights/E1-patch-evidence.md` (4-model panel — gemma4-e4b /
+llava-1.5-7b / convllava-7b / fastvlm-7b; peak `digit/anchor` 0.468–0.631,
++24 to +40 pp above fair share on every panel model). Two non-square
+archetypes (internvl3-8b multi-tile, qwen2.5-vl-7b 17×23 grid) and the
+masked-arm causal control are deferred to P3 in roadmap §6.5 — see the
+"E1-patch non-square archetypes" and "E1-patch masked-arm causal
+control" rows there. The body of this spec is preserved as the design
+record; "Required work" §1 has landed in `scripts/extract_attention_mass.py`.
 
 ## Motivation
 
