@@ -110,6 +110,13 @@ def _parse_args() -> argparse.Namespace:
     ap.add_argument("--calib-tags", default="vqa,tally,chartqa",
                     help="Comma-separated calibration dataset tags used in "
                          "train-probe (must have Q.pt + D_wrong.pt).")
+    ap.add_argument("--target-cells", default=None,
+                    help="sweep-qao only: comma-separated cell labels to run "
+                         "(e.g. 'baseline,Lq25_Lt28_a1.0,Lq30_Lt28_a0.5'). "
+                         "If omitted, all 49 cells are run.")
+    ap.add_argument("--out-tag", default=None,
+                    help="sweep-qao only: suffix appended to output dir name "
+                         "(e.g. 'full' → sweep_qao_tally_full_pooled).")
     ap.add_argument("--seed", type=int, default=42)
     return ap.parse_args()
 
@@ -538,9 +545,10 @@ def _qao_sweep_cells() -> list[dict]:
     return cells
 
 
-def _sweep_qao_output_path(model: str, dataset_tag: str) -> Path:
+def _sweep_qao_output_path(model: str, dataset_tag: str, out_tag: str | None = None) -> Path:
+    suffix = f"_{out_tag}" if out_tag else ""
     return (PROJECT_ROOT / "outputs" / "e6_steering" / model
-            / f"sweep_qao_{dataset_tag}_pooled" / "predictions.jsonl")
+            / f"sweep_qao_{dataset_tag}{suffix}_pooled" / "predictions.jsonl")
 
 
 def _load_completed_qao_keys(path: Path) -> set:
@@ -606,10 +614,15 @@ def _phase_sweep_qao(args) -> None:
     print(f"[sweep-qao] loaded {len(probes)} probes from {p_dir}")
 
     cells = _qao_sweep_cells()
-    print(f"[sweep-qao] grid: {len(cells)} cells "
-          f"(1 baseline + {len(cells)-1} steered)")
+    if args.target_cells:
+        keep = set(c.strip() for c in args.target_cells.split(","))
+        cells = [c for c in cells if c["label"] in keep]
+        print(f"[sweep-qao] filtering to {len(cells)} target cells: {[c['label'] for c in cells]}")
+    else:
+        print(f"[sweep-qao] grid: {len(cells)} cells "
+              f"(1 baseline + {len(cells)-1} steered)")
 
-    out_path = _sweep_qao_output_path(args.model, dataset_tag)
+    out_path = _sweep_qao_output_path(args.model, dataset_tag, args.out_tag)
     out_path.parent.mkdir(parents=True, exist_ok=True)
     completed = _load_completed_qao_keys(out_path)
     print(f"[sweep-qao] {len(completed)} records already in {out_path}")

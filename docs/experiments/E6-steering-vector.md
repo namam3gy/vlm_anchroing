@@ -620,9 +620,27 @@ AMBER; adapted here for cross-dataset numerical anchoring.
 
 ### Per-dataset result tracker
 
-| Dataset | n | best cell | df_a baseline | steered | Δ% rel | em_a | pass? |
+| Dataset | n | best cell | df baseline | steered df | Δ% rel | em_a | n pass/48 |
 |---|---:|---|---:|---:|---:|---:|---|
-| TallyQA subset (n=100) | — | pending | — | — | — | — | pending |
-| ChartQA subset (n=100) | — | pending | — | — | — | — | pending |
-| Cross-dataset (≥2/3) | — | — | — | — | — | — | pending |
-| VQAv2 (gated) | ✗ blocked | — | — | — | — | — | not attempted |
+| TallyQA subset (n=100) | 100 | Lq25_Lt28_a1.0 | 0.0800 (8/100) | 0.0600 | −25.0% | 0.0800 (0.00pp) | 15/48 |
+| ChartQA subset (n=100) | 100 | Lq25_Lt28_a1.0 | 0.2222 (22/99) | 0.1939 | −12.8% | 0.0505 (−1.01pp) | 15/48 |
+| Cross-dataset overlap (n=100) | — | — | — | — | — | — | **⚠ 4/48 overlap — tentative pass** |
+| TallyQA full (n=346) | — | pending | — | — | — | — | pending (fullval running) |
+| ChartQA full (n=416) | — | pending | — | — | — | — | pending (fullval running) |
+| VQAv2 (gated after full-set) | ✗ | — | — | — | — | — | not yet |
+
+**n=100 result note:** 4 cells pass cross-dataset by the selection rule. However the raw counts
+are small (Tally: 8→6 cases; ChartQA: 22→19 cases), placing the observed reductions within
+1 SE of noise. Full-set validation (n=346/416) running to confirm.
+
+**4 tentatively passing cells:**
+
+| cell | T df Δ% | T em pp | C df Δ% | C em pp |
+|---|---:|---:|---:|---:|
+| Lq25_Lt28_a1.0 | −25.0% | +0.00pp | −12.8% | −1.01pp |
+| Lq25_Lt31_a2.0 | −25.0% | +0.00pp | −7.2% | −1.01pp |
+| Lq30_Lt28_a0.5 | −12.5% | +0.00pp | −8.2% | −0.00pp |
+| Lq31_Lt31_a2.0 | −12.5% | −1.00pp | −8.2% | −1.01pp |
+
+Pipeline timing: calibrate-qao (VQA+Tally+ChartQA) ~3 min each; train-probe (N=1145, PCA-100,
+Ridge λ=1e3) 11s; sweep n=100 Tally 34.9 min; sweep n=100 ChartQA 34.9 min.
