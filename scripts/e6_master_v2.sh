@@ -1,9 +1,13 @@
 #!/usr/bin/env bash
-# E6 Tally-only rerun — v2 master pipeline (LEACE supplement + Subspace + DPO)
-# New peak-layer set: L 7, 16, 24, 30, 31 (replaces 27,28,29,30,31).
-# - LEACE 30, 31 already done → only sweep L 7, 16, 24 (append to existing dir)
-# - Subspace partial output (L27-L31) backed up; full re-sweep with new layers
-# - DPO unchanged
+# E6 Tally-only rerun — v3 master pipeline (LEACE full re-sweep with sorted sids)
+# Bug fix: LEACE sid sampling was non-deterministic (set iteration depends on
+# PYTHONHASHSEED). e6_leace.py now sorts eligible sids before [:max_sweep_sids].
+# Old random-sample-A predictions backed up as predictions.bak_v1_*.jsonl;
+# this run produces a clean deterministic-sample-B from scratch.
+# Layer set: L 7, 16, 24, 30, 31 (early/mid/late-mid/peak/top-2-by-norm).
+# - LEACE: full re-sweep all 5 layers from scratch
+# - Subspace: full re-sweep with new layers (deterministic by dict iteration)
+# - DPO: unchanged
 set -euo pipefail
 cd /mnt/ddn/prod-runs/thyun.park/src/vlm_anchroing
 
@@ -13,8 +17,7 @@ HF_MODEL=llava-hf/llava-interleave-qwen-7b-hf
 TAG=tally_e5e_n5k
 N_SWEEP=500
 
-LEACE_LAYERS_NEW="7,16,24"          # supplement only (30, 31 already done)
-LEACE_LAYERS_FULL="7,16,24,30,31"
+LEACE_LAYERS_FULL="7,16,24,30,31"   # full re-sweep (random-sample-A backed up)
 SUBSPACE_LAYERS="7,16,24,30,31"
 
 TALLY_PREDS_E5E="outputs/experiment_e5e_tallyqa_full/$MODEL/20260427-171240/predictions.jsonl"
@@ -29,7 +32,7 @@ echo "=== [E6 master v2] start $(date) ===" | tee "$PROGRESS"
 # S1' LEACE supplement: sweep L=7,16,24 on Tally + ChartQA (append to existing)
 # ---------------------------------------------------------------------------
 echo "" | tee -a "$PROGRESS"
-echo "=== S1' LEACE supplement L=$LEACE_LAYERS_NEW ===" | tee -a "$PROGRESS"
+echo "=== S1 LEACE full re-sweep L=$LEACE_LAYERS_FULL ===" | tee -a "$PROGRESS"
 
 echo "[S1'b sweep TallyQA] $(date)" | tee -a "$PROGRESS"
 uv run python scripts/e6_leace.py \
@@ -39,7 +42,7 @@ uv run python scripts/e6_leace.py \
     --dataset-tag tally \
     --calib-tags "$TAG" --eraser-tag "$TAG" \
     --max-sweep-sids "$N_SWEEP" --out-tag "$TAG" \
-    --layers "$LEACE_LAYERS_NEW" \
+    --layers "$LEACE_LAYERS_FULL" \
     --config configs/experiment_e5e_tallyqa_full.yaml \
     > "$LOG" 2>&1
 echo "[S1'b done] $(date)" | tee -a "$PROGRESS"
@@ -52,7 +55,7 @@ uv run python scripts/e6_leace.py \
     --dataset-tag chartqa \
     --calib-tags "$TAG" --eraser-tag "$TAG" \
     --max-sweep-sids "$N_SWEEP" --out-tag "$TAG" \
-    --layers "$LEACE_LAYERS_NEW" \
+    --layers "$LEACE_LAYERS_FULL" \
     --config configs/experiment_e5e_chartqa_full.yaml \
     >> "$LOG" 2>&1
 echo "[S1'c done] $(date)" | tee -a "$PROGRESS"

@@ -411,11 +411,15 @@ def _phase_sweep_leace(args) -> None:
 
     by_sid = _load_predictions(pred_path)
     wrong = _wrong_sids(by_sid)
-    eligible = [
+    # sorted() for deterministic sid order across Python invocations.
+    # Sets have hash-randomised iteration order (PYTHONHASHSEED), which
+    # broke the resume logic in earlier runs — different sids picked
+    # by eligible[:max_sweep_sids] depending on session.
+    eligible = sorted(
         s for s in wrong
         if "target_only" in by_sid[s]
         and "target_plus_irrelevant_number_S1" in by_sid[s]
-    ]
+    )
     if args.max_sweep_sids:
         eligible = eligible[:args.max_sweep_sids]
     print(f"[sweep-leace] {dataset_tag}: {len(eligible)} sids")
