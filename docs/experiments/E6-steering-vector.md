@@ -706,7 +706,7 @@ Artifact: `outputs/e6_steering/llava-next-interleaved-7b/sweep_leace_{tally,char
 
 ## Method 4a — CogBias Decode-Step Correction (arXiv:2604.01366)
 
-**Status (2026-04-30): ⏳ IN FLIGHT**
+**Status (2026-04-30): ⚠ STATISTICALLY INCONCLUSIVE — 1 cell nominally passes n=100 screen, but effect size < 1 SE; full-set validation recommended before verdict**
 
 ### Methodology
 
@@ -728,19 +728,45 @@ Note: alpha_decode=0 cells are equivalent to Method 0 (prefill-only).
 **Implementation:** `scripts/e6_cogbias.py` (phases: smoke-cogbias, sweep-cogbias);
 `scripts/analyze_e6_methods.py`
 
+**Key observation:** alpha_decode has no measurable effect at n=100. All cells with the
+same alpha_prefill produce identical metrics regardless of alpha_decode — the effective
+degree of freedom is alpha_prefill and L only.
+
 ### Per-dataset result tracker
 
-| Dataset | n | best cell | df baseline | steered df | Δ% rel | em_a | pass? |
+| Dataset | n | best cell | df baseline | steered df | Δ% rel | em Δpp | n pass / 60 |
 |---|---:|---|---:|---:|---:|---:|---|
-| TallyQA subset (n=100) | — | pending | — | — | — | — | pending |
-| ChartQA subset (n=100) | — | pending | — | — | — | — | pending |
-| Cross-dataset (≥2/3) | — | — | — | — | — | — | pending |
+| TallyQA subset (n=100) | 100 | L31_ap0.5_any | 0.1400 (14/100) | 0.1300 (13/100) | **−7.1%** | −1.0pp ✅ | **8/60** |
+| ChartQA subset (n=100) | 99 | L30_ap0.5_ad0.5 | 0.2424 (24/99) | 0.2020 (20/99) | **−16.7%** | −1.0pp ✅ | **14/60** |
+| Cross-dataset (≥2/3) | — | L31_ap0.5_ad0.5 | — | — | T:−7.1% C:−8.3% | T:−1pp C:0pp | **⚠ 1 cell** |
+| VQAv2 (gated) | ✗ pending | — | — | — | — | — | pending full-set first |
+
+**ChartQA top passing cells** (14 of 60): L20_ap0.5 (3 cells, −8.3%), L25_ap1.0 (2 cells),
+L28_ap1.0_ad1.0, L30_ap0.5 (4 cells, best −16.7%), L30_ap1.0 (2 cells), L30_ap2.0_ad0.5, L31_ap0.5_ad0.5.
+
+### Cross-dataset verdict — ⚠ INCONCLUSIVE (effect at noise floor)
+
+**One cell nominally passes both datasets:** L31_ap0.5_ad0.5 (Tally −7.1%, ChartQA −8.3%).
+However, the absolute df changes are:
+- Tally: 14→13 out of 100 samples (1-sample difference = 0.29 SE)
+- ChartQA: 24→22 out of 99 samples (2-sample difference = 0.47 SE)
+
+These are **well within 1 standard error** and cannot be distinguished from sampling noise at n=100.
+SE(df_baseline) ≈ 3.5pp (Tally) and 4.3pp (ChartQA); the observed changes (1.0pp and 2.0pp) are
+both less than half the standard error.
+
+**The n=100 screen was designed to detect large effects (≥10pp absolute); for these modest
+effects it is underpowered.** Full-set validation (n=346 Tally / n=416 ChartQA) is required
+for a reliable verdict. The decode-step correction shows no additional benefit over prefill-only
+at this scale — alpha_decode has no measurable effect.
+
+Artifacts: `outputs/e6_steering/llava-next-interleaved-7b/sweep_cogbias_{tally,chartqa}_pooled/_analysis/cell_summary.csv`
 
 ---
 
 ## Method 3 — MIA-DPO LoRA Fine-Tuning (arXiv:2410.17637)
 
-**Status (2026-04-30): ⏳ IN FLIGHT (build-pairs done; training pending)**
+**Status (2026-04-30): ❌ FAILED cross-dataset — Tally massively improves (df −42%, em +15pp) but ChartQA degrades (df −4%, em −3.7pp, severe parse failures)**
 
 ### Methodology
 
@@ -754,17 +780,34 @@ Trains the model to prefer correct counts/values over anchor-biased distractor n
 
 **Training data:**
 - TallyQA: 33164 pairs; ChartQA: 509 pairs; VQAv2: 653 pairs → total 34326
-- Subsampled to max 5000 for training efficiency
+- Subsampled to max 5000 for training efficiency (97% Tally)
 
 **Implementation:** `scripts/e6_dpo_lora.py` (phases: build-pairs, train-dpo, sweep-adapter);
 `scripts/analyze_e6_methods.py`
 
 **Note:** Weakens "train-free" claim to "lightweight LoRA-adapter deployable mitigation".
 
+**Implementation bugs found and fixed:**
+- Template KeyError: `user_template.format()` → `.replace("{question}", question)` in sweep-adapter
+- Multimodal content format: user content must be `[{"type":"image"}, ..., {"type":"text","text":...}]` list, not a plain string
+
 ### Per-dataset result tracker
 
-| Dataset | n | df baseline | steered df | Δ% rel | em_a | pass? |
-|---|---:|---:|---:|---:|---:|---|
-| TallyQA subset (n=100) | — | pending | — | — | — | pending |
-| ChartQA subset (n=100) | — | pending | — | — | — | pending |
-| Cross-dataset (≥2/3) | — | — | — | — | — | pending |
+| Dataset | n valid | df baseline | DPO df | Δ% rel | em baseline | DPO em | em Δpp | pass? |
+|---|---:|---:|---:|---:|---:|---:|---:|---|
+| TallyQA subset (n=100) | 99 | 0.1400 (14/100) | **0.0808** (8/99) | **−42.3%** | 0.1500 | **0.3030** | **+15.3pp** | ⚠ df ✅ em ↑↑ (outside ±2pp) |
+| ChartQA subset (n=100) | 73 | 0.2424 (24/99) | 0.2329 (17/73) | **−3.9%** | 0.0500 | **0.0127** | **−3.7pp** ❌ | ❌ df < 5%, em damaged |
+| Cross-dataset (≥2/3) | — | — | — | — | — | — | — | **❌ 1/2 pass** |
+| VQAv2 (gated) | ✗ | — | — | — | — | — | — | blocked by cross-dataset fail |
+
+### Cross-dataset verdict — ❌ FAILED
+
+**Extreme distribution mismatch.** Training data was 97% TallyQA (33164/34326 pairs). The adapter:
+- **TallyQA**: dramatically reduces anchor pull (df −42%) and massively improves counting accuracy (em +15pp)
+- **ChartQA**: parse failure rate spikes (only 73 valid predictions out of 300; em collapses 5%→1.3%)
+
+The em constraint (±2pp) technically fails in BOTH directions: Tally has +15.3pp (improvement but outside ±2pp), ChartQA has −3.7pp (damage). More critically, ChartQA's parse failures (valid=73/300 vs baseline ≥99/300) indicate the DPO-tuned model stops producing clean numeric outputs for chart questions — severe out-of-distribution behavior.
+
+**Root cause**: the 97%/3% Tally/ChartQA data split causes the adapter to overfit to counting questions and degrade on chart-reading. This mirrors the residual-stream direction-mismatch failure — whether correcting in weight-space (DPO) or activation-space (ActAdd/LEACE/CogBias), the two domains require different corrections.
+
+Artifact: `outputs/e6_steering/llava-next-interleaved-7b/sweep_dpo_{tally,chartqa}_pooled/_analysis/cell_summary.csv`
