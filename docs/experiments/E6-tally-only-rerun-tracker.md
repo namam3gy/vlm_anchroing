@@ -50,8 +50,8 @@ them as suspicious; the new rule treats them correctly.
 | **S0b** | calibrate-qao TallyQA E5e N=5000 → Q_wrong | **6 min actual** | ✅ done 22:09 |
 | **S0.5** | pick top-5 peak layers from ‖v_wrong[L]‖ | <1 sec actual | ✅ done 22:09 — **L 27,28,29,30,31** |
 | **S1a** | LEACE calibrate-leace Tally-only (CPU) | 2 min actual | ✅ done 22:11 |
-| **S1b** | LEACE sweep TallyQA n=500 with peak layers (20 cells × 4 conds × 500) | ~95 min | 🟢 in flight (started 22:11) |
-| **S1c** | LEACE sweep ChartQA n=500 (same grid) | ~120 min | ⏳ queued |
+| **S1b** | LEACE sweep TallyQA n=500 with peak layers (20 cells × 3 conds × 500) | 68 min actual | ✅ done 23:19 |
+| **S1c** | LEACE sweep ChartQA n=500 (same grid; ChartQA has 416 wrong-base) | ~63 min | 🟢 in flight (started 23:19) |
 | **S1d** | analyze (one-sided + two-sided) | <1 min | ⏳ queued |
 | **S2a** | Method 1 Subspace compute SVD Tally-only | <1 min | ⏳ queued (post S1) |
 | **S2b** | Method 1 sweep Tally n=500 | ~6 h | ⏳ queued (post S1) |
@@ -84,6 +84,43 @@ Notable: **L=16 (norm 1.70) and L=22 (norm 3.10) — both included in the legacy
 - Progress summary: `/tmp/e6_tally_only_progress.log`
 - S0+S1 detail: `/tmp/e6_tally_only_s0s1.log`
 - Pipeline script: `/tmp/e6_tally_only_s0s1.sh`
+
+## S1b — LEACE Tally-only N=5k sweep on TallyQA (n=500)
+
+**Baseline:** df=0.1245, em=0.1185, n=500 wrong-base from E5e Tally.
+
+**4 cells pass both two-sided and one-sided em rules** (all in late-stack cluster):
+
+| cell | df | df_Δ% | em | em_pp | adopt | pass |
+|---|---:|---:|---:|---:|---:|:---:|
+| **L30_a2.0** ⭐ | 0.0973 | **−21.9%** | 0.1216 | +0.31 | 0.0313 | ✅✅ |
+| L30_a1.0 | 0.1051 | −15.6% | 0.1124 | −0.60 | 0.0348 | ✅✅ |
+| L30_a0.5 | 0.1066 | −14.3% | 0.1084 | −1.00 | 0.0393 | ✅✅ |
+| L31_a0.5 | 0.1129 | −9.3% | 0.1227 | +0.43 | 0.0419 | ✅✅ |
+
+**Effect concentrated at L=30** (the peak ‖v‖ layer), with α=2.0 the strongest.
+L29 / L28 / L27 all fail (df Δ% within ±3% across all alphas, mostly noise).
+L31 weaker than L30 (only α=0.5 passes; α=1.0/2.0 backfire +14.3% / +11.9%).
+
+**Comparison to prior pooled n=100 result:**
+
+| | pooled n=100 | Tally-only N=5k (this run) |
+|---|---:|---:|
+| Best cell | L30_a2.0 | L30_a2.0 (same) |
+| df_Δ% | −13.2% | **−21.9%** (stronger) |
+| em_pp | +5.88 (one-sided only) | +0.31 (passes both rules) |
+| Baseline df | 0.1200 | 0.1245 (matches true Tally rate ~12.85%) |
+
+**Interpretation.** Same winning cell (L30_a2.0) in both pooled and Tally-only
+calibration → robust mitigation locus. Tally-only N=5k sharpens the effect
+(df reduction nearly doubled) and removes the em-gain artefact (now em is
+within ±0.5 pp of baseline, passing both rules cleanly). The selection-bias
+hypothesis is **partially refuted** — n=100 baseline 14.0 % was inflated, but
+the cell choice itself transfers cleanly to N=500 with proper baseline.
+
+**S1c ChartQA pending** — the cross-dataset test. If L30_a2.0 also passes
+ChartQA at n=500, this is the first method to clear the cross-dataset rule
+without dispute.
 
 ## Selection-criterion comparison (n=100, prior runs)
 
