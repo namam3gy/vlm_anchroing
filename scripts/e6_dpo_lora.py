@@ -399,8 +399,10 @@ def _phase_sweep_adapter(args) -> None:
 
     def _generate(question: str, images: list) -> dict:
         user_text = user_template.replace("{question}", question)
+        content: list = [{"type": "image"} for _ in images]
+        content.append({"type": "text", "text": user_text})
         messages = [{"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_text}]
+                    {"role": "user", "content": content}]
         prompt_text = processor.apply_chat_template(
             messages, tokenize=False, add_generation_prompt=True)
         if images:
