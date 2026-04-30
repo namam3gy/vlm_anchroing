@@ -118,6 +118,9 @@ def _parse_args() -> argparse.Namespace:
                     help="sweep-qao only: suffix appended to output dir name "
                          "(e.g. 'full' → sweep_qao_tally_full_pooled).")
     ap.add_argument("--seed", type=int, default=42)
+    ap.add_argument("--max-calibrate-pairs", type=int, default=None,
+                    help="Cap on Q_all sids for calibrate-qao (None = all). "
+                         "Wrong-base sids are prioritised first.")
     return ap.parse_args()
 
 
@@ -252,7 +255,10 @@ def _phase_calibrate_qao(args) -> None:
     n_skipped = 0
     t0 = time.time()
 
+    max_pairs = args.max_calibrate_pairs
     for i, sid in enumerate(ordered):
+        if max_pairs is not None and len(Q_all) >= max_pairs:
+            break
         b_rec = by_sid_cond[sid].get("target_only")
         if b_rec is None:
             n_skipped += 1

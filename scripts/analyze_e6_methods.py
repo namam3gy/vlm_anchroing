@@ -31,6 +31,10 @@ def _parse_args():
     ap = argparse.ArgumentParser()
     ap.add_argument("--sweep-dir", required=True)
     ap.add_argument("--out-dir", default=None)
+    ap.add_argument("--em-rule", choices=("two_sided", "one_sided"),
+                    default="two_sided",
+                    help="two_sided: |em_pp| <= 2; one_sided: em_pp >= -2 "
+                         "(allow em gains).")
     return ap.parse_args()
 
 
@@ -179,9 +183,13 @@ def main():
                  if (em is not None and baseline_em is not None) else None)
         entry["df_rel_change"] = round(df_rel, 6) if df_rel is not None else None
         entry["em_pp_change"] = round(em_pp, 4) if em_pp is not None else None
+        if args.em_rule == "two_sided":
+            em_ok = em_pp is not None and abs(em_pp) <= EM_PP_TOLERANCE
+        else:
+            em_ok = em_pp is not None and em_pp >= -EM_PP_TOLERANCE
         passes = (
             df_rel is not None and df_rel <= -DF_REL_THRESHOLD
-            and em_pp is not None and abs(em_pp) <= EM_PP_TOLERANCE
+            and em_ok
         )
         entry["passes"] = passes
         if passes:
@@ -198,7 +206,8 @@ def main():
     extra = sorted(all_keys - set(fixed))
     fieldnames = fixed[:1] + extra + fixed[1:]
 
-    summary_path = out_dir / "cell_summary.csv"
+    suffix = "" if args.em_rule == "two_sided" else "_em_one_sided"
+    summary_path = out_dir / f"cell_summary{suffix}.csv"
     with summary_path.open("w", newline="") as fh:
         w = csv.DictWriter(fh, fieldnames=fieldnames, extrasaction="ignore")
         w.writeheader()
@@ -207,8 +216,10 @@ def main():
 
     if baseline_df is not None:
         print(f"\n=== Baseline: df={baseline_df:.4f}  em={baseline_em:.4f} ===")
+    rule_desc = (f"em ±{EM_PP_TOLERANCE}pp" if args.em_rule == "two_sided"
+                 else f"em ≥ baseline−{EM_PP_TOLERANCE}pp (one-sided)")
     print(f"Cells passing (≥{DF_REL_THRESHOLD*100:.0f}% rel df drop, "
-          f"em ±{EM_PP_TOLERANCE}pp): {len(passing)}")
+          f"{rule_desc}): {len(passing)}")
     if passing:
         best = min(passing, key=lambda x: x.get("direction_follow_rate") or 1.0)
         print(f"Best: {best['cell_label']}  "
@@ -216,7 +227,8 @@ def main():
               f"(Δ={best['df_rel_change']*100:.1f}%)  "
               f"em={best['exact_match']:.4f} "
               f"(Δ={best['em_pp_change']:+.2f}pp)")
-        (out_dir / "best_cell.json").write_text(json.dumps(best, indent=2))
+        best_name = f"best_cell{suffix}.json"
+        (out_dir / best_name).write_text(json.dumps(best, indent=2))
     else:
         ranked = sorted(
             [e for e in cell_summaries

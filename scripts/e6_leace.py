@@ -94,6 +94,15 @@ def _parse_args() -> argparse.Namespace:
     ap.add_argument("--target-cells", default=None,
                     help="Comma-sep cell labels to run (e.g. 'baseline,L28_a1.0').")
     ap.add_argument("--out-tag", default=None)
+    ap.add_argument("--layers", default=None,
+                    help="Comma-sep layer indices to sweep (e.g. '8,16,22,28,30'). "
+                         "Default None → built-in [20,25,28,30,31].")
+    ap.add_argument("--alphas", default=None,
+                    help="Comma-sep alpha values to sweep. Default '0.3,0.5,1.0,2.0'.")
+    ap.add_argument("--eraser-tag", default=None,
+                    help="Suffix for the erasers dir (e.g. 'tally_n5k' → "
+                         "outputs/e6_steering/<model>/leace_erasers_tally_n5k). "
+                         "Default None → leace_erasers/ (legacy path).")
     ap.add_argument("--seed", type=int, default=42)
     return ap.parse_args()
 
@@ -106,8 +115,9 @@ def _calib_dir(model: str, tag: str) -> Path:
     return PROJECT_ROOT / "outputs" / "e6_steering" / model / f"calibration_{tag}"
 
 
-def _eraser_dir(model: str) -> Path:
-    return PROJECT_ROOT / "outputs" / "e6_steering" / model / "leace_erasers"
+def _eraser_dir(model: str, tag: str | None = None) -> Path:
+    suffix = f"_{tag}" if tag else ""
+    return PROJECT_ROOT / "outputs" / "e6_steering" / model / f"leace_erasers{suffix}"
 
 
 def _sweep_out_path(model: str, dataset_tag: str, out_tag: str | None) -> Path:
@@ -181,7 +191,7 @@ def _phase_calibrate_leace(args) -> None:
     from concept_erasure import LeaceEraser
 
     calib_tags = [t.strip() for t in args.calib_tags.split(",") if t.strip()]
-    out_dir = _eraser_dir(args.model)
+    out_dir = _eraser_dir(args.model, args.eraser_tag)
     out_dir.mkdir(parents=True, exist_ok=True)
 
     # Pool Q_wrong + D_wrong across datasets
@@ -292,9 +302,16 @@ def _install_leace_hook(layers, layer_idx: int, P: torch.Tensor, alpha: float):
 # Sweep grid
 # ---------------------------------------------------------------------------
 
-def _leace_cells() -> list[dict]:
-    L_values = [20, 25, 28, 30, 31]
-    alphas = [0.3, 0.5, 1.0, 2.0]
+def _leace_cells(layers_arg: str | None = None,
+                 alphas_arg: str | None = None) -> list[dict]:
+    if layers_arg:
+        L_values = [int(x.strip()) for x in layers_arg.split(",") if x.strip()]
+    else:
+        L_values = [20, 25, 28, 30, 31]
+    if alphas_arg:
+        alphas = [float(x.strip()) for x in alphas_arg.split(",") if x.strip()]
+    else:
+        alphas = [0.3, 0.5, 1.0, 2.0]
     cells: list[dict] = [{"L": -1, "alpha": 0.0, "label": "baseline"}]
     for L in L_values:
         for a in alphas:
@@ -321,7 +338,7 @@ def _phase_smoke_leace(args) -> None:
     if not smoke_sids:
         raise RuntimeError("No wrong-base a-arm samples found.")
 
-    p_dir = _eraser_dir(args.model)
+    p_dir = _eraser_dir(args.model, args.eraser_tag)
     P_stack = torch.load(p_dir / "P_stack.pt", map_location="cpu", weights_only=True)
 
     runner = _build_runner(args)
@@ -403,11 +420,11 @@ def _phase_sweep_leace(args) -> None:
         eligible = eligible[:args.max_sweep_sids]
     print(f"[sweep-leace] {dataset_tag}: {len(eligible)} sids")
 
-    p_dir = _eraser_dir(args.model)
+    p_dir = _eraser_dir(args.model, args.eraser_tag)
     P_stack = torch.load(p_dir / "P_stack.pt", map_location="cpu", weights_only=True)
     print(f"[sweep-leace] loaded P_stack {tuple(P_stack.shape)} from {p_dir}")
 
-    cells = _leace_cells()
+    cells = _leace_cells(args.layers, args.alphas)
     if args.target_cells:
         keep = {c.strip() for c in args.target_cells.split(",")}
         cells = [c for c in cells if c["label"] in keep]
