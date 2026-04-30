@@ -652,7 +652,7 @@ full-set n=416 ChartQA 17 min.
 
 ## Method 4c — LEACE Closed-Form Linear Erasure (arXiv:2306.03819)
 
-**Status (2026-04-30): ⏳ IN FLIGHT**
+**Status (2026-04-30): ❌ FAILED — TallyQA 0/20 pass, ChartQA 5/20 pass, cross-dataset overlap = 0**
 
 ### Methodology
 
@@ -678,11 +678,29 @@ L=0: 0.0144 | L=8: 0.0867 | L=16: 0.9606 | L=24: 1.5773 (peak around L24–L31)
 
 ### Per-dataset result tracker
 
-| Dataset | n | best cell | df baseline | steered df | Δ% rel | em_a | pass? |
+| Dataset | n | best cell | df baseline | steered df | Δ% rel | em_a Δpp | n pass / 20 |
 |---|---:|---|---:|---:|---:|---:|---|
-| TallyQA subset (n=100) | — | pending | — | — | — | — | pending |
-| ChartQA subset (n=100) | — | pending | — | — | — | — | pending |
-| Cross-dataset (≥2/3) | — | — | — | — | — | — | pending |
+| TallyQA subset (n=100) | 100 | L30_a2.0 | 0.1200 (12/100) | 0.1042 (10/96) | **−13.2%** | **+5.88pp ❌** | **0/20** |
+| ChartQA subset (n=100) | 99 | L30_a2.0 | 0.2121 (21/99) | 0.1313 (13/99) | **−38.1%** | +0.00pp ✅ | **5/20** |
+| Cross-dataset (≥2/3) | — | — | — | — | — | — | **❌ 0 overlap** |
+| VQAv2 (gated) | ✗ blocked | — | — | — | — | — | not attempted |
+
+**ChartQA passing cells** (5 of 20): L28_a0.5 (−9.5%, +0.0pp), L28_a1.0 (−9.5%, +0.0pp),
+L28_a2.0 (−19.0%, +1.0pp), L30_a1.0 (−9.5%, +0.0pp), L30_a2.0 (−38.1%, +0.0pp).
+
+### Cross-dataset verdict — ❌ FAILED
+
+**The root pattern is the inverse of Methods 0–2.** LEACE projection at L28–L30 helps ChartQA
+substantially (up to −38.1% df) but fails Tally in two ways:
+(a) most cells at L20–L28 barely change or worsen Tally df;
+(b) the one cell that reduces Tally df meaningfully (L30_a2.0, −13.2%) damages accuracy (+5.88pp
+em, exceeding the ±2pp tolerance).
+
+Methods 0–2 worked on Tally but conflicted with ChartQA; Method 4c works on ChartQA but
+conflicts with Tally. The same direction-mismatch structural failure (cos(T,C)≈0.47–0.62 at
+key layers) manifests whether the projection is single-direction or LEACE closed-form.
+
+Artifact: `outputs/e6_steering/llava-next-interleaved-7b/sweep_leace_{tally,chartqa}_pooled/_analysis/cell_summary.csv`
 
 ---
 

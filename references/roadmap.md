@@ -226,7 +226,7 @@ the coarsest possible projection of this monotonicity.
 | **E1-patch masked-arm causal control** | re-run extraction on the 4-model panel using a 4-cond config (b/a/m/d) instead of the existing 3-cond `configs/experiment.yaml`. Pairs `image_anchor_digit` on the anchor arm against the masked arm's anchor-region attention as a digit-pixel causal control. Adds ~1 hour GPU per model + 4-cond config wiring. | ☐ P3 (deferred 2026-04-29 — independent of the non-square work above) |
 | **E4 Phase 1 + 2** | mid-stack-cluster attention re-weighting (LLaVA-1.5 / ConvLLaVA / InternVL3) | ✅ |
 | **E4 §7.4 paper rendering** | report `direction_follow_rate` reduction, `exact_match` rise, `accuracy_vqa(b)` invariance side by side; the "free lunch" framing | ✅ `docs/insights/paper-section-7-4-mitigation-free-lunch.md` (2026-04-29) |
-| **E6 — anchor mitigation search (multi-method, §7.4.5)** | Phase 1 single-direction ActAdd PoC ran VQAv2-only (df −14.2 % rel) but cross-dataset failed (TallyQA +5.5 %, ChartQA +1.3-4.5 %; reverse-direction cal also fails on self-test α=1). Pivoting to multi-method search per `~/.claude/plans/task-notification-task-id-bugsfzyep-tas-lively-dongarra.md`: Method 1 (multi-direction subspace projection — CIPHER/VCE/RepE), Method 2 (query-adaptive offset — AFTER QAO), Method 3 (MIA-DPO LoRA), + 9 extras. **New experiment policy:** test on TallyQA+ChartQA subsets first, VQAv2 only after cross-dataset proves out. Worst-case fallback: scope §7.4.5 to single-domain on VQAv2 with cross-dataset failure as the §7.4.5 contribution itself. | ⏳ **Methods 4c+4a in-flight; Method 3 pending (2026-04-30)** — Method 1 ❌ FAILED (cross-dataset 0 overlap). Method 2 ❌ FAILED (Tally full 1/4 cells pass; ChartQA full 0/4 cells pass; best ChartQA reduction −4.1%, below −5% threshold; no cross-dataset overlap). Now running Methods 4c (LEACE), 4a (CogBias decode-correction), 3 (DPO LoRA). Scripts: `scripts/e6_leace.py`, `scripts/e6_cogbias.py`, `scripts/e6_dpo_lora.py`, `scripts/analyze_e6_methods.py`. Results in `docs/experiments/E6-steering-vector.md`. |
+| **E6 — anchor mitigation search (multi-method, §7.4.5)** | Phase 1 single-direction ActAdd PoC ran VQAv2-only (df −14.2 % rel) but cross-dataset failed (TallyQA +5.5 %, ChartQA +1.3-4.5 %; reverse-direction cal also fails on self-test α=1). Pivoting to multi-method search per `~/.claude/plans/task-notification-task-id-bugsfzyep-tas-lively-dongarra.md`: Method 1 (multi-direction subspace projection — CIPHER/VCE/RepE), Method 2 (query-adaptive offset — AFTER QAO), Method 3 (MIA-DPO LoRA), + 9 extras. **New experiment policy:** test on TallyQA+ChartQA subsets first, VQAv2 only after cross-dataset proves out. Worst-case fallback: scope §7.4.5 to single-domain on VQAv2 with cross-dataset failure as the §7.4.5 contribution itself. | ⏳ **Methods 4a in-flight; Method 3 training; Method 4c ❌ FAILED (2026-04-30)** — Methods 0a/0b/1/2/4c all ❌ FAILED cross-dataset. LEACE (4c): TallyQA 0/20 pass (best −13.2% df but em +5.88pp); ChartQA 5/20 pass (best −38.1% df). CogBias (4a): TallyQA sweep ~cell 24/61, ETA ~40 min; ChartQA pending. DPO (3): training ~50%, ETA ~45 min. Results in `docs/experiments/E6-steering-vector.md`. |
 | **E1-patch generalises mitigation?** | does upper-half attention mass concentrate on the digit patch only? if yes, mitigation can shrink target region | ☐ P3 (subsumed by E6 — digit-bbox-scoped attention surgery (N1/N2 in 2026-04-29 brainstorm) needs anchor label at inference, so reframed as **mechanistic analysis tool** under §7.2 rather than a deployable mitigation) |
 
 ### 6.6 §8 — Future work (scope only)
@@ -252,7 +252,7 @@ inference-label gap E4 inherently has — see §6.5 row).
 
 | **P1 ❌** | **E6 Method 1 — multi-direction subspace projection (CIPHER/VCE/RepE)**. **FAILED 2026-04-30.** TallyQA ✅ 11/81 cells, ChartQA ✅ 3/81 cells, cross-dataset overlap = 0. Direction conflict: cos(T,C) = 0.47–0.62 at key layers; TallyQA-best cells increase ChartQA df by up to +73%. Near-miss (L31_K08_a4.0) blocked by Tally em = −3.94pp and no feasible alpha that simultaneously satisfies both. Pre-M2 diagnostics: d'(between-mean) = 1.7–3.6 confirms datasets are linearly separable → motivates per-input adaptive correction. | §6.5 E6 | done |
 | **P1 ❌** | **E6 Method 2 — query-adaptive offset (AFTER QAO)**. **FAILED 2026-04-30.** Tally full (n=346): 1/4 cells passes (Lq30_Lt28_a0.5, df Δ=−9.6%, em Δ=+0.29pp). ChartQA full (n=416): 0/4 pass (best Δ=−4.1%, below −5% threshold). No cross-dataset overlap. Probe overfits Tally query distribution, conflicts with ChartQA. | §6.5 E6 | done |
-| **P1 ⏳** | **E6 Method 4c — LEACE closed-form linear erasure (arXiv:2306.03819)**. Calibration done (CPU, 128.5s; P_stack [32, 4096, 4096]). Sweep pending (GPU 1). | §6.5 E6 | ~2h |
+| **P1 ❌** | **E6 Method 4c — LEACE closed-form linear erasure (arXiv:2306.03819)**. **FAILED 2026-04-30.** TallyQA 0/20 pass (best L30_a2.0 −13.2% df but em +5.88pp ❌); ChartQA 5/20 pass (best L30_a2.0 −38.1% df, em +0.00pp ✅). Cross-dataset overlap = 0. Inverse failure mode to Methods 0–2: works on ChartQA, conflicts with Tally. Same cos(T,C) direction-mismatch root cause. | §6.5 E6 | done |
 | **P1 ⏳** | **E6 Method 4a — CogBias decode-correction (arXiv:2604.01366)**. Sweep pending (GPU 1), 61 cells. | §6.5 E6 | ~4h |
 | **P1 ⏳** | **E6 Method 3 — MIA-DPO LoRA (arXiv:2410.17637)**. Build-pairs done (34326 pairs from Tally+ChartQA+VQA). Training pending (GPU 1, LoRA rank 256). | §6.5 E6 | ~1 day |
 | **P3** | E1-patch full panel non-square archetypes — InternVL3-8b (multi-tile bbox routing) and Qwen2.5-VL-7b (`grid_thw` plumbing). 2026-04-29 audit re-budgeted the original §7 1.5h estimate to 4–7 days panel-wide after finding the bbox-to-token mapping is per-encoder (POC's `int(math.isqrt(n)) ** 2 == n` gate returns None on multi-tile / rectangular grids). ConvLLaVA-7b + FastVLM-7b were perfect-square and landed in the 4-model panel 2026-04-29. | §6.5 E1-patch | ~1–2 days/model implementation + ~12 min/model H200 extraction |
@@ -328,6 +328,17 @@ inference-label gap E4 inherently has — see §6.5 row).
   TallyQA gemma3-27b cell).
 
 ## 10. Changelog
+
+- **2026-04-30 (E6 Method 4c LEACE ❌ FAILED; Methods 4a+3 still in flight).**
+  LEACE sweep completed on both datasets. TallyQA n=100: 0/20 cells pass
+  (best L30_a2.0: df −13.2% but em +5.88pp, exceeds ±2pp tolerance). ChartQA n=100:
+  5/20 cells pass (best L30_a2.0: df −38.1%, em +0.00pp). Cross-dataset overlap = 0
+  → Method 4c ❌ FAILED. Inverse failure mode to Methods 0–2: LEACE works on
+  ChartQA but conflicts with Tally. Same root cause: direction-mismatch between
+  datasets (cos(T,C) ≈ 0.47–0.62 at key layers). Method 4a (CogBias) sweep running
+  on GPU 1 (cell ~24/61, ETA ~40 min for Tally + ~70 min for ChartQA).
+  Method 3 (DPO) training at ~50% (step ~310/625, ETA ~45 min).
+  E6 doc + roadmap §7 updated to reflect LEACE ❌.
 
 - **2026-04-30 (E6 Methods 4c+4a+3 in-flight; Methods 1+2 ❌ FAILED).**
   Method 2 (AFTER QAO) full-set validation completed: Tally n=346 → 1/4 cells
