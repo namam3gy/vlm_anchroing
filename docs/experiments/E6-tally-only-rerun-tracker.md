@@ -122,6 +122,57 @@ the cell choice itself transfers cleanly to N=500 with proper baseline.
 ChartQA at n=500, this is the first method to clear the cross-dataset rule
 without dispute.
 
+## S1c — LEACE Tally-only N=5k sweep on ChartQA (n=500): **cross-dataset FAILED**
+
+**Baseline:** df=0.2260, em=0.0511, n=499 wrong-base from E5e ChartQA.
+
+| Cell | Tally df_Δ% | ChartQA df_Δ% | ChartQA em_pp | Cross-dataset |
+|---|---:|---:|---:|---|
+| L30_a2.0 ⭐ Tally winner | **−21.9%** | **+8.7%** ❌ | +0.47 | Backfires on ChartQA |
+| L30_a1.0 | −15.6% | +5.4% ❌ | +0.73 | Same pattern |
+| L30_a0.5 | −14.3% | +0.2% (≈0) | +0.00 | No effect on ChartQA |
+| L31_a0.5 | −9.3% | −0.8% (≈0) | +0.94 | No effect on ChartQA |
+| L28_a1.0 | +6.5% ❌ | **−5.4%** | +0.49 | ChartQA OK, Tally backfires |
+
+**Cross-dataset overlap = 0** (both em rules).
+
+**Root cause confirmed.** Tally-only calibration sharpens the Tally direction
+(df reduction nearly doubled vs pooled n=100) but ChartQA generalisation lost.
+Same direction-mismatch as Methods 0–2: `cos(v_tally, v_chartqa) ≈ 0.47–0.62` →
+Tally-only erasure projection doesn't cover ChartQA's separate anchor direction.
+Earlier pooled n=100 ChartQA "pass" (L30_a2.0 df −38.1%) likely came from
+ChartQA being in the pooled calibration data — not Tally-only generalisation.
+
+## v2 — expanded layer set [L7, L16, L24, L30, L31]
+
+**Motivation:** Top-5 ‖v[L]‖ peak layers were all post-mid (L27-L31). Concern:
+mid-stack and early-stack might host a "spot" we're missing if effect locus
+differs between calibration norm and actual mitigation locus. New layer set
+adds explicit early (L7) and mid (L16) plus a middle-late candidate (L24)
+alongside the two strongest peaks (L30, L31).
+
+| Layer | ‖v_wrong‖ | category | rationale |
+|---|---:|---|---|
+| L7  | 0.220 | early | sanity check; sub-token level mostly visual encoding |
+| L16 | 1.703 | mid | mid-stack candidate; matches E1b CLIP-ViT attention peak |
+| L24 | 3.414 | late-mid | between mid and peak |
+| L30 | 6.984 | peak | best in S1 (df −21.9 % rel) |
+| L31 | 5.390 | top-2 by norm | 2nd-best, weaker than L30 in S1 |
+
+S2b on [27,28,29,30,31] killed mid-run (~36 min in, ~16k records, partial
+output preserved at `predictions.bak_l27to31_partial.jsonl`).
+
+S1 LEACE supplement: re-sweep with L=7,16,24 only (L30, L31 already done).
+12 new cells × 4 conds × 500 sids = 18k records → ~40 min Tally + ~35 min
+ChartQA = ~75 min total. Existing 31,500 records preserved via append-mode.
+
+S2 Subspace: full re-sweep with [7, 16, 24, 30, 31] = 81 cells × 1500
+records = ~6 h Tally + ~5 h ChartQA = ~11 h.
+
+S3 DPO: unchanged (whole-model LoRA, no layer dependence).
+
+## Current pipeline status (v2)
+
 ## Selection-criterion comparison (n=100, prior runs)
 
 Re-analysis of existing sweeps with `analyze_e6_methods.py --em-rule one_sided`:
