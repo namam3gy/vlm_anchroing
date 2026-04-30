@@ -226,7 +226,7 @@ the coarsest possible projection of this monotonicity.
 | **E1-patch masked-arm causal control** | re-run extraction on the 4-model panel using a 4-cond config (b/a/m/d) instead of the existing 3-cond `configs/experiment.yaml`. Pairs `image_anchor_digit` on the anchor arm against the masked arm's anchor-region attention as a digit-pixel causal control. Adds ~1 hour GPU per model + 4-cond config wiring. | ☐ P3 (deferred 2026-04-29 — independent of the non-square work above) |
 | **E4 Phase 1 + 2** | mid-stack-cluster attention re-weighting (LLaVA-1.5 / ConvLLaVA / InternVL3) | ✅ |
 | **E4 §7.4 paper rendering** | report `direction_follow_rate` reduction, `exact_match` rise, `accuracy_vqa(b)` invariance side by side; the "free lunch" framing | ✅ `docs/insights/paper-section-7-4-mitigation-free-lunch.md` (2026-04-29) |
-| **E6 — anchor mitigation search (multi-method, §7.4.5)** | Phase 1 single-direction ActAdd PoC ran VQAv2-only (df −14.2 % rel) but cross-dataset failed (TallyQA +5.5 %, ChartQA +1.3-4.5 %; reverse-direction cal also fails on self-test α=1). Pivoting to multi-method search per `~/.claude/plans/task-notification-task-id-bugsfzyep-tas-lively-dongarra.md`: Method 1 (multi-direction subspace projection — CIPHER/VCE/RepE), Method 2 (query-adaptive offset — AFTER QAO), Method 3 (MIA-DPO LoRA), + 9 extras. **New experiment policy:** test on TallyQA+ChartQA subsets first, VQAv2 only after cross-dataset proves out. Worst-case fallback: scope §7.4.5 to single-domain on VQAv2 with cross-dataset failure as the §7.4.5 contribution itself. | ⏳ **Method 1 in-flight (2026-04-30)** — `calibrate-subspace` + `sweep-subspace` phases implemented in `scripts/e6_steering_vector.py` (branch `e6-method1-subspace-projection`); calibration running on GPU 0; sweep queued. Results to land in `docs/experiments/E6-steering-vector.md`. |
+| **E6 — anchor mitigation search (multi-method, §7.4.5)** | Phase 1 single-direction ActAdd PoC ran VQAv2-only (df −14.2 % rel) but cross-dataset failed (TallyQA +5.5 %, ChartQA +1.3-4.5 %; reverse-direction cal also fails on self-test α=1). Pivoting to multi-method search per `~/.claude/plans/task-notification-task-id-bugsfzyep-tas-lively-dongarra.md`: Method 1 (multi-direction subspace projection — CIPHER/VCE/RepE), Method 2 (query-adaptive offset — AFTER QAO), Method 3 (MIA-DPO LoRA), + 9 extras. **New experiment policy:** test on TallyQA+ChartQA subsets first, VQAv2 only after cross-dataset proves out. Worst-case fallback: scope §7.4.5 to single-domain on VQAv2 with cross-dataset failure as the §7.4.5 contribution itself. | ⏳ **Method 2 in-flight (2026-04-30)** — Method 1 ❌ FAILED cross-dataset (0/81 cells pass both TallyQA ✅ 11/81 and ChartQA ✅ 3/81; direction conflict confirmed cos(T,C)=0.47–0.62). Method 2 (AFTER QAO) running on GPU 1: `calibrate-qao` → `train-probe` → `smoke-qao` → `sweep-qao` Tally n=100 → ChartQA n=100. `scripts/e6_query_adaptive_offset.py` + `scripts/analyze_e6_qao.py` implemented. Results pending in `docs/experiments/E6-steering-vector.md`. |
 | **E1-patch generalises mitigation?** | does upper-half attention mass concentrate on the digit patch only? if yes, mitigation can shrink target region | ☐ P3 (subsumed by E6 — digit-bbox-scoped attention surgery (N1/N2 in 2026-04-29 brainstorm) needs anchor label at inference, so reframed as **mechanistic analysis tool** under §7.2 rather than a deployable mitigation) |
 
 ### 6.6 §8 — Future work (scope only)
@@ -250,8 +250,8 @@ E5c VQAv2 + TallyQA**). No P0 outstanding. New P1: **E6 anchor-agnostic
 steering-vector PoC** (deployable mitigation, motivated by the
 inference-label gap E4 inherently has — see §6.5 row).
 
-| **P1 ⏳** | **E6 Method 1 — multi-direction subspace projection (CIPHER/VCE/RepE)**. **IN FLIGHT 2026-04-30.** Implemented: `--phase calibrate-subspace` (saves D_wrong.pt per dataset), `--phase sweep-subspace` (61-cell L×K×α projection sweep), `scripts/e6_compute_subspace.py` (pooled SVD), `scripts/analyze_e6_subspace.py` (5 % threshold). Pipeline running on GPU 0: calibrate TallyQA → ChartQA → VQAv2 → SVD → smoke → sweep TallyQA n=100 → sweep ChartQA n=100 → analyze. Results pending; branch `e6-method1-subspace-projection`. | §6.5 E6 | implementation done; sweep running |
-| **P1** | **E6 Method 2 — query-adaptive offset (AFTER QAO)**. Trigger only if Method 1 fails. Tiny probe estimates per-input correction; v_general + δ_input. | §6.5 E6 | 2 days |
+| **P1 ❌** | **E6 Method 1 — multi-direction subspace projection (CIPHER/VCE/RepE)**. **FAILED 2026-04-30.** TallyQA ✅ 11/81 cells, ChartQA ✅ 3/81 cells, cross-dataset overlap = 0. Direction conflict: cos(T,C) = 0.47–0.62 at key layers; TallyQA-best cells increase ChartQA df by up to +73%. Near-miss (L31_K08_a4.0) blocked by Tally em = −3.94pp and no feasible alpha that simultaneously satisfies both. Pre-M2 diagnostics: d'(between-mean) = 1.7–3.6 confirms datasets are linearly separable → motivates per-input adaptive correction. | §6.5 E6 | done |
+| **P1 ⏳** | **E6 Method 2 — query-adaptive offset (AFTER QAO)**. **IN FLIGHT 2026-04-30.** `scripts/e6_query_adaptive_offset.py` (phases: calibrate-qao, train-probe, smoke-qao, sweep-qao) + `scripts/analyze_e6_qao.py` implemented. Pipeline running on GPU 1: calibrate-qao VQA/Tally/ChartQA → train-probe (PCA-100 + Ridge λ=1e3) → sweep Tally n=100 → sweep ChartQA n=100. Results pending. | §6.5 E6 | 1 day remaining |
 | **P3** | **E6 Method 3 — MIA-DPO LoRA**. Trigger only if Method 2 fails. Multi-image preference fine-tune; weakens "train-free" claim. | §6.5 E6 | 3-4 days |
 | **P3** | **E6 Methods 4+ extras (CogBias / Spherical Steering / LEACE / DSO / Dual Steering / PAI / VCD-family / CIPHER-exact / CAST)** — held in reserve, triggered only if Methods 1-3 all fail or specific failure modes motivate a different family. | §6.5 E6 | per-method ½–4 days |
 | **P3** | E1-patch full panel non-square archetypes — InternVL3-8b (multi-tile bbox routing) and Qwen2.5-VL-7b (`grid_thw` plumbing). 2026-04-29 audit re-budgeted the original §7 1.5h estimate to 4–7 days panel-wide after finding the bbox-to-token mapping is per-encoder (POC's `int(math.isqrt(n)) ** 2 == n` gate returns None on multi-tile / rectangular grids). ConvLLaVA-7b + FastVLM-7b were perfect-square and landed in the 4-model panel 2026-04-29. | §6.5 E1-patch | ~1–2 days/model implementation + ~12 min/model H200 extraction |
@@ -327,6 +327,23 @@ inference-label gap E4 inherently has — see §6.5 row).
   TallyQA gemma3-27b cell).
 
 ## 10. Changelog
+
+- **2026-04-30 (E6 Method 1 ❌ FAILED; Method 2 QAO in flight).**
+  Method 1 (multi-direction subspace projection) completed: TallyQA ✅ 11/81
+  cells pass, ChartQA ✅ 3/81 cells pass, but cross-dataset overlap = 0 — no
+  cell satisfies the selection rule on both simultaneously. Pre-M2 diagnostics
+  run on the data: (1) only 5/81 cells reduce df on BOTH datasets; the near-miss
+  L31_K08_a4.0 is blocked by Tally em −3.94pp with no feasible alpha rescuing
+  it; (2) cos(T,C) = 0.47–0.62 at key layers (NOT 0.98 — correction of a prior
+  assumption); (3) d'(between-mean) = 1.7–3.6 confirms datasets are linearly
+  separable in residual space → supports per-input adaptation as the right
+  remedy. Method 2 (AFTER QAO, arXiv:2601.01957) implemented and pipeline
+  launched on GPU 1: `scripts/e6_query_adaptive_offset.py`
+  (calibrate-qao/train-probe/smoke-qao/sweep-qao) + `scripts/analyze_e6_qao.py`.
+  Probe: PCA-100 + Ridge (λ=1e3) on pooled VQA+Tally+ChartQA calibration
+  (N≈1200 wrong-base pairs). Sweep grid: 4×3×4 = 48 steered cells, Tally n=100
+  then ChartQA n=100. Results pending; will append to
+  `docs/experiments/E6-steering-vector.md`.
 
 - **2026-04-30 (E6 Method 1 implementation — multi-direction subspace
   projection in flight).** Implemented three new phases in

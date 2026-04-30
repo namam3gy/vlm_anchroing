@@ -540,3 +540,89 @@ across 3 datasets does not resolve the cross-dataset incompatibility.
 | ChartQA subset (n=100) | 100 | L31_K08_a4.0 | 0.1515 | 0.1200 | −20.8% | 0.0526 (+1.22pp) | ✅ 3/81 |
 | Cross-dataset (≥2/3) | — | — | — | — | — | — | ❌ 0 overlap |
 | VQAv2 (gated) | ✗ blocked | — | — | — | — | — | not attempted |
+
+---
+
+## Method 1 — Pre-Method-2 Diagnostics (2026-04-30)
+
+Before escalating to Method 2, ran three diagnostics to characterise the failure:
+
+### 1. Bidirectional df diagnostic
+
+Counted cells with df↓ on BOTH TallyQA and ChartQA simultaneously (81 cells total):
+
+| cell | T df Δ% | T em pp | T pass | C df Δ% | C em pp | C pass |
+|---|---:|---:|---|---:|---:|---|
+| L31_K08_a4.0 | −67.5% | −3.94pp | False | −20.8% | +1.22pp | True |
+| L31_K16_a1.0 | −64.3% | +27.27pp | False | −1.0% | +1.96pp | False |
+| L31_K04_a2.0 | −49.5% | −3.92pp | False | −1.0% | +0.61pp | False |
+| L16_K02_a0.5 | −21.4% | −2.02pp | False | −6.7% | −0.00pp | True |
+| L16_K02_a1.0 | −21.4% | +1.01pp | True | −0.0% | −0.00pp | False |
+
+Only 5/81 cells reduce df on BOTH datasets. The near-miss is **L31_K08_a4.0**, blocked by Tally em −3.94pp (tolerance ±2pp).
+
+**Grid refinement ruled out:** L31_K08 alpha trajectory shows ChartQA df stays POSITIVE until α≈4.0, but at α=4.0 Tally em = −3.94pp. The feasible regions for (T em ±2pp) and (C df ≤ −5%) do not overlap — no alpha ∈ [0.5, 4.0] satisfies both simultaneously.
+
+### 2. Direction cosine similarity
+
+Per-layer `cos(v_wrong_tally, v_wrong_chartqa)` at key layers:
+
+| Layer | cos(T,C) | cos(T,Pooled) | cos(C,Pooled) |
+|---|---:|---:|---:|
+| L16 | +0.623 | +0.961 | +0.791 |
+| L28 | +0.469 | +0.788 | +0.747 |
+| L30 | +0.549 | +0.966 | +0.701 |
+| L31 | +0.619 | +0.627 | +0.568 |
+
+Directions differ substantially (cos ≈ 0.47–0.62 at key layers), confirming the failure is **direction mismatch**, not just alpha sensitivity. The "cos ≈ 0.98" from Phase 0 was for L=30 within-dataset directions; across-dataset the alignment is much lower.
+
+### 3. Dataset discriminability
+
+d' (Cohen's d) along the between-group mean direction of D_wrong residuals:
+
+| Layer | d'(between-mean) | Interpretation |
+|---|---:|---|
+| L16 | 3.58 | TallyQA and ChartQA hidden states are highly separable |
+| L28 | 2.39 | Separable |
+| L30 | 2.63 | Separable |
+| L31 | 1.74 | Moderately separable |
+
+Datasets occupy distinct regions in residual space at all key layers. This motivates **per-input adaptation** (Method 2): a probe can distinguish TallyQA-type from ChartQA-type queries and apply the appropriate correction direction.
+
+---
+
+## Method 2 — Query-Adaptive Offset (AFTER QAO)
+
+**Status (2026-04-30): ⏳ IN FLIGHT — calibrate-qao + train-probe + sweep running on GPU**
+
+### Methodology
+
+`h ← h − α · (v_general[L] + δ)` where:
+- `v_general[L]` = mean of v_wrong across VQA + TallyQA + ChartQA calibration at layer L
+- `δ = probe(q)` — linear probe mapping query representation to per-input correction
+- `q` = b-arm (target_only) hidden state at last token, layer L_q
+- No anchor labels at inference: probe operates only on the question + target image
+
+**Probe training:** PCA (100 components) on b-arm reprs Q [N, d_model], then Ridge
+regression (λ=1e3) from Q_pca → D_wrong per (L_q, L_target) pair. Trained on
+pooled VQA + TallyQA + ChartQA calibration (N ≈ 1200 wrong-base pairs total).
+
+**Source:** AFTER [arXiv:2601.01957, 2026-01] — 16.3% hallucination reduction on
+AMBER; adapted here for cross-dataset numerical anchoring.
+
+**Implementation:**
+- `scripts/e6_query_adaptive_offset.py` — phases: `calibrate-qao`, `train-probe`,
+  `smoke-qao`, `sweep-qao`
+- `scripts/analyze_e6_qao.py` — M2/C-form metrics per (L_q, L_target, α) cell
+
+**Sweep grid:** L_q ∈ {20,25,30,31} × L_target ∈ {28,30,31} × α ∈ {0.5,1.0,2.0,4.0}
+= 48 steered cells + 1 baseline = 49 total.
+
+### Per-dataset result tracker
+
+| Dataset | n | best cell | df_a baseline | steered | Δ% rel | em_a | pass? |
+|---|---:|---|---:|---:|---:|---:|---|
+| TallyQA subset (n=100) | — | pending | — | — | — | — | pending |
+| ChartQA subset (n=100) | — | pending | — | — | — | — | pending |
+| Cross-dataset (≥2/3) | — | — | — | — | — | — | pending |
+| VQAv2 (gated) | ✗ blocked | — | — | — | — | — | not attempted |
