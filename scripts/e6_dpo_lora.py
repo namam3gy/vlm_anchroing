@@ -85,14 +85,22 @@ def _parse_args() -> argparse.Namespace:
                     help="Path to LoRA adapter (default: outputs/e6_dpo/<model>/adapter)")
     ap.add_argument("--calib-tags", default="vqa,tally,chartqa")
     ap.add_argument("--rejected-mode", default="anchor",
-                    choices=("anchor", "case_by_case"),
-                    help="anchor: rejected=anchor_value (v1, current). "
-                         "case_by_case: rejected=anchor if pred==anchor; "
-                         "rejected=pred_a if df_moved=True AND pred!=anchor; "
-                         "skip if pred==gt or random-wrong (low signal).")
+                    choices=("anchor", "case_by_case", "mix_synthetic"),
+                    help="anchor: rejected=anchor_value (v1). "
+                         "case_by_case: rejected=anchor or pred_a depending on case. "
+                         "mix_synthetic: real (case_by_case) + synthetic anchor "
+                         "augmentation per wrong-base sid. Train/eval split by "
+                         "(dataset, image_id, question_id) hash.")
+    ap.add_argument("--train-frac", type=float, default=0.7,
+                    help="Hash-based train fraction for mix_synthetic mode.")
+    ap.add_argument("--synth-ratios", default="tally:1,chartqa:5,vqa:5",
+                    help="Per-dataset synthetic-pair count K per train sid.")
     ap.add_argument("--out-tag", default=None,
                     help="Suffix for the pairs.jsonl + adapter dir "
                          "(e.g. 'v2' → pairs_v2.jsonl).")
+    ap.add_argument("--split-map", default=None,
+                    help="Path to split_map.json from build-pairs (mix_synthetic). "
+                         "If provided, sweep-adapter filters to eval-split sids only.")
     ap.add_argument("--seed", type=int, default=42)
     return ap.parse_args()
 
@@ -143,6 +151,226 @@ def _load_predictions(pred_path: Path) -> dict[str, dict[str, dict]]:
     return by_sid
 
 
+def _hash_split(dataset: str, image_id, question_id, train_frac: float) -> str:
+    """Deterministic split: train if hash fraction < train_frac else eval."""
+    import hashlib
+    key = f"{dataset}|{image_id}|{question_id}".encode()
+    h = hashlib.md5(key).hexdigest()
+    frac = int(h[:8], 16) / (16 ** 8)
+    return "train" if frac < train_frac else "eval"
+
+
+def _to_float(x):
+    try:
+        return float(x)
+    except (TypeError, ValueError):
+        return None
+
+
+def _enumerate_anchor_pool(project_root: Path) -> list[int]:
+    """List of anchor digit values whose image file exists in inputs/irrelevant_number/."""
+    anchor_root = project_root / "inputs" / "irrelevant_number"
+    digits = []
+    for p in anchor_root.glob("*.png"):
+        try:
+            digits.append(int(p.stem))
+        except ValueError:
+            pass
+    return sorted(set(digits))
+
+
+def _build_pairs_mix_synthetic(args, pairs_path: Path, out_dir: Path, suffix: str) -> None:
+    """Mix-synthetic DPO pair builder.
+
+    For each wrong-base sid in the train split:
+      1. Real pair (case_by_case): rejected = anchor (direct adoption) or pred_a (df_moved).
+         Skipped if pred==gt (no signal) or no anchor signal.
+      2. K synthetic pairs: rejected = random anchor digit X != gt, with anchor image
+         from inputs/irrelevant_number/<X>.png.
+
+    Train/eval split: deterministic hash of (dataset, image_id, question_id).
+    K and digit pool depend on dataset (set via --synth-ratios).
+
+    Saves pairs<suffix>.jsonl + split_map<suffix>.json.
+    """
+    import random
+    rng = random.Random(args.seed)
+
+    # Anchor digit pools
+    available_digits = _enumerate_anchor_pool(PROJECT_ROOT)
+    pool_small = [d for d in available_digits if 0 <= d <= 9]
+    pool_full = available_digits
+    print(f"[mix_synthetic] anchor pool: {len(available_digits)} digits, "
+          f"small (0-9) = {len(pool_small)}, full = {len(pool_full)}")
+    DIGIT_POOLS = {"tally": pool_small, "chartqa": pool_full, "vqa": pool_small}
+
+    # Synthetic ratios per dataset
+    synth_spec: dict[str, int] = {}
+    for kv in args.synth_ratios.split(","):
+        k, v = kv.split(":")
+        synth_spec[k.strip()] = int(v.strip())
+    print(f"[mix_synthetic] synth ratios: {synth_spec}")
+
+    calib_tags = [t.strip() for t in args.calib_tags.split(",") if t.strip()]
+    all_pairs: list[dict] = []
+    split_map: dict[str, str] = {}
+    stats: dict[str, int] = defaultdict(int)
+
+    for tag in calib_tags:
+        pred_rel = _PRED_PATHS.get(tag)
+        if not pred_rel:
+            print(f"  [warn] no pred path for tag={tag!r}")
+            continue
+        pred_path = PROJECT_ROOT / pred_rel
+        if not pred_path.exists():
+            print(f"  [warn] {pred_path} not found")
+            continue
+
+        by_sid = _load_predictions(pred_path)
+        K_synth = synth_spec.get(tag, 0)
+        digit_pool = DIGIT_POOLS.get(tag, pool_small)
+
+        n_train_sids = n_eval_sids = 0
+        for sid, conds in by_sid.items():
+            a = conds.get("target_plus_irrelevant_number_S1")
+            b = conds.get("target_only")
+            if not a or not b:
+                continue
+
+            image_id = b.get("image_id")
+            question_id = b.get("question_id")
+            if image_id is None or question_id is None:
+                continue
+
+            split = _hash_split(tag, image_id, question_id, args.train_frac)
+            split_map[f"{tag}|{sid}"] = split
+
+            if split != "train":
+                n_eval_sids += 1
+                continue
+            n_train_sids += 1
+
+            gt = b.get("ground_truth")
+            gt_num = _to_float(gt)
+            if gt_num is None:
+                continue
+            try:
+                gt_int = int(gt_num)
+            except (TypeError, ValueError):
+                gt_int = None
+
+            paths = a.get("input_image_paths") or []
+            if len(paths) < 2:
+                continue
+            target_path = paths[0]
+            question = a.get("question", "")
+            if not question:
+                continue
+
+            pb_num = _to_float(b.get("prediction"))
+            if pb_num is None or pb_num == gt_num:
+                # Either no parse OR model already correct on b-arm — skip both
+                # real and synthetic (per "wrong-base only" hypothesis)
+                stats[f"{tag}_skip_b_correct_or_no_parse"] += 1
+                continue
+
+            # === REAL pair (case_by_case) ===
+            anchor_str = a.get("anchor_value")
+            anchor_num = _to_float(anchor_str)
+            pa_num = _to_float(a.get("prediction"))
+
+            if (anchor_num is not None and gt_num != anchor_num
+                    and pa_num is not None and pa_num != gt_num):
+                rejected_real = None
+                if pa_num == anchor_num:
+                    rejected_real = (str(int(anchor_num))
+                                     if anchor_num.is_integer() else str(anchor_num))
+                    stats[f"{tag}_real_anchor_adopt"] += 1
+                elif (pa_num - pb_num) * (anchor_num - pb_num) > 0 and pa_num != pb_num:
+                    rejected_real = (str(int(pa_num))
+                                     if pa_num.is_integer() else str(pa_num))
+                    stats[f"{tag}_real_df_moved"] += 1
+                else:
+                    stats[f"{tag}_real_no_signal"] += 1
+
+                if rejected_real is not None:
+                    all_pairs.append({
+                        "dataset": tag,
+                        "sample_instance_id": sid,
+                        "image_id": image_id,
+                        "question_id": question_id,
+                        "split": "train",
+                        "pair_type": "real",
+                        "question": question,
+                        "image_paths": paths[:2],
+                        "chosen": str(gt_int) if gt_int is not None else str(gt),
+                        "rejected": rejected_real,
+                        "ground_truth": str(gt),
+                        "anchor_value": str(anchor_str),
+                    })
+
+            # === SYNTHETIC pairs ===
+            valid_digits = [d for d in digit_pool if d != gt_int]
+            if not valid_digits or K_synth <= 0:
+                continue
+            k_take = min(K_synth, len(valid_digits))
+            synth_xs = rng.sample(valid_digits, k_take)
+            for x in synth_xs:
+                anchor_img_rel = f"inputs/irrelevant_number/{x}.png"
+                if not (PROJECT_ROOT / anchor_img_rel).exists():
+                    stats[f"{tag}_synth_missing_image"] += 1
+                    continue
+                all_pairs.append({
+                    "dataset": tag,
+                    "sample_instance_id": sid,
+                    "image_id": image_id,
+                    "question_id": question_id,
+                    "split": "train",
+                    "pair_type": "synthetic",
+                    "question": question,
+                    "image_paths": [target_path, anchor_img_rel],
+                    "chosen": str(gt_int) if gt_int is not None else str(gt),
+                    "rejected": str(x),
+                    "ground_truth": str(gt),
+                    "anchor_value": str(x),
+                    "synth_anchor_digit": x,
+                })
+                stats[f"{tag}_synthetic"] += 1
+
+        print(f"  {tag}: {n_train_sids} train sids, {n_eval_sids} eval sids "
+              f"(train_frac={args.train_frac})")
+
+    if not all_pairs:
+        raise RuntimeError("No pairs generated. Check predictions paths and filters.")
+
+    if args.max_pairs and len(all_pairs) > args.max_pairs:
+        rng.shuffle(all_pairs)
+        all_pairs = all_pairs[:args.max_pairs]
+        print(f"[mix_synthetic] subsampled to {args.max_pairs} pairs")
+    else:
+        rng.shuffle(all_pairs)
+
+    with pairs_path.open("w") as fout:
+        for p in all_pairs:
+            fout.write(json.dumps(p) + "\n")
+    print(f"[mix_synthetic] saved {len(all_pairs)} pairs → {pairs_path}")
+
+    split_map_path = out_dir / f"split_map{suffix}.json"
+    split_map_path.write_text(json.dumps(split_map, indent=2))
+    print(f"[mix_synthetic] split map → {split_map_path}  ({len(split_map)} entries)")
+
+    print(f"\n[mix_synthetic stats]")
+    for k, v in sorted(stats.items()):
+        print(f"  {k}: {v}")
+    n_real = sum(1 for p in all_pairs if p["pair_type"] == "real")
+    n_synth = sum(1 for p in all_pairs if p["pair_type"] == "synthetic")
+    print(f"\n  Final: {n_real} real + {n_synth} synthetic = {len(all_pairs)} pairs")
+    by_ds = defaultdict(int)
+    for p in all_pairs:
+        by_ds[p["dataset"]] += 1
+    print(f"  Per dataset: {dict(by_ds)}")
+
+
 def _phase_build_pairs(args) -> None:
     """Build preference pairs from E5* predictions and save to pairs.jsonl."""
     import random
@@ -152,6 +380,10 @@ def _phase_build_pairs(args) -> None:
     out_dir.mkdir(parents=True, exist_ok=True)
     suffix = f"_{args.out_tag}" if args.out_tag else ""
     pairs_path = out_dir / f"pairs{suffix}.jsonl"
+
+    if args.rejected_mode == "mix_synthetic":
+        _build_pairs_mix_synthetic(args, pairs_path, out_dir, suffix)
+        return
 
     calib_tags = [t.strip() for t in args.calib_tags.split(",") if t.strip()]
     all_pairs: list[dict] = []
@@ -276,9 +508,10 @@ def _phase_train_dpo(args) -> None:
     if not args.hf_model:
         raise ValueError("--hf-model required for train-dpo")
 
-    pairs_path = _dpo_dir(args.model) / "pairs.jsonl"
+    suffix = f"_{args.out_tag}" if args.out_tag else ""
+    pairs_path = _dpo_dir(args.model) / f"pairs{suffix}.jsonl"
     if not pairs_path.exists():
-        raise FileNotFoundError(f"pairs.jsonl not found at {pairs_path}. Run build-pairs first.")
+        raise FileNotFoundError(f"{pairs_path} not found. Run build-pairs first.")
 
     pairs: list[dict] = []
     with pairs_path.open() as f:
@@ -427,11 +660,28 @@ def _phase_sweep_adapter(args) -> None:
 
     by_sid = _load_predictions(pred_path)
     wrong = _wrong_sids(by_sid)
-    eligible = [
+    # sorted() for deterministic sid order across Python invocations.
+    eligible = sorted(
         s for s in wrong
         if "target_only" in by_sid[s]
         and "target_plus_irrelevant_number_S1" in by_sid[s]
-    ]
+    )
+
+    # Optional: filter to eval-split sids only (mix_synthetic mode hygiene)
+    if args.split_map:
+        split_map_path = Path(args.split_map)
+        if not split_map_path.is_absolute():
+            split_map_path = PROJECT_ROOT / args.split_map
+        if not split_map_path.exists():
+            raise FileNotFoundError(f"split-map not found: {split_map_path}")
+        split_map = json.loads(split_map_path.read_text())
+        before = len(eligible)
+        eligible = [
+            s for s in eligible
+            if split_map.get(f"{dataset_tag}|{s}", "eval") == "eval"
+        ]
+        print(f"[sweep-adapter] split-map filtered eligible: {before} → {len(eligible)} (eval-only)")
+
     if args.max_sweep_sids:
         eligible = eligible[:args.max_sweep_sids]
     print(f"[sweep-adapter] {dataset_tag}: {len(eligible)} sids")

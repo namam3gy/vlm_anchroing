@@ -118,36 +118,43 @@ echo "[S2 ALL DONE] $(date)" | tee -a "$PROGRESS"
 # S3 DPO Tally-only with case_by_case rejected
 # ---------------------------------------------------------------------------
 echo "" | tee -a "$PROGRESS"
-echo "=== S3 DPO Tally-only case_by_case ===" | tee -a "$PROGRESS"
+echo "=== S3 DPO mix_synthetic (Tally+ChartQA+VQA, image-id split) ===" | tee -a "$PROGRESS"
+
+DPO_TAG="v2_mix_synthetic"
+SPLIT_MAP="outputs/e6_dpo/$MODEL/split_map_${DPO_TAG}.json"
 
 echo "[S3a build-pairs] $(date)" | tee -a "$PROGRESS"
 uv run python scripts/e6_dpo_lora.py \
     --phase build-pairs --model "$MODEL" \
-    --calib-tags tally \
-    --rejected-mode case_by_case \
-    --out-tag "v2_tally_only" \
-    --max-pairs 5000 \
+    --calib-tags tally,chartqa,vqa \
+    --rejected-mode mix_synthetic \
+    --train-frac 0.7 \
+    --synth-ratios "tally:1,chartqa:5,vqa:5" \
+    --out-tag "$DPO_TAG" \
+    --max-pairs 50000 \
     >> "$LOG" 2>&1
 echo "[S3a done] $(date)" | tee -a "$PROGRESS"
 
 echo "[S3b train-dpo] $(date)" | tee -a "$PROGRESS"
 uv run python scripts/e6_dpo_lora.py \
     --phase train-dpo --model "$MODEL" --hf-model "$HF_MODEL" \
-    --calib-tags tally --out-tag "v2_tally_only" \
-    --adapter-dir "outputs/e6_dpo/$MODEL/adapter_v2_tally_only" \
+    --calib-tags tally,chartqa,vqa --out-tag "$DPO_TAG" \
+    --adapter-dir "outputs/e6_dpo/$MODEL/adapter_${DPO_TAG}" \
     >> "$LOG" 2>&1
 echo "[S3b done] $(date)" | tee -a "$PROGRESS"
 
+# S3c: sweep on eval-split sids only (no train/test leakage)
 for d in tally chartqa; do
   preds_var="${d^^}_PREDS_E5E"
-  echo "[S3c sweep-adapter $d] $(date)" | tee -a "$PROGRESS"
+  echo "[S3c sweep-adapter $d eval-split-only] $(date)" | tee -a "$PROGRESS"
   uv run python scripts/e6_dpo_lora.py \
       --phase sweep-adapter --model "$MODEL" --hf-model "$HF_MODEL" \
       --predictions-path "${!preds_var}" \
       --dataset-tag "$d" \
       --max-sweep-sids "$N_SWEEP" \
-      --adapter-dir "outputs/e6_dpo/$MODEL/adapter_v2_tally_only" \
-      --calib-tags tally \
+      --adapter-dir "outputs/e6_dpo/$MODEL/adapter_${DPO_TAG}" \
+      --split-map "$SPLIT_MAP" \
+      --calib-tags tally,chartqa,vqa \
       --config "configs/experiment_e5e_${d}qa_full.yaml" \
       >> "$LOG" 2>&1 || echo "[S3c $d FAILED]" | tee -a "$PROGRESS"
   echo "[S3c $d done] $(date)" | tee -a "$PROGRESS"
