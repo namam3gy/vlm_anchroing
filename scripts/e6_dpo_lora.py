@@ -84,6 +84,15 @@ def _parse_args() -> argparse.Namespace:
     ap.add_argument("--adapter-dir", default=None,
                     help="Path to LoRA adapter (default: outputs/e6_dpo/<model>/adapter)")
     ap.add_argument("--calib-tags", default="vqa,tally,chartqa")
+    ap.add_argument("--rejected-mode", default="anchor",
+                    choices=("anchor", "case_by_case"),
+                    help="anchor: rejected=anchor_value (v1, current). "
+                         "case_by_case: rejected=anchor if pred==anchor; "
+                         "rejected=pred_a if df_moved=True AND pred!=anchor; "
+                         "skip if pred==gt or random-wrong (low signal).")
+    ap.add_argument("--out-tag", default=None,
+                    help="Suffix for the pairs.jsonl + adapter dir "
+                         "(e.g. 'v2' → pairs_v2.jsonl).")
     ap.add_argument("--seed", type=int, default=42)
     return ap.parse_args()
 
@@ -141,10 +150,15 @@ def _phase_build_pairs(args) -> None:
 
     out_dir = _dpo_dir(args.model)
     out_dir.mkdir(parents=True, exist_ok=True)
-    pairs_path = out_dir / "pairs.jsonl"
+    suffix = f"_{args.out_tag}" if args.out_tag else ""
+    pairs_path = out_dir / f"pairs{suffix}.jsonl"
 
     calib_tags = [t.strip() for t in args.calib_tags.split(",") if t.strip()]
     all_pairs: list[dict] = []
+    n_skipped_pred_eq_gt = 0
+    n_skipped_no_signal = 0
+    n_anchor_rejected = 0
+    n_pred_rejected = 0
 
     for tag in calib_tags:
         pred_rel = _PRED_PATHS.get(tag)
@@ -160,6 +174,7 @@ def _phase_build_pairs(args) -> None:
         n_tag = 0
         for sid, conds in by_sid.items():
             a = conds.get("target_plus_irrelevant_number_S1")
+            b = conds.get("target_only")
             if not a:
                 continue
             anchor = a.get("anchor_value")
@@ -170,24 +185,63 @@ def _phase_build_pairs(args) -> None:
                 continue  # trivial pair — anchor matches gt
             paths = a.get("input_image_paths") or []
             if len(paths) < 2:
-                continue  # need target + anchor images
-
+                continue
             question = a.get("question", "")
             if not question:
                 continue
+
+            if args.rejected_mode == "anchor":
+                rejected = str(anchor)
+            else:  # case_by_case
+                pa = a.get("parsed_number")
+                pb = (b.get("parsed_number") if b else None)
+                # Need anchor / pred_a as numerics
+                try:
+                    a_num = float(anchor)
+                    pa_num = float(pa) if pa is not None else None
+                    pb_num = float(pb) if pb is not None else None
+                    gt_num = float(gt)
+                except (TypeError, ValueError):
+                    continue
+                if pa_num is None:
+                    continue
+                # Skip already-correct samples (no learning signal)
+                if pa_num == gt_num:
+                    n_skipped_pred_eq_gt += 1
+                    continue
+                # Direct anchor adoption
+                if pa_num == a_num:
+                    rejected = str(int(a_num)) if a_num.is_integer() else str(a_num)
+                    n_anchor_rejected += 1
+                # df_moved (pred drifted toward anchor) → rejected = pred_a
+                elif (pb_num is not None
+                      and (pa_num - pb_num) * (a_num - pb_num) > 0
+                      and pa_num != pb_num):
+                    rejected = str(int(pa_num)) if pa_num.is_integer() else str(pa_num)
+                    n_pred_rejected += 1
+                else:
+                    n_skipped_no_signal += 1
+                    continue
 
             all_pairs.append({
                 "dataset": tag,
                 "sample_instance_id": sid,
                 "question": question,
-                "image_paths": paths[:2],   # [target, anchor]
+                "image_paths": paths[:2],
                 "chosen": str(gt),
-                "rejected": str(anchor),
+                "rejected": rejected,
                 "ground_truth": str(gt),
                 "anchor_value": str(anchor),
             })
             n_tag += 1
         print(f"  {tag}: {n_tag} pairs extracted from {len(by_sid)} sids")
+
+    if args.rejected_mode == "case_by_case":
+        print(f"\n  [case_by_case stats]")
+        print(f"    pred==gt skipped (already correct):  {n_skipped_pred_eq_gt}")
+        print(f"    rejected=anchor (direct adoption):   {n_anchor_rejected}")
+        print(f"    rejected=pred_a (df_moved):          {n_pred_rejected}")
+        print(f"    skipped (no signal/random wrong):    {n_skipped_no_signal}")
 
     if not all_pairs:
         raise RuntimeError("No DPO pairs found. Check predictions paths.")
