@@ -171,6 +171,44 @@ records = ~6 h Tally + ~5 h ChartQA = ~11 h.
 
 S3 DPO: unchanged (whole-model LoRA, no layer dependence).
 
+## Known risk: DPO gt-distribution bias contamination
+
+**Concern surfaced 2026-05-01.** TallyQA gt distribution is heavily skewed
+to single digits (96.1 % gt ∈ [0,4], max gt = 8, mean 1.6). ChartQA gt
+distribution is much wider (max 991, mean 107.8, 78.2 % of ChartQA samples
+have gt > Tally's max of 8).
+
+If DPO trained on Tally-only synthetic-anchor pairs uses `chosen = str(gt)`
+for gt ∈ [0,8] only, the model may learn an implicit "small numbers are
+preferred answers" bias. On ChartQA evaluation where the correct answer is
+often a 2-3 digit number (e.g. gt=234), this distributional bias would
+catastrophically degrade ChartQA accuracy — *not* because of anchor pull
+but because the model has been trained to suppress large-number answers.
+
+**Predicted DPO Tally-only cross-dataset failure mode (two causes):**
+1. Anchor-direction mismatch (verified by LEACE/Subspace): cos(v_tally, v_chartqa) ≈ 0.5
+2. gt-distribution mismatch (THIS concern): chosen tokens differ in scale by ~70×
+
+The two causes are *independently* sufficient to break cross-dataset transfer.
+This means DPO failure on ChartQA cannot be cleanly attributed to anchor
+direction alone — interpret with care for §7.4.5.
+
+**Why activation-space methods (LEACE, Subspace) are less affected:**
+they project residual streams, not output token distributions. LEACE Tally-only
+results on ChartQA show em remains invariant (±1pp) — confirms no
+distribution bias contamination at activation-space level. DPO operates at
+weight-space and directly biases token preferences, hence highly susceptible.
+
+**Mitigations considered (not adopted to preserve Tally-only protocol):**
+- Train on Tally + ChartQA mix → contradicts the Tally-only test
+- Synthesize wider gt distribution via fake samples → not faithful to actual data
+- Train per-dataset and evaluate per-dataset → defeats cross-dataset claim
+
+**Decision: proceed with Tally-only DPO and explicitly note this caveat
+in the paper's §7.4.5 DPO subsection.** The cross-dataset failure remains
+informative as long as we attribute it correctly (direction + distribution,
+both contribute).
+
 ## Current pipeline status (v2)
 
 ## Selection-criterion comparison (n=100, prior runs)
