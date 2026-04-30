@@ -706,7 +706,7 @@ Artifact: `outputs/e6_steering/llava-next-interleaved-7b/sweep_leace_{tally,char
 
 ## Method 4a — CogBias Decode-Step Correction (arXiv:2604.01366)
 
-**Status (2026-04-30): ⚠ STATISTICALLY INCONCLUSIVE — 1 cell nominally passes n=100 screen, but effect size < 1 SE; full-set validation recommended before verdict**
+**Status (2026-04-30): ❌ FAILED — full-set validation (Tally n=500, ChartQA n=416) confirms no cross-dataset overlap; ChartQA L31 falls below −5% threshold at proper sample size**
 
 ### Methodology
 
@@ -736,31 +736,41 @@ degree of freedom is alpha_prefill and L only.
 
 | Dataset | n | best cell | df baseline | steered df | Δ% rel | em Δpp | n pass / 60 |
 |---|---:|---|---:|---:|---:|---:|---|
-| TallyQA subset (n=100) | 100 | L31_ap0.5_any | 0.1400 (14/100) | 0.1300 (13/100) | **−7.1%** | −1.0pp ✅ | **8/60** |
-| ChartQA subset (n=100) | 99 | L30_ap0.5_ad0.5 | 0.2424 (24/99) | 0.2020 (20/99) | **−16.7%** | −1.0pp ✅ | **14/60** |
-| Cross-dataset (≥2/3) | — | L31_ap0.5_ad0.5 | — | — | T:−7.1% C:−8.3% | T:−1pp C:0pp | **⚠ 1 cell** |
-| VQAv2 (gated) | ✗ pending | — | — | — | — | — | pending full-set first |
+| TallyQA screen (n=100) | 100 | L31_ap0.5_any | 0.1400 (14/100)† | 0.1300 (13/100) | **−7.1%** | −1.0pp ✅ | **8/60** |
+| ChartQA screen (n=100) | 99 | L30_ap0.5_ad0.5 | 0.2424 (24/99) | 0.2020 (20/99) | **−16.7%** | −1.0pp ✅ | **14/60** |
+| Cross-dataset screen (≥2/3) | — | L31_ap0.5_ad0.5 | — | — | T:−7.1% C:−8.3% | T:−1pp C:0pp | **⚠ 1 cell (noise)** |
+| **TallyQA full-set (n=500)** | **500** | L31_ap0.5_ad0.5 | **0.1285** (64/498) | **0.1205** (60/498) | **−6.2%** | −0.2pp ✅ | **1/1 ✅** |
+| **ChartQA full-set (n=416)** | **416** | L31_ap0.5_ad0.5 | **0.2260** (92/407) | **0.2162** (88/407) | **−4.3%** ❌ | 0.0pp | **0/1 ❌** |
+| Cross-dataset full-set (≥2/3) | — | — | — | — | — | — | **❌ 0 overlap** |
+
+†n=100 Tally baseline inflated by selection bias (first 100 sids are more anchor-susceptible than full population). True baseline at n=500: 12.85% vs apparent 14.0%.
 
 **ChartQA top passing cells** (14 of 60): L20_ap0.5 (3 cells, −8.3%), L25_ap1.0 (2 cells),
 L28_ap1.0_ad1.0, L30_ap0.5 (4 cells, best −16.7%), L30_ap1.0 (2 cells), L30_ap2.0_ad0.5, L31_ap0.5_ad0.5.
 
-### Cross-dataset verdict — ⚠ INCONCLUSIVE (effect at noise floor)
+### Cross-dataset verdict — ❌ FAILED
 
-**One cell nominally passes both datasets:** L31_ap0.5_ad0.5 (Tally −7.1%, ChartQA −8.3%).
-However, the absolute df changes are:
-- Tally: 14→13 out of 100 samples (1-sample difference = 0.29 SE)
-- ChartQA: 24→22 out of 99 samples (2-sample difference = 0.47 SE)
+**Full-set validation (Tally n=500, ChartQA n=416) confirms no cross-dataset overlap.**
 
-These are **well within 1 standard error** and cannot be distinguished from sampling noise at n=100.
-SE(df_baseline) ≈ 3.5pp (Tally) and 4.3pp (ChartQA); the observed changes (1.0pp and 2.0pp) are
-both less than half the standard error.
+The nominal n=100 1-cell overlap (L31_ap0.5_ad0.5) was sampling noise:
+- Tally n=100: 14→13 (1 sample, 0.29 SE) — inflated baseline due to selection bias
+- ChartQA n=100: 24→22 (2 samples, 0.47 SE)
 
-**The n=100 screen was designed to detect large effects (≥10pp absolute); for these modest
-effects it is underpowered.** Full-set validation (n=346 Tally / n=416 ChartQA) is required
-for a reliable verdict. The decode-step correction shows no additional benefit over prefill-only
-at this scale — alpha_decode has no measurable effect.
+At proper sample sizes:
+- **Tally n=500**: L31_ap0.5_ad0.5 achieves −6.2% (60/498 vs 64/498), Z=0.38 SE — below significance
+- **ChartQA n=416**: L31_ap0.5_ad0.5 achieves only −4.3% (88/407 vs 92/407) — below the −5% threshold
 
-Artifacts: `outputs/e6_steering/llava-next-interleaved-7b/sweep_cogbias_{tally,chartqa}_pooled/_analysis/cell_summary.csv`
+**Selection bias in n=100 Tally screen:** The first 100 wrong-base sids (sorted by sid) are
+more anchor-susceptible than the full population (baseline 14.0% vs true 12.85%). This inflated
+both the apparent baseline and the apparent effect at n=100.
+
+**Root cause (same as all prior methods):** The anchoring direction `v_general` differs between
+TallyQA and ChartQA (cos similarity 0.47–0.62 at mid-to-late layers). Adding decode-step
+correction on top of prefill does not resolve this fundamental cross-dataset misalignment.
+
+Artifacts:
+- `outputs/e6_steering/llava-next-interleaved-7b/sweep_cogbias_{tally,chartqa}_pooled/_analysis/cell_summary.csv` (n=100 screens)
+- `outputs/e6_steering/llava-next-interleaved-7b/sweep_cogbias_{tally,chartqa}_fullset_pooled/_analysis/cell_summary.csv` (n=500/416 validation)
 
 ---
 
