@@ -593,7 +593,7 @@ Datasets occupy distinct regions in residual space at all key layers. This motiv
 
 ## Method 2 — Query-Adaptive Offset (AFTER QAO)
 
-**Status (2026-04-30): ⏳ IN FLIGHT — calibrate-qao + train-probe + sweep running on GPU**
+**Status (2026-04-30): ❌ FAILED — full-set validation confirms no cross-dataset overlap**
 
 ### Methodology
 
@@ -625,22 +625,128 @@ AMBER; adapted here for cross-dataset numerical anchoring.
 | TallyQA subset (n=100) | 100 | Lq25_Lt28_a1.0 | 0.0800 (8/100) | 0.0600 | −25.0% | 0.0800 (0.00pp) | 15/48 |
 | ChartQA subset (n=100) | 100 | Lq25_Lt28_a1.0 | 0.2222 (22/99) | 0.1939 | −12.8% | 0.0505 (−1.01pp) | 15/48 |
 | Cross-dataset overlap (n=100) | — | — | — | — | — | — | **⚠ 4/48 overlap — tentative pass** |
-| TallyQA full (n=346) | — | pending | — | — | — | — | pending (fullval running) |
-| ChartQA full (n=416) | — | pending | — | — | — | — | pending (fullval running) |
-| VQAv2 (gated after full-set) | ✗ | — | — | — | — | — | not yet |
+| TallyQA subset (n=100) | 100 | Lq25_Lt28_a1.0 | 0.0800 | 0.0600 | −25.0% | 0.0800 (+0.00pp) | 15/48 |
+| ChartQA subset (n=100) | 100 | Lq25_Lt28_a1.0 | 0.2222 | 0.1939 | −12.8% | 0.0505 (−1.01pp) | 15/48 |
+| Cross-dataset (n=100) | — | — | — | — | — | — | ⚠ 4/48 tentative overlap |
+| **TallyQA full (n=346)** | **346** | **Lq30_Lt28_a0.5** | **0.1503** | **0.1358** | **−9.6%** | **0.1503 (+0.29pp)** | **1/4 pass** |
+| **ChartQA full (n=416)** | **416** | Lq25_Lt31_a2.0 | 0.2260 | 0.2167 | −4.1% | 0.0511 (−0.01pp) | **0/4 pass** |
+| Cross-dataset full | — | — | — | — | — | — | **❌ 0/4 overlap** |
+| VQAv2 (gated) | ✗ | — | — | — | — | — | blocked by full-set fail |
 
-**n=100 result note:** 4 cells pass cross-dataset by the selection rule. However the raw counts
-are small (Tally: 8→6 cases; ChartQA: 22→19 cases), placing the observed reductions within
-1 SE of noise. Full-set validation (n=346/416) running to confirm.
+**Full-set verdict (2026-04-30):** The n=100 tentative overlap evaporated at full scale.
+Tally full has 1 passing cell (Lq30_Lt28_a0.5, Δ=−9.6%), but that same cell shows Δ=+0.2%
+on ChartQA full (i.e., worsens). Best ChartQA reduction is −4.1% (Lq25_Lt31_a2.0), below the
+−5% rel threshold. No cell satisfies the cross-dataset constraint on ≥ 2 of 3 datasets.
 
-**4 tentatively passing cells:**
+**Method 2 verdict: ❌ FAILED cross-dataset selection rule.** The per-input probe successfully
+improves Tally in isolation but the correction direction conflicts with ChartQA. This is
+the same cross-dataset distribution mismatch that killed Methods 0–1 — the probe learns
+a query-adaptive direction that overfits to the Tally query distribution and mis-fires on
+ChartQA queries. → Escalate to Methods 4c (LEACE), 4a (CogBias), 3 (DPO LoRA).
 
-| cell | T df Δ% | T em pp | C df Δ% | C em pp |
-|---|---:|---:|---:|---:|
-| Lq25_Lt28_a1.0 | −25.0% | +0.00pp | −12.8% | −1.01pp |
-| Lq25_Lt31_a2.0 | −25.0% | +0.00pp | −7.2% | −1.01pp |
-| Lq30_Lt28_a0.5 | −12.5% | +0.00pp | −8.2% | −0.00pp |
-| Lq31_Lt31_a2.0 | −12.5% | −1.00pp | −8.2% | −1.01pp |
+Pipeline timing: calibrate-qao ×3 datasets ~3 min each; train-probe 11s;
+sweep n=100 Tally+ChartQA 34.9 min each; full-set n=346 Tally 18 min;
+full-set n=416 ChartQA 17 min.
 
-Pipeline timing: calibrate-qao (VQA+Tally+ChartQA) ~3 min each; train-probe (N=1145, PCA-100,
-Ridge λ=1e3) 11s; sweep n=100 Tally 34.9 min; sweep n=100 ChartQA 34.9 min.
+---
+
+## Method 4c — LEACE Closed-Form Linear Erasure (arXiv:2306.03819)
+
+**Status (2026-04-30): ⏳ IN FLIGHT**
+
+### Methodology
+
+LEACE (Least-squares Concept Erasure) fits a minimal-norm orthogonal projection P per
+decoder layer that removes the subspace predictive of "anchor-present" condition.
+At inference: `h ← h − α · (h − h @ P)` where α=1 is full erasure, α∈(0,1) partial.
+
+**Calibration:**
+- Class 0 (no anchor): Q_wrong[:N, L] (b-arm reprs, pooled: VQA+Tally+ChartQA, N=1145)
+- Class 1 (with anchor): Q_wrong[:N, L] + D_wrong[:N, L] (approx a-arm = b-arm + diff)
+- Fit `LeaceEraser.fit(X, Y)` per layer → save P_stack [32, 4096, 4096]
+- Calibration: CPU-only, 128.5s
+
+**Sweep grid:** L ∈ {20,25,28,30,31} × α ∈ {0.3,0.5,1.0,2.0} = 20 steered + 1 baseline
+
+**Source paper:** Belrose et al. 2023 (arXiv:2306.03819).
+
+**Implementation:** `scripts/e6_leace.py` (phases: calibrate-leace, smoke-leace, sweep-leace);
+`scripts/analyze_e6_methods.py`
+
+**Concept norm by layer (indicator of anchor direction strength):**
+L=0: 0.0144 | L=8: 0.0867 | L=16: 0.9606 | L=24: 1.5773 (peak around L24–L31)
+
+### Per-dataset result tracker
+
+| Dataset | n | best cell | df baseline | steered df | Δ% rel | em_a | pass? |
+|---|---:|---|---:|---:|---:|---:|---|
+| TallyQA subset (n=100) | — | pending | — | — | — | — | pending |
+| ChartQA subset (n=100) | — | pending | — | — | — | — | pending |
+| Cross-dataset (≥2/3) | — | — | — | — | — | — | pending |
+
+---
+
+## Method 4a — CogBias Decode-Step Correction (arXiv:2604.01366)
+
+**Status (2026-04-30): ⏳ IN FLIGHT**
+
+### Methodology
+
+CogBias (arXiv:2604.01366) applies activation steering with **dynamic alpha scheduling**:
+correction fires at BOTH prefill last token AND each decode-step token, not just prefill.
+This is the key difference from Methods 0–2 (prefill-only correction).
+
+- Prefill: `h[:, -1, :] -= alpha_prefill * v_general[L]`
+- Decode:  `h[:, 0, :] -= alpha_decode * v_general[L]`
+- v_general = mean(v_wrong) pooled across VQA + TallyQA + ChartQA
+
+**Rationale:** Anchoring bias may manifest during answer generation (decode steps),
+not only during context encoding (prefill). CogBias-style two-phase correction captures both.
+
+**Sweep grid:** L ∈ {20,25,28,30,31} × alpha_prefill ∈ {0.5,1.0,2.0} ×
+alpha_decode ∈ {0.0,0.5,1.0,2.0} = 60 steered + 1 baseline = 61 cells.
+Note: alpha_decode=0 cells are equivalent to Method 0 (prefill-only).
+
+**Implementation:** `scripts/e6_cogbias.py` (phases: smoke-cogbias, sweep-cogbias);
+`scripts/analyze_e6_methods.py`
+
+### Per-dataset result tracker
+
+| Dataset | n | best cell | df baseline | steered df | Δ% rel | em_a | pass? |
+|---|---:|---|---:|---:|---:|---:|---|
+| TallyQA subset (n=100) | — | pending | — | — | — | — | pending |
+| ChartQA subset (n=100) | — | pending | — | — | — | — | pending |
+| Cross-dataset (≥2/3) | — | — | — | — | — | — | pending |
+
+---
+
+## Method 3 — MIA-DPO LoRA Fine-Tuning (arXiv:2410.17637)
+
+**Status (2026-04-30): ⏳ IN FLIGHT (build-pairs done; training pending)**
+
+### Methodology
+
+Preference pairs built from E5* predictions:
+- Prompt: [target_image + anchor_image] + question (a-arm condition)
+- Chosen: str(ground_truth) — correct numeric answer
+- Rejected: str(anchor_value) — the irrelevant distractor number
+
+Fine-tune llava-next-interleaved-7b with LoRA (rank=256, α=256) using TRL DPOTrainer.
+Trains the model to prefer correct counts/values over anchor-biased distractor numbers.
+
+**Training data:**
+- TallyQA: 33164 pairs; ChartQA: 509 pairs; VQAv2: 653 pairs → total 34326
+- Subsampled to max 5000 for training efficiency
+
+**Implementation:** `scripts/e6_dpo_lora.py` (phases: build-pairs, train-dpo, sweep-adapter);
+`scripts/analyze_e6_methods.py`
+
+**Note:** Weakens "train-free" claim to "lightweight LoRA-adapter deployable mitigation".
+
+### Per-dataset result tracker
+
+| Dataset | n | df baseline | steered df | Δ% rel | em_a | pass? |
+|---|---:|---:|---:|---:|---:|---|
+| TallyQA subset (n=100) | — | pending | — | — | — | pending |
+| ChartQA subset (n=100) | — | pending | — | — | — | pending |
+| Cross-dataset (≥2/3) | — | — | — | — | — | pending |
