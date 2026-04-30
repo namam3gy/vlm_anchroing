@@ -245,7 +245,7 @@ def _phase_train_dpo(args) -> None:
     user_template = config["prompt"]["user_template"].strip()
 
     def _make_user_text(question: str) -> str:
-        return user_template.format(question=question)
+        return user_template.replace("{question}", question)
 
     def _build_example(pair: dict) -> dict | None:
         try:
@@ -398,7 +398,7 @@ def _phase_sweep_adapter(args) -> None:
     from vlm_anchor.utils import extract_first_number
 
     def _generate(question: str, images: list) -> dict:
-        user_text = user_template.format(question=question)
+        user_text = user_template.replace("{question}", question)
         messages = [{"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_text}]
         prompt_text = processor.apply_chat_template(
