@@ -46,16 +46,36 @@ them as suspicious; the new rule treats them correctly.
 
 | Stage | Description | ETA | Status |
 |---|---|---|---|
-| **S0a** | calibrate-subspace TallyQA E5e N=5000 → D_wrong | ~30 min | 🟢 in flight (started 21:37) |
-| **S0b** | calibrate-qao TallyQA E5e N=5000 → Q_wrong | ~30 min | ⏳ queued |
-| **S1a** | LEACE calibrate-leace Tally-only (CPU) | ~3 min | ⏳ queued |
-| **S1b** | LEACE sweep TallyQA n=500 (20 cells × 4 conds × 500) | ~150 min | ⏳ queued |
-| **S1c** | LEACE sweep ChartQA n=500 (same grid) | ~150 min | ⏳ queued |
+| **S0a** | calibrate-subspace TallyQA E5e N=5000 → D_wrong | 22 min actual | ✅ done 21:59 |
+| **S0b** | calibrate-qao TallyQA E5e N=5000 → Q_wrong | **6 min actual** | ✅ done 22:09 |
+| **S0.5** | pick top-5 peak layers from ‖v_wrong[L]‖ | <1 sec actual | ✅ done 22:09 — **L 27,28,29,30,31** |
+| **S1a** | LEACE calibrate-leace Tally-only (CPU) | 2 min actual | ✅ done 22:11 |
+| **S1b** | LEACE sweep TallyQA n=500 with peak layers (20 cells × 4 conds × 500) | ~95 min | 🟢 in flight (started 22:11) |
+| **S1c** | LEACE sweep ChartQA n=500 (same grid) | ~120 min | ⏳ queued |
 | **S1d** | analyze (one-sided + two-sided) | <1 min | ⏳ queued |
 | **S2a** | Method 1 Subspace compute SVD Tally-only | <1 min | ⏳ queued (post S1) |
 | **S2b** | Method 1 sweep Tally n=500 | ~6 h | ⏳ queued (post S1) |
 | **S2c** | Method 1 sweep ChartQA n=500 | ~5 h | ⏳ queued (post S1) |
-| **S3** | Method 3 DPO with `rejected = pred_a if df_moved else anchor` | ~5 h | ⏳ queued (post S2) |
+| **S3** | Method 3 DPO with case_by_case rejected (Tally-only) | ~3 h | ⏳ queued (post S2) |
+
+## Peak-layer selection result (S0.5)
+
+Top-5 layers by ‖v_wrong[L]‖ from N=5000 Tally calibration: **L 27, 28, 29, 30, 31** (all post-mid-stack, peaked at L=30 with norm 6.98).
+
+Per-layer norms (★ = top-5 selected):
+
+```
+L00   0.029       L08   0.271       L16   1.703       L24   3.414
+L01   0.037       L09   0.345       L17   1.759       L25   3.814
+L02   0.061       L10   0.380       L18   2.134       L26   3.945
+L03   0.073       L11   0.638       L19   2.593       L27 ★ 4.271
+L04   0.086       L12   0.733       L20   2.755       L28 ★ 4.588
+L05   0.099       L13   1.055       L21   2.911       L29 ★ 5.226
+L06   0.197       L14   1.250       L22   3.096       L30 ★ 6.984
+L07   0.220       L15   1.486       L23   3.199       L31 ★ 5.390
+```
+
+Notable: **L=16 (norm 1.70) and L=22 (norm 3.10) — both included in the legacy default grid `[16, 22, 28, 30, 31]` — fall well below the top-5 cluster.** Default's mid-stack inclusion (L=16) was anchored to E1b CLIP-ViT attention peak, not the residual-stream calibration. Tally-only N=5000 says the residual-stream signal is concentrated late-stack.
 
 **Total budget: ~22h overnight on GPU 1.**
 
