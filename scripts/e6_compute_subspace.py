@@ -36,8 +36,11 @@ def _parse_args():
                     help="'pooled' (cats all tags) or a single tag like 'vqa'/'tally'/'chartqa'.")
     ap.add_argument("--K-max", type=int, default=16,
                     help="Number of singular vectors to retain per layer.")
-    ap.add_argument("--tags", default="vqa,tally,chartqa",
-                    help="Comma-separated tags to include when scope='pooled'.")
+    ap.add_argument("--tags", default=None,
+                    help="Comma-separated calibration tags. Multi-entry → pool. "
+                         "Single-entry → load that one tag's D_wrong.pt. "
+                         "Omit to default to: scope=='pooled' → vqa,tally,chartqa "
+                         "(legacy); else → [scope].")
     return ap.parse_args()
 
 
@@ -56,16 +59,22 @@ def main():
     args = _parse_args()
     base = PROJECT_ROOT / "outputs" / "e6_steering" / args.model
 
-    if args.scope == "pooled":
+    if args.tags is not None:
         tags = [t.strip() for t in args.tags.split(",") if t.strip()]
+    elif args.scope == "pooled":
+        tags = ["vqa", "tally", "chartqa"]
+    else:
+        tags = [args.scope]
+    pool_mode = len(tags) > 1
+    if pool_mode:
         Ds = [d for t in tags if (d := _load_D_wrong(args.model, t)) is not None]
         if not Ds:
-            raise RuntimeError("no D_wrong.pt found for pooled scope")
+            raise RuntimeError(f"no D_wrong.pt found for tags={tags}")
         D = torch.cat(Ds, dim=0)
     else:
-        D = _load_D_wrong(args.model, args.scope)
+        D = _load_D_wrong(args.model, tags[0])
         if D is None:
-            raise RuntimeError(f"D_wrong.pt not found for scope '{args.scope}'")
+            raise RuntimeError(f"D_wrong.pt not found for tag '{tags[0]}'")
 
     n_total, n_layers, d_model = D.shape
     K = min(args.K_max, n_total - 1, d_model)

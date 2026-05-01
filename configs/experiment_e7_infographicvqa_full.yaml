@@ -4,7 +4,6 @@ output_root: outputs
 vqa_dataset:
   local_path: inputs/infographicvqa_val
   answer_range: 10000
-  samples_per_answer: 5
   max_samples: 1147
   require_single_numeric_gt: true
 
