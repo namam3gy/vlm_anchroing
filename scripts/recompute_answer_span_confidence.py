@@ -29,10 +29,13 @@ import json
 import math
 import re
 import shutil
+import sys
 from pathlib import Path
 from typing import Iterable
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(PROJECT_ROOT / "src"))
+from vlm_anchor.utils import extract_first_number  # noqa: E402
 EPS = 1e-12
 
 NEW_FIELDS = (
@@ -71,22 +74,46 @@ def find_answer_span(token_info: list[dict], prediction) -> tuple[int, int] | No
 
     O(n²) but n ≤ max_new_tokens (≤ 16) so trivially cheap.
     """
-    target = _digits_only(prediction)
-    if not target or not token_info:
+    if not token_info:
         return None
 
+    # Strategy A: digit-based forward span match.
+    target_digits = _digits_only(prediction)
+    if target_digits:
+        n = len(token_info)
+        for start in range(n):
+            accum_text = ""
+            for end in range(start + 1, n + 1):
+                tok = token_info[end - 1]
+                accum_text += (tok.get("token_text") or "") if isinstance(tok, dict) else ""
+                accum_digits = _digits_only(accum_text)
+                if accum_digits == target_digits:
+                    return (start, end)
+                if not target_digits.startswith(accum_digits):
+                    break  # diverged
+
+    # Strategy B: word-number fallback. extract_first_number turns "two"→"2",
+    # so a token whose text decodes to the same parsed prediction is the span.
+    # Scan all single-token candidates and adjacent pairs ("twenty one" = "21").
+    target_str = str(prediction).strip() if prediction is not None else ""
+    if not target_str:
+        return None
     n = len(token_info)
-    for start in range(n):
-        accum_text = ""
-        for end in range(start + 1, n + 1):
-            tok = token_info[end - 1]
-            accum_text += (tok.get("token_text") or "") if isinstance(tok, dict) else ""
-            accum_digits = _digits_only(accum_text)
-            if accum_digits == target:
-                return (start, end)
-            if not target.startswith(accum_digits):
-                # Span diverged from target prefix; try a later start.
-                break
+    for i, tok in enumerate(token_info):
+        text = (tok.get("token_text") or "") if isinstance(tok, dict) else ""
+        if not text.strip():
+            continue
+        if extract_first_number(text) == target_str:
+            return (i, i + 1)
+    # Two-token combos for "twenty one" / "one hundred" style.
+    for i in range(n - 1):
+        a = (token_info[i].get("token_text") or "") if isinstance(token_info[i], dict) else ""
+        b = (token_info[i + 1].get("token_text") or "") if isinstance(token_info[i + 1], dict) else ""
+        if not a.strip() or not b.strip():
+            continue
+        joined = a + b
+        if extract_first_number(joined) == target_str:
+            return (i, i + 2)
     return None
 
 
@@ -220,13 +247,25 @@ def already_processed(path: Path) -> bool:
 
 
 def discover_predictions(root: Path) -> Iterable[Path]:
-    """Yield every predictions.jsonl under root that is not in an analysis or
-    legacy/archive subtree."""
-    skip_parts = {"analysis", "_subspace", "_logs"}
+    """Yield every predictions.jsonl under root that is not in an analysis,
+    legacy archive, or steering output subtree.
+
+    Skip rules:
+      - parts named 'analysis' / '_subspace' / '_logs'
+      - any part starting with '_legacy_' (archived runs preserved for
+        evidence; not part of any active analysis pipeline)
+      - parts starting with 'before_' (e.g. before_C_form pre-refactor backup)
+      - the e6_steering tree (calibration / sweep predictions are processed
+        by their own pipeline, not the behavioural confidence one)
+      - .pre_span_proxies.bak.jsonl backups
+    """
+    skip_parts = {"analysis", "_subspace", "_logs", "e6_steering"}
     for p in root.rglob("predictions.jsonl"):
-        if any(part in skip_parts for part in p.parts):
+        parts = p.parts
+        if any(part in skip_parts for part in parts):
             continue
-        # Skip existing backups
+        if any(part.startswith("_legacy_") or part.startswith("before_") for part in parts):
+            continue
         if p.name.endswith(".pre_span_proxies.bak.jsonl"):
             continue
         yield p
