@@ -29,7 +29,7 @@ under ``*_marginal`` / ``*_raw`` names for back-compat audit.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from statistics import mean
+from statistics import mean, median
 from typing import Iterable
 
 from vlm_anchor.utils import extract_first_number, normalize_numeric_text
@@ -191,7 +191,7 @@ def summarize_condition(records: list[dict], condition_name: str) -> dict:
         "anchor_adoption_rate_marginal": sum_adopt / n,
         "anchor_direction_follow_rate": (sum_df_moved / n_numeric_with_anchor) if n_numeric_with_anchor else None,
         "anchor_direction_follow_rate_raw": (sum_df_raw / n_numeric_with_anchor) if n_numeric_with_anchor else None,
-        "mean_distance_to_anchor": mean(
+        "median_distance_to_anchor": median(
             r["numeric_distance_to_anchor"] for r in subset if r["numeric_distance_to_anchor"] is not None
         ) if any(r["numeric_distance_to_anchor"] is not None for r in subset) else None,
     }
