@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from statistics import mean
+from statistics import mean, median
 from typing import Any
 
 import matplotlib.pyplot as plt
@@ -56,7 +56,7 @@ def _compute_model_analysis(records: list[dict]) -> dict[str, Any]:
             "mean_abs_error": mean(abs_errors) if abs_errors else None,
             "anchor_adoption_rate": mean(r["anchor_adopted"] for r in subset),
             "anchor_direction_follow_rate": mean(r["anchor_direction_followed"] for r in subset),
-            "mean_distance_to_anchor": mean(distances) if distances else None,
+            "median_distance_to_anchor": median(distances) if distances else None,
         }
 
     paired = _compute_paired_effects(records)
