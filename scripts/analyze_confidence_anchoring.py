@@ -133,39 +133,47 @@ def discover_inputs() -> list[InputSpec]:
     return specs
 
 
+# Proxy registry: (proxy_name, jsonl_field, direction)
+# direction = "higher_more_confident" → Q1 = top quartile by descending sort
+# direction = "lower_more_confident"  → Q1 = top quartile by ascending sort
+# Fields with prefix "answer_span_*" are written by
+# scripts/recompute_answer_span_confidence.py (post-hoc on token_info).
+# Run that script before this one for the multi-proxy view to populate.
+PROXIES: list[tuple[str, str, str]] = [
+    # length-normalised entropy / cross-entropy (paper-clean: monotonic, length-invariant)
+    ("cross_entropy",         "answer_span_cross_entropy",  "lower_more_confident"),
+    ("geo_mean_prob",         "answer_span_geo_mean_prob",  "higher_more_confident"),
+    ("log_prob_mean",         "answer_span_log_prob_mean",  "higher_more_confident"),
+    # alternate-formulation proxies
+    ("min_prob",              "answer_span_min_prob",       "higher_more_confident"),
+    ("min_logit",             "answer_span_min_logit",      "higher_more_confident"),
+    ("mean_logit",            "answer_span_mean_logit",     "higher_more_confident"),
+    ("first_token_prob",      "answer_span_first_prob",     "higher_more_confident"),
+    ("first_token_logit",     "answer_span_first_logit",    "higher_more_confident"),
+    # length-biased / peak@1/e legacy formulations (kept for back-compat / comparison)
+    ("entropy_top_k_legacy",  "answer_span_entropy_sum",    "lower_more_confident"),
+    ("entropy_per_token",     "answer_span_entropy_mean",   "lower_more_confident"),
+    ("log_prob_sum",          "answer_span_log_prob_sum",   "higher_more_confident"),
+    # pre-recompute fallback (single-token only — present in older predictions
+    # before recompute_answer_span_confidence.py was run)
+    ("softmax_top1_prob_legacy", "answer_token_probability", "higher_more_confident"),
+]
+PROXY_NAMES = tuple(p[0] for p in PROXIES)
+
+
 def confidence_proxies(row: dict) -> dict[str, float | None]:
-    """Compute the three confidence proxies on a target_only row.
+    """Read multi-proxy answer-span confidence values from a preprocessed row.
 
-    ``token_info`` is a list of ``{token_id, token_text, logit, probability}``
-    dicts, ordered by descending probability over the top-k. Falls back
-    gracefully when fields are missing.
+    Expects predictions.jsonl to have been processed by
+    `scripts/recompute_answer_span_confidence.py`. For records that
+    pre-date that processing, only `softmax_top1_prob_legacy` (from the
+    original `answer_token_probability` field) will be non-None.
     """
-    prob_top1 = row.get("answer_token_probability")
-    token_info = row.get("token_info") or []
-
-    top1 = top2 = None
-    probs = []
-    for entry in token_info:
-        l = entry.get("logit")
-        p = entry.get("probability")
-        if l is None or p is None:
-            continue
-        if top1 is None:
-            top1 = l
-        elif top2 is None:
-            top2 = l
-        probs.append(p)
-    margin = (top1 - top2) if (top1 is not None and top2 is not None) else None
-
-    entropy = None
-    if probs:
-        entropy = -sum(p * math.log(p + 1e-12) for p in probs if p > 0)
-
-    return {
-        "softmax_top1_prob": prob_top1,
-        "top1_minus_top2_margin": margin,
-        "entropy_top_k": entropy,
-    }
+    out: dict[str, float | None] = {}
+    for name, field, _direction in PROXIES:
+        v = row.get(field)
+        out[name] = float(v) if v is not None else None
+    return out
 
 
 def iter_paired_rows(spec: InputSpec) -> Iterator[dict]:
@@ -196,16 +204,13 @@ def iter_paired_rows(spec: InputSpec) -> Iterator[dict]:
         for (cls, stratum), x_row in conds.items():
             if cls in ("b", "d"):
                 continue
-            yield {
+            row = {
                 "experiment": spec.experiment,
                 "dataset": spec.dataset,
                 "model": spec.model,
                 "sample_instance_id": sid,
                 "cond_class": cls,
                 "stratum": stratum or "S0",
-                "softmax_top1_prob": proxies["softmax_top1_prob"],
-                "top1_minus_top2_margin": proxies["top1_minus_top2_margin"],
-                "entropy_top_k": proxies["entropy_top_k"],
                 "anchor_adopted": int(x_row.get("anchor_adopted") or 0),
                 "anchor_direction_followed_moved": int(x_row.get("anchor_direction_followed_moved") or 0),
                 "pred_b_equal_anchor": int(x_row.get("pred_b_equal_anchor") or 0),
@@ -216,6 +221,8 @@ def iter_paired_rows(spec: InputSpec) -> Iterator[dict]:
                 "prediction_x": x_row.get("prediction"),
                 "exact_match_b": int(b_row.get("exact_match") or 0),
             }
+            row.update({name: proxies[name] for name in PROXY_NAMES})
+            yield row
 
 
 def quartile_label(rank: int, n: int) -> str:
@@ -226,37 +233,36 @@ def quartile_label(rank: int, n: int) -> str:
     return f"Q{q + 1}"  # Q1..Q4 with Q1 = highest confidence
 
 
-PROXY_NAMES = ("softmax_top1_prob", "top1_minus_top2_margin", "entropy_top_k")
-
-
 def per_quartile_table(records: pd.DataFrame) -> pd.DataFrame:
     """Compute adopt and df rates per (cell, proxy, quartile).
 
     Cell = (experiment, dataset, model, cond_class, stratum). Quartiles
-    are assigned by the proxy's *descending* sort within each cell — Q1
-    is the most-confident quarter (`softmax_top1_prob` largest /
-    `top1_minus_top2_margin` largest / `entropy_top_k` smallest)."""
+    are assigned along each proxy's confidence direction within each
+    cell — Q1 is the most-confident quarter (so the proxy's `direction`
+    determines whether to sort ascending or descending).
+    """
     rows = []
     cell_keys = ["experiment", "dataset", "model", "cond_class", "stratum"]
+    proxy_directions = {name: direction for name, _field, direction in PROXIES}
 
     for cell, sub in records.groupby(cell_keys, dropna=False):
         for proxy in PROXY_NAMES:
-            if sub[proxy].isna().all():
+            if proxy not in sub.columns or sub[proxy].isna().all():
                 continue
-            ascending = (proxy == "entropy_top_k")  # entropy: smaller = more confident
+            direction = proxy_directions[proxy]
+            # Q1 = most confident quarter; sort to put most-confident first.
+            ascending = (direction == "lower_more_confident")
             sorted_sub = sub.sort_values(proxy, ascending=ascending, na_position="last").reset_index(drop=True)
-            n = sorted_sub[proxy].notna().sum()
+            n = int(sorted_sub[proxy].notna().sum())
             if n == 0:
                 continue
+            sorted_sub["_quartile"] = None
             for i in range(n):
-                rank = i
-                label = quartile_label(rank, n)
-                sorted_sub.loc[i, "_quartile"] = label
+                sorted_sub.loc[i, "_quartile"] = quartile_label(i, n)
             for q in ("Q1", "Q2", "Q3", "Q4"):
-                cell_q = sorted_sub[sorted_sub.get("_quartile") == q]
+                cell_q = sorted_sub[sorted_sub["_quartile"] == q]
                 if cell_q.empty:
                     continue
-                # Apply M2 denominator filters
                 pb_ne_a = cell_q[cell_q["pred_b_equal_anchor"] == 0]
                 num_anchor = cell_q[cell_q["numeric_distance_to_anchor"].notna()]
                 row = dict(zip(cell_keys, cell))
@@ -272,7 +278,6 @@ def per_quartile_table(records: pd.DataFrame) -> pd.DataFrame:
                     "exact_match_b_in_quartile": cell_q["exact_match_b"].mean(),
                 })
                 rows.append(row)
-            sorted_sub.drop(columns=["_quartile"], inplace=True, errors="ignore")
     return pd.DataFrame(rows)
 
 
@@ -322,10 +327,38 @@ def monotonicity_score(quartile_df: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
+def proxy_comparison_table(mono: pd.DataFrame) -> pd.DataFrame:
+    """Aggregate monotonicity statistics per proxy, anchor-arm only.
+
+    Used to choose the §6 primary proxy for the paper: highest mean
+    adopt/df Q4-Q1 gap + most cells fully-monotone (3/3).
+    """
+    rows = []
+    for proxy in PROXY_NAMES:
+        sub = mono[(mono["proxy"] == proxy) & (mono["cond_class"] == "a")]
+        n = len(sub)
+        if n == 0:
+            rows.append({"proxy": proxy, "n_cells": 0})
+            continue
+        rows.append({
+            "proxy": proxy,
+            "n_cells": n,
+            "mean_adopt_q4_minus_q1": float(sub["adopt_q4_minus_q1"].mean()),
+            "mean_df_q4_minus_q1": float(sub["df_q4_minus_q1"].mean()),
+            "adopt_fully_monotone_3of3": int((sub["adopt_increases"] == 3).sum()),
+            "df_fully_monotone_3of3": int((sub["df_increases"] == 3).sum()),
+            "adopt_at_least_2of3": int((sub["adopt_increases"] >= 2).sum()),
+            "df_at_least_2of3": int((sub["df_increases"] >= 2).sum()),
+        })
+    return pd.DataFrame(rows)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--out-dir", type=Path, default=DATA_DIR)
     parser.add_argument("--print-summary", action="store_true")
+    parser.add_argument("--primary-proxy", default="cross_entropy",
+                        help="Primary proxy used in --print-summary headline.")
     args = parser.parse_args()
     args.out_dir.mkdir(parents=True, exist_ok=True)
 
@@ -351,26 +384,39 @@ def main():
     mono = monotonicity_score(quartile_df)
     mono.to_csv(args.out_dir / "L1_proxy_monotonicity.csv", index=False)
 
+    proxy_cmp = proxy_comparison_table(mono)
+    proxy_cmp.to_csv(args.out_dir / "L1_proxy_comparison.csv", index=False)
+
     if args.print_summary:
         print()
-        print("=== Per-proxy monotonicity score (anchor-arm cells; Q4 most-uncertain) ===")
-        for proxy in PROXY_NAMES:
-            sub = mono[mono["proxy"] == proxy]
-            sub = sub[sub["cond_class"] == "a"]
-            n = len(sub)
+        print("=== Per-proxy monotonicity score (anchor-arm cells; Q4 = least confident) ===")
+        for _, r in proxy_cmp.sort_values("mean_df_q4_minus_q1", ascending=False).iterrows():
+            n = int(r.get("n_cells") or 0)
             if n == 0:
-                print(f"  {proxy:30s}: no anchor cells")
+                print(f"  {r['proxy']:28s}: no cells")
                 continue
-            mean_adopt_q4_q1 = sub["adopt_q4_minus_q1"].mean()
-            mean_df_q4_q1 = sub["df_q4_minus_q1"].mean()
-            adopt_3of3 = (sub["adopt_increases"] == 3).sum()
-            df_3of3 = (sub["df_increases"] == 3).sum()
-            print(f"  {proxy:30s}: n={n} cells | mean(adopt Q4-Q1)={mean_adopt_q4_q1:+.4f} ({adopt_3of3}/{n} fully monotone) | mean(df Q4-Q1)={mean_df_q4_q1:+.4f} ({df_3of3}/{n} fully monotone)")
+            print(f"  {r['proxy']:28s}: n={n:3d}  "
+                  f"adopt(Q4-Q1)={r['mean_adopt_q4_minus_q1']:+.4f}  "
+                  f"df(Q4-Q1)={r['mean_df_q4_minus_q1']:+.4f}  "
+                  f"adopt 3/3 monotone={int(r['adopt_fully_monotone_3of3'])}/{n}  "
+                  f"df 3/3 monotone={int(r['df_fully_monotone_3of3'])}/{n}")
+
+        primary = args.primary_proxy
         print()
-        print("=== Per-cell adopt q1 vs q4 on best proxy (top1_minus_top2_margin) ===")
-        sub = mono[(mono["proxy"] == "top1_minus_top2_margin") & (mono["cond_class"] == "a")]
+        print(f"=== Per-cell adopt Q1 vs Q4 on primary proxy ({primary}) ===")
+        sub = mono[(mono["proxy"] == primary) & (mono["cond_class"] == "a")]
         for _, r in sub.iterrows():
-            print(f"  {r['experiment']:42s}  {r['dataset']:8s}  {r['model']:30s}  {r['stratum']:3s}  adopt Q1={r['adopt_q1']:.4f} Q4={r['adopt_q4']:.4f} (Δ={r['adopt_q4_minus_q1']:+.4f})  df Q1={r['df_q1']:.4f} Q4={r['df_q4']:.4f} (Δ={r['df_q4_minus_q1']:+.4f})")
+            print(f"  {r['experiment']:42s}  {r['dataset']:14s}  {r['model']:30s}  "
+                  f"{r['stratum']:3s}  adopt Q1={_fmt(r['adopt_q1'])} Q4={_fmt(r['adopt_q4'])} (Δ={_fmt_signed(r['adopt_q4_minus_q1'])})  "
+                  f"df Q1={_fmt(r['df_q1'])} Q4={_fmt(r['df_q4'])} (Δ={_fmt_signed(r['df_q4_minus_q1'])})")
+
+
+def _fmt(v) -> str:
+    return "—" if v is None or pd.isna(v) else f"{v:.4f}"
+
+
+def _fmt_signed(v) -> str:
+    return "—" if v is None or pd.isna(v) else f"{v:+.4f}"
 
 
 if __name__ == "__main__":
