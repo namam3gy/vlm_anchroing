@@ -103,11 +103,13 @@ def discover_inputs() -> list[InputSpec]:
         if not root.is_dir():
             continue
         for model_dir in sorted(p for p in root.iterdir() if p.is_dir() and p.name != "analysis"):
+            # Pick largest run per (exp, model) — avoids pilot/smoke runs
+            # under outputs/<exp>/<model>/ shadowing the canonical full run.
+            candidates: list[tuple[int, Path, str]] = []
             for run_dir in sorted(p for p in model_dir.iterdir() if p.is_dir() and p.name != "analysis"):
                 jsonl = run_dir / "predictions.jsonl"
                 if not jsonl.is_file():
                     continue
-                # quick check: does the file have logit fields?
                 with jsonl.open() as f:
                     line = f.readline()
                 if not line:
@@ -118,8 +120,16 @@ def discover_inputs() -> list[InputSpec]:
                     continue
                 if "answer_token_logit" not in sample:
                     continue
-                specs.append(InputSpec(experiment=exp, dataset=ds, model=model_dir.name,
-                                       run=run_dir.name, path=jsonl))
+                # Count records to pick the canonical largest run.
+                with jsonl.open() as f:
+                    n_records = sum(1 for _ in f)
+                candidates.append((n_records, jsonl, run_dir.name))
+            if not candidates:
+                continue
+            candidates.sort()
+            n_records, jsonl, run_name = candidates[-1]
+            specs.append(InputSpec(experiment=exp, dataset=ds,
+                                   model=model_dir.name, run=run_name, path=jsonl))
     return specs
 
 
