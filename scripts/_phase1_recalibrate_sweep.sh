@@ -118,11 +118,13 @@ for ds in plotqa infographicvqa tallyqa chartqa mathvista; do
     note "skip sweep-subspace $ds (already exists)"
     continue
   fi
-  note "sweep-subspace $ds  preds=$preds (--max-samples 500)"
-  # Cap to 500 wrong-base sids per project.md §0.4.3 §7.4.5 row.
-  # Without cap, tally e5e (38k sids × 8 forward passes per sid) would
-  # take ~8h on llava alone. PlotQA/InfoVQA wrong-base pools (~2k/~1k)
-  # are also capped for consistency across the 5-dataset matrix.
+  note "sweep-subspace $ds  preds=$preds (--max-samples 5000)"
+  # Cap to 5000 wrong-base sids per the 2026-05-02 sweep-cap revision
+  # (was project.md §0.4.3 §7.4.5 "500 wrong-base"; raised to 5000 for
+  # better statistical power per evidence: wrong-base df is 3-5× stronger
+  # than correct-base, so concentrating sweep there preserves signal).
+  # Smaller datasets (ChartQA 416, MathVista 270 eligible-4cond wb) cap
+  # naturally below 5000.
   CUDA_VISIBLE_DEVICES=1 uv run python scripts/e6_steering_vector.py \
       --phase sweep-subspace \
       --model "$MODEL" --hf-model "$HF" \
@@ -132,7 +134,7 @@ for ds in plotqa infographicvqa tallyqa chartqa mathvista; do
       --subspace-path "$SUBSPACE_PT" \
       --subspace-scope "$TAG" \
       --sweep-layers 31 --sweep-ks 4 --sweep-alphas 1.0 \
-      --max-samples 500 \
+      --max-samples 5000 \
       --config "$cfg" >> "$LOG" 2>&1
 done
 

@@ -92,14 +92,14 @@ applies to `pred_m` (mask arm).
 
 | Dataset | Role | Notes |
 |---|---|---|
-| **PlotQA** (test V1) | **Main dataset** | Real-world chart values. 96K numeric Q-A post-filter (template ∈ {data_retrieval, min_max, arithmetic}, positive int, gt ≤ 10000). Wide gt distribution. n=2500 stratified by gt-bin. |
-| **InfographicVQA** (val) | **Main dataset** | Different visual modality (infographic, not chart or natural image). 1,147 numeric. Heavy mid-range (gt-bin (20,100] = 479 samples — percent-heavy). |
-| **TallyQA** (test) | Sub-dataset | Natural image counting (gt 0–15 typical). Continues to anchor §5/§7.4.5 small-gt regime. |
-| **ChartQA** (test) | Sub-dataset | Chart values, mid-to-wide gt range. 2500 full set. |
-| **MathVista** (testmini) | Sub-dataset | Mixed math/science VQA. 1000 testmini + reasoning-mode γ-β subset. |
+| **PlotQA** (test V1) | **Main dataset** | Real-world chart values. 96K numeric Q-A post-filter (template ∈ {data_retrieval, min_max, arithmetic}, positive int, gt ≤ 10000). Wide gt distribution. **n=5000 stratified by gt-bin (5 × 1000)**. |
+| **InfographicVQA** (val) | **Main dataset** | Different visual modality (infographic, not chart or natural image). **1,147 numeric (full)**. Heavy mid-range (gt-bin (20,100] = 479 samples — percent-heavy); cap of 5000 not binding since dataset is data-bound. |
+| **TallyQA** (test) | Sub-dataset | Natural image counting (gt 0–8 after `answer_range=8` filter). **n=5000 stratified by gt-value (≤700 per gt; small-gt 0-4 fully filled, gt 5-8 capped by availability)**. Anchors §5/§7.4.5 small-gt regime. |
+| **ChartQA** (test) | Sub-dataset | Chart values, mid-to-wide gt range. ~705 numeric (full); cap not binding. |
+| **MathVista** (testmini) | Sub-dataset | Mixed math/science VQA. ~385 numeric integer (full testmini after filter); cap not binding. + reasoning-mode γ-β subset. |
 | ~~VQAv2 number~~ | **DROPPED** | Multiple-GT (10-annotator vote), open-vocabulary text answers, full-eval impractical, legacy benchmark. Modern numeric VQA papers use TallyQA/Chart/Doc/Math/Plot/Info — VQAv2 not in this lineage. Existing 7-model panel data preserved in appendix for behavioural breadth supplementary. |
 
-All 5 datasets evaluated under the same canonical setup: temperature=0, top_p=1.0, max_new_tokens=16, JSON-strict prompt, 4-condition (b / a-S1 / m-S1 / d), `samples_per_answer=5`, **per-dataset n cap = 5000** (PlotQA → 2500 stratified, InfoVQA → 1147 full numeric, ChartQA → 2500, TallyQA → ≤5000, MathVista → 1000).
+All 5 datasets evaluated under the same canonical setup: temperature=0, top_p=1.0, max_new_tokens=16, JSON-strict prompt, 4-condition (b / a-S1 / m-S1 / d). **Per-dataset n target = 5000 stratified by gt-bin** (PlotQA → 5000 fetch-time stratified across 5 gt bins, TallyQA → 5000 runtime stratified via `samples_per_answer=700` × `max_samples=5000`); InfoVQA / ChartQA / MathVista take their **full numeric subset** which falls below the 5000 cap (1147 / ~705 / ~385 respectively). The §7.4.5 sweep cap was raised from 500 → 5000 wrong-base sids per the 2026-05-02 statistical-power revision (evidence: wrong-base direction-follow rate is 3-5× stronger than correct-base across datasets, so a larger wrong-base sweep cell gives tighter mitigation effect estimates).
 
 #### §0.4.3 Section-wise cell summary (Phase 1 target)
 
@@ -110,7 +110,7 @@ All 5 datasets evaluated under the same canonical setup: temperature=0, top_p=1.
 | §6 confidence-modulated | same 3 | same 5 | reuses §3+§5 outputs | (reaggregation) | 0 new |
 | §7.1–7.3 mechanism (E1-patch) | 5-model perfect-square panel (incl. Main) | TallyQA + 1 chart + 1 info (3) | b + a + m (3) | 200 stratified | 15 |
 | §7.4 E4 attention re-weighting | 4-model (mid-stack cluster: llava-1.5, convllava, internvl3) + Main | 1 dataset (TallyQA or PlotQA) | E4 Phase 1 sweep + Phase 2 full | 200 / full | 4 |
-| §7.4.5 E6 Subspace mitigation | Main only | all 5 | calibration + sweep cells | 500 wrong-base | 5 |
+| §7.4.5 E6 Subspace mitigation | Main only | all 5 | calibration + sweep cells | up to 5000 wrong-base (capped by per-dataset eligible-4cond wrong-base count) | 5 |
 | §5 γ-β reasoning | qwen3-vl-8b instruct vs thinking | MathVista | b/a/m/d (4) | full testmini subset | 2 |
 | Appendix (legacy 7-model) | 7 models | VQAv2 only | b/a/d (3) | full | 7 |
 

@@ -4,7 +4,7 @@ output_root: outputs
 vqa_dataset:
   local_path: inputs/plotqa_test
   answer_range: 10000
-  max_samples: 2500
+  max_samples: 5000
   require_single_numeric_gt: true
 
 inputs:

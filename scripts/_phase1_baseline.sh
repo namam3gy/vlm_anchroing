@@ -20,7 +20,8 @@ echo "==== Phase 1 P0 baseline start: $(date '+%Y-%m-%d %H:%M:%S') ===="
 
 for cfg_pair in \
     "configs/experiment_e7_plotqa_full.yaml plotqa" \
-    "configs/experiment_e7_infographicvqa_full.yaml infovqa"; do
+    "configs/experiment_e7_infographicvqa_full.yaml infovqa" \
+    "configs/experiment_e5e_tallyqa_full.yaml tallyqa"; do
   cfg="${cfg_pair% *}"; tag="${cfg_pair##* }"
   for model in llava-next-interleaved-7b qwen2.5-vl-7b-instruct gemma3-27b-it; do
     run_one "$cfg" "$model" "$tag"
