@@ -292,6 +292,65 @@ Subspace) project anchor-direction without contaminating output
 distribution. Subspace generalizes due to multi-direction projection
 capturing shared cross-dataset variance.
 
+## DPO gt-bin breakdown across 4 datasets (validation of distribution-bias hypothesis)
+
+User-driven post-hoc analysis: filter each dataset's eval split by gt bin
+and re-compute DPO metrics. Tests whether the "DPO failure on ChartQA" is
+mitigation failure or distribution shift confound.
+
+| Dataset | gt bin | n | base df | DPO df | df_Δ% | adopt_b → DPO | em_Δpp |
+|---|---|---:|---:|---:|---:|---:|---:|
+| TallyQA | all | 500 | 0.130 | 0.073 | **−44%** ✅ | 0.04 → 0 | +13 |
+| TallyQA | [0,4] | 426 | 0.104 | 0.061 | −41% ✅ | 0.03 → 0 | +13 |
+| TallyQA | [5,8] | 74 | 0.284 | 0.159 | −44% ✅ | 0.09 → 0 | +10 |
+| ChartQA | all | 110 | 0.239 | 0.329 | **+38%** ❌ | 0.05 → 0 | −1 |
+| ChartQA | [0,4] | 12 | 0.333 | 0.286 | −14% ✅ | 0.25 → 0 | −17 |
+| ChartQA | [5,8] | 12 | 0.083 | 0.091 | +9% noise | 0 → 0 | +9 |
+| ChartQA | [9,49] | 42 | 0.238 | 0.313 | **+31%** ❌ | 0 → 0 | +3 |
+| ChartQA | [50,999] | 44 | 0.256 | 0.429 | **+68%** ❌❌ | 0.05 → 0 | −4 |
+| VQAv2 | all | 133 | 0.220 | 0.105 | **−52%** ✅ | 0.20 → 0 | −6 |
+| VQAv2 | [0,4] | 106 | 0.219 | 0.099 | −55% ✅ | 0.24 → 0 | −3 |
+| VQAv2 | [5,8] | 27 | 0.222 | 0.125 | −44% ✅ | 0.08 → 0 | −15 |
+| MathVista | all | 270 | 0.285 | 0.207 | **−27%** ✅ | 0.08 → 0 | −2 |
+| MathVista | [0,4] | 106 | 0.212 | 0.227 | +7% ❌ | 0.07 → 0 | +2 |
+| MathVista | [5,8] | 78 | 0.267 | 0.152 | −43% ✅ | 0.03 → 0 | +2 |
+| MathVista | [9,49] | 58 | 0.382 | 0.243 | −36% ✅ | 0.14 → 0 | −11 |
+| MathVista | [50,999] | 28 | 0.407 | 0.250 | −39% ✅ | 0.12 → 0 | −11 |
+
+### Three key findings
+
+**1. Anchor-mitigation transfers cross-dataset (adopt → 0 universally).**
+DPO eliminates direct anchor adoption (`adopt = 0.0000` in EVERY bin of
+EVERY dataset). The "anchor avoidance" preference signal generalises. This
+is a clean cross-distribution transfer of the mitigation core mechanism.
+
+**2. df depends on gt-distribution match with training (hypothesis confirmed
+for ChartQA).**
+- Tally + VQAv2 (training gt ≤ 8 distribution): all bins df −40 to −55% ✅
+- ChartQA: [0,4] works (df −14%), but [9,49] +31% / [50,999] +68% ❌
+- The distribution-bias confound is exactly what user predicted.
+
+**3. MathVista shows INVERSE pattern (unexpected, requires explanation).**
+- MathVista [0,4]: +7% (mild backfire), other bins all −36 to −43% ✅
+- Opposite of ChartQA. MathVista is reasoning over diverse stimuli (geometry,
+  charts, science figures) — anchor-pull mechanism may differ from chart-
+  reading. Worth flagging in §7.4.5 as a "dataset-specific anchor mechanism"
+  caveat. Sample-size for MathVista [0,4] is n=106 (not tiny), so noise less
+  likely than mechanistic.
+
+### Implication for §7.4.5 paper
+
+DPO mitigation should be reported as **"anchor-mitigation transfers
+cross-dataset (adopt → 0 everywhere) but the gt-distribution training bias
+confounds the absolute df measurement on out-of-distribution datasets."**
+Not a clean "DPO fails" claim — DPO succeeds on the mitigation it was
+trained for, but the training data's narrow gt distribution introduces a
+separate side effect. Distinguish the two effects for paper integrity.
+
+If we wanted to disentangle further: train DPO with synthetic gt covering
+[0, 1000] range. Out of scope for this rerun (would need new training data
+generation + retrain ~3 h).
+
 ## Current pipeline status (v2)
 
 ## Selection-criterion comparison (n=100, prior runs)
