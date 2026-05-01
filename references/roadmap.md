@@ -60,8 +60,20 @@ See `references/project.md §0.4.1–§0.4.3` for full tiering. Headlines:
 - **Mechanism panel**: 5-model perfect-square (gemma4-e4b + llava-1.5-7b +
   convllava-7b + fastvlm-7b + **llava-interleave-7b**) — InternVL3 + Qwen2.5-VL
   → appendix only (non-perfect-square correctness risk).
-- **Datasets**: 5-dataset main matrix (TallyQA + ChartQA + MathVista + **PlotQA + InfographicVQA**); VQAv2 dropped from main, kept in appendix.
-- **§7.4.5 mitigation**: recalibrate Subspace on **PlotQA + InfoVQA pooled**, evaluate at full gt range (no [0,8] restriction).
+- **Datasets**: 5-dataset main matrix at **n=5000 target** (TallyQA + ChartQA +
+  MathVista + **PlotQA + InfographicVQA**); VQAv2 dropped from main, kept in
+  appendix. PlotQA snapshot refetched at n=5000 stratified (5 gt bins × 1000),
+  TallyQA capped at 5000 (38k full-set archived to `outputs/_legacy_tallyqa_n38k/`).
+- **§7.4.5 mitigation**: recalibrate Subspace on **PlotQA + InfoVQA pooled**
+  full gt range; sweep cap raised 500 → 5000 wrong-base (statistical-power
+  revision based on wrong-base df being 3-5× stronger than correct-base).
+- **§6 confidence (Phase 1.5 fix)**: multi-token answer support via
+  `recompute_answer_span_confidence.py`. Handles Qwen2 / Llava-Interleave
+  per-digit tokenization that broke single-token `answer_token_logit`
+  capture on 75-89 % of PlotQA / InfoVQA / ChartQA predictions.
+- **§3 acc(b) reporting**: dual strict + dataset-official supplementary
+  (PlotQA-relaxed-5% / InfoVQA-ANLS≥0.5) for cross-dataset comparability
+  + literature alignment.
 
 ### 3.1 Behavioural runs (historical context — paper consistency push will overlay)
 
@@ -421,6 +433,62 @@ refactor, L1-L4 confidence). The work below operationalises the new
   `predictions.jsonl` only.
 
 ## 10. Changelog
+
+- **2026-05-02 02:30 (Phase 1 P0 in flight on GPU 1).** Branch
+  `phase1/p0-baseline-recalibration`, ~14 commits.
+
+  **Per-dataset n cap raised to 5000** (user revision from initial 2500
+  PlotQA target):
+  - PlotQA snapshot refetched at `--max-samples 5000 --stratified` (5 gt
+    bins × 1000); config `max_samples` 2500 → 5000.
+  - TallyQA config now `max_samples=5000 + samples_per_answer=700`
+    (effective n=5000, balanced across gt 0-8). Existing 38k full-set
+    runs archived to `outputs/_legacy_tallyqa_n38k/`.
+  - InfoVQA / ChartQA / MathVista data-bound below 5000, no change.
+
+  **§7.4.5 sweep cap raised 500 → 5000 wrong-base** based on evidence
+  that wrong-base direction-follow rate is **3-5× stronger than
+  correct-base** on existing chartqa/mathvista/tallyqa per_cell data.
+  Larger wrong-base sweep cell preserves the signal that mitigation
+  targets while lifting statistical power.
+
+  **Multi-token confidence proxy fix (Phase 1.5)**: discovered Qwen2 /
+  Llava-Interleave tokenizers split each digit into a separate token,
+  so 75-89 % of multi-digit predictions on PlotQA / InfoVQA / ChartQA
+  had `answer_token_logit = None` (single-token text matching failed).
+  Wrote `scripts/recompute_answer_span_confidence.py` to identify the
+  answer span via forward-walk digit accumulation (handles bare digits,
+  JSON wrappers, decimals with `.` interior, word-numbers) and emit 14
+  span-aggregate proxy fields (logit / prob / log-prob / entropy
+  variants) plus `plotqa_relaxed_correct` (5%) + `infovqa_anls` (≥0.5)
+  supplementary correctness columns. Smoke-tested on chartqa+mathvista:
+  100% span coverage. `analyze_confidence_anchoring.py` refactored to
+  multi-proxy registry — emits `L1_proxy_comparison.csv` ranking
+  proxies by mean df(Q4-Q1) gap so paper §6 primary proxy can be
+  chosen post-hoc from data.
+
+  **Strict + relaxed/ANLS dual reporting**: §3 main panel headline
+  table (`build_e5e_e7_5dataset_summary.py`) now emits both strict
+  exact_match (canonical, 5-dataset comparable, anchor-metric aligned)
+  AND PlotQA-relaxed-5% / InfoVQA-ANLS≥0.5 (each dataset's official
+  metric) for acc(b) base accuracy. ChartQA llava strict 33.9% /
+  relaxed 44.8% — 11pp gap matches Methani 2020 numeric-VQA conventions.
+
+  **Pollution fixes**: `discover_inputs` (analyze_confidence_anchoring)
+  and `discover_runs` (analyze_e5e_wrong_correct) now pick the largest
+  predictions.jsonl per (exp, model) — matches the canonical
+  `phase_a_data_mining._resolve_model_runs` rule and prevents pilot
+  (n=200) runs from polluting full-run aggregates.
+
+  **Watcher**: `scripts/_phase1_watcher.sh` — 10-min poll detects
+  COMPLETE / ZOMBIE / STALLED transitions (zombie = process gone w/o
+  completion marker; stall = log untouched > 15 min). Hourly heartbeat
+  during normal alive operation. `scripts/_phase1_post_baseline.sh`
+  orchestrates §1.2 → §1.3 → §1.4 once §1.1 finishes (idempotent).
+
+  **Status**: §1.1 baseline running on GPU 1 since 01:45. Llava plotqa
+  85% at 02:20. ETA ~12h-14:00 for full Phase 1 P0 (3 datasets × 3
+  models baseline + calibration + sweep + reaggregation).
 
 - **2026-05-02 (Phase 1 kickoff — paper architecture restructure).**
   Coordinated paper-wide model + dataset consistency push.
