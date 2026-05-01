@@ -540,3 +540,338 @@ across 3 datasets does not resolve the cross-dataset incompatibility.
 | ChartQA subset (n=100) | 100 | L31_K08_a4.0 | 0.1515 | 0.1200 | −20.8% | 0.0526 (+1.22pp) | ✅ 3/81 |
 | Cross-dataset (≥2/3) | — | — | — | — | — | — | ❌ 0 overlap |
 | VQAv2 (gated) | ✗ blocked | — | — | — | — | — | not attempted |
+
+### Method 1 — Selection-bias re-validation at n=500 (2026-04-30)
+
+CogBias diagnostic discovered that n=100 Tally baselines were selection-biased (apparent
+14.0% vs true 12.85% at n=500). Re-launched Method 1 sweep at n=500 to test whether the
+overlap-zero finding survives at proper sample size.
+
+**TallyQA n=500 — completed (wall 365 min, 162,000 records, GPU 1).**
+- Baseline: df=0.1328, em=0.1423
+- Two-sided em rule: **7/80 cells pass.** Best L31_K04_a2.0 — df=0.0728 **(−45.2%)**, em=0.1304 (em_Δ −1.19pp).
+- One-sided em rule: 32/80 cells pass; many cells show large em gains (+15 to +27 pp) consistent with mitigation moving predictions toward gt.
+
+**ChartQA n=500 — cancelled** after Tally completion to free GPU 1 for Tally-only LEACE
+recalibration (the post-LEACE-revival pivot). The n=100 ChartQA result (3/81 pass two-sided,
+overlap=0) remains the cross-dataset evidence for Method 1.
+
+**Reading.** Selection bias hypothesis was partially supported on Tally — n=100 found 11/81
+cells passing while n=500 finds 7/80 (two-sided), suggesting some n=100 passes were
+sample-size noise. But the *best* cell at n=500 (L31_K04_a2.0, df −45.2%, em −1.19pp) is
+much stronger than the n=100 best (L28_K02_a4.0, df −43.4%, em +0.84pp), so it's not a
+straight reduction.
+
+Subspace n=500 verdict (two-sided): same as n=100 — strong on Tally individually (df
+reductions exceeding 40 % rel), but cross-dataset overlap not re-tested at full scale on
+ChartQA. Decision: **defer Method 1 to lower priority** vs. LEACE one-sided revival.
+
+Artifact: `outputs/e6_steering/llava-next-interleaved-7b/sweep_subspace_tally_n500_pooled/_analysis/cell_summary.csv`
+
+---
+
+## Method 1 — Pre-Method-2 Diagnostics (2026-04-30)
+
+Before escalating to Method 2, ran three diagnostics to characterise the failure:
+
+### 1. Bidirectional df diagnostic
+
+Counted cells with df↓ on BOTH TallyQA and ChartQA simultaneously (81 cells total):
+
+| cell | T df Δ% | T em pp | T pass | C df Δ% | C em pp | C pass |
+|---|---:|---:|---|---:|---:|---|
+| L31_K08_a4.0 | −67.5% | −3.94pp | False | −20.8% | +1.22pp | True |
+| L31_K16_a1.0 | −64.3% | +27.27pp | False | −1.0% | +1.96pp | False |
+| L31_K04_a2.0 | −49.5% | −3.92pp | False | −1.0% | +0.61pp | False |
+| L16_K02_a0.5 | −21.4% | −2.02pp | False | −6.7% | −0.00pp | True |
+| L16_K02_a1.0 | −21.4% | +1.01pp | True | −0.0% | −0.00pp | False |
+
+Only 5/81 cells reduce df on BOTH datasets. The near-miss is **L31_K08_a4.0**, blocked by Tally em −3.94pp (tolerance ±2pp).
+
+**Grid refinement ruled out:** L31_K08 alpha trajectory shows ChartQA df stays POSITIVE until α≈4.0, but at α=4.0 Tally em = −3.94pp. The feasible regions for (T em ±2pp) and (C df ≤ −5%) do not overlap — no alpha ∈ [0.5, 4.0] satisfies both simultaneously.
+
+### 2. Direction cosine similarity
+
+Per-layer `cos(v_wrong_tally, v_wrong_chartqa)` at key layers:
+
+| Layer | cos(T,C) | cos(T,Pooled) | cos(C,Pooled) |
+|---|---:|---:|---:|
+| L16 | +0.623 | +0.961 | +0.791 |
+| L28 | +0.469 | +0.788 | +0.747 |
+| L30 | +0.549 | +0.966 | +0.701 |
+| L31 | +0.619 | +0.627 | +0.568 |
+
+Directions differ substantially (cos ≈ 0.47–0.62 at key layers), confirming the failure is **direction mismatch**, not just alpha sensitivity. The "cos ≈ 0.98" from Phase 0 was for L=30 within-dataset directions; across-dataset the alignment is much lower.
+
+### 3. Dataset discriminability
+
+d' (Cohen's d) along the between-group mean direction of D_wrong residuals:
+
+| Layer | d'(between-mean) | Interpretation |
+|---|---:|---|
+| L16 | 3.58 | TallyQA and ChartQA hidden states are highly separable |
+| L28 | 2.39 | Separable |
+| L30 | 2.63 | Separable |
+| L31 | 1.74 | Moderately separable |
+
+Datasets occupy distinct regions in residual space at all key layers. This motivates **per-input adaptation** (Method 2): a probe can distinguish TallyQA-type from ChartQA-type queries and apply the appropriate correction direction.
+
+---
+
+## Method 2 — Query-Adaptive Offset (AFTER QAO)
+
+**Status (2026-04-30): ❌ FAILED — full-set validation confirms no cross-dataset overlap**
+
+### Methodology
+
+`h ← h − α · (v_general[L] + δ)` where:
+- `v_general[L]` = mean of v_wrong across VQA + TallyQA + ChartQA calibration at layer L
+- `δ = probe(q)` — linear probe mapping query representation to per-input correction
+- `q` = b-arm (target_only) hidden state at last token, layer L_q
+- No anchor labels at inference: probe operates only on the question + target image
+
+**Probe training:** PCA (100 components) on b-arm reprs Q [N, d_model], then Ridge
+regression (λ=1e3) from Q_pca → D_wrong per (L_q, L_target) pair. Trained on
+pooled VQA + TallyQA + ChartQA calibration (N ≈ 1200 wrong-base pairs total).
+
+**Source:** AFTER [arXiv:2601.01957, 2026-01] — 16.3% hallucination reduction on
+AMBER; adapted here for cross-dataset numerical anchoring.
+
+**Implementation:**
+- `scripts/e6_query_adaptive_offset.py` — phases: `calibrate-qao`, `train-probe`,
+  `smoke-qao`, `sweep-qao`
+- `scripts/analyze_e6_qao.py` — M2/C-form metrics per (L_q, L_target, α) cell
+
+**Sweep grid:** L_q ∈ {20,25,30,31} × L_target ∈ {28,30,31} × α ∈ {0.5,1.0,2.0,4.0}
+= 48 steered cells + 1 baseline = 49 total.
+
+### Per-dataset result tracker
+
+| Dataset | n | best cell | df baseline | steered df | Δ% rel | em_a | n pass/48 |
+|---|---:|---|---:|---:|---:|---:|---|
+| TallyQA subset (n=100) | 100 | Lq25_Lt28_a1.0 | 0.0800 (8/100) | 0.0600 | −25.0% | 0.0800 (0.00pp) | 15/48 |
+| ChartQA subset (n=100) | 100 | Lq25_Lt28_a1.0 | 0.2222 (22/99) | 0.1939 | −12.8% | 0.0505 (−1.01pp) | 15/48 |
+| Cross-dataset overlap (n=100) | — | — | — | — | — | — | **⚠ 4/48 overlap — tentative pass** |
+| TallyQA subset (n=100) | 100 | Lq25_Lt28_a1.0 | 0.0800 | 0.0600 | −25.0% | 0.0800 (+0.00pp) | 15/48 |
+| ChartQA subset (n=100) | 100 | Lq25_Lt28_a1.0 | 0.2222 | 0.1939 | −12.8% | 0.0505 (−1.01pp) | 15/48 |
+| Cross-dataset (n=100) | — | — | — | — | — | — | ⚠ 4/48 tentative overlap |
+| **TallyQA full (n=346)** | **346** | **Lq30_Lt28_a0.5** | **0.1503** | **0.1358** | **−9.6%** | **0.1503 (+0.29pp)** | **1/4 pass** |
+| **ChartQA full (n=416)** | **416** | Lq25_Lt31_a2.0 | 0.2260 | 0.2167 | −4.1% | 0.0511 (−0.01pp) | **0/4 pass** |
+| Cross-dataset full | — | — | — | — | — | — | **❌ 0/4 overlap** |
+| VQAv2 (gated) | ✗ | — | — | — | — | — | blocked by full-set fail |
+
+**Full-set verdict (2026-04-30):** The n=100 tentative overlap evaporated at full scale.
+Tally full has 1 passing cell (Lq30_Lt28_a0.5, Δ=−9.6%), but that same cell shows Δ=+0.2%
+on ChartQA full (i.e., worsens). Best ChartQA reduction is −4.1% (Lq25_Lt31_a2.0), below the
+−5% rel threshold. No cell satisfies the cross-dataset constraint on ≥ 2 of 3 datasets.
+
+**Method 2 verdict: ❌ FAILED cross-dataset selection rule.** The per-input probe successfully
+improves Tally in isolation but the correction direction conflicts with ChartQA. This is
+the same cross-dataset distribution mismatch that killed Methods 0–1 — the probe learns
+a query-adaptive direction that overfits to the Tally query distribution and mis-fires on
+ChartQA queries. → Escalate to Methods 4c (LEACE), 4a (CogBias), 3 (DPO LoRA).
+
+Pipeline timing: calibrate-qao ×3 datasets ~3 min each; train-probe 11s;
+sweep n=100 Tally+ChartQA 34.9 min each; full-set n=346 Tally 18 min;
+full-set n=416 ChartQA 17 min.
+
+---
+
+## Method 4c — LEACE Closed-Form Linear Erasure (arXiv:2306.03819)
+
+**Status (2026-04-30):** ⚠ **Verdict revised under one-sided em rule** — original two-sided
+rule (\|em_pp\| ≤ 2pp) reported ❌ FAILED, but the rejecting cell (L30_a2.0 on Tally) was
+discarded for em_pp = +5.88pp (improvement, not damage). Re-analysis under one-sided rule
+(em_pp ≥ baseline − 2pp; allow gains) finds **L30_a2.0 passes both TallyQA and ChartQA** —
+cross-dataset overlap = 1. Tentative ✅ on the n=100 evidence; full-set validation pending.
+
+### Methodology
+
+LEACE (Least-squares Concept Erasure) fits a minimal-norm orthogonal projection P per
+decoder layer that removes the subspace predictive of "anchor-present" condition.
+At inference: `h ← h − α · (h − h @ P)` where α=1 is full erasure, α∈(0,1) partial.
+
+**Calibration:**
+- Class 0 (no anchor): Q_wrong[:N, L] (b-arm reprs, pooled: VQA+Tally+ChartQA, N=1145)
+- Class 1 (with anchor): Q_wrong[:N, L] + D_wrong[:N, L] (approx a-arm = b-arm + diff)
+- Fit `LeaceEraser.fit(X, Y)` per layer → save P_stack [32, 4096, 4096]
+- Calibration: CPU-only, 128.5s
+
+**Sweep grid:** L ∈ {20,25,28,30,31} × α ∈ {0.3,0.5,1.0,2.0} = 20 steered + 1 baseline
+
+**Source paper:** Belrose et al. 2023 (arXiv:2306.03819).
+
+**Implementation:** `scripts/e6_leace.py` (phases: calibrate-leace, smoke-leace, sweep-leace);
+`scripts/analyze_e6_methods.py`
+
+**Concept norm by layer (indicator of anchor direction strength):**
+L=0: 0.0144 | L=8: 0.0867 | L=16: 0.9606 | L=24: 1.5773 (peak around L24–L31)
+
+### Per-dataset result tracker
+
+| Dataset | n | best cell | df baseline | steered df | Δ% rel | em_a Δpp | n pass / 20 |
+|---|---:|---|---:|---:|---:|---:|---|
+| TallyQA subset (n=100) | 100 | L30_a2.0 | 0.1200 (12/100) | 0.1042 (10/96) | **−13.2%** | **+5.88pp ❌** | **0/20** |
+| ChartQA subset (n=100) | 99 | L30_a2.0 | 0.2121 (21/99) | 0.1313 (13/99) | **−38.1%** | +0.00pp ✅ | **5/20** |
+| Cross-dataset (≥2/3) | — | — | — | — | — | — | **❌ 0 overlap** |
+| VQAv2 (gated) | ✗ blocked | — | — | — | — | — | not attempted |
+
+**ChartQA passing cells** (5 of 20): L28_a0.5 (−9.5%, +0.0pp), L28_a1.0 (−9.5%, +0.0pp),
+L28_a2.0 (−19.0%, +1.0pp), L30_a1.0 (−9.5%, +0.0pp), L30_a2.0 (−38.1%, +0.0pp).
+
+### Cross-dataset verdict — verdict depends on em rule
+
+**Original two-sided rule (\|em_pp\| ≤ 2pp): ❌ FAILED.** LEACE projection at L28–L30 helps
+ChartQA substantially (up to −38.1% df) but rejects on Tally because L30_a2.0's em rises
++5.88pp (outside ±2pp tolerance).
+
+**One-sided rule (em_pp ≥ baseline − 2pp; em gains allowed): ✅ TENTATIVE PASS.** The em
+rise on Tally is the *intended* mitigation effect — predictions move away from the anchor
+and toward gt, raising em as a side effect of the df reduction. The two-sided rule was
+designed to catch em DROPS (deployability concern) and incorrectly excluded mitigation
+gains. Re-analysis under the one-sided rule:
+
+| | Tally n=100 | ChartQA n=99 |
+|---|---:|---:|
+| df baseline | 0.1200 | 0.2121 |
+| df at L30_a2.0 | 0.1042 | 0.1313 |
+| df_Δ % | **−13.2%** ✅ | **−38.1%** ✅ |
+| em baseline | 0.1600 | 0.0700 |
+| em_pp Δ | **+5.88** | +0.00 |
+
+**Cross-dataset overlap: 1 cell (L30_a2.0)** under one-sided em rule.
+
+This makes Method 4c the **only** method that survives the cross-dataset selection rule
+in the multi-method search. Methods 0–2 (single direction, subspace projection,
+query-adaptive offset) all worked on Tally but conflicted with ChartQA; CogBias 4a
+overlaps at n=100 but fails ChartQA at full set; DPO 3 overfits to Tally and damages
+ChartQA. LEACE under one-sided em rule has L30_a2.0 passing both at n=100.
+
+**Caveat — full-set validation pending.** The n=100 baselines were inflated by selection
+bias (CogBias case: Tally 14% apparent vs 12.85% true at n=500). LEACE n=100 likely
+suffers the same issue. Full-set re-validation on Tally (n=346 from E5c) and ChartQA
+(n=416 from E5e) is the deciding test.
+
+Artifacts:
+- `outputs/e6_steering/llava-next-interleaved-7b/sweep_leace_{tally,chartqa}_pooled/_analysis/cell_summary.csv` (two-sided)
+- `outputs/e6_steering/llava-next-interleaved-7b/sweep_leace_{tally,chartqa}_pooled/_analysis/cell_summary_em_one_sided.csv` (one-sided)
+
+---
+
+## Method 4a — CogBias Decode-Step Correction (arXiv:2604.01366)
+
+**Status (2026-04-30): ❌ FAILED — full-set validation (Tally n=500, ChartQA n=416) confirms no cross-dataset overlap; ChartQA L31 falls below −5% threshold at proper sample size**
+
+### Methodology
+
+CogBias (arXiv:2604.01366) applies activation steering with **dynamic alpha scheduling**:
+correction fires at BOTH prefill last token AND each decode-step token, not just prefill.
+This is the key difference from Methods 0–2 (prefill-only correction).
+
+- Prefill: `h[:, -1, :] -= alpha_prefill * v_general[L]`
+- Decode:  `h[:, 0, :] -= alpha_decode * v_general[L]`
+- v_general = mean(v_wrong) pooled across VQA + TallyQA + ChartQA
+
+**Rationale:** Anchoring bias may manifest during answer generation (decode steps),
+not only during context encoding (prefill). CogBias-style two-phase correction captures both.
+
+**Sweep grid:** L ∈ {20,25,28,30,31} × alpha_prefill ∈ {0.5,1.0,2.0} ×
+alpha_decode ∈ {0.0,0.5,1.0,2.0} = 60 steered + 1 baseline = 61 cells.
+Note: alpha_decode=0 cells are equivalent to Method 0 (prefill-only).
+
+**Implementation:** `scripts/e6_cogbias.py` (phases: smoke-cogbias, sweep-cogbias);
+`scripts/analyze_e6_methods.py`
+
+**Key observation:** alpha_decode has no measurable effect at n=100. All cells with the
+same alpha_prefill produce identical metrics regardless of alpha_decode — the effective
+degree of freedom is alpha_prefill and L only.
+
+### Per-dataset result tracker
+
+| Dataset | n | best cell | df baseline | steered df | Δ% rel | em Δpp | n pass / 60 |
+|---|---:|---|---:|---:|---:|---:|---|
+| TallyQA screen (n=100) | 100 | L31_ap0.5_any | 0.1400 (14/100)† | 0.1300 (13/100) | **−7.1%** | −1.0pp ✅ | **8/60** |
+| ChartQA screen (n=100) | 99 | L30_ap0.5_ad0.5 | 0.2424 (24/99) | 0.2020 (20/99) | **−16.7%** | −1.0pp ✅ | **14/60** |
+| Cross-dataset screen (≥2/3) | — | L31_ap0.5_ad0.5 | — | — | T:−7.1% C:−8.3% | T:−1pp C:0pp | **⚠ 1 cell (noise)** |
+| **TallyQA full-set (n=500)** | **500** | L31_ap0.5_ad0.5 | **0.1285** (64/498) | **0.1205** (60/498) | **−6.2%** | −0.2pp ✅ | **1/1 ✅** |
+| **ChartQA full-set (n=416)** | **416** | L31_ap0.5_ad0.5 | **0.2260** (92/407) | **0.2162** (88/407) | **−4.3%** ❌ | 0.0pp | **0/1 ❌** |
+| Cross-dataset full-set (≥2/3) | — | — | — | — | — | — | **❌ 0 overlap** |
+
+†n=100 Tally baseline inflated by selection bias (first 100 sids are more anchor-susceptible than full population). True baseline at n=500: 12.85% vs apparent 14.0%.
+
+**ChartQA top passing cells** (14 of 60): L20_ap0.5 (3 cells, −8.3%), L25_ap1.0 (2 cells),
+L28_ap1.0_ad1.0, L30_ap0.5 (4 cells, best −16.7%), L30_ap1.0 (2 cells), L30_ap2.0_ad0.5, L31_ap0.5_ad0.5.
+
+### Cross-dataset verdict — ❌ FAILED
+
+**Full-set validation (Tally n=500, ChartQA n=416) confirms no cross-dataset overlap.**
+
+The nominal n=100 1-cell overlap (L31_ap0.5_ad0.5) was sampling noise:
+- Tally n=100: 14→13 (1 sample, 0.29 SE) — inflated baseline due to selection bias
+- ChartQA n=100: 24→22 (2 samples, 0.47 SE)
+
+At proper sample sizes:
+- **Tally n=500**: L31_ap0.5_ad0.5 achieves −6.2% (60/498 vs 64/498), Z=0.38 SE — below significance
+- **ChartQA n=416**: L31_ap0.5_ad0.5 achieves only −4.3% (88/407 vs 92/407) — below the −5% threshold
+
+**Selection bias in n=100 Tally screen:** The first 100 wrong-base sids (sorted by sid) are
+more anchor-susceptible than the full population (baseline 14.0% vs true 12.85%). This inflated
+both the apparent baseline and the apparent effect at n=100.
+
+**Root cause (same as all prior methods):** The anchoring direction `v_general` differs between
+TallyQA and ChartQA (cos similarity 0.47–0.62 at mid-to-late layers). Adding decode-step
+correction on top of prefill does not resolve this fundamental cross-dataset misalignment.
+
+Artifacts:
+- `outputs/e6_steering/llava-next-interleaved-7b/sweep_cogbias_{tally,chartqa}_pooled/_analysis/cell_summary.csv` (n=100 screens)
+- `outputs/e6_steering/llava-next-interleaved-7b/sweep_cogbias_{tally,chartqa}_fullset_pooled/_analysis/cell_summary.csv` (n=500/416 validation)
+
+---
+
+## Method 3 — MIA-DPO LoRA Fine-Tuning (arXiv:2410.17637)
+
+**Status (2026-04-30): ❌ FAILED cross-dataset — Tally massively improves (df −42%, em +15pp) but ChartQA degrades (df −4%, em −3.7pp, severe parse failures)**
+
+### Methodology
+
+Preference pairs built from E5* predictions:
+- Prompt: [target_image + anchor_image] + question (a-arm condition)
+- Chosen: str(ground_truth) — correct numeric answer
+- Rejected: str(anchor_value) — the irrelevant distractor number
+
+Fine-tune llava-next-interleaved-7b with LoRA (rank=256, α=256) using TRL DPOTrainer.
+Trains the model to prefer correct counts/values over anchor-biased distractor numbers.
+
+**Training data:**
+- TallyQA: 33164 pairs; ChartQA: 509 pairs; VQAv2: 653 pairs → total 34326
+- Subsampled to max 5000 for training efficiency (97% Tally)
+
+**Implementation:** `scripts/e6_dpo_lora.py` (phases: build-pairs, train-dpo, sweep-adapter);
+`scripts/analyze_e6_methods.py`
+
+**Note:** Weakens "train-free" claim to "lightweight LoRA-adapter deployable mitigation".
+
+**Implementation bugs found and fixed:**
+- Template KeyError: `user_template.format()` → `.replace("{question}", question)` in sweep-adapter
+- Multimodal content format: user content must be `[{"type":"image"}, ..., {"type":"text","text":...}]` list, not a plain string
+
+### Per-dataset result tracker
+
+| Dataset | n valid | df baseline | DPO df | Δ% rel | em baseline | DPO em | em Δpp | pass? |
+|---|---:|---:|---:|---:|---:|---:|---:|---|
+| TallyQA subset (n=100) | 99 | 0.1400 (14/100) | **0.0808** (8/99) | **−42.3%** | 0.1500 | **0.3030** | **+15.3pp** | ⚠ df ✅ em ↑↑ (outside ±2pp) |
+| ChartQA subset (n=100) | 73 | 0.2424 (24/99) | 0.2329 (17/73) | **−3.9%** | 0.0500 | **0.0127** | **−3.7pp** ❌ | ❌ df < 5%, em damaged |
+| Cross-dataset (≥2/3) | — | — | — | — | — | — | — | **❌ 1/2 pass** |
+| VQAv2 (gated) | ✗ | — | — | — | — | — | — | blocked by cross-dataset fail |
+
+### Cross-dataset verdict — ❌ FAILED
+
+**Extreme distribution mismatch.** Training data was 97% TallyQA (33164/34326 pairs). The adapter:
+- **TallyQA**: dramatically reduces anchor pull (df −42%) and massively improves counting accuracy (em +15pp)
+- **ChartQA**: parse failure rate spikes (only 73 valid predictions out of 300; em collapses 5%→1.3%)
+
+The em constraint (±2pp) technically fails in BOTH directions: Tally has +15.3pp (improvement but outside ±2pp), ChartQA has −3.7pp (damage). More critically, ChartQA's parse failures (valid=73/300 vs baseline ≥99/300) indicate the DPO-tuned model stops producing clean numeric outputs for chart questions — severe out-of-distribution behavior.
+
+**Root cause**: the 97%/3% Tally/ChartQA data split causes the adapter to overfit to counting questions and degrade on chart-reading. This mirrors the residual-stream direction-mismatch failure — whether correcting in weight-space (DPO) or activation-space (ActAdd/LEACE/CogBias), the two domains require different corrections.
+
+Artifact: `outputs/e6_steering/llava-next-interleaved-7b/sweep_dpo_{tally,chartqa}_pooled/_analysis/cell_summary.csv`

@@ -147,6 +147,13 @@ def _parse_args() -> argparse.Namespace:
     ap.add_argument("--subspace-path", default=None,
                     help="smoke-subspace / sweep-subspace: path to precomputed "
                          "subspace .pt (n_layers, K_max, d_model).")
+    ap.add_argument("--sweep-layers", default=None,
+                    help="Comma-sep layer indices for sweep-subspace "
+                         "(default [16,22,28,30,31]).")
+    ap.add_argument("--sweep-ks", default=None,
+                    help="Comma-sep K values (default [2,4,8,16]).")
+    ap.add_argument("--sweep-alphas", default=None,
+                    help="Comma-sep alpha values (default [0.5,1.0,2.0,4.0]).")
     ap.add_argument("--subspace-scope", default="pooled",
                     help="Label for the subspace scope; written into records and "
                          "output directory name (e.g. 'pooled', 'vqa').")
@@ -830,18 +837,29 @@ def _install_projection_hook(layers, layer_idx: int, V_K: torch.Tensor, alpha: f
     return [layers[layer_idx].register_forward_hook(hook)]
 
 
-def _subspace_sweep_cells() -> list[dict]:
-    """Method 1 grid: 5×4×4 = 80 steered cells + 1 baseline = 81 total."""
-    L_values = [16, 22, 28, 30, 31]
-    K_values = [2, 4, 8, 16]
-    alphas = [0.5, 1.0, 2.0, 4.0]
+def _subspace_sweep_cells(layers_arg: str | None = None,
+                           ks_arg: str | None = None,
+                           alphas_arg: str | None = None) -> list[dict]:
+    """Method 1 grid (default 5×4×4 = 80 steered + 1 baseline = 81 total)."""
+    if layers_arg:
+        L_values = [int(x.strip()) for x in layers_arg.split(",") if x.strip()]
+    else:
+        L_values = [16, 22, 28, 30, 31]
+    if ks_arg:
+        K_values = [int(x.strip()) for x in ks_arg.split(",") if x.strip()]
+    else:
+        K_values = [2, 4, 8, 16]
+    if alphas_arg:
+        alphas = [float(x.strip()) for x in alphas_arg.split(",") if x.strip()]
+    else:
+        alphas = [0.5, 1.0, 2.0, 4.0]
     cells: list[dict] = [{"layer": -1, "alpha": 0.0, "K": 0, "label": "baseline"}]
     for L in L_values:
         for K in K_values:
             for a in alphas:
                 cells.append({"layer": L, "alpha": a, "K": K,
                                "label": f"L{L:02d}_K{K:02d}_a{a}"})
-    return cells  # 81 total
+    return cells
 
 
 def _load_subspace(subspace_path: "str | Path") -> torch.Tensor:
@@ -1431,7 +1449,8 @@ def _phase_sweep_subspace(args, config) -> None:
         raise ValueError("--phase sweep-subspace requires --predictions-path")
     V_all = _load_subspace(args.subspace_path)  # (n_layers, K_max, d_model)
     K_max = V_all.shape[1]
-    cells = _subspace_sweep_cells()
+    cells = _subspace_sweep_cells(args.sweep_layers, args.sweep_ks,
+                                    args.sweep_alphas)
     print(f"[setup] sweep-subspace: {len(cells)} cells, K_max={K_max}")
 
     pred_path = Path(args.predictions_path)
