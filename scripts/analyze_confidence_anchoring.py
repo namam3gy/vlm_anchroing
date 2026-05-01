@@ -93,6 +93,9 @@ def discover_inputs() -> list[InputSpec]:
         ("experiment_e5d_mathvista_validation", "MathVista"),
         ("experiment_e5e_chartqa_full", "ChartQA"),
         ("experiment_e5e_tallyqa_full", "TallyQA"),
+        ("experiment_e5e_mathvista_full", "MathVista"),
+        ("experiment_e7_plotqa_full", "PlotQA"),
+        ("experiment_e7_infographicvqa_full", "InfographicVQA"),
     ]
     specs: list[InputSpec] = []
     for exp, ds in layouts:
