@@ -248,6 +248,50 @@ sizes (−5 to −13 %) are small in absolute terms (1–3 pp absolute df drop,
 n_eligible ~416). Full-set re-validation on ChartQA n=416 (no subsample) is
 the gold standard but adds ~1h. Decision: defer to roadmap.
 
+## S3 — DPO v2 mix_synthetic results (cross-dataset FAILED, gt-bias verified)
+
+**Setup:**
+- Training data: 12,009 pairs (Tally 9,076 / ChartQA 1,552 / VQA 1,381)
+- 1,462 real (case_by_case anchor adoption + df_moved) + 10,547 synthetic
+- Train/eval split by hash(dataset, image_id, question_id), 70/30
+- Trained 1502 steps (1 epoch, batch_size=1, grad_accum=8) on adapter LoRA r=256
+
+**Sweep eval (eval-split sids only, no train/test leakage):**
+
+| Dataset | n_eval | baseline df | DPO df | df_Δ% | em_Δpp | adopt_Δpp | parse_fail |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| **TallyQA** | 500 | 0.1303 | 0.0725 | **−44.3%** ✅ | +13.08 | →0 (−3.73) | 23% |
+| **ChartQA** | 110 | 0.2385 | 0.3294 | **+38.1%** ❌ | −1.06 | →0 (−4.76) | 23% |
+
+**Cross-dataset selection rule (df ≤ −5%, em ≥ baseline−2pp on ≥ 2/3 datasets):**
+ChartQA df INCREASED by 38% → fails the rule.
+
+**gt-distribution bias VERIFIED (predicted earlier in tracker):**
+DPO eliminates direct anchor adoption (`adopt → 0` on both datasets) — that
+part of the training signal worked. But on ChartQA where gt is large
+(mean 107), DPO biases the model toward smaller numbers (Tally training
+dominance 75%), increasing df because predictions drift further from the
+true large-number gt. The gt-bias-confound prediction was correct.
+
+**23% parse failure on both datasets** also points to output distribution
+distortion — DPO weight-space modification damages the JSON-strict
+formatting compliance.
+
+**Cross-method comparison summary (Tally-only N=5k v2 rerun):**
+
+| Method | Tally df_Δ% | ChartQA df_Δ% | Cross-dataset | em invariant? |
+|---|---:|---:|:---:|:---:|
+| LEACE 4c (best L30_a2.0) | −17.2% | +8.7% | ❌ | ✓ (em ±0.5pp) |
+| Subspace 1 (best L31_K04_a2.0) | **−63.6%** | **−9.6%** | **✅✅** | ✓ (em ±1pp) |
+| DPO 3 mix_synthetic | −44.3% | +38.1% | ❌ | ✗ (parse fail 23%) |
+
+**Subspace Method 1 is the sole survivor.** DPO failure adds another data
+point to the §7.4.5 narrative: weight-space methods (DPO) carry
+distribution bias from training data; activation-space methods (LEACE,
+Subspace) project anchor-direction without contaminating output
+distribution. Subspace generalizes due to multi-direction projection
+capturing shared cross-dataset variance.
+
 ## Current pipeline status (v2)
 
 ## Selection-criterion comparison (n=100, prior runs)

@@ -144,6 +144,11 @@ uv run python scripts/e6_dpo_lora.py \
 echo "[S3b done] $(date)" | tee -a "$PROGRESS"
 
 # S3c: sweep on eval-split sids only (no train/test leakage)
+# Note: config naming is asymmetric — tallyqa has "_qa" suffix, chartqa just "_full"
+declare -A CONFIG_MAP=(
+    [tally]="configs/experiment_e5e_tallyqa_full.yaml"
+    [chartqa]="configs/experiment_e5e_chartqa_full.yaml"
+)
 for d in tally chartqa; do
   preds_var="${d^^}_PREDS_E5E"
   echo "[S3c sweep-adapter $d eval-split-only] $(date)" | tee -a "$PROGRESS"
@@ -155,7 +160,7 @@ for d in tally chartqa; do
       --adapter-dir "outputs/e6_dpo/$MODEL/adapter_${DPO_TAG}" \
       --split-map "$SPLIT_MAP" \
       --calib-tags tally,chartqa,vqa \
-      --config "configs/experiment_e5e_${d}qa_full.yaml" \
+      --config "${CONFIG_MAP[$d]}" \
       >> "$LOG" 2>&1 || echo "[S3c $d FAILED]" | tee -a "$PROGRESS"
   echo "[S3c $d done] $(date)" | tee -a "$PROGRESS"
 done
