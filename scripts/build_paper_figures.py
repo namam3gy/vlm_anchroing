@@ -179,52 +179,53 @@ def fig_E5e_mathvista_bars() -> Path:
     return out
 
 
-def fig_cross_dataset_summary() -> Path:
-    """Heatmap-ish bar chart: wrong-base S1 adopt across (dataset × model)."""
-    rows = []
-    e5b = pd.read_csv(DATA_DIR / "E5b_per_stratum.csv")
-    e5b_w = e5b[(e5b["stratum"] == "S1") & (e5b["base"] == "wrong")]
-    if not e5b_w.empty:
-        for _, r in e5b_w.iterrows():
-            rows.append({"dataset": r["dataset"], "model": "llava-interleave-7b",
-                         "adopt": r["adopt_cond"]})
+def fig_cross_dataset_summary() -> Path | None:
+    """Heatmap of wrong-base S1 adopt + df across the 5-dataset main matrix.
 
-    e5e_chart = pd.read_csv(DATA_DIR / "experiment_e5e_chartqa_full_per_cell.csv")
-    e5e_chart = e5e_chart[(e5e_chart["stratum"] == "S1") & (e5e_chart["cond_class"] == "a")
-                          & (e5e_chart["base_correct"] == False)]
-    for _, r in e5e_chart.iterrows():
-        rows.append({"dataset": "ChartQA", "model": r["model"], "adopt": r["adopt_M2"]})
+    Reads `docs/insights/_data/main_panel_5dataset_per_cell.csv`
+    (built by scripts/build_e5e_e7_5dataset_summary.py). Returns None
+    if the source CSV is missing — caller should run the post-baseline
+    pipeline first.
+    """
+    src = DATA_DIR / "main_panel_5dataset_per_cell.csv"
+    if not src.exists():
+        print(f"[skip] {src.name} missing — run scripts/build_e5e_e7_5dataset_summary.py first")
+        return None
+    df = pd.read_csv(src)
+    df = df[df["cond_class"] == "a"].copy()
+    df["model_short"] = (
+        df["model"].str.replace("-instruct", "", regex=False)
+                   .str.replace("-it", "", regex=False)
+                   .str.replace("llava-next-interleaved-7b", "llava-interl-7b", regex=False)
+    )
 
-    e5e_math = pd.read_csv(DATA_DIR / "experiment_e5e_mathvista_full_per_cell.csv")
-    e5e_math = e5e_math[(e5e_math["stratum"] == "S1") & (e5e_math["cond_class"] == "a")
-                        & (e5e_math["base_correct"] == False) & (e5e_math["n"] >= 100)]
-    for _, r in e5e_math.iterrows():
-        rows.append({"dataset": "MathVista", "model": r["model"], "adopt": r["adopt_M2"]})
+    metrics = [
+        ("adopt_M2",            "adopt_rate(a)",  0.20),
+        ("direction_follow_M2", "df(a) C-form",   0.40),
+    ]
+    dataset_order = ["TallyQA", "ChartQA", "MathVista", "PlotQA", "InfographicVQA"]
 
-    df = pd.DataFrame(rows)
-    df["model_short"] = df["model"].str.replace("-instruct", "").str.replace("-it", "")\
-                                    .str.replace("llava-next-interleaved-7b", "llava-interl-7b")
-    piv = df.pivot_table(index="model_short", columns="dataset", values="adopt", aggfunc="first")
-    cols_order = [c for c in ["VQAv2", "TallyQA", "ChartQA", "MathVista"] if c in piv.columns]
-    piv = piv[cols_order]
-
-    fig, ax = plt.subplots(figsize=(11, 5.5), dpi=150)
-    im = ax.imshow(piv.values, cmap="YlGnBu", aspect="auto", vmin=0, vmax=0.20)
-    for i in range(piv.shape[0]):
-        for j in range(piv.shape[1]):
-            v = piv.values[i, j]
-            if pd.isna(v):
-                continue
-            color = "white" if v > 0.10 else "black"
-            ax.text(j, i, f"{v:.3f}", ha="center", va="center", color=color, fontsize=12,
-                    fontweight="bold" if v >= 0.10 else "normal")
-    ax.set_xticks(range(piv.shape[1]))
-    ax.set_xticklabels(piv.columns, fontsize=12)
-    ax.set_yticks(range(piv.shape[0]))
-    ax.set_yticklabels(piv.index, fontsize=11)
-    ax.set_title("Cross-dataset wrong-base S1 adopt_rate (M2)")
-    cbar = fig.colorbar(im, ax=ax)
-    cbar.set_label("adopt_rate")
+    fig, axes = plt.subplots(1, 2, figsize=(14, 5.0), dpi=150)
+    for ax, (col, title, vmax) in zip(axes, metrics):
+        piv = df.pivot_table(index="model_short", columns="dataset", values=col, aggfunc="first")
+        cols_order = [c for c in dataset_order if c in piv.columns]
+        piv = piv[cols_order]
+        im = ax.imshow(piv.values, cmap="YlGnBu", aspect="auto", vmin=0, vmax=vmax)
+        for i in range(piv.shape[0]):
+            for j in range(piv.shape[1]):
+                v = piv.values[i, j]
+                if pd.isna(v):
+                    continue
+                color = "white" if v > vmax * 0.55 else "black"
+                ax.text(j, i, f"{v:.3f}", ha="center", va="center", color=color, fontsize=11,
+                        fontweight="bold" if v >= vmax * 0.5 else "normal")
+        ax.set_xticks(range(piv.shape[1]))
+        ax.set_xticklabels(piv.columns, fontsize=10, rotation=20, ha="right")
+        ax.set_yticks(range(piv.shape[0]))
+        ax.set_yticklabels(piv.index, fontsize=10)
+        ax.set_title(f"S1 wrong-base {title}")
+        fig.colorbar(im, ax=ax, fraction=0.05)
+    fig.suptitle("5-dataset main matrix (3 models × 5 datasets, S1 wrong-base, C-form)", y=1.02)
     fig.tight_layout()
     out = FIG_DIR / "paper_cross_dataset_summary.png"
     fig.savefig(out, bbox_inches="tight")
@@ -239,6 +240,8 @@ def main():
     out4 = fig_cross_dataset_summary()
     print("Generated:")
     for p in (out1, out2, out3, out4):
+        if p is None:
+            continue
         print(f"  {p}")
 
 
