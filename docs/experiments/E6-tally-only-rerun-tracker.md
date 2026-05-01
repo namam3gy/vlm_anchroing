@@ -351,6 +351,75 @@ If we wanted to disentangle further: train DPO with synthetic gt covering
 [0, 1000] range. Out of scope for this rerun (would need new training data
 generation + retrain ~3 h).
 
+## LEACE + Subspace gt-bin breakdown (Tally + ChartQA on existing sweeps)
+
+User-driven cross-check: same gt-bin analysis as DPO, applied to LEACE and
+Subspace using their existing Tally+ChartQA sweep results (no new compute).
+
+### LEACE 4c L30_a2.0
+
+| Dataset | gt_bin | n | base_df | meth_df | df_Δ% | em_Δpp | verdict |
+|---|---|---:|---:|---:|---:|---:|---|
+| TallyQA | [0,4] | 433 | 0.109 | 0.085 | −21.9% | −3.16 | ✅ df, em barely fails |
+| TallyQA | [5,8] | 67 | 0.288 | 0.262 | −9.1% | +4.80 | ✅ |
+| ChartQA | [0,4] | 59 | 0.153 | 0.170 | **+11.1%** | +8.47 | ❌ backfires even here |
+| ChartQA | [5,8] | 40 | 0.105 | 0.184 | **+75.0%** | +2.56 | ❌ |
+| ChartQA | [9,49] | 135 | 0.212 | 0.212 | 0.0% | 0.00 | (none) |
+| ChartQA | [50,999] | 182 | 0.287 | 0.309 | **+7.8%** | −2.27 | ❌ |
+
+**LEACE failure is genuine cross-dataset (not distribution bias).** ChartQA
+backfires across ALL gt bins. The single-direction projection captures
+Tally's anchor direction but is structurally wrong on ChartQA.
+
+### Subspace 1 — two candidate best cells
+
+**L31_K04_a2.0 (max df reduction, but UNSTABLE at [5,8]):**
+
+| Dataset | gt_bin | n | base_df | meth_df | df_Δ% | em_Δpp | verdict |
+|---|---|---:|---:|---:|---:|---:|---|
+| TallyQA | [0,4] | 433 | 0.109 | 0.016 | **−85.1%** | +3.36 | ✅✅ |
+| TallyQA | [5,8] | 67 | 0.288 | 0.258 | −10.5% | −12.12 | em catastrophe |
+| ChartQA | [0,4] | 59 | 0.153 | 0.018 | **−88.1%** | +5.29 | ✅✅✅ huge |
+| ChartQA | [5,8] | 40 | 0.105 | 0.206 | **+95.6%** | −2.43 | ❌❌ catastrophic backfire |
+| ChartQA | [9,49] | 135 | 0.212 | 0.211 | −0.3% | +2.55 | (no effect) |
+| ChartQA | [50,999] | 182 | 0.287 | 0.261 | −9.0% | −4.44 | df ✅ but em −4.4 fails |
+
+**L31_K04_a1.0 (smaller df, but UNIFORM and stable):**
+
+| Dataset | gt_bin | n | base_df | meth_df | df_Δ% | em_Δpp | verdict |
+|---|---|---:|---:|---:|---:|---:|---|
+| TallyQA | [0,4] | 433 | (similar) | | | | (df −81% strong) |
+| ChartQA | [0,4] | 59 | 0.153 | 0.051 | **−66.7%** | +6.78 | ✅✅ |
+| ChartQA | [5,8] | 40 | 0.105 | 0.108 | +2.7% | −2.43 | ≈ neutral |
+| ChartQA | [9,49] | 135 | 0.212 | 0.203 | −4.3% | +2.26 | ✅ borderline |
+| ChartQA | [50,999] | 182 | 0.287 | 0.258 | −9.8% | −2.29 | ✅ |
+
+### Re-evaluating the Subspace headline
+
+**L31_K04_a2.0's "ChartQA −9.6%" headline hides massive heterogeneity:**
+- [0,4]: −88% (perfect)
+- [5,8]: **+96% backfire** (catastrophic)
+- [9,49]: 0% (no effect)
+- [50,999]: −9% (mild)
+
+**L31_K04_a1.0 is the better paper-headline cell** — uniformly mild reduction
+across all ChartQA gt bins, no catastrophic backfire. Trade slightly less
+peak Tally effect (−54.6% vs −63.6%) for cross-dataset robustness.
+
+Recommendation for §7.4.5: report **Subspace L31_K04_a1.0** as the headline
+cross-dataset cell (Tally df −54.6% / ChartQA df −13.0%), with a caveat
+that the magnitude varies per gt bin. The L31_K04_a2.0 result becomes a
+"stronger but distribution-sensitive" follow-up in the discussion.
+
+### Three-method comparison summary across gt bins
+
+| Method | Cross-dataset universal? | gt-bin sensitive? | Notes |
+|---|---|---|---|
+| LEACE 4c | ❌ (fails ChartQA all bins) | low (uniformly bad) | Direction mismatch is structural |
+| Subspace 1 a2.0 | ⚠ partially (extreme bins only) | high | [5,8] +96% backfire kills the cell |
+| Subspace 1 a1.0 | ✅ (mild reduction all bins) | low | Best tradeoff for paper |
+| DPO 3 | partial (adopt → 0 universal, df depends on gt) | high | gt-bias confound on ChartQA |
+
 ## Current pipeline status (v2)
 
 ## Selection-criterion comparison (n=100, prior runs)
