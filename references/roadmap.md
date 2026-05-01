@@ -48,13 +48,40 @@ Predictions are written `pred_b / pred_a / pred_m / pred_d`; ground truth is
 | **H6** | Cross-modal failures decouple into two orthogonal axes — `anchor-pull` vs. `multi-image distraction` | `adopt_rate(a)` and `acc_drop_d_vs_b` perfectly correlated → H6 fails | ✅ Suggested by E2 pilot (InternVL3 = high acc_drop / low adopt; LLaVA-1.5 = low acc_drop / high adopt; ConvLLaVA = both). Confirmed at full E4 Phase 2 scale |
 | **H7** ⚙ | `direction_follow_rate` is monotonic with `pred_b`-token logit / probability — i.e. uncertainty modulates anchor pull on a **continuous** confidence scale, of which wrong/correct (H2) is a coarse projection | `direction_follow_rate` flat across confidence quartiles | ☐ Pending §6 analysis (data captured commit `5f925b2`, no analysis yet) |
 
-## 3. Status snapshot — where we are (2026-04-28)
+## 3. Status snapshot — where we are (2026-05-02 — Phase 1 paper architecture restructure)
 
-The matrix below replaces the old "completed runs" / "pilot runs" / "models
-integrated" tables. Status flags: ✅ done · 🟡 partial / single-model · ⏳
+### 3.0 Architecture restructure summary (2026-05-02)
+
+Decision finalised 2026-05-02: paper-wide model + dataset consistency push.
+See `references/project.md §0.4.1–§0.4.3` for full tiering. Headlines:
+
+- **Main model**: `llava-interleave-7b` (every section primary).
+- **Sub panel**: + `qwen2.5-vl-7b-instruct` + `gemma3-27b-it` (3-model behavioural).
+- **Mechanism panel**: 5-model perfect-square (gemma4-e4b + llava-1.5-7b +
+  convllava-7b + fastvlm-7b + **llava-interleave-7b**) — InternVL3 + Qwen2.5-VL
+  → appendix only (non-perfect-square correctness risk).
+- **Datasets**: 5-dataset main matrix (TallyQA + ChartQA + MathVista + **PlotQA + InfographicVQA**); VQAv2 dropped from main, kept in appendix.
+- **§7.4.5 mitigation**: recalibrate Subspace on **PlotQA + InfoVQA pooled**, evaluate at full gt range (no [0,8] restriction).
+
+### 3.1 Behavioural runs (historical context — paper consistency push will overlay)
+
+The matrix below records what is on disk. Rows tagged `(historical)` were
+run pre-restructure; Phase 1 may overlay them with new runs at the
+canonical setup. Status flags: ✅ done · 🟡 partial / single-model · ⏳
 in-flight · ☐ not started.
 
-### 3.1 Behavioural runs
+### 3.1 Behavioural runs (historical + Phase 1 plan)
+
+**Phase 1 target rows** (new, plan):
+
+| Experiment | Dataset | Conditions | Models | Status |
+|---|---|---|---|---|
+| `experiment_e7_plotqa_full` | PlotQA test V1 | b/a/m/d (S1) | Main + Sub-A + Sub-B | ⏳ Phase 1 — pilot landed 2026-05-01 (llava n=200; baseline df 0.327, a−m gap +14.6pp); **target n=2500 stratified × 3 models** |
+| `experiment_e7_infographicvqa_full` | InfographicVQA val | b/a/m/d (S1) | Main + Sub-A + Sub-B | ⏳ Phase 1 — pilot landed 2026-05-01 (llava n=200; baseline df 0.190, a−m gap +5.1pp); **target n=1147 (full numeric) × 3 models** |
+| E5b/c PlotQA + InfoVQA + ChartQA + MathVista 3-model | 4 datasets | b + 5×a-strat + 5×m-strat + d | same 3 | ☐ Phase 2 (digit-pixel causality breadth) |
+| E6 Subspace recalibration on PlotQA + InfoVQA pooled, 5-dataset full-range eval | 5 datasets | b/a/m/d (S1) + cell sweep | Main only | ☐ Phase 1 — see §6.5 E6 |
+
+**Historical rows (pre-2026-05-02 restructure)**:
 
 | Experiment | Dataset | Conditions | Models | Status |
 |---|---|---|---|---|
@@ -172,15 +199,24 @@ or pending. Priorities (P0 / P1 / P2 / P3) are listed in §7.
 
 ### 6.2 §4 — Datasets and anchor inventory
 
+**Main matrix datasets (5)** — finalised 2026-05-02:
+
 | ID | Task | Status | Notes |
 |---|---|---|---|
-| **D1 — VQAv2** | snapshot + loader | ✅ `inputs/vqav2_number_val/` |
-| **D2 — TallyQA** | snapshot + loader | ✅ `inputs/tallyqa_test/` |
-| **D3 — ChartQA** | snapshot + loader | ✅ `inputs/chartqa_test/`, integer-GT [1,1000] gate |
-| **D4 — MathVista** | snapshot + loader, integer-GT gate | ✅ inputs ready; MathVista runs are γ |
+| **D2 — TallyQA** | snapshot + loader | ✅ `inputs/tallyqa_test/` (sub-dataset) |
+| **D3 — ChartQA** | snapshot + loader | ✅ `inputs/chartqa_test/`, integer-GT [1,1000] gate (sub-dataset) |
+| **D4 — MathVista** | snapshot + loader, integer-GT gate | ✅ `inputs/mathvista_testmini/` (sub-dataset) |
+| **D5 — PlotQA** | snapshot + loader (V1, gt ≤ 10k, template ∈ {data_retrieval, min_max, arithmetic}) | ✅ `inputs/plotqa_test/`, fetcher `scripts/fetch_plotqa_test.py` (96K numeric Q-A available; 2,500 stratified for full panel) — **Main dataset** |
+| **D6 — InfographicVQA** | snapshot + loader (val, positive int, gt ≤ 10k) | ✅ `inputs/infographicvqa_val/`, fetcher `scripts/fetch_infographicvqa_val.py` (1,147 numeric, gt-bin (20,100] dominant per percent-question heavy) — **Main dataset** |
 | **I1 — anchor inventory** | FLUX-rendered digit images, range up to 10000 | ✅ `inputs/irrelevant_number/` |
 | **I2 — anchor mask inventory** | OpenCV Telea inpaint of digit bbox | ✅ `inputs/irrelevant_number_masked/` |
 | **I3 — neutral inventory** | digit-free FLUX renders, scene-balanced | ✅ `inputs/irrelevant_neutral/` |
+
+**Dropped (2026-05-02 decision)**: `D1 — VQAv2` from main matrix. Multiple-GT
+(10-annotator vote) + open-vocabulary text answers + full-eval impractical
++ legacy benchmark for 2024–2026 numeric VQA. TallyQA covers the natural
+image counting axis VQAv2 contributed. Existing `inputs/vqav2_number_val/`
+preserved for appendix breadth panel only.
 
 ### 6.3 §5 — Distance, plausibility window, digit-pixel causality
 
@@ -218,16 +254,37 @@ the coarsest possible projection of this monotonicity.
 
 ### 6.5 §7 — Attention mechanism + mitigation
 
+**Restructured 2026-05-02**: §7.1–7.3 *analysis* anchored on **E1-patch
+digit-bbox attention** (not full-anchor attention) on **5-model
+perfect-square panel**. §7.4 E4 attention re-weighting extends to add
+Main. §7.4.5 E6 Subspace recalibrates on PlotQA+InfoVQA pooled at full
+gt range (no [0,8] restriction).
+
+#### §7.1–7.3 Analysis (digit-bbox-centric)
+
 | ID | Experiment | Status |
 |---|---|---|
-| **E1 / E1b / E1c / E1d** | full anchor-image attention pipeline (mass + per-layer + H3-falsified writeup + causal ablation) | ✅ |
-| **E1-patch (POC + perfect-square panel extension)** | digit-pixel-patch attention reanalysis. POC headline (2026-04-29): gemma4-e4b digit/anchor = 0.631 (peak L9, +0.404 above fair share); llava-1.5-7b digit/anchor = 0.468 (peak L7, +0.241 above fair share). Extension 2026-04-29: ConvLLaVA-7b (CLIP-ConvNeXt, 24×24 = 576-token square span) and FastVLM-7b (FastViT, 16×16 = 256-token square span) re-use the existing perfect-square `_compute_anchor_bbox_mass` path with no new code. Pipeline: bbox JSON via `scripts/compute_anchor_digit_bboxes.py`; extraction via `scripts/extract_attention_mass.py --bbox-file`; analysis via `scripts/analyze_attention_patch.py`. `docs/insights/E1-patch-evidence.md`. | ✅ 4-model panel landed 2026-04-29 (gemma4-e4b, llava-1.5-7b, convllava-7b, fastvlm-7b); InternVL3-8b + Qwen2.5-VL-7b deferred — see "E1-patch non-square archetypes" row |
-| **E1-patch non-square archetypes** | InternVL3-8b (3328-token multi-tile span — needs per-tile bbox routing) and Qwen2.5-VL-7b (391-token = 17×23 non-square span — needs `grid_thw` plumbing through the processor). Each requires its own per-encoder bbox-to-token mapping in `_compute_anchor_bbox_mass` because the current `int(math.isqrt(n)) ** 2 == n` gate returns None on these spans by design. Estimated 1–2 days each — 4–7 days panel-wide. | ☐ P3 (deferred — 2026-04-29 audit corrected the original §7 P1 1.5h budget after discovering the actual implementation cost) |
-| **E1-patch masked-arm causal control** | re-run extraction on the 4-model panel using a 4-cond config (b/a/m/d) instead of the existing 3-cond `configs/experiment.yaml`. Pairs `image_anchor_digit` on the anchor arm against the masked arm's anchor-region attention as a digit-pixel causal control. Adds ~1 hour GPU per model + 4-cond config wiring. | ☐ P3 (deferred 2026-04-29 — independent of the non-square work above) |
-| **E4 Phase 1 + 2** | mid-stack-cluster attention re-weighting (LLaVA-1.5 / ConvLLaVA / InternVL3) | ✅ |
-| **E4 §7.4 paper rendering** | report `direction_follow_rate` reduction, `exact_match` rise, `accuracy_vqa(b)` invariance side by side; the "free lunch" framing | ✅ `docs/insights/paper-section-7-4-mitigation-free-lunch.md` (2026-04-29) |
-| **E6 — anchor mitigation search (multi-method, §7.4.5)** | Phase 1 single-direction ActAdd PoC ran VQAv2-only (df −14.2 % rel) but cross-dataset failed (TallyQA +5.5 %, ChartQA +1.3-4.5 %). Pivoted to multi-method search; Tally-only N=5000 calibration rerun ran 2026-05-01 covering all 7 methods. **FINAL VERDICT (2026-05-01):** Multi-direction subspace projection (Method 1) **L31_K04_α=1.0** clears cross-dataset selection rule on 4/4 datasets at gt ∈ [0,8]: TallyQA df −55%, ChartQA df −46%, VQAv2 df −52%, MathVista df −56% — all em changes positive (+0.9 to +3.3 pp). Methods 0a/0b/2/3/4a/4c rejected. Single hyperparameter triple, no anchor labels at inference. ✅ Paper §7.4.5 prose written. | ✅ **DONE 2026-05-01** — paper headline cell: Subspace L31_K04_α=1.0 |
-| **E1-patch generalises mitigation?** | does upper-half attention mass concentrate on the digit patch only? if yes, mitigation can shrink target region | ☐ P3 (subsumed by E6 — digit-bbox-scoped attention surgery (N1/N2 in 2026-04-29 brainstorm) needs anchor label at inference, so reframed as **mechanistic analysis tool** under §7.2 rather than a deployable mitigation) |
+| **E1 / E1b / E1d (full-anchor, historical)** | full anchor-image attention pipeline (mass + per-layer + causal ablation), 6-model encoder-archetype panel | ✅ landed pre-restructure — kept as supplementary in §7.1 background; main §7.1–7.3 now anchored on E1-patch |
+| **E1-patch perfect-square panel — 5-model (Phase 3 target)** | digit-pixel-patch attention. Existing 4-model panel (gemma4-e4b, llava-1.5-7b, convllava-7b, fastvlm-7b) → **add Main `llava-interleave-7b` (SigLIP encoder, 27×27 = 729 perfect-square)**. Same `_compute_anchor_bbox_mass` perfect-square path, no new code. Existing headline: digit/anchor ratio +24–40 pp above fair share at peak layer on every panel model. | ⏳ Phase 3 — Main extraction ~30 min on H200; 5-model panel headline target |
+| **E1-patch causal ablation (digit-bbox region zero-mask) — Phase 3** | causal ablation restricted to digit-bbox region (not full anchor span). Tests: does zeroing only the digit patch reproduce E1d's df reduction? Patch-level surgical ablation (anchor label needed at extraction time, not inference time). Replaces the existing full-anchor E1d as §7.3 main analysis. | ☐ Phase 3 — implementation depends on E1-patch attention path + bbox JSON pipeline |
+| **E1-patch masked-arm causal control** | re-run extraction on 5-model panel under 4-cond config (b/a/m/d). Pairs anchor-arm digit-bbox attention against masked-arm anchor-region attention as digit-pixel causal control. | ☐ Phase 3 — 4-cond config wiring + ~1h GPU/model |
+| **InternVL3-8b + Qwen2.5-VL-7b non-perfect-square (appendix only)** | InternVL3 multi-tile + Qwen2.5-VL 17×23 non-square. Per-encoder bbox-to-token routing required; correctness hard to guarantee uniformly. **Decision 2026-05-02: not in main §7 panel** — appendix-only mention with caveat. | ☐ appendix |
+
+#### §7.4 E4 attention re-weighting mitigation
+
+| ID | Experiment | Status |
+|---|---|---|
+| **E4 Phase 1 + 2 (existing 3-model mid-stack cluster)** | mid-stack-cluster attention re-weighting (LLaVA-1.5 / ConvLLaVA / InternVL3) | ✅ landed pre-restructure |
+| **E4 + Main `llava-interleave-7b` (Phase 3)** | E4 sweep + full validation for Main model. Risk: Main may not fall in mid-stack cluster archetype (SigLIP ≠ CLIP-ViT/InternViT/ConvNeXt) → E4 may null-effect or backfire. Result drives §7.4 framing: if archetype-conditional, document as such; if cleanly transferred, headline strengthened. | ☐ Phase 3 — depends on E1-patch Main archetype assignment |
+| **E4 §7.4 paper rendering** | report `direction_follow_rate` reduction, `exact_match` rise, `accuracy_vqa(b)` invariance side by side; the "free lunch" framing | ✅ `docs/insights/paper-section-7-4-mitigation-free-lunch.md` (2026-04-29) — needs Phase 3 update with Main extension |
+
+#### §7.4.5 E6 Subspace deployable mitigation
+
+| ID | Experiment | Status |
+|---|---|---|
+| **E6 (historical) — Tally-only N=5000 calibration, gt ∈ [0,8] eval** | Subspace L31_K04_α=1.0 clears 4-dataset selection rule. df −46% to −56% on TallyQA/ChartQA/VQAv2/MathVista; em +0.9 to +3.3 pp. Caveat: gt ∈ [0,8] restriction made result look like partial solution. | ✅ landed 2026-05-01 — historical baseline |
+| **E6 Phase 1 — recalibrate on PlotQA + InfoVQA pooled, evaluate full gt range, 5-dataset** | New calibration source: pooled wrong-base sids from `experiment_e7_plotqa_full` + `experiment_e7_infographicvqa_full` (Main model baselines). Evaluate at full gt range (no [0,8] restriction) on 5-dataset matrix. **Risk**: chart+info-calibrated subspace may not transfer to small-gt natural-image counting (TallyQA). Plan B = pooled multi-source (chart + info + count) recalibration. | ☐ Phase 1 P0 — depends on Phase 1 §3 baseline runs |
+| **E6 Pilot validation (2026-05-01, llava n=200)** | Existing Tally-calibrated subspace tested on PlotQA + InfoVQA pilots: PlotQA gt∈[1,8] Δdf −60%, em +3.85pp; InfoVQA gt∈[1,8] Δdf −24%, em +1.09pp. Validates cross-dataset transferability of subspace projection method on the new datasets at small-gt subset. Phase 1 will determine whether **PlotQA+InfoVQA-calibrated** subspace at full gt range achieves the same. | ✅ pilot done |
 
 ### 6.6 §8 — Future work (scope only)
 
@@ -237,30 +294,56 @@ the coarsest possible projection of this monotonicity.
 | **F2** | image-vs-text anchor — anchor image described as text and given to the same VLM; effect-size delta | ☐ ideation only |
 | **F3** | Reasoning-mode VLM at scale — Qwen3-VL thinking, etc., on E5e cross-dataset matrix | ☐ scope only (γ-β is the minimal §8 stake) |
 
-## 7. Pending work — priority queue
+## 7. Pending work — Phase-structured priority queue (2026-05-02 restructure)
 
-P0 = blocks paper sections, do this week. P1 = strengthens but not load-
-bearing. P2 = ideation depth. P3 = future / parallel.
+Phase 1 = paper consistency push (Main matrix at canonical setup). Phase 2 =
+breadth-strengthening (digit-pixel causality 5-strat × 5 datasets). Phase 3 =
+mechanism-Main alignment (E1-patch + E4 + Main). Within phase, P0 blocks the
+phase target, P1 is opportunistic.
 
-**As of 2026-05-01 (E6 final + paper §7.4.5 prose written)** — all
-paper-blocking P0s have landed (M2-refactor + C-form, L1-L4 confidence,
-γ-α + γ-β MathVista, E1-patch POC, paper §3/§7.4/§7.4.5/§8 prose, E5e
-TallyQA gemma3-27b cell, qwen2.5-vl-7b E5c VQAv2 + TallyQA, gemma3-27b-it
-E5c VQAv2 + TallyQA, **E6 Subspace L31_K04_α=1.0 cross-dataset paper
-headline confirmed on 4 datasets**). No P0 outstanding.
+**As of 2026-05-02** — paper architecture restructure committed. All
+P0s for the OLD 4-dataset paper structure have landed (E6 4-dataset
+headline at gt∈[0,8], paper §3/§7.4/§7.4.5/§8 prose, M2/C-form
+refactor, L1-L4 confidence). The work below operationalises the new
+5-dataset main matrix + Main-model-led architecture.
 
-| **P1 ✅ DONE** | **E6 Method 1 — multi-direction subspace projection (CIPHER/VCE/RepE family)**. **FINAL VERDICT 2026-05-01: ✅ PAPER HEADLINE.** Tally-only N=5000 calibration, sweep n=500 on 4 datasets, gt ∈ [0,8] subset: TallyQA df −55%, ChartQA df −46%, VQAv2 df −52%, MathVista df −56% (em +0.9 to +3.3 pp on every dataset). Single hyperparameter triple L31_K04_α=1.0 generalises without per-dataset tuning, no anchor labels at inference. Earlier failures (n=100 pooled, ChartQA n=500 cancelled) were resolved by Tally-only calibration + larger N + gt-bin restriction. Paper §7.4.5 prose written. | §6.5 E6 | done |
-| **P1 ❌** | **E6 Method 2 — query-adaptive offset (AFTER QAO)**. **FAILED 2026-04-30.** Tally full (n=346): 1/4 cells passes (Lq30_Lt28_a0.5, df Δ=−9.6%, em Δ=+0.29pp). ChartQA full (n=416): 0/4 pass (best Δ=−4.1%, below −5% threshold). No cross-dataset overlap. Probe overfits Tally query distribution, conflicts with ChartQA. | §6.5 E6 | done |
-| **P1 ⚠** | **E6 Method 4c — LEACE closed-form linear erasure (arXiv:2306.03819)**. **VERDICT REVISED 2026-04-30 under one-sided em rule.** Original two-sided rule (\|em_pp\| ≤ 2): TallyQA 0/20, ChartQA 5/20, overlap=0 → ❌. One-sided rule (em_pp ≥ −2; allow em gains): **L30_a2.0 passes both** — Tally df −13.2% / em **+5.88pp** (improvement, not damage), ChartQA df **−38.1%** / em invariant. Cross-dataset overlap = 1. **Tentative ✅** pending full-set re-validation (n=100 baselines suspected selection-biased per CogBias case). | §6.5 E6 | full-set re-validation needed |
-| **P1 ❌** | **E6 Method 4a — CogBias decode-correction (arXiv:2604.01366)**. **FAILED 2026-04-30.** Full-set validation (Tally n=500, ChartQA n=416): L31_ap0.5_ad0.5 achieves Tally −6.2% (0.38 SE, barely passes threshold) but ChartQA only −4.3% (below −5% threshold). Cross-dataset overlap = 0. n=100 baseline inflated by selection bias (14.0% apparent vs 12.85% true at n=500). Root cause: anchor direction cos(T,C)=0.47–0.62. | §6.5 E6 | done |
-| **P1 ❌** | **E6 Method 3 — MIA-DPO LoRA (arXiv:2410.17637)**. **FAILED 2026-04-30.** Tally: df −42%, em +15pp (overtrained on counting). ChartQA: df −3.9% (below threshold), em −3.7pp, severe parse failures (73/300 valid outputs). Root: 97%/3% Tally/ChartQA data imbalance causes adapter to overfit counting distribution. | §6.5 E6 | done |
-| **P3** | E1-patch full panel non-square archetypes — InternVL3-8b (multi-tile bbox routing) and Qwen2.5-VL-7b (`grid_thw` plumbing). 2026-04-29 audit re-budgeted the original §7 1.5h estimate to 4–7 days panel-wide after finding the bbox-to-token mapping is per-encoder (POC's `int(math.isqrt(n)) ** 2 == n` gate returns None on multi-tile / rectangular grids). ConvLLaVA-7b + FastVLM-7b were perfect-square and landed in the 4-model panel 2026-04-29. | §6.5 E1-patch | ~1–2 days/model implementation + ~12 min/model H200 extraction |
-| **P3** | E1-patch masked-arm causal control — re-run extraction on 4-model panel under 4-cond config | §6.5 E1-patch | 4-cond config wiring + ~1h GPU/model |
-| **P1** | VQAv2 4-condition cross-model (b/a/m/d, S1 only, kept) | §6.3 | ~1d (3 models) — opportunistic |
+### Phase 1 — paper consistency push (target: ARR-clean main matrix)
+
+| Pri | Task | Where | Estimate |
+|---|---|---|---|
+| **P0** | `experiment_e7_plotqa_full` 3-model run (Main + Sub-A + Sub-B) at n=2500 stratified — config exists at `configs/experiment_e7_plotqa_full.yaml` | §6.3 §5 / §3 | ~9h wall (3 GPU parallel) |
+| **P0** | `experiment_e7_infographicvqa_full` 3-model run at n=1147 (full numeric) — config exists at `configs/experiment_e7_infographicvqa_full.yaml` | §6.3 §5 / §3 | ~4h wall |
+| **P0** | E6 Subspace recalibration: pool wrong-base sids from PlotQA + InfoVQA Main baselines, recompute subspace at L=31, evaluate at full gt range across 5 datasets | §6.5 E6 | ~3h calibration + ~10h sweep wall |
+| **P0** | Section §3.3 + §5 + §6 reaggregation against new 5-dataset main matrix (drop VQAv2 from headline tables, fold appendix mention) | §6.1 / §6.3 / §6.4 | analysis only, ~1d |
+| **P1** | §3 main panel (3-model × 5-dataset) consolidated table — compose §3.3 from existing 3-model E5e cells (TallyQA + ChartQA + MathVista) + Phase 1 new (PlotQA + InfoVQA) | §6.1 | reaggregation only |
+| **P1** | gemma3-27b-it on E5e TallyQA at n≥1000 (currently n=300 max_samples) for consistency with main panel | §6.3 | ~3h compute |
+
+### Phase 2 — breadth strengthening (Phase 1 results in hand)
+
+| Pri | Task | Where | Estimate |
+|---|---|---|---|
+| **P1** | E5b/c (5-stratum + digit-mask) on PlotQA + InfoVQA × 3-model panel | §6.3 §5 | ~10h wall |
+| **P1** | E5b/c on ChartQA + MathVista × 3-model panel (currently absent) | §6.3 §5 | ~10h wall |
+| **P1** | §6 confidence-modulated reaggregation across new 5-dataset matrix | §6.4 | reaggregation only |
+
+### Phase 3 — mechanism-Main alignment (E1-patch / E4 / Main)
+
+| Pri | Task | Where | Estimate |
+|---|---|---|---|
+| **P1** | E1-patch attention extraction on Main `llava-interleave-7b` (perfect-square SigLIP, 27×27) — joins 4-model panel → 5-model | §6.5 §7.1–7.3 | ~30 min H200 + bbox JSON regen |
+| **P1** | E1-patch causal ablation refactor: digit-bbox region zero-mask only (replaces full-anchor E1d as §7.3 main); 4-cond config required | §6.5 §7.1–7.3 | 4-cond wiring + ~1h GPU/model on 5-model panel |
+| **P1** | E1-patch masked-arm causal control on 5-model panel (4-cond extraction) | §6.5 §7 | ~5h GPU |
+| **P1** | E4 attention re-weighting on Main `llava-interleave-7b` (Phase 1 sweep + Phase 2 full) | §6.5 §7.4 | ~6–8h depending on archetype assignment |
+
+### Phase 4 — paper polish (write phase)
+
+| Pri | Task | Where | Estimate |
+|---|---|---|---|
+| **P1** | §7.4.5 paper prose update (Tally-cal headline → PlotQA+InfoVQA-cal headline at full gt range) | `docs/paper/sections/07_*.md` | text only |
+| **P1** | §3 / §5 / §6 paper prose update for 5-dataset matrix | `docs/paper/sections/0[3-6]_*.md` | text only |
 | **P1** | Citation verification — every 2026 arXiv ID in `references/project.md` and §2 paper draft must resolve to a real paper | §9 caveat | hours of manual verification, reviewer-defuse |
-| **P3** | E4 generalisation to other archetypes (Gemma / Qwen / FastVLM) | §6.5 | days |
 | **P3** | Image-vs-text anchor (F2) follow-up paper | §6.6 | future |
-| **P3** | VQAv2 main panel logit re-run (L6 — no logit capture pre-commit `5f925b2`) | §6.4 | opportunistic |
+| **P3** | InternVL3 + Qwen2.5-VL E1-patch non-square (appendix only) | §6.5 §7 | 1–2 days/model implementation if pursued |
 
 **Recently landed (struck from queue 2026-04-29):**
 
@@ -321,12 +404,71 @@ headline confirmed on 4 datasets**). No P0 outstanding.
   that may not resolve. Verify every cite before submission.
 - **Bilingual docs convention retired** (commit `84f9341`, 2026-04-27).
   No `_ko.md` mirrors. English `.md` is the only canonical version.
-- **In-flight inference.** None — all paper-blocking inference cells
-  have landed as of 2026-04-29 (gemma3-27b-it E5c VQAv2 + TallyQA,
-  γ-α / γ-β MathVista, qwen2.5-vl-7b E5c VQAv2 + TallyQA, E5e
-  TallyQA gemma3-27b cell).
+- **In-flight inference (2026-05-02 restructure).** Phase 1 P0 runs not
+  yet started — `experiment_e7_plotqa_full` 3-model n=2500 + `experiment_e7_infographicvqa_full` 3-model n=1147 +
+  E6 PlotQA+InfoVQA-pooled recalibration. See `references/plan_phase1.md`
+  for the runbook.
+- **gt ∈ [0,8] restriction retired (2026-05-02).** Old §7.4.5 headline used
+  this restriction because Tally-only calibration's gt distribution capped
+  there. Phase 1 retargets at full gt range with PlotQA+InfoVQA pooled
+  calibration. If full-range fails, plan B = pooled multi-source
+  (count + chart + info) calibration.
+- **Heavy-tailed prediction distance (2026-05-02).** PlotQA model emits raw
+  chart values (e.g., "10000000" for gt=22) on a small minority of samples.
+  `mean_distance_to_anchor` was inflated by single outliers (PlotQA S3 mean
+  59,707 vs median 75). Switched to `median_distance_to_anchor` in live
+  metrics; legacy `mean_distance_to_anchor` field preserved in older
+  `predictions.jsonl` only.
 
 ## 10. Changelog
+
+- **2026-05-02 (Phase 1 kickoff — paper architecture restructure).**
+  Coordinated paper-wide model + dataset consistency push.
+
+  **Decisions finalised** (`references/project.md §0.4` is canonical):
+  - **Main model** = `llava-interleave-7b` (every section primary).
+    Rationale: E6 mitigation backbone, multi-image native (LLaVA-Interleave
+    designed for interleaved multi-image), modern 2024 release with stable
+    HF integration, 7B sweet spot, established 2025-2026 strong VLM baseline.
+  - **Sub panel** = + `qwen2.5-vl-7b-instruct` + `gemma3-27b-it`.
+    qwen2.5 (not qwen3) for disjointness from §5 γ-β qwen3 reasoning
+    ablation + 2025-2026 standard baseline status. gemma3-27b-it (not 4B)
+    because 4B base accuracy is too weak for clean wrong/correct split
+    measurement on numeric VQA. gemma4 (not 3) avoided due to less HF
+    integration maturity at 2026-05.
+  - **Mechanism panel** restricted to **5-model perfect-square**:
+    gemma4-e4b + llava-1.5-7b + convllava-7b + fastvlm-7b + Main.
+    InternVL3 + Qwen2.5-VL → appendix only (non-perfect-square implementation
+    correctness risk per-encoder).
+  - **5-dataset main matrix**: TallyQA + ChartQA + MathVista + **PlotQA** +
+    **InfographicVQA**. **VQAv2 dropped** from main matrix (multi-GT, legacy
+    benchmark, full-eval impractical). Existing 7-model VQAv2 panel preserved
+    in appendix for behavioural breadth supplementary.
+  - **§7.4.5 mitigation**: recalibrate Subspace on **PlotQA + InfoVQA pooled**
+    at full gt range, drop the [0,8] restriction. Goal: replace "deployable
+    across 4 datasets at gt ∈ [0,8]" with "deployable across 5 datasets at
+    full gt range".
+
+  **Pilot evidence (2026-05-01 / 2026-05-02 on llava-interleave-7b, n=200)**:
+  - PlotQA: baseline df 0.327, a−m gap +14.6pp (strong digit-pixel signal).
+  - InfoVQA: baseline df 0.190, a−m gap +5.1pp.
+  - Existing Tally-calibrated Subspace L31_K04_α=1.0 transferred at gt∈[1,8]
+    on PlotQA Δdf −60% / em +3.85pp; InfoVQA Δdf −24% / em +1.09pp.
+    (Demonstrates method transferability; Phase 1 will determine whether
+    PlotQA+InfoVQA-calibrated subspace works at full gt range.)
+
+  **Code/scaffolding landed 2026-05-01–02**:
+  - `scripts/fetch_plotqa_test.py` — V1 numeric, template ∈ {data_retrieval,
+    min_max, arithmetic}, gt ≤ 10000 filter
+  - `scripts/fetch_infographicvqa_val.py` — positive int, gt ≤ 10000 filter
+  - `configs/experiment_e7_plotqa_pilot.yaml` + `experiment_e7_plotqa_full.yaml`
+  - `configs/experiment_e7_infographicvqa_pilot.yaml` + `experiment_e7_infographicvqa_full.yaml`
+  - `inputs/plotqa_test/` + `inputs/infographicvqa_val/` snapshots
+  - `metrics.py` + `visualization.py`: `mean_distance_to_anchor` →
+    `median_distance_to_anchor` (heavy-tailed prediction outliers on
+    wide-gt datasets — single PlotQA outlier inflated S3 mean to 59,707
+    while median was 75)
+  - Detailed Phase 1 runbook at `references/plan_phase1.md`
 
 - **2026-05-01 (E6 FINAL: Subspace L31_K04_α=1.0 cross-dataset paper headline confirmed).**
   Tally-only N=5000 calibration rerun (master_v2 pipeline) ran S0→S3 over ~17h
