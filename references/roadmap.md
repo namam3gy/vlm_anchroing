@@ -434,6 +434,50 @@ refactor, L1-L4 confidence). The work below operationalises the new
 
 ## 10. Changelog
 
+- **2026-05-02 ~08:39 (Phase 1 P0 v3 multi-GPU restart).** GPU count expanded
+  from 1 → 3 (GPU 0/1/2 available). Sharded run + parallel orchestrator
+  added (commit `24e008c`):
+
+  - `scripts/run_experiment.py` — `--shard-idx N --num-shards K --output-dir`
+    flags slice samples round-robin (`samples[N::K]`) and route output;
+    figures skipped under sharding.
+  - `scripts/run_experiment_sharded.py` — fans out K subprocesses pinned via
+    `CUDA_VISIBLE_DEVICES`, waits, concatenates predictions, recomputes
+    summary into the shared `<ts>/predictions.{jsonl,csv}+summary.json`.
+    Greedy decoding (temperature=0) keeps merge byte-identical to a
+    single-process run; verified via 12-sample ChartQA smoke (46 records,
+    0 field diffs, summary equal).
+  - `scripts/_phase1_post_baseline_parallel.sh` — 5-stage orchestrator
+    using GPUs 0/1/2:
+    - **S1** TallyQA Main sharded 3-way (~3.5h vs ~10h single-GPU).
+    - **S2** chart_base+math_base on GPU0, calib_plotqa on GPU1,
+      calib_infovqa on GPU2 — all in parallel (~1h dominated by calib_plotqa).
+    - **S3** SVD pooled subspace (CPU/fast).
+    - **S4** 5 sweep-subspace cells distributed by cost: tally→GPU0,
+      plotqa+chartqa→GPU1, infovqa+mathvista→GPU2 (~1.5h).
+    - **S5** CPU finalization: recompute_confidence ×5 in parallel,
+      per_cell ×5 sequential, confidence anchoring, 5-dataset summary.
+  - All steps idempotent; safe to re-run after pod restart.
+  - Wall-clock ~6-7h end-to-end vs ~12h sequential.
+  - Legacy `_phase1_post_baseline.sh` retained (single-GPU, CUDA_VISIBLE_DEVICES=1
+    hard-coded) for fallback.
+
+  **v2 sharding extension** (commit `7433ee3`): `e6_steering_vector.py`
+  calibrate-subspace + sweep-subspace phases now support sharding via the
+  same `--shard-idx/--num-shards/--output-dir` flags. New drivers
+  `run_calibrate_subspace_sharded.py` (K shards → torch.cat D_wrong/D_all
+  → canonical SVD) and `run_sweep_subspace_sharded.py` (K shards →
+  predictions.jsonl concat + dedup). Calibrate sharding is statistically
+  equivalent (not byte-identical: round-robin slicing + per-shard cap
+  produces at most num_shards-1 extra correct-base rows; D_wrong identical
+  when wrong-base eligibility exhausted before cap). Top-K SVD basis
+  robust to such perturbation; alignment verifiable via
+  `check_subspace_alignment.py` (principal-angle cosines, threshold 0.99).
+  Sweep sharding is byte-identical (greedy decoding + streaming records).
+  `_phase1_post_baseline_parallel_v2.sh` orchestrates the full sharded
+  pipeline (tally + calibs + sweep_tally); ~5h end-to-end. Skips Stage 1
+  via `cell_done` if v1 has produced merged tally predictions.
+
 - **2026-05-02 02:30 (Phase 1 P0 in flight on GPU 1).** Branch
   `phase1/p0-baseline-recalibration`, ~14 commits.
 
