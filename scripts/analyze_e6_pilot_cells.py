@@ -66,7 +66,16 @@ def _latest_baseline_run(model_dir: Path) -> Path | None:
 
 
 def _load_baseline_metrics(baseline_run: Path) -> dict[str, dict]:
-    """Compute baseline df(a), em(a), acc(b) from a model's predictions.jsonl."""
+    """Compute baseline df(a), em(a) from a model's predictions.jsonl.
+
+    IMPORTANT: filter to **wrong-base sids only** (target_only.exact_match == 0)
+    to match pilot/sweep eligible_sids population. Without this filter,
+    em_a_baseline averages over correct-base samples (which have high em,
+    pa==pb==gt) and gives an inflated baseline → spurious dEM ~ -0.45.
+    Same logic for df_baseline: correct-base samples have df=0 by construction
+    (pa==pb), so including them artificially deflates df_baseline → spurious
+    dDF > 0.
+    """
     if baseline_run is None:
         return {}
     rows = []
@@ -90,6 +99,10 @@ def _load_baseline_metrics(baseline_run: Path) -> dict[str, dict]:
         em_b_total += 1
         if b_rec.get("exact_match") == 1:
             em_b_count += 1
+        # WRONG-BASE FILTER: skip sids where target_only got it right.
+        # Pilot/sweep evaluates only wrong-base; baseline must match.
+        if b_rec.get("exact_match") == 1:
+            continue
         a_rec = next((conds[c] for c in a_conds if c in conds), None)
         if a_rec is None:
             continue
