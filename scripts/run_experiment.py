@@ -25,6 +25,17 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--output-root", type=str, default=None)
     parser.add_argument("--max-samples", type=int, default=None)
     parser.add_argument("--models", nargs="*", default=None, help="Subset of model names from config.")
+    # Sharding (multi-GPU fan-out). When --num-shards > 1, samples are sliced
+    # round-robin so each shard processes samples[shard_idx::num_shards].
+    # Greedy decoding (temperature=0) makes the union byte-identical to a
+    # single-process run; merging is concat + re-summarize.
+    parser.add_argument("--shard-idx", type=int, default=None)
+    parser.add_argument("--num-shards", type=int, default=None)
+    # When set, write predictions/summary directly into this directory and
+    # skip the default <experiment_root>/<model>/<timestamp>/ layout. Used by
+    # the sharded driver to land each shard in its own subdir while sharing
+    # one timestamp at the parent level.
+    parser.add_argument("--output-dir", type=str, default=None)
     return parser.parse_args()
 
 
@@ -44,6 +55,13 @@ def main() -> None:
     )
     experiment_root = ensure_dir(output_root / config_path.stem)
     timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+
+    sharded = args.num_shards is not None and args.num_shards > 1
+    if sharded:
+        if args.shard_idx is None or not (0 <= args.shard_idx < args.num_shards):
+            raise ValueError("--shard-idx must be in [0, num_shards) when --num-shards > 1")
+        if args.output_dir is None:
+            raise ValueError("--output-dir is required when sharding (driver provides shared parent path)")
 
     ds_cfg = cfg["vqa_dataset"]
     max_samples = args.max_samples if args.max_samples is not None else ds_cfg.get("max_samples")
@@ -94,6 +112,14 @@ def main() -> None:
             variants_per_sample=int(cfg["inputs"].get("irrelevant_sets_per_sample", 1)),
         )
 
+    # Apply shard slicing AFTER all sample-list construction so every shard
+    # observes the identical canonical sample order before slicing.
+    if sharded:
+        samples = samples[args.shard_idx :: args.num_shards]
+        print(
+            f"[shard {args.shard_idx}/{args.num_shards}] processing {len(samples)} samples"
+        )
+
     inf_cfg = InferenceConfig(
         system_prompt=cfg["prompt"]["system"],
         user_template=cfg["prompt"]["user_template"],
@@ -107,6 +133,11 @@ def main() -> None:
         wanted = set(args.models)
         selected_models = [m for m in selected_models if m["name"] in wanted]
 
+    if args.output_dir is not None and len(selected_models) != 1:
+        raise ValueError(
+            "--output-dir requires exactly one selected model (use --models <name>)"
+        )
+
     all_records: list[dict] = []
 
     import gc
@@ -115,7 +146,10 @@ def main() -> None:
     for model_idx, model_cfg in enumerate(selected_models):
         model_name = model_cfg["name"]
         print(f"\n=== Running {model_name} ===")
-        model_out_dir = ensure_dir(experiment_root / model_name / timestamp)
+        if args.output_dir is not None:
+            model_out_dir = ensure_dir(resolve_path(args.output_dir, base_dir=Path.cwd()))
+        else:
+            model_out_dir = ensure_dir(experiment_root / model_name / timestamp)
         hf_model = model_cfg.get("hf_model")
         if not hf_model:
             raise ValueError(f"Model {model_name} is missing `hf_model`, which is required for HF-only execution.")
@@ -192,7 +226,10 @@ def main() -> None:
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
 
-    if all_records:
+    # Skip figure rendering for sharded runs — the driver merges predictions
+    # and regenerates figures from the unified record set. Also skip when an
+    # explicit --output-dir is provided (caller is orchestrating layout).
+    if all_records and not sharded and args.output_dir is None:
         save_experiment_analysis_figures(all_records, experiment_root / "analysis" / timestamp)
 
 
