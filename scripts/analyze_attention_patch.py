@@ -128,13 +128,21 @@ def per_layer_concentration(records: list[dict]) -> pd.DataFrame:
         digit = ps_step.get("image_anchor_digit")
         anchor = ps_step.get("image_anchor")
         bg = ps_step.get("image_anchor_background")
+        # Apples-to-apples denominator: when image_anchor_base is present
+        # (OneVision AnyRes path emits it), use mass over the base 27x27
+        # view rather than the full multi-crop span. This makes
+        # digit_over_anchor comparable to the perfect-square panel where
+        # the entire span IS the base 27x27 view.
+        anchor_base = ps_step.get("image_anchor_base")
         if digit is None or anchor is None:
             continue
+        denom_layers = anchor_base if anchor_base is not None else anchor
         n_layers = len(digit)
         for layer_idx in range(n_layers):
             anc = float(anchor[layer_idx])
             dig = float(digit[layer_idx])
-            ratio = (dig / anc) if anc > 1e-9 else 0.0
+            den = float(denom_layers[layer_idx])
+            ratio = (dig / den) if den > 1e-9 else 0.0
             rows.append({
                 "model": r.get("model"),
                 "sample_instance_id": r.get("sample_instance_id"),
@@ -143,9 +151,10 @@ def per_layer_concentration(records: list[dict]) -> pd.DataFrame:
                 "step_used": step,
                 "layer": layer_idx,
                 "mass_anchor": anc,
+                "mass_anchor_base": float(anchor_base[layer_idx]) if anchor_base is not None else anc,
                 "mass_digit": dig,
                 "mass_background": float(bg[layer_idx]) if bg is not None else max(0.0, anc - dig),
-                "digit_over_anchor": ratio,
+                "digit_over_anchor": ratio,  # uses anchor_base when available
             })
     return pd.DataFrame(rows)
 

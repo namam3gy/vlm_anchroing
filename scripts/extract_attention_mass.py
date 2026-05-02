@@ -157,7 +157,8 @@ class EagerAttentionRunner(HFAttentionRunner):
     sdpa silently returns no attention tensors; we MUST use eager for E1.
     """
 
-    def __init__(self, model_name: str, inference_config=None, device=None):
+    def __init__(self, model_name: str, inference_config=None, device=None,
+                 device_map: str | None = None):
         from transformers import AutoProcessor, AutoModelForImageTextToText
 
         # Bypass parent __init__'s sdpa load.
@@ -167,16 +168,44 @@ class EagerAttentionRunner(HFAttentionRunner):
         self.device = self._resolve_device(device)
         dtype = self._resolve_dtype()
         self.processor = AutoProcessor.from_pretrained(model_name, trust_remote_code=True)
+        # device_map="auto" splits weights across all visible GPUs (Accelerate
+        # pipeline parallel). Required for OneVision § 7.1-7.3 because the
+        # AnyRes 6500-token sequences with output_attentions=True OOM on
+        # any single H200 (~75 GB stored attentions across 28 layers in
+        # bf16 + 18 GB model + 13 GB KV cache > 140 GB).
+        effective_device_map = device_map if device_map else self.device
         self.model = AutoModelForImageTextToText.from_pretrained(
             model_name,
             dtype=dtype,
             trust_remote_code=True,
-            device_map=self.device,
+            device_map=effective_device_map,
             attn_implementation="eager",
         )
         if hasattr(self.model.config, "_attn_implementation"):
             self.model.config._attn_implementation = "eager"
         self.model.eval()
+        # When device_map="auto", model.device may not be a single device;
+        # use the first parameter's device for input placement (Accelerate
+        # hooks dispatch the rest).
+        if device_map == "auto":
+            try:
+                self._input_device = next(self.model.parameters()).device
+            except StopIteration:
+                self._input_device = self.device
+        else:
+            self._input_device = self.device
+
+    def _prepare_inputs(self, question: str, images: list[Any]) -> tuple[int, dict[str, Any]]:
+        # Override parent to use _input_device (parent uses self.model.device,
+        # which can fail for device_map="auto").
+        pil_images = [_to_pil(i) for i in images]
+        messages = self._build_prompt(question=question, num_images=len(pil_images))
+        text = self.processor.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+        inputs = self.processor(images=pil_images, text=text, return_tensors="pt")
+        target = self._input_device
+        inputs = {k: (v.to(target) if hasattr(v, "to") else v) for k, v in inputs.items()}
+        seq_len = inputs["input_ids"].shape[-1]
+        return seq_len, inputs
 
 
 class EagerConvLLaVARunner(ConvLLaVARunner):
@@ -268,14 +297,21 @@ def build_eager_runner(
     hf_model: str,
     inference_config: InferenceConfig,
     device: str | None = None,
+    device_map: str | None = None,
 ) -> _BaseRunner:
-    """Dispatch same as models.build_runner, but loading each backbone with eager attention."""
+    """Dispatch same as models.build_runner, but loading each backbone with eager attention.
+
+    ``device_map="auto"`` only supported for the HF AutoModelForImageTextToText
+    path (covers OneVision, Qwen2.5-VL, Llava-1.5, etc). FastVLM / ConvLLaVA
+    runners use bespoke loading and run single-GPU.
+    """
     lower = hf_model.lower()
     if "fastvlm" in lower or "llava-qwen" in lower:
         return EagerFastVLMRunner(hf_model, inference_config=inference_config, device=device)
     if "convllava" in lower:
         return EagerConvLLaVARunner(hf_model, inference_config=inference_config, device=device)
-    return EagerAttentionRunner(hf_model, inference_config=inference_config, device=device)
+    return EagerAttentionRunner(hf_model, inference_config=inference_config,
+                                device=device, device_map=device_map)
 
 
 def _parse_args() -> argparse.Namespace:
@@ -295,6 +331,11 @@ def _parse_args() -> argparse.Namespace:
                         help="Generation length cap. Default 8 matches the 4-model E1 runs. "
                              "Bump for FastVLM (emits prose before the digit under JSON prompt).")
     parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--device-map", type=str, default=None,
+                        help="Pass 'auto' to split the model across all visible GPUs "
+                             "(Accelerate pipeline parallel). Required for OneVision "
+                             "AnyRes which OOMs on any single GPU due to large "
+                             "stored attention tensors.")
     parser.add_argument("--bbox-file", type=Path, default=None,
                         help="JSON of digit-pixel bboxes per anchor value (E1-patch). "
                              "Produced by scripts/compute_anchor_digit_bboxes.py. "
@@ -862,7 +903,8 @@ def main() -> None:
         max_new_tokens=sampling["max_new_tokens"],
     )
     print(f"[setup] loading runner for {args.hf_model} with eager attention")
-    runner = build_eager_runner(args.hf_model, inference_config=inference_cfg)
+    runner = build_eager_runner(args.hf_model, inference_config=inference_cfg,
+                                 device_map=args.device_map)
     image_token_id: int | None = None
     if isinstance(runner, EagerAttentionRunner):
         image_token_id = _resolve_image_token_id(runner.processor)
