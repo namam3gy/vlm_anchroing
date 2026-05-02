@@ -1,9 +1,16 @@
 #!/usr/bin/env bash
 # Phase 1 P0 v2: Gemma3 family scale-down panel runs.
-# Runs gemma3-12b-it + gemma3-4b-it on the 5-dataset main matrix
-# (PlotQA + InfoVQA + TallyQA + ChartQA + MathVista). Gemma3-27b-it
-# data already collected by the earlier _phase1_baseline.sh run on
-# PlotQA / InfoVQA / TallyQA, and pre-existing on ChartQA / MathVista.
+# Runs gemma3-12b-it + gemma3-4b-it on the 5-dataset main matrix.
+#
+# TallyQA: uses the full 38,245-sample canonical test (config has no
+# samples_per_answer / max_samples after the 2026-05-02 stratification
+# revert; legacy 38k runs of original 3 models restored as canonical).
+# Expect ~12h gemma3-12b + ~5h gemma3-4b on tally alone.
+#
+# PlotQA: n=5000 stratified (config-fixed by snapshot).
+# InfoVQA: n=1147 full numeric (data-bound).
+# ChartQA: ~705 numeric (data-bound).
+# MathVista: ~385 numeric (data-bound).
 #
 # Sequential on GPU 1 (single-GPU constraint). Idempotent — skips a
 # (model, dataset) cell if its predictions.jsonl already exists with

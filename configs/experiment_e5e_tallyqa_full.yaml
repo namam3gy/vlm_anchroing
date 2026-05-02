@@ -5,8 +5,6 @@ vqa_dataset:
   local_path: inputs/tallyqa_test
   answer_type_filter: ["number"]
   answer_range: 8
-  samples_per_answer: 700
-  max_samples: 5000
   require_single_numeric_gt: true
 
 inputs:
