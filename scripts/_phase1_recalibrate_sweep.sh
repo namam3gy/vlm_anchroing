@@ -10,8 +10,8 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-MODEL=gemma3-27b-it
-HF=google/gemma-3-27b-it
+MODEL=llava-onevision-qwen2-7b-ov
+HF=llava-hf/llava-onevision-qwen2-7b-ov-hf
 TAG=plotqa_infovqa_pooled_n5k
 LOG_DIR=logs/phase1
 mkdir -p "$LOG_DIR"

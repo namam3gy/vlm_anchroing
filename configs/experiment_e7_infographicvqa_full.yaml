@@ -16,6 +16,8 @@ inputs:
   anchor_distance_scheme: relative_s1
 
 models:
+  - name: llava-onevision-qwen2-7b-ov
+    hf_model: llava-hf/llava-onevision-qwen2-7b-ov-hf
   - name: llava-next-interleaved-7b
     hf_model: llava-hf/llava-interleave-qwen-7b-hf
   - name: qwen2.5-vl-7b-instruct
