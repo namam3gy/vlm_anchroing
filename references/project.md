@@ -77,16 +77,18 @@ applies to `pred_m` (mask arm).
 
 ### §0.4 Model panel and dataset matrix
 
-#### §0.4.1 Model tiering (paper-wide consistency, finalised 2026-05-02)
+#### §0.4.1 Model tiering (paper-wide consistency, **revised 2026-05-02 v2**)
+
+**Revision rationale (2026-05-02 v2)**: Initial Main = `llava-interleave-7b` was discovered to suffer fixed-resolution bottleneck (SigLIP-384 fixed input) on chart datasets, producing strict-EM acc(b) of 11.6% PlotQA / 15.5% InfoVQA — well below paper-quotable bands. Switched Main to `gemma3-27b-it` whose SigLIP-896 perfect-square 64×64 grid (a) preserves chart-text legibility and (b) keeps mechanism-panel single-grid-bbox-routing intact. Sub-B-scale uses **Gemma3 family scale-down** (12B + 4B) for clean within-family scale ablation. LLaVA-Interleave-7B data preserved as legacy reference but not headline.
 
 | Tier | Models | Used in | Role |
 |---|---|---|---|
-| **🟢 Main** | `llava-interleave-7b` (llava-hf/llava-interleave-qwen-7b-hf) | §3, §5, §6, §7.1–7.3, §7.4, §7.4.5 — **all headline numbers** | Primary model for every paper claim. SigLIP+Qwen2-7B. Multi-image native (LLaVA-Interleave is built for interleaved multi-image, matches our 2-image setup). Standard 2025–2026 strong VLM baseline. The model E6 deployable mitigation works on. |
-| **🟡 Sub-A (cross-family robustness)** | `qwen2.5-vl-7b-instruct` | §3, §5, §6 | Same scale as Main (7B), different encoder (native Qwen-ViT vs SigLIP). Established 2025-2026 standard baseline (Cambrian, Eagle-1, MM1.5, NVLM, InternVL2.5 comparison tables). Disjoint from §5 γ-β qwen3 reasoning ablation (avoids same-family confound). |
-| **🟡 Sub-B (cross-family + scale)** | `gemma3-27b-it` | §3, §5, §6 | Different model family (Gemma2 LLM + SigLIP). 27B = clear scale contrast vs 7B Main. Strong numeric VQA baseline (4B variant too weak — base accuracy floor causes wrong/correct distinction noise). Established stable HF integration. |
-| **🔵 Mechanism panel (perfect-square only)** | gemma4-e4b, llava-1.5-7b, convllava-7b, fastvlm-7b, **llava-interleave-7b** | §7.1–7.3 (E1-patch digit-bbox attention) | Encoder-archetype panel restricted to perfect-square visual-token grids where digit-bbox→token mapping is implementation-clean. InternVL3-8b (multi-tile) and Qwen2.5-VL-7b (17×23 non-square) → appendix only (per-encoder bbox routing varies; correctness not guaranteed). |
-| **🟣 Reasoning ablation** | `qwen3-vl-8b` (instruct vs thinking) | §5 γ-β | Reasoning-mode amplification contrast. Single-purpose, kept disjoint from Sub-A/B. |
-| **🟤 Wider behavioural breadth (appendix)** | gemma3-27b-it, gemma4-31b-it, gemma4-e4b, llava-interleave-7b, qwen2.5-vl-7b, qwen3-vl-8b, qwen3-vl-30b (existing 7-model panel on legacy VQAv2 — deferred from §3 main into appendix) | appendix only | Historical 7-model VQAv2 panel preserved for breadth supplementary; not in main matrix. |
+| **🟢 Main** | `gemma3-27b-it` (google/gemma-3-27b-it) | §3, §5, §6, §7.1–7.3, §7.4, §7.4.5 — **all headline numbers** | Primary model. SigLIP-So400M-896 fixed input (64×64 perfect-square, 4096 visual tokens — 5.4× pixel resolution of LLaVA-Interleave). Multi-image native. Mid-tier capability across the 5-dataset matrix (acc 51-71%) — strong base + non-trivial anchor pull (df 12-24% S1 wrong-base) makes anchoring observable yet defensible to reviewers. |
+| **🟡 Sub-A (cross-family)** | `qwen2.5-vl-7b-instruct` | §3, §5, §6 | Different family / different ViT (dynamic-resolution non-square Qwen-ViT). Chart-domain pretraining → strong base accuracy, weak anchor pull (df 4-5%). Demonstrates that anchoring is universal (non-zero on strongest baseline) but graded with capability. |
+| **🟡 Sub-B-scale (within-family scale-down)** | `gemma3-12b-it`, `gemma3-4b-it` | §3, §5, §6 | Same SigLIP-896 perfect-square encoder + multi-image native architecture as Main; only LLM scale differs. Within-family scale ablation: tests whether anchor susceptibility scales with LLM capacity at fixed encoder. Clean architectural control. |
+| **🔵 Mechanism panel (perfect-square)** | gemma4-e4b, llava-1.5-7b, convllava-7b, fastvlm-7b, **gemma3-27b-it** | §7.1–7.3 (E1-patch digit-bbox attention) | Encoder-archetype panel: SigLIP-Gemma early (gemma4-e4b) / CLIP-336 mid-stack (llava-1.5) / ConvNeXt (convllava) / FastViT (fastvlm) / SigLIP-896 large (Main). All perfect-square single-grid for clean bbox→token routing. InternVL3-8b (multi-tile) and Qwen2.5-VL-7b (17×23 non-square) → appendix only. |
+| **🟣 Reasoning ablation** | `qwen3-vl-8b` (instruct vs thinking) | §5 γ-β | Reasoning-mode amplification contrast. Single-purpose, disjoint from Sub-A. |
+| **🟤 Legacy / breadth (appendix)** | `llava-interleave-7b`, gemma4-31b-it, qwen3-vl-8b, qwen3-vl-30b, the 7-model VQAv2 panel | appendix only | LLaVA-Interleave preserved for breadth supplementary; its low-res-bottleneck story (SigLIP-384 fixed) is documented but not pushed as a finding. Historical 7-model VQAv2 panel preserved for behavioural breadth. |
 
 #### §0.4.2 Dataset finalisation (5-dataset main matrix, finalised 2026-05-02)
 
@@ -105,11 +107,11 @@ All 5 datasets evaluated under the same canonical setup: temperature=0, top_p=1.
 
 | Section | Models | Datasets | Conditions | n per cell | Cells |
 |---|---|---|---|---|---|
-| §3 main panel (3-model × 5-dataset) | Main + Sub-A + Sub-B (3) | TallyQA, ChartQA, MathVista, **PlotQA**, **InfoVQA** (5) | b / a-S1 / m-S1 / d (4) | 1k–5k | 15 |
-| §5 distance + digit-mask | same 3 | same 5 | b + 5×a-strata + 5×m-strata + d (12, E5b/c) | 500–2500 | 15 |
-| §6 confidence-modulated | same 3 | same 5 | reuses §3+§5 outputs | (reaggregation) | 0 new |
-| §7.1–7.3 mechanism (E1-patch) | 5-model perfect-square panel (incl. Main) | TallyQA + 1 chart + 1 info (3) | b + a + m (3) | 200 stratified | 15 |
-| §7.4 E4 attention re-weighting | 4-model (mid-stack cluster: llava-1.5, convllava, internvl3) + Main | 1 dataset (TallyQA or PlotQA) | E4 Phase 1 sweep + Phase 2 full | 200 / full | 4 |
+| §3 main panel (4-model × 5-dataset) | Main(gemma3-27b) + Sub-A(qwen2.5-vl-7b) + Sub-B-scale(gemma3-12b + gemma3-4b) (4) | TallyQA, ChartQA, MathVista, **PlotQA**, **InfoVQA** (5) | b / a-S1 / m-S1 / d (4) | 1k–5k | 20 |
+| §5 distance + digit-mask | same 4 | same 5 | b + 5×a-strata + 5×m-strata + d (12, E5b/c) | 500–2500 | 20 |
+| §6 confidence-modulated | same 4 | same 5 | reuses §3+§5 outputs | (reaggregation) | 0 new |
+| §7.1–7.3 mechanism (E1-patch) | 5-model perfect-square panel (incl. Main = gemma3-27b) | TallyQA + 1 chart + 1 info (3) | b + a + m (3) | 200 stratified | 15 |
+| §7.4 E4 attention re-weighting | 4-model (mid-stack cluster: llava-1.5, convllava, internvl3) + Main (gemma3-27b) | 1 dataset (TallyQA or PlotQA) | E4 Phase 1 sweep + Phase 2 full | 200 / full | 4 |
 | §7.4.5 E6 Subspace mitigation | Main only | all 5 | calibration + sweep cells | up to 5000 wrong-base (capped by per-dataset eligible-4cond wrong-base count) | 5 |
 | §5 γ-β reasoning | qwen3-vl-8b instruct vs thinking | MathVista | b/a/m/d (4) | full testmini subset | 2 |
 | Appendix (legacy 7-model) | 7 models | VQAv2 only | b/a/d (3) | full | 7 |

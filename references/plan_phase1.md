@@ -6,14 +6,16 @@ sequence with `references/project.md §0.4` (paper architecture) and
 
 ## 0. Context (read first)
 
-Decision summary (2026-05-02):
+Decision summary (2026-05-02 v2 — Main switch + Gemma scale):
 
-- **Main model**: `llava-interleave-7b` — every section primary
-- **Sub panel**: + `qwen2.5-vl-7b-instruct` + `gemma3-27b-it`
-- **5-dataset main matrix**: TallyQA + ChartQA + MathVista + **PlotQA** + **InfographicVQA**, all at n=5000 target (or full numeric where smaller)
+- **Main model**: `gemma3-27b-it` — every section primary (revised from initial llava-interleave choice; SigLIP-896 perfect-square 64×64 grid keeps mechanism panel intact AND resolves chart-text legibility bottleneck of llava's 384-fixed encoder)
+- **Sub panel**: `qwen2.5-vl-7b-instruct` (cross-family) + `gemma3-12b-it` + `gemma3-4b-it` (within-family scale ablation)
+- **Mechanism panel**: gemma4-e4b + llava-1.5-7b + convllava-7b + fastvlm-7b + **gemma3-27b-it** (Main replaces llava-interleave)
+- **Dropped from headlines**: `llava-interleave-7b` data preserved as legacy reference (low-res-control); not pushed as headline
+- **5-dataset main matrix**: TallyQA + ChartQA + MathVista + **PlotQA** + **InfographicVQA**, n=5000 target (or full numeric where smaller)
 - **Dropped**: VQAv2 (legacy, multi-GT). Existing 7-model VQAv2 → appendix only.
 - **TallyQA**: re-run at n=5000 stratified (was 38k full); legacy 38k archive at `outputs/_legacy_tallyqa_n38k/`
-- **§7.4.5 mitigation**: recalibrate on PlotQA + InfoVQA pooled, full gt range (no [0,8] restriction); sweep cap raised 500 → 5000 wrong-base (statistical-power revision 2026-05-02)
+- **§7.4.5 mitigation**: recalibrate on PlotQA + InfoVQA pooled, full gt range; sweep cap 5000 wrong-base; **backbone is now gemma3-27b** (not llava-interleave)
 - **§7 mechanism**: 5-model perfect-square panel only (incl Main); InternVL3 + Qwen2.5-VL → appendix
 
 ## 1. Phase 1 task list (P0 only — execute in order)
