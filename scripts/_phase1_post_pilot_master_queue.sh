@@ -28,6 +28,35 @@ MAIN_MODEL=llava-onevision-qwen2-7b-ov
 HF_MAIN=llava-hf/llava-onevision-qwen2-7b-ov-hf
 TAG=plotqa_infovqa_pooled_n5k
 
+# Comma-separated GPU IDs available for sharded work. Auto-detect at start
+# of each phase: prefer all 4 (0,1,2,3) when GPU 3 is free (other tenant
+# released), fall back to 3 (0,1,2). Override via env: GPU_LIST=...
+GPU_LIST_DEFAULT="0,1,2,3"
+GPU_LIST_FALLBACK="0,1,2"
+detect_gpus() {
+  # Returns comma-separated GPU ids that are currently idle (memory < 2 GB).
+  local override="${GPU_LIST:-}"
+  if [ -n "$override" ]; then
+    echo "$override"
+    return
+  fi
+  local idle=""
+  while read -r idx mem; do
+    if [ "${mem%% *}" -lt 2048 ]; then
+      idle="${idle}${idle:+,}${idx}"
+    fi
+  done < <(nvidia-smi --query-gpu=index,memory.used --format=csv,noheader,nounits)
+  # Need >= 3 GPUs for our sharded drivers; fall back when fewer
+  local count=$(echo "$idle" | tr ',' '\n' | wc -l)
+  if [ "$count" -ge 4 ]; then
+    echo "0,1,2,3"
+  elif [ "$count" -ge 3 ]; then
+    echo "0,1,2"
+  else
+    echo "$idle"
+  fi
+}
+
 LOG_DIR=logs/phase1
 mkdir -p "$LOG_DIR"
 LOG="$LOG_DIR/post_pilot_master_queue.log"
@@ -100,7 +129,8 @@ note "Chosen cell: L=$CHOSEN_L K=$CHOSEN_K α=$CHOSEN_ALPHA"
 # -----------------------------------------------------------------------------
 # Phase B: Stage 4-final — chosen cell × 5 datasets
 # -----------------------------------------------------------------------------
-phase "Phase B: Stage 4-final (sweep × 5 datasets at chosen cell)"
+GPUS_NOW="$(detect_gpus)"
+phase "Phase B: Stage 4-final (sweep × 5 datasets at chosen cell, GPUs=$GPUS_NOW)"
 
 declare -A DS_CFG=(
   [tallyqa]="configs/experiment_e5e_tallyqa_full.yaml"
@@ -137,7 +167,7 @@ else
       --subspace-scope "${TAG}_chosen" \
       --sweep-layers "$CHOSEN_L" --sweep-ks "$CHOSEN_K" --sweep-alphas "$CHOSEN_ALPHA" \
       --max-samples 5000 \
-      --gpus 0,1,2 >> "$LOG" 2>&1
+      --gpus "$GPUS_NOW" >> "$LOG" 2>&1
   # Move from auto-generated dir naming
   AUTO="outputs/e6_steering/$MAIN_MODEL/sweep_subspace_tallyqa_chosen_${TAG}_chosen"
   if [ -d "$AUTO" ]; then
@@ -334,7 +364,8 @@ gcommit "Phase D: cross-dataset §7.1-7.3 (5 panel × 3 new ds + OneVision × VQ
 # -----------------------------------------------------------------------------
 # Phase E: E1d causal extension on OneVision × {Tally, Info, Chart, Math}
 # -----------------------------------------------------------------------------
-phase "Phase E: E1d causal extension"
+GPUS_NOW="$(detect_gpus)"
+phase "Phase E: E1d causal extension (GPUs=$GPUS_NOW)"
 
 # Get OneVision peak layer from analyze output
 PEAK="$(uv run python -c "
@@ -359,7 +390,7 @@ run_e1d_one() {
       --susceptibility-csv "$susc" \
       --top-decile-n 100 --bottom-decile-n 100 \
       --max-new-tokens 8 \
-      --gpus 0,1,2 \
+      --gpus "$GPUS_NOW" \
       >> "$LOG_DIR/phaseE_e1d_${ds}.log" 2>&1
 }
 
@@ -379,7 +410,8 @@ gcommit "Phase E: E1d causal extension on OneVision × {Tally, Info, Chart, Math
 # -----------------------------------------------------------------------------
 # Phase G: New-model baselines × 5 datasets (Priority 5)
 # -----------------------------------------------------------------------------
-phase "Phase G: New-model baselines (internvl3, qwen2.5-vl-32b, gemma3-4b) × 5 ds"
+GPUS_NOW="$(detect_gpus)"
+phase "Phase G: New-model baselines (internvl3, qwen2.5-vl-32b, gemma3-4b) × 5 ds (GPUs=$GPUS_NOW)"
 
 NEW_MODELS=(internvl3-8b qwen2.5-vl-32b-instruct gemma3-4b-it)
 for nm in "${NEW_MODELS[@]}"; do
@@ -392,7 +424,7 @@ for nm in "${NEW_MODELS[@]}"; do
     fi
     note "[$nm/$ds_tag] sharded baseline run"
     uv run python scripts/run_experiment_sharded.py \
-        --config "$cfg" --model "$nm" --gpus 0,1,2 \
+        --config "$cfg" --model "$nm" --gpus "$GPUS_NOW" \
         >> "$LOG_DIR/phaseG_${nm}_${ds_tag}.log" 2>&1
   done
   gcommit "Phase G partial: $nm × 5 datasets baselines"
