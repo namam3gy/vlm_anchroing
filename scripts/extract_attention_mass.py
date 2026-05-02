@@ -513,6 +513,96 @@ def _compute_anchor_base_mass(
     return out
 
 
+def _install_lite_eager_attention():
+    """Monkey-patch transformers' eager_attention_forward with a memory-efficient
+    variant for §7.1-7.3 OneVision.
+
+    The default eager_attention_forward materialises a full
+    ``(batch, n_heads, q_len, k_len)`` attention-weights tensor. For
+    OneVision AnyRes 8000-token 2-image inputs that's ~3.6 GB bf16 plus
+    a ~7.2 GB fp32 softmax temp per layer. Across 28 layers PyTorch's
+    caching allocator never returns these chunks to the driver, so peak
+    GPU footprint balloons to >130 GB — well over an H200's 140 GB.
+
+    This patched variant:
+      1. Computes ``attn_output`` via ``F.scaled_dot_product_attention``
+         (no full attention matrix; flash/efficient kernel).
+      2. Computes ONLY the last query position's attention weights
+         ``Q[..., -1:, :] @ K^T`` → ``(1, n_heads, 1, k_len)``, ~700 KB.
+      3. Returns ``(attn_output, last_q_attn_weights)`` matching the
+         existing eager interface, except attn_weights has ``q_len=1``
+         instead of full ``q_len``. Our forward hook only reads
+         ``attn_weights[..., -1, :]`` so q_len=1 is the correct slice.
+
+    Idempotent: subsequent calls don't re-patch.
+    """
+    import torch.nn.functional as F
+
+    if getattr(_install_lite_eager_attention, "_done", False):
+        return
+    _install_lite_eager_attention._done = True
+
+    try:
+        from transformers.integrations.sdpa_attention import repeat_kv  # newer location
+    except ImportError:
+        try:
+            from transformers.models.qwen2.modeling_qwen2 import repeat_kv
+        except ImportError:
+            from transformers.models.llama.modeling_llama import repeat_kv
+
+    def lite_eager_attention_forward(module, query, key, value, attention_mask,
+                                     scaling, dropout=0.0, **kwargs):
+        # Repeat K, V across query head groups (GQA support).
+        # SiglipAttention (vision tower) has no num_key_value_groups attr →
+        # equivalent to groups=1 (regular multi-head, no repetition needed).
+        n_kv_groups = getattr(module, "num_key_value_groups", 1)
+        if n_kv_groups > 1:
+            key_states = repeat_kv(key, n_kv_groups)
+            value_states = repeat_kv(value, n_kv_groups)
+        else:
+            key_states = key
+            value_states = value
+
+        # 1) attn_output via SDPA — no full attn matrix materialized.
+        # When attention_mask provided, SDPA uses it; otherwise falls back
+        # to is_causal handling. HF prepares causal masks for decoder LMs
+        # so attention_mask is generally not None here.
+        if attention_mask is not None:
+            mask_for_sdpa = attention_mask[:, :, :, : key_states.shape[-2]]
+        else:
+            mask_for_sdpa = None
+        attn_output = F.scaled_dot_product_attention(
+            query, key_states, value_states,
+            attn_mask=mask_for_sdpa,
+            dropout_p=dropout if module.training else 0.0,
+            scale=scaling,
+            is_causal=False,
+        )
+        attn_output = attn_output.transpose(1, 2).contiguous()
+
+        # 2) Last-query attention weights only (compact, ~700 KB).
+        q_last = query[:, :, -1:, :]
+        last_scores = torch.matmul(q_last, key_states.transpose(-2, -1)) * scaling
+        if attention_mask is not None:
+            last_mask = attention_mask[:, :, -1:, : last_scores.shape[-1]]
+            last_scores = last_scores + last_mask
+        last_attn_weights = F.softmax(last_scores, dim=-1, dtype=torch.float32).to(query.dtype)
+        return attn_output, last_attn_weights
+
+    # Patch transformers' eager attention dispatch entry. Models using
+    # attn_implementation="eager" will route through here.
+    try:
+        from transformers.modeling_utils import ALL_ATTENTION_FUNCTIONS
+        # Register under a new key + override the existing "eager" entry.
+        ALL_ATTENTION_FUNCTIONS.register("lite_eager", lite_eager_attention_forward)
+        # Also override the default "eager" so existing model configs use it.
+        ALL_ATTENTION_FUNCTIONS._global_mapping["eager"] = lite_eager_attention_forward
+    except Exception:
+        # Fallback: direct monkey-patch on the Qwen2 module
+        from transformers.models.qwen2 import modeling_qwen2 as _qm
+        _qm.eager_attention_forward = lite_eager_attention_forward
+
+
 def _extract_mass_from_attn_weights(
     attn_weights: torch.Tensor,
     image_spans: list[tuple[int, int]],
@@ -1054,6 +1144,13 @@ def _process_sample(
 def main() -> None:
     args = _parse_args()
     set_seed(args.seed)
+
+    # Patch transformers' eager_attention_forward → memory-efficient variant
+    # that uses SDPA for attn_output and computes only last-query attn_weights.
+    # Without this, OneVision AnyRes 8000-token sequences OOM at ~135 GB.
+    _install_lite_eager_attention()
+    print("[setup] lite_eager_attention installed (SDPA attn_output + last-q weights)")
+
     global MAX_NEW_TOKENS, _BBOXES
     MAX_NEW_TOKENS = args.max_new_tokens
     print(f"[setup] max_new_tokens = {MAX_NEW_TOKENS}")
