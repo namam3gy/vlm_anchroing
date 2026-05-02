@@ -449,6 +449,27 @@ def _compute_region_mass(
     return out
 
 
+def _compute_anchor_base_mass(
+    attention_step: tuple[torch.Tensor, ...],
+    image_span: tuple[int, int],
+    base_grid_dim: int,
+) -> list[float]:
+    """Per-layer attention sum over the BASE perfect-square prefix of an
+    AnyRes anchor span (first base_grid_dim^2 tokens). Used so OneVision
+    digit-mass concentration (digit/anchor) is apples-to-apples with the
+    perfect-square panel, where ``image_anchor`` is the entire span.
+    """
+    span_start, _ = image_span
+    base_end = span_start + base_grid_dim * base_grid_dim
+    out: list[float] = []
+    for layer_attn in attention_step:
+        head_avg = layer_attn[0, :, -1, :].float().mean(dim=0)
+        e = min(base_end, head_avg.shape[0])
+        s = min(span_start, e)
+        out.append(float(head_avg[s:e].sum().item()) if e > s else 0.0)
+    return out
+
+
 def _build_per_step_records(
     attentions: tuple,
     seq_len: int,
@@ -522,6 +543,13 @@ def _build_per_step_records(
                 ]
                 record["image_anchor_digit"] = digit_mass
                 record["image_anchor_background"] = bg_mass
+                # OneVision (AnyRes): also emit image_anchor_base — mass over
+                # the base 27x27 view only — so digit/anchor_base concentration
+                # is apples-to-apples with the perfect-square panel.
+                if base_grid_dim is not None:
+                    record["image_anchor_base"] = _compute_anchor_base_mass(
+                        step_attn, image_spans[1], base_grid_dim
+                    )
 
         per_step_records.append(record)
     return per_step_records
@@ -852,11 +880,16 @@ def main() -> None:
 
     n_done = 0
     t0 = time.time()
+    import gc
     with out_jsonl.open("w") as fh:
         for sample in enriched:
             for cond in build_conditions(sample):
                 try:
                     result = _process_sample(runner, image_token_id, cond)
+                except torch.cuda.OutOfMemoryError as exc:
+                    result = {"error": f"CUDA OOM: {exc}"}
+                    if torch.cuda.is_available():
+                        torch.cuda.empty_cache()
                 except Exception as exc:
                     result = {"error": str(exc)}
                 record = {
@@ -873,6 +906,13 @@ def main() -> None:
                 }
                 fh.write(json.dumps(record, default=str) + "\n")
                 fh.flush()
+                # Free transient tensors so PyTorch's CUDA cache doesn't grow
+                # unboundedly with sequence length × n_layers × output_attentions.
+                # Without this, ~50 forward passes in a row OOMs on H200.
+                del result
+                gc.collect()
+                if torch.cuda.is_available():
+                    torch.cuda.empty_cache()
             n_done += 1
             if n_done % 10 == 0:
                 elapsed = time.time() - t0

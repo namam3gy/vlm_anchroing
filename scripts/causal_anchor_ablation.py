@@ -289,6 +289,12 @@ def _parse_args() -> argparse.Namespace:
         default="baseline,ablate_peak,ablate_peak_window,ablate_lower_half,ablate_upper_half,ablate_all",
         help="Comma-separated ablation modes to run."
     )
+    # Sharding (multi-GPU fan-out, same scheme as run_experiment.py).
+    parser.add_argument("--shard-idx", type=int, default=None)
+    parser.add_argument("--num-shards", type=int, default=None)
+    parser.add_argument("--output-dir", default=None,
+                        help="Override default outputs/causal_ablation/<model>/<ts>/. "
+                             "Required when sharding (driver provides per-shard subdir).")
     return parser.parse_args()
 
 
@@ -322,7 +328,17 @@ def main() -> None:
     )
     if args.max_samples:
         enriched = enriched[: args.max_samples]
-    print(f"[setup] {len(enriched)} sample-instances")
+
+    sharded = args.num_shards is not None and args.num_shards > 1
+    if sharded:
+        if args.shard_idx is None or not (0 <= args.shard_idx < args.num_shards):
+            raise ValueError("--shard-idx must be in [0, num_shards)")
+        if args.output_dir is None:
+            raise ValueError("--output-dir is required when sharding")
+        enriched = enriched[args.shard_idx :: args.num_shards]
+        print(f"[shard {args.shard_idx}/{args.num_shards}] {len(enriched)} sample-instances")
+    else:
+        print(f"[setup] {len(enriched)} sample-instances")
 
     sampling = config["sampling"]
     prompt = config["prompt"]
@@ -345,8 +361,13 @@ def main() -> None:
     modes = [m.strip() for m in args.modes.split(",") if m.strip()]
     print(f"[setup] modes = {modes}")
 
-    run_id = datetime.now().strftime("%Y%m%d-%H%M%S")
-    out_root = PROJECT_ROOT / "outputs" / "causal_ablation" / args.model / run_id
+    if args.output_dir is not None:
+        out_root = Path(args.output_dir)
+        if not out_root.is_absolute():
+            out_root = PROJECT_ROOT / args.output_dir
+    else:
+        run_id = datetime.now().strftime("%Y%m%d-%H%M%S")
+        out_root = PROJECT_ROOT / "outputs" / "causal_ablation" / args.model / run_id
     out_root.mkdir(parents=True, exist_ok=True)
     out_jsonl = out_root / "predictions.jsonl"
     print(f"[setup] writing to {out_jsonl}")

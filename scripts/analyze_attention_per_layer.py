@@ -65,6 +65,27 @@ def _resolve_run(model: str) -> str | None:
     runs = sorted(p.name for p in model_dir.iterdir() if p.is_dir())
     return runs[-1] if runs else None
 
+
+def _load_records_combined(model: str) -> list[dict]:
+    """Load and concatenate per_step_attention.jsonl across ALL run dirs for
+    a model. Used to pool multi-dataset extractions (e.g. OneVision Phase 1
+    P0 v3 ran PlotQA + TallyQA + InfoVQA each in its own timestamped run).
+
+    For models in CANONICAL_RUNS, prefer the single canonical run unless
+    multiple run dirs exist on disk — then concatenate all.
+    """
+    model_dir = ATT_ROOT / model
+    if not model_dir.exists():
+        return []
+    run_dirs = sorted(p for p in model_dir.iterdir() if p.is_dir())
+    records: list[dict] = []
+    for rd in run_dirs:
+        jsonl = rd / "per_step_attention.jsonl"
+        if not jsonl.exists():
+            continue
+        records.extend(_load_records(jsonl))
+    return records
+
 _DIGIT_RE = re.compile(r"\d")
 
 
@@ -377,17 +398,15 @@ def main() -> None:
     budget_rows: list[dict] = []
 
     for model in model_order:
-        run_id = _resolve_run(model)
-        if run_id is None:
-            print(f"[{model}] skipping — no run dir")
+        # Load + concatenate all run dirs for this model (multi-dataset
+        # support). Falls back to canonical-single behaviour for models
+        # with only one run dir on disk.
+        records = _load_records_combined(model)
+        if not records:
+            print(f"[{model}] skipping — no run dir / records")
             continue
-        jsonl = ATT_ROOT / model / run_id / "per_step_attention.jsonl"
-        if not jsonl.exists():
-            print(f"[{model}] skipping — run {run_id} not present at {jsonl}")
-            continue
-        print(f"[{model}] loading {jsonl.relative_to(PROJECT_ROOT)}")
-        records = _load_records(jsonl)
-        print(f"  records={len(records)}")
+        run_dirs = sorted(p.name for p in (ATT_ROOT / model).iterdir() if p.is_dir())
+        print(f"[{model}] loaded {len(records)} records from {len(run_dirs)} run(s): {run_dirs}")
 
         for step_kind in ("answer", "step0"):
             arrays = _build_layer_arrays(records, step_kind, susceptibility)

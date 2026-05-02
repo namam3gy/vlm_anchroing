@@ -139,17 +139,18 @@ if ! [[ "$PEAK_LAYER" =~ ^[0-9]+$ ]]; then
 fi
 note "OneVision peak layer (answer-step, overall): L=$PEAK_LAYER"
 
-note "---- Stage E1d: causal ablation on PlotQA at L=$PEAK_LAYER (GPU 0) ----"
+note "---- Stage E1d: causal ablation on PlotQA at L=$PEAK_LAYER (sharded GPU 0/1/2) ----"
 if cell_done_e1d; then
   note "skip E1d (already complete)"
 else
-  CUDA_VISIBLE_DEVICES=0 uv run python scripts/causal_anchor_ablation.py \
+  uv run python scripts/run_causal_ablation_sharded.py \
       --model "$MODEL" --hf-model "$HF" \
       --peak-layer "$PEAK_LAYER" \
       --config configs/experiment_e7_plotqa_full.yaml \
       --susceptibility-csv docs/insights/_data/susceptibility_plotqa_onevision.csv \
       --top-decile-n 100 --bottom-decile-n 100 \
       --max-new-tokens 8 \
+      --gpus 0,1,2 \
       >> "$LOG_DIR/e1d_plotqa.log" 2>&1
 fi
 
