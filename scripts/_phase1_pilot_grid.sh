@@ -98,3 +98,12 @@ uv run python scripts/analyze_e6_pilot_cells.py \
     --output docs/insights/_data/pilot_grid_cell_selection.csv >> "$LOG" 2>&1
 
 note "==== Pilot done. Inspect docs/insights/_data/pilot_grid_cell_selection.csv ===="
+
+# Auto-chain to post-pilot master queue (Stage 4-final → Stage 5 → Phase 1.5
+# → E1d ext → new model baselines → qwen2.5-vl §7.1-7.3 → final summary →
+# branch merge + push). Per user spec 2026-05-03.
+note "==== chaining to _phase1_post_pilot_master_queue.sh ===="
+bash scripts/_phase1_post_pilot_master_queue.sh
+MASTER_RC=$?
+note "==== master queue exit code: $MASTER_RC ===="
+exit $MASTER_RC
