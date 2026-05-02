@@ -402,8 +402,18 @@ def _build_runner_and_layers(args, config):
         top_p=sampling["top_p"],
         max_new_tokens=sampling["max_new_tokens"],
     )
-    print(f"[setup] loading {args.hf_model}")
-    runner = build_eager_runner(args.hf_model, inference_config=inference_cfg)
+    print(f"[setup] loading {args.hf_model} (sdpa attention)")
+    # Calibrate-subspace and sweep-subspace phases don't need attention
+    # weights — only attn_output (residuals / generations). Use the
+    # standard SDPA-backed HFAttentionRunner instead of the eager-attention
+    # runner that historically lived here. SDPA is mathematically
+    # equivalent to eager (within bf16 precision) but uses a fused kernel
+    # that avoids materialising the full (1, H, Q, K) attention matrix —
+    # ~3× faster on AnyRes long-sequence forwards. The forward hook for
+    # subspace projection in _install_projection_hook hooks the layer
+    # output (residual stream), independent of attn implementation.
+    from vlm_anchor.models import build_runner
+    runner = build_runner(args.hf_model, inference_config=inference_cfg)
     layers = _get_llm_layers(runner.model)
     print(f"[setup] LLM layers detected: {len(layers)}")
     return runner, layers
