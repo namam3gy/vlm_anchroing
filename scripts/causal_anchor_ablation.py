@@ -60,6 +60,7 @@ from extract_attention_mass import (  # noqa: E402
     _find_image_token_spans,
     _resolve_image_token_id,
     _select_susceptibility_strata,
+    _split_onevision_image_run,
     build_eager_runner,
 )
 
@@ -170,6 +171,16 @@ def _resolve_anchor_span(runner, sample: dict, image_token_id: int | None) -> tu
         # HF input_ids path — re-prepare inputs and scan for image_token_id
         _, inputs = runner._prepare_inputs(question=sample["question"], images=images)
         spans = _find_image_token_spans(inputs["input_ids"], image_token_id)
+        # OneVision concatenates multiple <image> tokens into one big run.
+        # Split via image_sizes when it looks like that's happened.
+        if (
+            len(spans) == 1
+            and len(images) > 1
+            and type(runner.processor).__name__ == "LlavaOnevisionProcessor"
+        ):
+            spans = _split_onevision_image_run(
+                spans[0], inputs.get("image_sizes"), runner.processor
+            )
         return spans[1] if len(spans) >= 2 else (0, 0)
 
     if isinstance(runner, EagerConvLLaVARunner):

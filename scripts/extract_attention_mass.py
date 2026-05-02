@@ -97,16 +97,37 @@ def _compute_anchor_bbox_mass(
     attention_step: tuple[torch.Tensor, ...],
     image_span: tuple[int, int],
     bbox_info: dict,
+    base_grid_dim: int | None = None,
 ) -> list[float] | None:
     """Per-layer attention sum over the digit-bbox token positions inside
     ``image_span``. Uses normalized bbox coords + perfect-square row-major
-    grid. Returns None if the span isn't a perfect square (multi-tile /
-    -200-marker expansion etc.)."""
+    grid.
+
+    Default behaviour (``base_grid_dim is None``): treats the entire span as
+    a single perfect-square grid (5-model perfect-square panel layout).
+    Returns None if the span isn't a perfect square.
+
+    OneVision AnyRes case (``base_grid_dim`` provided, e.g. 27): the span
+    starts with a base ``base_grid_dim × base_grid_dim`` view (row-major),
+    followed by a high-resolution unpadded grid + per-row newline tokens.
+    Bbox routing uses ONLY the base view — the high-res tail is excluded
+    so OneVision digit-mass is apples-to-apples with the perfect-square
+    panel. The high-res tail's contribution is implicit in
+    ``image_anchor − image_anchor_digit`` (= image_anchor_background).
+    """
     span_start, span_end = image_span
     n_tokens = span_end - span_start
-    grid = int(math.isqrt(n_tokens))
-    if grid * grid != n_tokens or grid <= 0:
-        return None
+
+    if base_grid_dim is not None:
+        grid = base_grid_dim
+        if grid * grid > n_tokens or grid <= 0:
+            return None
+        # Restrict to the base-view prefix only.
+        span_end = span_start + grid * grid
+    else:
+        grid = int(math.isqrt(n_tokens))
+        if grid * grid != n_tokens or grid <= 0:
+            return None
 
     W, H = bbox_info["image_size"]
     x0, y0, x1, y1 = bbox_info["bbox_xyxy"]
@@ -315,6 +336,73 @@ def _find_image_token_spans(input_ids: torch.LongTensor, image_token_id: int) ->
     return spans
 
 
+def _is_onevision_processor(processor: Any) -> bool:
+    """Detect LLaVA-OneVision by class name (avoids hard import dep)."""
+    return type(processor).__name__ == "LlavaOnevisionProcessor"
+
+
+def _split_onevision_image_run(
+    big_span: tuple[int, int],
+    image_sizes: Any,
+    processor: Any,
+) -> list[tuple[int, int]]:
+    """Split a single concatenated image-token run into per-image spans.
+
+    OneVision concatenates ``<image><image>`` adjacently in the chat
+    template, so input_ids contains one big run of image_token_id covering
+    every image's AnyRes-expanded tokens. We re-derive per-image token
+    counts via the processor's ``_get_number_of_features`` (h=w=384 for
+    OneVision) and partition the run.
+    """
+    if image_sizes is None:
+        raise ValueError("OneVision split requires image_sizes from processor")
+    if hasattr(image_sizes, "tolist"):
+        sizes_list = image_sizes.tolist()
+    else:
+        sizes_list = list(image_sizes)
+    side = int(processor.image_processor.size.get("height", 384))
+    expected_total = big_span[1] - big_span[0]
+
+    # Primary attempt: AnyRes single-image expansion per image (typical
+    # observed layout — `batch_num_images == [1, 1]` for our 2-image input).
+    def _anyres_split() -> list[tuple[int, int]]:
+        spans: list[tuple[int, int]] = []
+        cursor = big_span[0]
+        for orig_h, orig_w in sizes_list:
+            n = processor._get_number_of_features(int(orig_h), int(orig_w), side, side)
+            if processor.vision_feature_select_strategy == "default":
+                n -= 1
+            spans.append((cursor, cursor + n))
+            cursor += n
+        return spans if cursor == big_span[1] else []
+
+    # Fallback: multi-image base-only mode (each image = num_image_tokens + 1
+    # newline). Triggered when ``batch_num_images`` gives a single sample
+    # with 2+ images.
+    def _base_split() -> list[tuple[int, int]]:
+        per_image = int(processor.num_image_tokens) + 1  # +1 for newline
+        if processor.vision_feature_select_strategy == "default":
+            per_image -= 1
+        if per_image * len(sizes_list) != expected_total:
+            return []
+        spans: list[tuple[int, int]] = []
+        cursor = big_span[0]
+        for _ in sizes_list:
+            spans.append((cursor, cursor + per_image))
+            cursor += per_image
+        return spans
+
+    spans = _anyres_split()
+    if not spans:
+        spans = _base_split()
+    if not spans:
+        # Mismatch: don't mis-route. Return un-split run so bbox routing
+        # falls back to the perfect-square check (which will likely
+        # return None for the whole big run).
+        return [big_span]
+    return spans
+
+
 def _resolve_image_token_id(processor: Any) -> int:
     """Find the integer token id used for image patch positions in the processor."""
     # Most HF VLM processors expose this directly
@@ -366,6 +454,7 @@ def _build_per_step_records(
     seq_len: int,
     image_spans: list[tuple[int, int]],
     bbox_info: dict | None = None,
+    base_grid_dim: int | None = None,
 ) -> list[dict[str, Any]]:
     """Assemble per-step, per-layer attention-mass records from generate output.
 
@@ -423,7 +512,8 @@ def _build_per_step_records(
 
         if bbox_eligible:
             digit_mass = _compute_anchor_bbox_mass(
-                step_attn, image_spans[1], bbox_info
+                step_attn, image_spans[1], bbox_info,
+                base_grid_dim=base_grid_dim,
             )
             if digit_mass is not None:
                 bg_mass = [
@@ -466,6 +556,26 @@ def _process_sample_hf(
     image_spans = _find_image_token_spans(inputs["input_ids"], image_token_id)
     n_images = len(images)
 
+    # OneVision concatenates multiple <image> tokens into a single big
+    # image-token run after AnyRes expansion. Split it into per-image
+    # spans using image_sizes + processor's _get_number_of_features.
+    base_grid_dim: int | None = None
+    if _is_onevision_processor(runner.processor):
+        if len(image_spans) == 1 and n_images > 1:
+            image_spans = _split_onevision_image_run(
+                image_spans[0], inputs.get("image_sizes"), runner.processor
+            )
+        # OneVision base grid is sqrt(num_image_tokens). Used to restrict
+        # bbox routing to the base view (apples-to-apples with the
+        # 5-model perfect-square panel).
+        try:
+            n_base = int(runner.processor.num_image_tokens)
+            g = int(math.isqrt(n_base))
+            if g * g == n_base:
+                base_grid_dim = g
+        except Exception:
+            base_grid_dim = None
+
     generate_kwargs = runner._build_generate_kwargs(max_new_tokens=MAX_NEW_TOKENS)
     generate_kwargs["output_attentions"] = True
 
@@ -477,7 +587,10 @@ def _process_sample_hf(
         return {"error": "no attentions returned"}
 
     bbox_info = _bbox_for_anchor(sample.get("anchor_value"))
-    per_step_records = _build_per_step_records(attentions, seq_len, image_spans, bbox_info=bbox_info)
+    per_step_records = _build_per_step_records(
+        attentions, seq_len, image_spans, bbox_info=bbox_info,
+        base_grid_dim=base_grid_dim,
+    )
     generated = out.sequences[:, seq_len:]
     tokenizer = getattr(runner.processor, "tokenizer", runner.processor)
     decoded = runner.processor.batch_decode(generated, skip_special_tokens=True)[0].strip()

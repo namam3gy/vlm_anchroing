@@ -46,7 +46,24 @@ CANONICAL_RUNS: dict[str, str] = {
     "internvl3-8b": "20260424-121334",
     "convllava-7b": "20260424-134840",
     "fastvlm-7b": "20260424-135205",
+    # OneVision (Phase 1 P0 v3 Main; AnyRes; populated post-run).
+    # If absent, falls back to the latest run dir for the model.
 }
+
+
+def _resolve_run(model: str) -> str | None:
+    """Return canonical run id for `model`, or auto-pick the latest run dir.
+
+    Auto-fallback lets us add new models (e.g. OneVision) without
+    pre-registering a timestamp.
+    """
+    if model in CANONICAL_RUNS:
+        return CANONICAL_RUNS[model]
+    model_dir = ATT_ROOT / model
+    if not model_dir.exists():
+        return None
+    runs = sorted(p.name for p in model_dir.iterdir() if p.is_dir())
+    return runs[-1] if runs else None
 
 _DIGIT_RE = re.compile(r"\d")
 
@@ -344,13 +361,26 @@ def main() -> None:
     susc_df = pd.read_csv(susc_path)
     susceptibility = dict(zip(susc_df["question_id"].astype(int), susc_df["susceptibility_stratum"]))
 
-    model_order = list(CANONICAL_RUNS.keys())
+    # Discover models from disk (anything with a run dir under ATT_ROOT) so
+    # late-arriving panel additions (e.g. OneVision) are picked up
+    # automatically without editing CANONICAL_RUNS.
+    discovered = sorted(
+        p.name for p in ATT_ROOT.iterdir()
+        if p.is_dir() and p.name not in {"_per_layer", "analysis"}
+    ) if ATT_ROOT.exists() else []
+    model_order = list(CANONICAL_RUNS.keys()) + [
+        m for m in discovered if m not in CANONICAL_RUNS
+    ]
 
     per_layer_rows: list[pd.DataFrame] = []
     peak_rows: list[dict] = []
     budget_rows: list[dict] = []
 
-    for model, run_id in CANONICAL_RUNS.items():
+    for model in model_order:
+        run_id = _resolve_run(model)
+        if run_id is None:
+            print(f"[{model}] skipping — no run dir")
+            continue
         jsonl = ATT_ROOT / model / run_id / "per_step_attention.jsonl"
         if not jsonl.exists():
             print(f"[{model}] skipping — run {run_id} not present at {jsonl}")

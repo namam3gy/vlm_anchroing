@@ -43,6 +43,7 @@ PANEL_MODELS = [
     "convllava-7b",
     "qwen2.5-vl-7b-instruct",
     "fastvlm-7b",
+    "llava-onevision-qwen2-7b-ov",  # Phase 1 P0 v3 Main; AnyRes anchor span
 ]
 
 MODE_ORDER = [
