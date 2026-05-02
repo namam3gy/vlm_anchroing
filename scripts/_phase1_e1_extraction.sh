@@ -61,22 +61,21 @@ cell_done_e1d() {
   return 1
 }
 
-# Per-dataset E1 launcher (dataset_tag, susceptibility_csv, config, log_tag).
-# Uses device_map="auto" to split the 28-layer LLM across GPU 0/1/2 because
-# OneVision AnyRes 6500-token sequences with output_attentions=True OOM on
-# any single H200 (~75 GB stored attentions exceed model+KV+overhead budget).
-# Runs datasets sequentially since one model instance now uses all 3 GPUs.
+# Per-dataset E1 launcher (gpu, dataset_tag, susceptibility_csv, config).
+# OneVision multi-image inputs are forced into base-resolution mode
+# (730 tokens/image, no AnyRes high-res) by passing images as a nested
+# list — see EagerAttentionRunner._prepare_inputs. seq_len drops from
+# ~5400 → ~1460 → stored attentions fit on a single H200.
 e1_one() {
-  local tag="$1" susc_csv="$2" cfg="$3" log_tag="$4"
-  note "E1 $tag (device_map=auto)"
-  CUDA_VISIBLE_DEVICES=0,1,2 uv run python scripts/extract_attention_mass.py \
+  local gpu="$1" tag="$2" susc_csv="$3" cfg="$4" log_tag="$5"
+  note "[GPU$gpu] E1 $tag"
+  CUDA_VISIBLE_DEVICES=$gpu uv run python scripts/extract_attention_mass.py \
       --model "$MODEL" --hf-model "$HF" \
       --config "$cfg" \
       --susceptibility-csv "$susc_csv" \
       --top-decile-n 100 --bottom-decile-n 100 \
       --bbox-file inputs/irrelevant_number_bboxes.json \
       --max-new-tokens 8 \
-      --device-map auto \
       >> "$LOG_DIR/$log_tag.log" 2>&1
 }
 
@@ -93,18 +92,28 @@ for dataset_csv in \
   fi
 done
 
-note "---- Stage E1: sequential attention extraction with device_map=auto ----"
+note "---- Stage E1: parallel attention extraction across 3 GPUs ----"
 
-e1_one plotqa \
+(
+  e1_one 0 plotqa \
     docs/insights/_data/susceptibility_plotqa_onevision.csv \
     configs/experiment_e7_plotqa_full.yaml e1_plotqa
-e1_one tallyqa \
+) &
+PG0=$!
+(
+  e1_one 1 tallyqa \
     docs/insights/_data/susceptibility_tallyqa_onevision.csv \
     configs/experiment_e5e_tallyqa_full.yaml e1_tallyqa
-e1_one infovqa \
+) &
+PG1=$!
+(
+  e1_one 2 infovqa \
     docs/insights/_data/susceptibility_infovqa_onevision.csv \
     configs/experiment_e7_infographicvqa_full.yaml e1_infovqa
+) &
+PG2=$!
 
+wait $PG0 $PG1 $PG2
 note "Stage E1 complete"
 
 note "---- Stage E1b: per-layer analysis + peak layer for OneVision ----"

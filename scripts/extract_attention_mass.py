@@ -196,12 +196,30 @@ class EagerAttentionRunner(HFAttentionRunner):
             self._input_device = self.device
 
     def _prepare_inputs(self, question: str, images: list[Any]) -> tuple[int, dict[str, Any]]:
-        # Override parent to use _input_device (parent uses self.model.device,
-        # which can fail for device_map="auto").
+        # Override parent for two reasons:
+        #   (1) Use _input_device (parent uses self.model.device, which can
+        #       fail for device_map="auto").
+        #   (2) For LlavaOnevision multi-image inputs, pass the images as a
+        #       NESTED list ([[img1, img2]]) and the text as a list ([text])
+        #       so the processor's image_processor returns batch_num_images=[2]
+        #       (= "1 sample with 2 images"), triggering multi-image mode in
+        #       _expand_image_tokens (730 tokens/image: base 27x27 + 1 newline
+        #       only — NO AnyRes high-res). This drops seq_len from ~5400 →
+        #       ~1460 for typical 2-image inputs, and keeps stored attentions
+        #       (output_attentions=True with 28 layers × 28 heads in bf16)
+        #       under any single H200's capacity. AnyRes high-res tokens are
+        #       NOT analyzed in §7.1-7.3 (paper footnote); production baseline
+        #       runs continue to use AnyRes via the non-eager runner.
         pil_images = [_to_pil(i) for i in images]
         messages = self._build_prompt(question=question, num_images=len(pil_images))
         text = self.processor.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
-        inputs = self.processor(images=pil_images, text=text, return_tensors="pt")
+        if (
+            type(self.processor).__name__ == "LlavaOnevisionProcessor"
+            and len(pil_images) > 1
+        ):
+            inputs = self.processor(images=[pil_images], text=[text], return_tensors="pt")
+        else:
+            inputs = self.processor(images=pil_images, text=text, return_tensors="pt")
         target = self._input_device
         inputs = {k: (v.to(target) if hasattr(v, "to") else v) for k, v in inputs.items()}
         seq_len = inputs["input_ids"].shape[-1]
