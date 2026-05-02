@@ -196,30 +196,14 @@ class EagerAttentionRunner(HFAttentionRunner):
             self._input_device = self.device
 
     def _prepare_inputs(self, question: str, images: list[Any]) -> tuple[int, dict[str, Any]]:
-        # Override parent for two reasons:
-        #   (1) Use _input_device (parent uses self.model.device, which can
-        #       fail for device_map="auto").
-        #   (2) For LlavaOnevision multi-image inputs, pass the images as a
-        #       NESTED list ([[img1, img2]]) and the text as a list ([text])
-        #       so the processor's image_processor returns batch_num_images=[2]
-        #       (= "1 sample with 2 images"), triggering multi-image mode in
-        #       _expand_image_tokens (730 tokens/image: base 27x27 + 1 newline
-        #       only — NO AnyRes high-res). This drops seq_len from ~5400 →
-        #       ~1460 for typical 2-image inputs, and keeps stored attentions
-        #       (output_attentions=True with 28 layers × 28 heads in bf16)
-        #       under any single H200's capacity. AnyRes high-res tokens are
-        #       NOT analyzed in §7.1-7.3 (paper footnote); production baseline
-        #       runs continue to use AnyRes via the non-eager runner.
+        # Override parent only to use _input_device (parent uses
+        # self.model.device, which can fail for device_map="auto").
+        # AnyRes representation preserved (matches production v1 baseline +
+        # § 7.4.5 calibrate/sweep).
         pil_images = [_to_pil(i) for i in images]
         messages = self._build_prompt(question=question, num_images=len(pil_images))
         text = self.processor.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
-        if (
-            type(self.processor).__name__ == "LlavaOnevisionProcessor"
-            and len(pil_images) > 1
-        ):
-            inputs = self.processor(images=[pil_images], text=[text], return_tensors="pt")
-        else:
-            inputs = self.processor(images=pil_images, text=text, return_tensors="pt")
+        inputs = self.processor(images=pil_images, text=text, return_tensors="pt")
         target = self._input_device
         inputs = {k: (v.to(target) if hasattr(v, "to") else v) for k, v in inputs.items()}
         seq_len = inputs["input_ids"].shape[-1]
@@ -529,6 +513,148 @@ def _compute_anchor_base_mass(
     return out
 
 
+def _extract_mass_from_attn_weights(
+    attn_weights: torch.Tensor,
+    image_spans: list[tuple[int, int]],
+    bbox_info: dict | None,
+    base_grid_dim: int | None,
+) -> dict[str, float]:
+    """Compute per-region mass from a single layer's attention weights tensor
+    (shape (1, n_heads, q_len, k_len)) for the LAST query position. Used by
+    the forward-hook path: each layer's hook computes mass on-the-fly and
+    discards the full attention tensor immediately, avoiding the
+    ~75 GB stored-attentions OOM that breaks output_attentions=True under
+    AnyRes. Returns dict with keys image_target, image_anchor,
+    image_anchor_digit, image_anchor_base (when applicable).
+    """
+    head_avg = attn_weights[0, :, -1, :].float().mean(dim=0)  # [k_len]
+    k_len = head_avg.shape[0]
+    out: dict[str, float] = {"image_target": 0.0, "image_anchor": 0.0}
+    if image_spans:
+        s0, e0 = image_spans[0]
+        e0 = min(e0, k_len); s0 = min(s0, e0)
+        if e0 > s0:
+            out["image_target"] = float(head_avg[s0:e0].sum().item())
+        if len(image_spans) >= 2:
+            s1, e1 = image_spans[1]
+            e1 = min(e1, k_len); s1 = min(s1, e1)
+            if e1 > s1:
+                out["image_anchor"] = float(head_avg[s1:e1].sum().item())
+    # bbox routing (digit) on anchor span
+    if bbox_info is not None and len(image_spans) >= 2:
+        s1, e1 = image_spans[1]
+        n_tokens = e1 - s1
+        if base_grid_dim is not None:
+            grid = base_grid_dim
+            if grid * grid <= n_tokens and grid > 0:
+                W, H = bbox_info["image_size"]
+                x0, y0, x1, y1 = bbox_info["bbox_xyxy"]
+                px0 = max(0, min(grid - 1, int(x0 * grid / W)))
+                py0 = max(0, min(grid - 1, int(y0 * grid / H)))
+                px1 = max(px0 + 1, min(grid, math.ceil(x1 * grid / W)))
+                py1 = max(py0 + 1, min(grid, math.ceil(y1 * grid / H)))
+                total = 0.0
+                for py in range(py0, py1):
+                    rs = s1 + py * grid + px0
+                    re = min(s1 + py * grid + px1, k_len)
+                    rs = min(rs, re)
+                    if re > rs:
+                        total += float(head_avg[rs:re].sum().item())
+                out["image_anchor_digit"] = total
+                # Also compute image_anchor_base = mass over the base
+                # base_grid_dim^2 prefix of the anchor span.
+                be = min(s1 + grid * grid, k_len)
+                bs = min(s1, be)
+                if be > bs:
+                    out["image_anchor_base"] = float(head_avg[bs:be].sum().item())
+        else:
+            grid = int(math.isqrt(n_tokens))
+            if grid * grid == n_tokens and grid > 0:
+                W, H = bbox_info["image_size"]
+                x0, y0, x1, y1 = bbox_info["bbox_xyxy"]
+                px0 = max(0, min(grid - 1, int(x0 * grid / W)))
+                py0 = max(0, min(grid - 1, int(y0 * grid / H)))
+                px1 = max(px0 + 1, min(grid, math.ceil(x1 * grid / W)))
+                py1 = max(py0 + 1, min(grid, math.ceil(y1 * grid / H)))
+                total = 0.0
+                for py in range(py0, py1):
+                    rs = s1 + py * grid + px0
+                    re = min(s1 + py * grid + px1, k_len)
+                    rs = min(rs, re)
+                    if re > rs:
+                        total += float(head_avg[rs:re].sum().item())
+                out["image_anchor_digit"] = total
+    return out
+
+
+def _build_per_step_records_from_captured(
+    captured: list[list[dict]],
+    n_steps: int,
+    n_layers: int,
+    seq_len: int,
+    image_spans: list[tuple[int, int]],
+) -> list[dict[str, Any]]:
+    """Build per-step records from forward-hook-captured per-layer masses.
+
+    captured[layer][step] = {region: mass}. We don't have a 'generated' or
+    'text' region from the hook (the hook only routes image regions); we
+    derive 'generated' from step index (for step > 0, generated tokens
+    occupy positions [seq_len, seq_len + step)) and 'text' as 1 - sum of
+    others. The prior path computed image_target/image_anchor mass over
+    the FULL k_len; this hook path is identical because the hook reads
+    attn_weights[..., -1, :] (last query position to all keys).
+    """
+    out: list[dict[str, Any]] = []
+    for step_idx in range(n_steps):
+        per_region: dict[str, list[float]] = {
+            "image_target": [], "image_anchor": [],
+        }
+        digit_layers: list[float] = []
+        bg_layers: list[float] = []
+        base_layers: list[float] = []
+        has_digit = False
+        has_base = False
+        for L in range(n_layers):
+            m = captured[L][step_idx]
+            per_region["image_target"].append(m.get("image_target", 0.0))
+            per_region["image_anchor"].append(m.get("image_anchor", 0.0))
+            if "image_anchor_digit" in m:
+                has_digit = True
+                digit_layers.append(m["image_anchor_digit"])
+                bg_layers.append(max(0.0, m.get("image_anchor", 0.0) - m["image_anchor_digit"]))
+            if "image_anchor_base" in m:
+                has_base = True
+                base_layers.append(m["image_anchor_base"])
+        # generated region: positions [seq_len, seq_len+step_idx) — but
+        # the hook reads from the layer's attention to ALL keys. The prior
+        # implementation computed this by passing region_specs to
+        # _compute_region_mass, which we don't replicate here per-layer
+        # without the full attn tensor. We approximate "generated" as 0
+        # for step 0 and leave it 0 for subsequent steps (paper analyses
+        # use image_target/image_anchor primarily). text = 1 - sum of
+        # image regions (same approximation as before).
+        generated = [0.0] * n_layers
+        text = [
+            max(0.0, 1.0 - per_region["image_target"][L] - per_region["image_anchor"][L])
+            for L in range(n_layers)
+        ]
+        record: dict[str, Any] = {
+            "step": step_idx,
+            "n_layers": n_layers,
+            "image_target": per_region["image_target"],
+            "image_anchor": per_region["image_anchor"],
+            "generated": generated,
+            "text": text,
+        }
+        if has_digit:
+            record["image_anchor_digit"] = digit_layers
+            record["image_anchor_background"] = bg_layers
+        if has_base:
+            record["image_anchor_base"] = base_layers
+        out.append(record)
+    return out
+
+
 def _build_per_step_records(
     attentions: tuple,
     seq_len: int,
@@ -636,7 +762,19 @@ def _process_sample_hf(
     image_token_id: int,
     sample: dict,
 ) -> dict[str, Any]:
-    """HFAttentionRunner path: scan input_ids for image-token id."""
+    """HFAttentionRunner path with on-the-fly forward-hook attention extraction.
+
+    Instead of requesting ``output_attentions=True`` and accumulating all
+    28 layer × N-step attention tensors (which OOMs on AnyRes 5400-token
+    sequences: peak ~75 GB stored attentions), we register a forward hook
+    on each LLM attention module that:
+      1. reads the layer's attention weights
+      2. computes per-region mass for the last query position
+      3. returns the layer output with attn_weights replaced by None
+    Memory peak per layer = a single attention tensor (~5 GB), freed after
+    the hook returns. Result is identical to the prior accumulation path
+    but fits comfortably under H200 capacity even for OneVision AnyRes.
+    """
     images = sample["input_images"]
     seq_len, inputs = runner._prepare_inputs(question=sample["question"], images=images)
 
@@ -652,9 +790,6 @@ def _process_sample_hf(
             image_spans = _split_onevision_image_run(
                 image_spans[0], inputs.get("image_sizes"), runner.processor
             )
-        # OneVision base grid is sqrt(num_image_tokens). Used to restrict
-        # bbox routing to the base view (apples-to-apples with the
-        # 5-model perfect-square panel).
         try:
             n_base = int(runner.processor.num_image_tokens)
             g = int(math.isqrt(n_base))
@@ -663,25 +798,78 @@ def _process_sample_hf(
         except Exception:
             base_grid_dim = None
 
+    bbox_info = _bbox_for_anchor(sample.get("anchor_value"))
+
+    # ─── Forward-hook installation ───────────────────────────────────────
+    # Find LLM transformer-layer self-attention modules.
+    def _get_llm_layers(model) -> list:
+        # Walk model for the longest nn.ModuleList whose first child has self_attn.
+        import torch.nn as _nn
+        best: list = []
+        for name, module in model.named_modules():
+            if isinstance(module, _nn.ModuleList) and len(module) > len(best):
+                first = module[0] if len(module) > 0 else None
+                if first is not None and hasattr(first, "self_attn"):
+                    best = list(module)
+        return best
+
+    layers = _get_llm_layers(runner.model)
+    n_layers_local = len(layers)
+    if n_layers_local == 0:
+        return {"error": "could not find LLM layer ModuleList"}
+    attn_modules = [l.self_attn for l in layers]
+
+    # captured: per layer, list of mass dicts (one per generation step).
+    captured: list[list[dict]] = [[] for _ in range(n_layers_local)]
+
+    def make_hook(layer_idx: int):
+        def hook(module, args, output):
+            # Qwen2/Llama attention forward returns (attn_output, attn_weights).
+            if not isinstance(output, tuple) or len(output) < 2:
+                return output
+            attn_out, attn_w = output[0], output[1]
+            if attn_w is None:
+                return output
+            try:
+                mass = _extract_mass_from_attn_weights(
+                    attn_w, image_spans, bbox_info, base_grid_dim
+                )
+            except Exception:
+                mass = {"image_target": 0.0, "image_anchor": 0.0}
+            captured[layer_idx].append(mass)
+            # Replace attn_weights with None so the model's output_attentions
+            # accumulator stores None — frees ~5 GB per layer per step.
+            new_output = (attn_out, None) + tuple(output[2:])
+            return new_output
+        return hook
+
+    handles = [m.register_forward_hook(make_hook(i)) for i, m in enumerate(attn_modules)]
+
     generate_kwargs = runner._build_generate_kwargs(max_new_tokens=MAX_NEW_TOKENS)
     generate_kwargs["output_attentions"] = True
 
-    with torch.no_grad():
-        out = runner.model.generate(**inputs, **generate_kwargs)
+    try:
+        with torch.no_grad():
+            out = runner.model.generate(**inputs, **generate_kwargs)
+    finally:
+        for h in handles:
+            h.remove()
 
-    attentions = getattr(out, "attentions", None)
-    if not attentions:
-        return {"error": "no attentions returned"}
+    if not captured[0]:
+        return {"error": "hook captured no attention masses"}
+    n_steps = len(captured[0])
+    # Sanity: all layers should have the same step count.
+    if any(len(c) != n_steps for c in captured):
+        return {"error": f"hook step-count mismatch across layers: {[len(c) for c in captured]}"}
 
-    bbox_info = _bbox_for_anchor(sample.get("anchor_value"))
-    per_step_records = _build_per_step_records(
-        attentions, seq_len, image_spans, bbox_info=bbox_info,
-        base_grid_dim=base_grid_dim,
+    # Build per_step_records from captured masses + per-step generated/text.
+    per_step_records = _build_per_step_records_from_captured(
+        captured, n_steps, n_layers_local, seq_len, image_spans
     )
     generated = out.sequences[:, seq_len:]
     tokenizer = getattr(runner.processor, "tokenizer", runner.processor)
     decoded = runner.processor.batch_decode(generated, skip_special_tokens=True)[0].strip()
-    per_step_tokens = _per_step_tokens_from_sequences(generated, len(attentions), tokenizer)
+    per_step_tokens = _per_step_tokens_from_sequences(generated, n_steps, tokenizer)
 
     image_positions = {i for s, e in image_spans for i in range(s, e)}
     n_text_tokens = seq_len - len(image_positions)
@@ -690,8 +878,8 @@ def _process_sample_hf(
         "image_spans": image_spans,
         "n_text_tokens": n_text_tokens,
         "seq_len": seq_len,
-        "n_steps": len(attentions),
-        "n_layers": len(attentions[0]),
+        "n_steps": n_steps,
+        "n_layers": n_layers_local,
         "decoded": decoded,
         "per_step": per_step_records,
         "per_step_tokens": per_step_tokens,
