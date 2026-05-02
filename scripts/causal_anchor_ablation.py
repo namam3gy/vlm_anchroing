@@ -47,8 +47,10 @@ from vlm_anchor.data import (
 )
 from vlm_anchor.models import (
     FASTVLM_IMAGE_TOKEN_INDEX,
+    HFAttentionRunner,
     InferenceConfig,
     _to_pil,
+    build_runner,
 )
 from vlm_anchor.utils import extract_first_number, set_seed
 
@@ -167,7 +169,10 @@ def _resolve_anchor_span(runner, sample: dict, image_token_id: int | None) -> tu
     if len(images) < 2:
         return (0, 0)
 
-    if isinstance(runner, EagerAttentionRunner):
+    # HFAttentionRunner (sdpa) and EagerAttentionRunner (eager subclass) both
+    # share the input_ids + AutoProcessor pipeline. Match the parent class so
+    # either backend works under causal ablation hooks.
+    if isinstance(runner, HFAttentionRunner) and not isinstance(runner, (EagerConvLLaVARunner, EagerFastVLMRunner)):
         # HF input_ids path — re-prepare inputs and scan for image_token_id
         _, inputs = runner._prepare_inputs(question=sample["question"], images=images)
         spans = _find_image_token_spans(inputs["input_ids"], image_token_id)
@@ -350,9 +355,22 @@ def main() -> None:
         max_new_tokens=sampling["max_new_tokens"],
     )
     print(f"[setup] loading {args.hf_model} (eager attention)")
-    runner = build_eager_runner(args.hf_model, inference_config=inference_cfg)
+    # E1d ablation hooks the attention module's attention_mask kwarg before
+    # forward — works identically with eager and sdpa attention. SDPA is
+    # ~2-3x faster on long-sequence forwards, so use it. Falls back to the
+    # legacy eager path for ConvLLaVA / FastVLM (which build_runner doesn't
+    # cover): for those, build_eager_runner handles the bespoke loaders.
+    lower = args.hf_model.lower()
+    if "fastvlm" in lower or "llava-qwen" in lower or "convllava" in lower:
+        runner = build_eager_runner(args.hf_model, inference_config=inference_cfg)
+    else:
+        runner = build_runner(args.hf_model, inference_config=inference_cfg)
     image_token_id: int | None = None
-    if isinstance(runner, EagerAttentionRunner):
+    # HFAttentionRunner (sdpa) and EagerAttentionRunner (eager subclass) both
+    # use the input_ids + AutoProcessor pipeline. Resolve image_token_id for
+    # both. Keep the explicit non-ConvLLaVA / non-FastVLM gate so the bespoke
+    # runners (which lack a processor.image_token_id) skip this branch.
+    if isinstance(runner, HFAttentionRunner) and not isinstance(runner, (EagerConvLLaVARunner, EagerFastVLMRunner)):
         image_token_id = _resolve_image_token_id(runner.processor)
     layers = _get_llm_layers(runner.model)
     n_layers = len(layers)
