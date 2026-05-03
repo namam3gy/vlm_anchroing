@@ -41,6 +41,7 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import os
 import time
 from datetime import datetime
 from pathlib import Path
@@ -1216,8 +1217,10 @@ def main() -> None:
         path_kind = "ConvLLaVA (inputs_embeds)" if isinstance(runner, EagerConvLLaVARunner) else "FastVLM (-200 + expand)"
         print(f"[setup] non-HF path: {path_kind}")
 
-    # Output dir
-    run_id = datetime.now().strftime("%Y%m%d-%H%M%S")
+    # Output dir — append microseconds + pid to avoid collisions when multiple
+    # processes for the same model launch in the same wall-clock second
+    # (Phase D parallel datasets bug, 2026-05-03).
+    run_id = datetime.now().strftime("%Y%m%d-%H%M%S-%f") + f"-p{os.getpid()}"
     out_root = PROJECT_ROOT / "outputs" / "attention_analysis" / args.model / run_id
     out_root.mkdir(parents=True, exist_ok=True)
     out_jsonl = out_root / "per_step_attention.jsonl"
