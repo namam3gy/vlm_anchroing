@@ -11,12 +11,45 @@ This document has two parts:
 
 ---
 
-## §0. Current paper outline (as of 2026-05-02 — paper architecture restructure)
+## §0. Current paper outline (as of 2026-05-04 — Phase 1 P0 v3 substantively complete)
 
 **Target venue.** EMNLP 2026 Main, ARR May 25.
 
 **Compute envelope.** 8 × H200 (one shared with vLLM Qwen2.5-32B server,
 ~60 GB usable per GPU), one month at writeup.
+
+### §0.0 Phase 1 P0 v3 final state (2026-05-04)
+
+Baseline matrix, mechanism panel, mitigation cell selection, and §7.1-7.3
+attention extraction are all on origin (`phase1/p0-baseline-recalibration`
++ master pushed; commits `9f9dfa0` → `2d11876` → `6d8dac4`).
+
+**6-model main panel × 5-dataset baseline matrix** (4-cond, S1 stratum):
+
+| Models | Datasets | Status |
+|---|---|---|
+| llava-onevision-7b (Main), qwen2.5-vl-7b, internvl3-8b, gemma3-4b, qwen2.5-vl-32b, gemma3-27b | TallyQA, ChartQA, MathVista, PlotQA, InfoVQA | 29/30 ✅ + internvl3-8b/TallyQA rerun in flight (~07:00 ETA) |
+
+`llava-next-interleaved-7b` dropped from main panel (commit `0e7998e`,
+2026-05-04 user decision: low native resolution insufficient for chart/figure
+informativeness).
+
+**Mitigation chosen cell (Phase B Stage 4-final, commit `9f9dfa0`)**:
+**L=26 K=8 α=1.0** subspace projection on PlotQA+InfoVQA pooled n5k. Across
+5 datasets: avg Δdf(a) = -2.5pp, Δem(a) = -2.4pp (within em-drop dealbreaker),
+plus **Δem(b) = +9.2pp** unintended recovery on wrong-base sids — see §0.7.
+
+**Phase D §7.1-7.3 attention** (5 panel × 4 datasets + OneVision × 4 datasets,
+24/24 cells, commit `c556fb6`): per-(model, dataset) peak-layer comparison
+via `scripts/analyze_cross_dataset_peaks.py`. Key finding: OneVision peak
+layer is **dataset-dependent** (L=27 on PlotQA/TallyQA, L=14 on InfoVQA/VQAv2)
+— see §0.7.
+
+**Phase E E1d causal ablation** (OneVision × 4 datasets, 4/4, commits
+`7a27750` + `2d11876` recovery): per-mode direction-follow reduction
+table at `outputs/causal_ablation/_summary/per_model_per_mode.csv`.
+
+For full operational status see `references/roadmap.md §3.0a + §10`.
 
 ### §0.1 Headline claim
 
@@ -48,13 +81,13 @@ Three motivating features carry the §1 lead:
 |---|---|---|---|---|
 | 1 | Introduction | the §0.1 headline claim | A1 + E1-patch + E6 | writing |
 | 2 | Related work | LLM anchoring lineage, VLMBias, typographic attacks, cognitive-science prior | (review below) | writing |
-| 3 | Problem definition + canonical metrics | 4-condition prompt (`b/a/m/d`); JSON-strict template; M2 canonical `adopt_rate`, `direction_follow_rate`, `exact_match`, `anchor_effect = M(anchor) − M(neutral)` | `docs/insights/M2-metric-definition-evidence.md` | done — 3-model × 5-dataset matrix in flight |
-| 4 | Datasets + anchor inventory | **5-dataset main matrix**: TallyQA, ChartQA, MathVista, **PlotQA, InfographicVQA**. FLUX-rendered digit anchor inventory with mask + neutral counterparts. VQAv2 dropped (multiple-GT, legacy metric, dataset size impractical at full eval). | `inputs/`, fetcher / generator scripts | 5/5 snapshots ready |
-| 5 | Distance, plausibility window, digit-pixel causality | `adopt_rate` decays sharply with `\|anchor − gt\|`; digit pixel is operative cause (anchor > masked); per-dataset distance cutoffs validated; cross-model robustness on 3-model panel × 5 datasets | E5b + E5c + E5d + E5e | Phase 1 in flight — extends 4 → 5 datasets (+ PlotQA + InfoVQA, − VQAv2) |
-| 6 | Confidence-modulated anchoring (logit-based) | `direction_follow_rate` is monotonic with answer-token logit / probability; the wrong/correct binary in §A1 is a coarse projection of the same effect | per-token logit captured (commit `5f925b2`); analysis pending | reaggregation pending Phase 1 outputs |
-| 7.1–7.3 | Attention mechanism (analysis) | **Anchor pull mechanism is digit-pixel-patch attention concentration**, not full anchor-image attention. E1-patch on **5-model perfect-square panel** (gemma4-e4b, llava-1.5-7b, convllava-7b, fastvlm-7b, **llava-interleave-7b**) shows digit/anchor attention ratio +24–40 pp above fair share at peak layer; patch-level causal ablation reproduces df reduction. | E1-patch (peak layer + bbox-restricted ablation) | Phase 3 (llava-interleave-7b add + patch-level ablation refactor) |
-| 7.4 | E4 attention re-weighting mitigation | mid-stack-cluster attention re-weighting at chosen `s*` reduces df 5.8–17.7 % rel with `exact_match` rising — **panel extended to add llava-interleave-7b**, archetype-conditional behaviour reported | E4 Phase 1 + Phase 2 + Main extension | Phase 3 (add Main; archetype assignment from E1-patch) |
-| 7.4.5 | E6 deployable mitigation | Subspace L31_K04_α=1.0 calibrated on **PlotQA + InfographicVQA pooled** generalises across 5 datasets at full gt range, no per-dataset tuning, no anchor labels at inference | E6 (Main model, 5-dataset full-range eval) | Phase 1 — recalibration + 5-dataset sweep |
+| 3 | Problem definition + canonical metrics | 4-condition prompt (`b/a/m/d`); JSON-strict template; M2 canonical `adopt_rate`, `direction_follow_rate`, `exact_match`, `anchor_effect = M(anchor) − M(neutral)` | `docs/insights/M2-metric-definition-evidence.md` + 6-model × 5-dataset main panel CSV | **✅ shipped** — 6-model × 5-dataset matrix at `docs/insights/_data/main_panel_5dataset_summary.md` |
+| 4 | Datasets + anchor inventory | **5-dataset main matrix**: TallyQA, ChartQA, MathVista, **PlotQA, InfographicVQA**. FLUX-rendered digit anchor inventory with mask + neutral counterparts. VQAv2 dropped from main (multiple-GT, legacy). | `inputs/`, fetcher / generator scripts | ✅ 5/5 snapshots ready, all evaluated |
+| 5 | Distance, plausibility window, digit-pixel causality | `adopt_rate` decays sharply with `\|anchor − gt\|`; digit pixel is operative cause (anchor > masked); per-dataset distance cutoffs validated; cross-model robustness on 3-model panel × 5 datasets | E5b + E5c + E5d + E5e | **✅ shipped** — 5-dataset matrix done; γ-α/γ-β reasoning-mode supplements landed |
+| 6 | Confidence-modulated anchoring (logit-based) | `direction_follow_rate` is monotonic with answer-token logit / probability; the wrong/correct binary in §A1 is a coarse projection of the same effect | per-token logit + L1–L5 evidence chain | **✅ shipped** — `entropy_top_k` selected; Q4 − Q1 mean df = +0.152 (C-form); 23/35 anchor cells fully monotone |
+| 7.1–7.3 | Attention mechanism (analysis) | **Anchor pull mechanism is digit-pixel-patch attention concentration**, not full anchor-image attention. E1-patch on **5-model perfect-square panel** (gemma4-e4b, llava-1.5-7b, convllava-7b, fastvlm-7b, **internvl3-8b**) shows digit/anchor attention ratio +24–40 pp above fair share at peak layer. **Cross-dataset finding (new, 2026-05-04)**: OneVision Main peak layer is dataset-dependent (L=27 PlotQA/TallyQA, L=14 InfoVQA/VQAv2). | E1-patch + Phase D 24/24 cross-dataset matrix + cross_dataset_peaks.csv | **✅ shipped** — `analyze_cross_dataset_peaks.py` output landed 2026-05-04 |
+| 7.4 | E4 attention re-weighting mitigation | mid-stack-cluster attention re-weighting at chosen `s*` reduces df 5.8–17.7 % rel with `exact_match` rising — archetype-conditional behaviour | E4 Phase 1 + Phase 2 + Main extension | Phase 3 partial — Main(llava-onevision) E4 deferred (AnyRes encoder ≠ mid-stack cluster) |
+| 7.4.5 | E6 deployable mitigation | **Subspace L=26 K=8 α=1.0 (chosen 2026-05-03)** calibrated on PlotQA+InfoVQA pooled n5k generalises across 5 datasets at full gt range, no per-dataset tuning, no anchor labels at inference. Avg Δdf = -2.5pp, Δem(a) = -2.4pp; **plus Δem(b) = +9.2pp recovery on wrong-base sids** (paper-novel side-effect). | E6 (Main model, 5-dataset full-range eval, commit `9f9dfa0`) | **✅ shipped** — chosen cell + Stage 4-final eval done; em(b) finding pending §7.4 paper update (#38) |
 | 8 | Future work | LLM/VLM architectural diff (preferred); image-vs-text anchor; reasoning-mode VLMs at scale | scoped only | future |
 
 ### §0.3 Canonical metrics (M2)
@@ -86,9 +119,9 @@ applies to `pred_m` (mask arm).
 | **🟢 Main** | `llava-onevision-qwen2-7b-ov` (llava-hf/llava-onevision-qwen2-7b-ov-hf) | §3, §5, §6, §7.4, §7.4.5 — **all headline numbers** | Primary model. SigLIP-So400M-384 + Qwen2-7B LLM. Multi-image + video + single-image unified architecture (OV variant). AnyRes per-image dynamic crops up to 7 × 384×384 (within-crop 27×27 perfect-square; multi-crop layout overall). Tier 1 LLaVA family — direct successor to LLaVA-Interleave with chart-grade resolution restored. |
 | **🟡 Sub-A (cross-family)** | `qwen2.5-vl-7b-instruct` | §3, §5, §6 | Tier 1 cross-family. Different ViT (dynamic-resolution Qwen-ViT non-square). Chart-domain pretrained. Strong base accuracy on chart datasets (~78% PlotQA/InfoVQA). Demonstrates anchoring as universal (non-zero on strongest baseline) but graded. |
 | **🟡 Sub-B (cross-family + scale-up)** | `gemma3-27b-it` | §3, §5, §6 | Tier 3 family but useful as cross-family large-scale check (27B vs 7B Main). SigLIP-896 fixed perfect-square encoder (different resolution strategy from Main). Mid-tier accuracy (~51-71%). |
-| **🔵 Mechanism panel (perfect-square, 4-archetype)** | gemma4-e4b, llava-1.5-7b, convllava-7b, fastvlm-7b | §7.1–7.3 (E1-patch digit-bbox attention) | 4-archetype encoder panel: SigLIP-Gemma early / CLIP-336 mid-stack / ConvNeXt / FastViT. All perfect-square single-grid for clean bbox→token routing. **Main (OneVision) is NOT in §7.1-7.3** due to AnyRes multi-crop incompatibility; we instead include Main in §7.4 (E4 attention re-weighting) and §7.4.5 (E6 Subspace projection) which operate at LLM layer and are encoder-agnostic. Phase 2 may add OneVision-specific multi-crop bbox routing to extend §7.1-7.3 to Main. |
+| **🔵 Mechanism panel (perfect-square, 5-model)** | gemma4-e4b, llava-1.5-7b, convllava-7b, fastvlm-7b, **internvl3-8b** | §7.1–7.3 (E1-patch digit-bbox attention) | 5-archetype encoder panel: SigLIP-Gemma early / CLIP-336 mid-stack / ConvNeXt / FastViT / InternViT mid-stack. All perfect-square single-grid for clean bbox→token routing. **OneVision Main extracted via AnyRes per-image bbox routing (lite_eager monkey-patch)** — added to mechanism panel as 6th model and shows dataset-dependent peak layer (L=27 plot/tally, L=14 info/vqav2). Phase D 24/24 cells on disk, cross-dataset peak comparison via `scripts/analyze_cross_dataset_peaks.py`. |
 | **🟣 Reasoning ablation** | `qwen3-vl-8b` (instruct vs thinking) | §5 γ-β | Reasoning-mode amplification contrast. Single-purpose, disjoint from Sub-A. |
-| **🟤 Legacy / breadth (appendix)** | `llava-interleave-7b`, gemma4-31b-it, gemma3-12b/4b-it, qwen3-vl-8b/30b, the 7-model VQAv2 panel | appendix only | LLaVA-Interleave preserved as direct predecessor reference. Gemma3 4B/12B held in reserve for potential within-family scale ablation in Phase 2. Historical 7-model VQAv2 panel preserved for behavioural breadth. |
+| **🟤 Legacy / breadth (appendix)** | `llava-next-interleaved-7b`, gemma4-31b-it, gemma3-12b/4b-it, qwen3-vl-8b/30b, the 7-model VQAv2 panel | appendix only | **llava-next-interleaved-7b dropped from main panel 2026-05-04** (low native resolution insufficient for chart/figure datasets — user decision, commit `0e7998e`). Phase D §7.1-7.3 attention data preserved on disk (3 datasets, plot/tally/info) as supplementary. Gemma3 4B/12B held in reserve for potential within-family scale ablation in Phase 2. Historical 7-model VQAv2 panel preserved for behavioural breadth. |
 
 #### §0.4.2 Dataset finalisation (5-dataset main matrix, finalised 2026-05-02)
 
@@ -103,18 +136,19 @@ applies to `pred_m` (mask arm).
 
 All 5 datasets evaluated under the same canonical setup: temperature=0, top_p=1.0, max_new_tokens=16, JSON-strict prompt, 4-condition (b / a-S1 / m-S1 / d). **Per-dataset n target = 5000 stratified by gt-bin** (PlotQA → 5000 fetch-time stratified across 5 gt bins, TallyQA → 5000 runtime stratified via `samples_per_answer=700` × `max_samples=5000`); InfoVQA / ChartQA / MathVista take their **full numeric subset** which falls below the 5000 cap (1147 / ~705 / ~385 respectively). The §7.4.5 sweep cap was raised from 500 → 5000 wrong-base sids per the 2026-05-02 statistical-power revision (evidence: wrong-base direction-follow rate is 3-5× stronger than correct-base across datasets, so a larger wrong-base sweep cell gives tighter mitigation effect estimates).
 
-#### §0.4.3 Section-wise cell summary (Phase 1 target)
+#### §0.4.3 Section-wise cell summary (Phase 1 P0 v3 final, 2026-05-04)
 
-| Section | Models | Datasets | Conditions | n per cell | Cells |
-|---|---|---|---|---|---|
-| §3 main panel (3-model × 5-dataset) | Main(llava-onevision-7b-ov) + Sub-A(qwen2.5-vl-7b) + Sub-B(gemma3-27b) (3) | TallyQA, ChartQA, MathVista, **PlotQA**, **InfoVQA** (5) | b / a-S1 / m-S1 / d (4) | 1k–full | 15 |
-| §5 distance + digit-mask | same 3 | same 5 | b + 5×a-strata + 5×m-strata + d (12, E5b/c) | 500–2500 | 15 |
-| §6 confidence-modulated | same 3 | same 5 | reuses §3+§5 outputs | (reaggregation) | 0 new |
-| §7.1–7.3 mechanism (E1-patch) | 4-archetype perfect-square panel (Main NOT included; Phase 2 adds OneVision multi-crop routing if pursued) | TallyQA + 1 chart + 1 info (3) | b + a + m (3) | 200 stratified | 12 |
-| §7.4 E4 attention re-weighting | 4-model (mid-stack cluster: llava-1.5, convllava, internvl3) + Main (llava-onevision-7b-ov) | 1 dataset (TallyQA or PlotQA) | E4 Phase 1 sweep + Phase 2 full | 200 / full | 4 |
-| §7.4.5 E6 Subspace mitigation | Main only | all 5 | calibration + sweep cells | up to 5000 wrong-base (capped by per-dataset eligible-4cond wrong-base count) | 5 |
-| §5 γ-β reasoning | qwen3-vl-8b instruct vs thinking | MathVista | b/a/m/d (4) | full testmini subset | 2 |
-| Appendix (legacy 7-model) | 7 models | VQAv2 only | b/a/d (3) | full | 7 |
+| Section | Models | Datasets | Conditions | n per cell | Cells | Status |
+|---|---|---|---|---|---|---|
+| §3 main panel (6-model × 5-dataset) | llava-onevision-7b (Main), qwen2.5-vl-7b, internvl3-8b, gemma3-4b, qwen2.5-vl-32b, gemma3-27b (6) | TallyQA, ChartQA, MathVista, PlotQA, InfoVQA (5) | b / a-S1 / m-S1 / d (4) | full or n=5000-cap | 30 | **29 ✅ + internvl3/tally rerun in flight** |
+| §5 distance + digit-mask | 3-model E5e panel (llava-interleave, qwen2.5-vl-7b, gemma3-27b) | 5 (E5b/c on VQAv2+TallyQA, E5e on Tally/Chart/Math/Plot/Info) | b + 5×a + 5×m + d (12) | 500–full | 15 | **✅ shipped** |
+| §6 confidence-modulated | reuses §3+§5 outputs | same | (logit reaggregation) | 112,008 sample×arm rows | 0 new | **✅ shipped** (L1-evidence) |
+| §7.1–7.3 mechanism (E1-patch + Phase D) | **5-model perfect-square panel** (gemma4-e4b, llava-1.5-7b, convllava-7b, fastvlm-7b, internvl3-8b) + OneVision via AnyRes bbox routing | TallyQA + PlotQA + InfoVQA + VQAv2 (4) | b + a + m + d (4) | 200 stratified per dataset | 24 | **✅ shipped** (Phase D, commit `c556fb6`) |
+| §7.4 E4 attention re-weighting | 3-model mid-stack cluster (llava-1.5, convllava, internvl3) | 1 dataset | sweep + validation | 200 / full | 3 | ✅ pre-restructure; OneVision Main extension deferred (AnyRes encoder ≠ mid-stack archetype) |
+| §7.4.5 E6 Subspace mitigation | OneVision Main | all 5 | chosen cell L=26 K=8 α=1.0 + baseline | n=5000 wrong-base subset (per-dataset eligible cap applies) | 5 | **✅ shipped** (Phase B, commit `9f9dfa0`); em(b) +9.2pp recovery — paper task #38 |
+| §7 E1d causal ablation (OneVision) | OneVision Main only | TallyQA + ChartQA + MathVista + InfoVQA (4) | sweep × 6 modes (baseline / ablate_peak / window / lower-half / upper-half / all) | 200 stratified | 4 | **✅ shipped** (Phase E, commits `7a27750` + `2d11876` recovery) |
+| §5 γ-β reasoning | qwen3-vl-8b instruct vs thinking | MathVista | b/a/m/d (4) | full testmini subset | 2 | ✅ shipped (×1.6 adopt, ×2.9 df amplification) |
+| Appendix (legacy 7-model) | 7 models | VQAv2 only | b/a/d (3) | full | 7 | ✅ historical |
 
 ### §0.5 Scoped-out (paper-tier decisions)
 
@@ -141,21 +175,79 @@ All 5 datasets evaluated under the same canonical setup: temperature=0, top_p=1.
   integer GT). Existing 7-model VQAv2 panel preserved in appendix for
   breadth supplementary only.
 - **gt ∈ [0,8] restriction on §7.4.5 mitigation headline** (2026-05-02
-  decision) — removed. The Tally-only N=5000 calibration's gt-bin
-  restriction made the E6 result look like a partial solution.
-  Recalibrating on PlotQA + InfographicVQA (Main datasets) pooled at
-  full gt range targets a stronger headline: "Subspace L31_K04_α=1.0
-  generalises across 5 datasets at full gt range, no per-dataset
-  tuning". If the recalibrated subspace fails on small-gt regimes
-  (TallyQA), plan B = pooled multi-source (chart + info + count)
-  calibration or method addendum.
+  decision, **resolved 2026-05-04**) — removed. The Tally-only N=5000
+  calibration's gt-bin restriction made the E6 result look like a partial
+  solution. **Final**: Pilot grid on PlotQA+InfoVQA pooled n5k (27 cells)
+  selected **L=26 K=8 α=1.0** at full gt range. Stage 4-final eval on 5
+  datasets shipped 2026-05-03 (commit `9f9dfa0`). Headline: avg Δdf -2.5pp,
+  Δem(a) -2.4pp + Δem(b) +9.2pp recovery (unintended novelty for §7.4
+  paper update, task #38).
 - **InternVL3-8b + Qwen2.5-VL-7b in §7 mechanism panel** (2026-05-02
-  decision) — moved to appendix only. Both have non-perfect-square
-  visual-token grids (InternVL3 multi-tile, Qwen2.5-VL 17×23) requiring
-  per-encoder bbox-to-token routing in `_compute_anchor_bbox_mass`;
-  implementation correctness is hard to guarantee uniformly across
-  encoders. §7.1–7.3 main panel restricted to **5-model perfect-square**
-  (gemma4-e4b, llava-1.5-7b, convllava-7b, fastvlm-7b, **llava-interleave-7b**).
+  decision, **revised 2026-05-04**) — InternVL3-8b **brought into mech
+  panel** as 5th member (perfect-square 27×27 grid confirmed; routes
+  cleanly through standard `_compute_anchor_bbox_mass`). Qwen2.5-VL-7b
+  remains appendix-only (17×23 non-square requires per-encoder routing
+  not yet implemented). §7.1–7.3 main panel = **5-model**: gemma4-e4b,
+  llava-1.5-7b, convllava-7b, fastvlm-7b, **internvl3-8b**. OneVision Main
+  added as 6th via AnyRes per-image bbox routing (lite_eager monkey-patch
+  in `extract_attention_mass.py`).
+- **llava-next-interleaved-7b in main panel** (2026-05-04 decision) —
+  removed from §3 main panel and §7 mechanism panel. Native
+  resolution insufficient for chart/figure datasets (low informativeness
+  observed). Phase D §7.1-7.3 attention data preserved as supplementary
+  on plot/tally/info; not on VQAv2. Commit `0e7998e`.
+
+### §0.7 Phase 1 P0 v3 final headline numbers (2026-05-04)
+
+#### 6-model × 5-dataset main matrix (4-cond, S1, wrong-base C-form df)
+Source: `docs/insights/_data/main_panel_5dataset_summary.md` (gitignored, regenerable via `scripts/build_e5e_e7_5dataset_summary.py`).
+
+Selected highlights (TallyQA + PlotQA exemplars):
+
+| Dataset | Model | acc(b) | adopt(a) | df(a) | em(a) |
+|---|---|---:|---:|---:|---:|
+| TallyQA | llava-onevision-7b (Main) | 0.786 | 0.032 | 0.099 | 0.117 |
+| TallyQA | qwen2.5-vl-7b | 0.803 | 0.030 | 0.085 | 0.110 |
+| TallyQA | gemma3-4b | 0.614 | 0.062 | 0.172 | 0.174 |
+| TallyQA | gemma3-27b | 0.712 | 0.059 | 0.152 | 0.140 |
+| PlotQA | llava-onevision-7b | 0.481 | 0.090 | 0.206 | 0.044 |
+| PlotQA | qwen2.5-vl-7b | 0.783 | 0.024 | 0.174 | 0.119 |
+| PlotQA | gemma3-4b | 0.300 | 0.184 | **0.395** | 0.123 |
+| PlotQA | gemma3-27b | 0.513 | 0.099 | 0.227 | 0.063 |
+
+Cross-dataset patterns:
+- **Susceptibility ranking**: gemma3-4b ≫ gemma3-27b > llava-interleave/onevision > qwen2.5-vl-7b. qwen2.5-vl is most robust across all 5 datasets.
+- **Dataset susceptibility ordering**: PlotQA > MathVista > InfoVQA > ChartQA > TallyQA. Chart/figure datasets pull ~2× harder than counting (TallyQA).
+
+#### Mitigation (§7.4.5) Stage 4-final results
+
+Chosen cell **L=26 K=8 α=1.0** (subspace projection, calibration on PlotQA+InfoVQA pooled n5k):
+
+| Dataset | n_elig | Δ adopt(a) | Δ df(a) | Δ em(a) | **Δ em(b)** |
+|---|---:|---:|---:|---:|---:|
+| TallyQA | 4978→4298 | -0.009 | -0.014 | -0.020 | **+0.140** |
+| PlotQA  | 2069→1982 | -0.069 | -0.043 | -0.016 | **+0.052** |
+| InfoVQA |  428→ 390 | -0.032 | +0.001 | -0.026 | **+0.090** |
+| ChartQA |  192→ 178 | -0.026 | -0.046 | -0.022 | **+0.071** |
+| MathVista | 164→ 147 | -0.043 | -0.024 | -0.038 | **+0.105** |
+| **mean** |   | **-0.036** | **-0.025** | **-0.024** | **+0.092** |
+
+Verdict: df reduction works (avg -2.5pp), em(a) cost (avg -2.4pp) under em-drop dealbreaker (6pp threshold). **em(b) +9.2pp recovery is unintended and paper-novel** — §7.4 needs re-framing to surface this as primary outcome alongside df reduction (paper task #38).
+
+#### §7.1-7.3 Cross-dataset peak layer matrix (Phase D)
+
+Per-(model, dataset) attention peak layer at answer step (`docs/insights/_data/cross_dataset_peaks.csv`, gitignored):
+
+| Model | InfoVQA | PlotQA | TallyQA | VQAv2 |
+|---|:-:|:-:|:-:|:-:|
+| gemma4-e4b | 5/42 | 5/42 | 5/42 | 5/42 |
+| llava-1.5-7b | 8/32 | 14/32 | 8/32 | 8/32 |
+| convllava-7b | 12/40 | 14/40 | 7/40 | 7/40 |
+| fastvlm-7b | 27/28 | 17/28 | 23/28 | 22/28 |
+| **llava-onevision-7b (Main)** | **14/28** | **27/28** | **27/28** | **14/28** |
+| qwen2.5-vl-7b | — | — | — | 22/28 |
+
+**New finding (2026-05-04)**: OneVision peak layer is **dataset-dependent** (L=27 last layer on PlotQA/TallyQA but L=14 mid-stack on InfoVQA/VQAv2). Earlier "OneVision = late-layer model-specific" claim is partially correct: model architecture shapes the layer range, but dataset content modulates which sub-band activates. paper §7.2 needs to surface this dual conditioning.
 
 ### §0.6 Reading order for new contributors / coding agents
 

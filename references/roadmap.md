@@ -96,14 +96,16 @@ in-flight · ☐ not started.
 
 ### 3.1 Behavioural runs (historical + Phase 1 plan)
 
-**Phase 1 target rows** (new, plan):
+**Phase 1 target rows** (now mostly ✅ shipped — see §3.0a top of section):
 
 | Experiment | Dataset | Conditions | Models | Status |
 |---|---|---|---|---|
-| `experiment_e7_plotqa_full` | PlotQA test V1 | b/a/m/d (S1) | Main + Sub-A + Sub-B | ⏳ Phase 1 — pilot landed 2026-05-01 (llava n=200; baseline df 0.327, a−m gap +14.6pp); **target n=2500 stratified × 3 models** |
-| `experiment_e7_infographicvqa_full` | InfographicVQA val | b/a/m/d (S1) | Main + Sub-A + Sub-B | ⏳ Phase 1 — pilot landed 2026-05-01 (llava n=200; baseline df 0.190, a−m gap +5.1pp); **target n=1147 (full numeric) × 3 models** |
-| E5b/c PlotQA + InfoVQA + ChartQA + MathVista 3-model | 4 datasets | b + 5×a-strat + 5×m-strat + d | same 3 | ☐ Phase 2 (digit-pixel causality breadth) |
-| E6 Subspace recalibration on PlotQA + InfoVQA pooled, 5-dataset full-range eval | 5 datasets | b/a/m/d (S1) + cell sweep | Main only | ☐ Phase 1 — see §6.5 E6 |
+| `experiment_e7_plotqa_full` | PlotQA test V1 | b/a/m/d (S1) | 6-model main panel | ✅ shipped 2026-05-03 — 6-model × 5-dataset matrix complete |
+| `experiment_e7_infographicvqa_full` | InfographicVQA val | b/a/m/d (S1) | 6-model main panel | ✅ shipped 2026-05-03 |
+| E5b/c PlotQA + InfoVQA + ChartQA + MathVista 3-model | 4 datasets | b + 5×a-strat + 5×m-strat + d | same 3 | ☐ Phase 2 (digit-pixel causality breadth — defer; 6-cond expansion was reverted to 4-cond after 30/30 4-cond cells already covered) |
+| E6 Subspace recalibration on PlotQA + InfoVQA pooled, 5-dataset full-range eval | 5 datasets | b/a/m/d (S1) + cell sweep | Main only | ✅ shipped — chosen L=26 K=8 α=1.0; Stage 4-final eval done. **Bonus em(b) +9.2pp** finding for paper §7.4 task #38 |
+| Phase D §7.1-7.3 cross-dataset attention | 4 datasets (Tally/Plot/Info/VQAv2) | b/a/m/d (S1) | 5-panel + OneVision = 6 models | ✅ shipped 2026-05-03 — 24/24 cells; cross-dataset peaks via `analyze_cross_dataset_peaks.py` |
+| Phase E E1d causal ablation OneVision × {Tally, Info, Chart, Math} | 4 datasets | sweep × 6 modes | OneVision Main | ✅ shipped 2026-05-03 + 2026-05-04 chart/math recovery |
 
 **Historical rows (pre-2026-05-02 restructure)**:
 
@@ -131,10 +133,13 @@ in-flight · ☐ not started.
 | E1 attention-mass | gemma4-e4b, qwen2.5-vl-7b, llava-1.5-7b, internvl3-8b, convllava-7b, fastvlm-7b | 200 stratified | ✅ |
 | E1b per-layer localisation | same 6 | 200 | ✅ — 4 archetypes (SigLIP-Gemma early, mid-stack cluster CLIP-ViT/InternViT/ConvNeXt, Qwen-ViT late, FastVLM late text-stealing) |
 | E1d causal ablation | same 6 | 200 | ✅ — single-layer null on 6/6; upper-half multi-layer **−4.0 to −10.5 pp** (C-form) on 6/6 |
-| E1-patch (digit-pixel attention) | gemma4-e4b, llava-1.5-7b, convllava-7b, fastvlm-7b (4 perfect-square archetypes, n=400 each) | analysis + 2026-04-29 extension extraction | ✅ 4/6 — peak digit/anchor 0.468–0.631 (+24 to +40 pp above fair share) on every panel model. internvl3-8b (multi-tile) + qwen2.5-vl-7b (17×23 non-square) deferred (see §6.5 "E1-patch non-square archetypes") |
+| E1-patch (digit-pixel attention) | gemma4-e4b, llava-1.5-7b, convllava-7b, fastvlm-7b (4 perfect-square archetypes, n=400 each) | analysis + 2026-04-29 extension extraction | ✅ — peak digit/anchor 0.468–0.631 (+24 to +40 pp above fair share) on every panel model |
+| **Phase D cross-dataset E1** (5 panel × 4 datasets + OneVision × 4 datasets, 2026-05-03) | gemma4-e4b, llava-1.5-7b, convllava-7b, fastvlm-7b, internvl3-8b + OneVision | 200 stratified per (model, dataset) | ✅ 24/24 cells, commit `c556fb6`. Cross-dataset peak layer comparison via `scripts/analyze_cross_dataset_peaks.py` |
+| **Phase E E1d cross-dataset** (OneVision × 4 datasets, 2026-05-03 + chart/math recovery 2026-05-04) | OneVision Main only | 200 stratified per dataset, 6 modes | ✅ 4/4 cells, commits `7a27750` + `2d11876`. Per-(model, mode) summary at `outputs/causal_ablation/_summary/per_model_per_mode.csv` |
 | E4 mitigation Phase 1 (sweep) | llava-1.5-7b, convllava-7b, internvl3-8b | 200 × 7 strengths | ✅ |
 | E4 mitigation Phase 2 (full validation) | same 3 | 17,730 | ✅ |
 | E4 generalisation to other archetypes | gemma4-e4b, qwen2.5-vl-7b, fastvlm-7b | TBD | ☐ P3 |
+| **E6 Subspace mitigation** (Phase B Stage 4-final, 2026-05-03) | OneVision Main | n=5000 wrong-base × 5 datasets | ✅ chosen L=26 K=8 α=1.0; commit `9f9dfa0`. Stage 4-final eval table at `docs/insights/_data/main_panel_5dataset_summary.md` |
 
 ### 3.3 Headline numbers (C-form re-aggregation, 2026-04-28)
 
@@ -289,10 +294,12 @@ gt range (no [0,8] restriction).
 | ID | Experiment | Status |
 |---|---|---|
 | **E1 / E1b / E1d (full-anchor, historical)** | full anchor-image attention pipeline (mass + per-layer + causal ablation), 6-model encoder-archetype panel | ✅ landed pre-restructure — kept as supplementary in §7.1 background; main §7.1–7.3 now anchored on E1-patch |
-| **E1-patch perfect-square panel — 5-model (Phase 3 target)** | digit-pixel-patch attention. Existing 4-model panel (gemma4-e4b, llava-1.5-7b, convllava-7b, fastvlm-7b) → **add Main `llava-interleave-7b` (SigLIP encoder, 27×27 = 729 perfect-square)**. Same `_compute_anchor_bbox_mass` perfect-square path, no new code. Existing headline: digit/anchor ratio +24–40 pp above fair share at peak layer on every panel model. | ⏳ Phase 3 — Main extraction ~30 min on H200; 5-model panel headline target |
-| **E1-patch causal ablation (digit-bbox region zero-mask) — Phase 3** | causal ablation restricted to digit-bbox region (not full anchor span). Tests: does zeroing only the digit patch reproduce E1d's df reduction? Patch-level surgical ablation (anchor label needed at extraction time, not inference time). Replaces the existing full-anchor E1d as §7.3 main analysis. | ☐ Phase 3 — implementation depends on E1-patch attention path + bbox JSON pipeline |
-| **E1-patch masked-arm causal control** | re-run extraction on 5-model panel under 4-cond config (b/a/m/d). Pairs anchor-arm digit-bbox attention against masked-arm anchor-region attention as digit-pixel causal control. | ☐ Phase 3 — 4-cond config wiring + ~1h GPU/model |
-| **InternVL3-8b + Qwen2.5-VL-7b non-perfect-square (appendix only)** | InternVL3 multi-tile + Qwen2.5-VL 17×23 non-square. Per-encoder bbox-to-token routing required; correctness hard to guarantee uniformly. **Decision 2026-05-02: not in main §7 panel** — appendix-only mention with caveat. | ☐ appendix |
+| **E1-patch perfect-square panel — 5-model (shipped 2026-05-03)** | digit-pixel-patch attention. Final 5-model panel: **gemma4-e4b, llava-1.5-7b, convllava-7b, fastvlm-7b, internvl3-8b**. (llava-interleave-7b dropped 2026-05-04 — low resolution.) | ✅ Phase D 24/24 cells. Headline: digit/anchor ratio +24–40 pp above fair share at peak layer on every panel model. |
+| **OneVision Main extraction via AnyRes** | OneVision in §7.1-7.3 mech panel via `_compute_anchor_bbox_mass` extension to AnyRes per-image bbox routing + lite_eager monkey-patch (`scripts/extract_attention_mass.py:_install_lite_eager_attention`) to fit OOM. Image-anchor mass computed per crop, then composed. | ✅ Phase D 4-dataset cells (Plot/Tally/Info/VQAv2) shipped 2026-05-03 |
+| **Cross-dataset peak comparison** | per-(model, dataset) peak layer comparison from Phase D cells. New finding: **OneVision peak is dataset-dependent** (L=27 PlotQA/TallyQA, L=14 InfoVQA/VQAv2). | ✅ `scripts/analyze_cross_dataset_peaks.py` shipped 2026-05-03 |
+| **E1-patch causal ablation (digit-bbox region zero-mask) — Phase 3** | causal ablation restricted to digit-bbox region (not full anchor span). Patch-level surgical ablation. | ☐ Phase 3 — implementation depends on E1-patch attention path + bbox JSON pipeline |
+| **InternVL3-8b in main panel** (revised 2026-05-04) | Confirmed 27×27 perfect-square; routes through standard `_compute_anchor_bbox_mass`. Now in 5-model panel. | ✅ |
+| **Qwen2.5-VL-7b non-perfect-square (appendix only)** | 17×23 non-square requires per-encoder routing not yet implemented. | ☐ appendix |
 
 #### §7.4 E4 attention re-weighting mitigation
 
@@ -306,9 +313,10 @@ gt range (no [0,8] restriction).
 
 | ID | Experiment | Status |
 |---|---|---|
-| **E6 (historical) — Tally-only N=5000 calibration, gt ∈ [0,8] eval** | Subspace L31_K04_α=1.0 clears 4-dataset selection rule. df −46% to −56% on TallyQA/ChartQA/VQAv2/MathVista; em +0.9 to +3.3 pp. Caveat: gt ∈ [0,8] restriction made result look like partial solution. | ✅ landed 2026-05-01 — historical baseline |
-| **E6 Phase 1 — recalibrate on PlotQA + InfoVQA pooled, evaluate full gt range, 5-dataset** | New calibration source: pooled wrong-base sids from `experiment_e7_plotqa_full` + `experiment_e7_infographicvqa_full` (Main model baselines). Evaluate at full gt range (no [0,8] restriction) on 5-dataset matrix. **Risk**: chart+info-calibrated subspace may not transfer to small-gt natural-image counting (TallyQA). Plan B = pooled multi-source (chart + info + count) recalibration. | ☐ Phase 1 P0 — depends on Phase 1 §3 baseline runs |
-| **E6 Pilot validation (2026-05-01, llava n=200)** | Existing Tally-calibrated subspace tested on PlotQA + InfoVQA pilots: PlotQA gt∈[1,8] Δdf −60%, em +3.85pp; InfoVQA gt∈[1,8] Δdf −24%, em +1.09pp. Validates cross-dataset transferability of subspace projection method on the new datasets at small-gt subset. Phase 1 will determine whether **PlotQA+InfoVQA-calibrated** subspace at full gt range achieves the same. | ✅ pilot done |
+| **E6 (historical) — Tally-only N=5000 calibration, gt ∈ [0,8] eval** | Subspace L31_K04_α=1.0 clears 4-dataset selection rule. df −46% to −56% on TallyQA/ChartQA/VQAv2/MathVista; em +0.9 to +3.3 pp. Caveat: gt ∈ [0,8] restriction made result look like partial solution. | ✅ landed 2026-05-01 — historical baseline (superseded) |
+| **E6 Phase 1 — Pilot grid + recalibration on PlotQA + InfoVQA pooled, full gt range, 5-dataset** | New calibration target: PlotQA+InfoVQA pooled n5k. **27-cell pilot grid** (L∈{25,26,27} × K∈{2,4,8} × α∈{0.5,1.0,2.0}) on OneVision Main. Aggregator `scripts/analyze_e6_pilot_cells.py` with em-drop dealbreaker rule + wrong-base baseline filter. | ✅ shipped 2026-05-03 — chosen cell **L=26 K=8 α=1.0** |
+| **E6 Stage 4-final eval (chosen cell × 5 datasets)** | Apply L=26 K=8 α=1.0 to OneVision on 5-dataset full gt range, n=5000 wrong-base subset per dataset. Compare baseline vs mitigation arm directly (same predictions.jsonl, two cells). | ✅ shipped 2026-05-03 (commit `9f9dfa0`). Avg Δdf=-2.5pp, Δem(a)=-2.4pp, **Δem(b)=+9.2pp recovery (paper task #38)** |
+| **E6 Pilot validation (2026-05-01, llava n=200, historical)** | Existing Tally-calibrated subspace tested on PlotQA + InfoVQA pilots: PlotQA gt∈[1,8] Δdf −60%, em +3.85pp; InfoVQA gt∈[1,8] Δdf −24%, em +1.09pp. | ✅ historical |
 
 ### 6.6 §8 — Future work (scope only)
 
@@ -318,29 +326,33 @@ gt range (no [0,8] restriction).
 | **F2** | image-vs-text anchor — anchor image described as text and given to the same VLM; effect-size delta | ☐ ideation only |
 | **F3** | Reasoning-mode VLM at scale — Qwen3-VL thinking, etc., on E5e cross-dataset matrix | ☐ scope only (γ-β is the minimal §8 stake) |
 
-## 7. Pending work — Phase-structured priority queue (2026-05-02 restructure)
+## 7. Pending work — Phase-structured priority queue (2026-05-04 update)
 
 Phase 1 = paper consistency push (Main matrix at canonical setup). Phase 2 =
 breadth-strengthening (digit-pixel causality 5-strat × 5 datasets). Phase 3 =
-mechanism-Main alignment (E1-patch + E4 + Main). Within phase, P0 blocks the
-phase target, P1 is opportunistic.
+mechanism-Main alignment (E1-patch + E4 + Main). Phase 4 = paper polish.
+Within phase, P0 blocks the phase target, P1 is opportunistic.
 
-**As of 2026-05-02** — paper architecture restructure committed. All
-P0s for the OLD 4-dataset paper structure have landed (E6 4-dataset
-headline at gt∈[0,8], paper §3/§7.4/§7.4.5/§8 prose, M2/C-form
-refactor, L1-L4 confidence). The work below operationalises the new
-5-dataset main matrix + Main-model-led architecture.
+**As of 2026-05-04** — **Phase 1 P0s all complete or in-flight wrap**.
+Master queue + recoveries shipped Phase B/C/D/E/G/H/I/J. 6-model main
+panel × 5-dataset matrix 29/30 ✅; internvl3-8b/TallyQA rerun in flight
+(ETA ~07:00). Mitigation chosen cell L=26 K=8 α=1.0 + Stage 4-final eval
+landed (commit `9f9dfa0`). §7.1-7.3 cross-dataset attention 24/24
+landed (commit `c556fb6`). Phase E E1d 4/4 landed (commits `7a27750` +
+`2d11876` recovery). Memory + roadmap updated 2026-05-04 (commit `6d8dac4`).
 
-### Phase 1 — paper consistency push (target: ARR-clean main matrix)
+### Phase 1 — paper consistency push ✅ COMPLETE
 
-| Pri | Task | Where | Estimate |
-|---|---|---|---|
-| **P0** | `experiment_e7_plotqa_full` 3-model run (Main + Sub-A + Sub-B) at n=2500 stratified — config exists at `configs/experiment_e7_plotqa_full.yaml` | §6.3 §5 / §3 | ~9h wall (3 GPU parallel) |
-| **P0** | `experiment_e7_infographicvqa_full` 3-model run at n=1147 (full numeric) — config exists at `configs/experiment_e7_infographicvqa_full.yaml` | §6.3 §5 / §3 | ~4h wall |
-| **P0** | E6 Subspace recalibration: pool wrong-base sids from PlotQA + InfoVQA Main baselines, recompute subspace at L=31, evaluate at full gt range across 5 datasets | §6.5 E6 | ~3h calibration + ~10h sweep wall |
-| **P0** | Section §3.3 + §5 + §6 reaggregation against new 5-dataset main matrix (drop VQAv2 from headline tables, fold appendix mention) | §6.1 / §6.3 / §6.4 | analysis only, ~1d |
-| **P1** | §3 main panel (3-model × 5-dataset) consolidated table — compose §3.3 from existing 3-model E5e cells (TallyQA + ChartQA + MathVista) + Phase 1 new (PlotQA + InfoVQA) | §6.1 | reaggregation only |
-| **P1** | gemma3-27b-it on E5e TallyQA at n≥1000 (currently n=300 max_samples) for consistency with main panel | §6.3 | ~3h compute |
+| Pri | Task | Status |
+|---|---|---|
+| **P0** | `experiment_e7_plotqa_full` 6-model panel | ✅ shipped |
+| **P0** | `experiment_e7_infographicvqa_full` 6-model panel | ✅ shipped |
+| **P0** | E6 Subspace recalibration + Stage 4-final eval | ✅ shipped (chosen L=26 K=8 α=1.0; commit `9f9dfa0`) |
+| **P0** | Section §3.3 + §5 + §6 reaggregation against 5-dataset matrix | ✅ shipped — `docs/insights/_data/main_panel_5dataset_summary.md` (gitignored) |
+| **P0 (NEW, 2026-05-04)** | Phase D §7.1-7.3 cross-dataset attention | ✅ shipped 24/24 |
+| **P0 (NEW, 2026-05-04)** | Phase E E1d causal ablation OneVision × 4 datasets | ✅ shipped 4/4 (incl chart/math 2026-05-04 recovery) |
+| **P0 (NEW, 2026-05-04)** | DataLoader prefetch infrastructure (`run_experiment.py`) | ✅ shipped, opt-in via VLM_ENABLE_PREFETCH=1 |
+| **P0 (NEW, 2026-05-04)** | gitignore expansion for `docs/insights/_data/` etc + history rewrite | ✅ shipped via filter-repo + force-push |
 
 ### Phase 2 — breadth strengthening (Phase 1 results in hand)
 
