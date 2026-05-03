@@ -37,7 +37,11 @@ docs/ppt/slide-*.jpg
 # Phase 1 baseline run logs
 logs/
 
-# Generated CSV outputs under docs/insights/_data — large + reproducible
-# from scripts/. Markdown summaries (*.md) and small reference assets stay
+# Generated artifacts and writing in docs/ — kept local only, regenerable
+# or user-managed outside the repo. Markdown summaries elsewhere stay
 # tracked.
-docs/insights/_data/*.csv
+docs/insights/_data/
+docs/paper/
+docs/ppt/
+docs/superpowers/plans/
+docs/CHANGELOG.md
