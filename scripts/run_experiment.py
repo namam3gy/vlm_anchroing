@@ -6,6 +6,8 @@ from pathlib import Path
 
 from tqdm import tqdm
 
+import torch.utils.data
+
 from vlm_anchor.data import (
     ANCHOR_DISTANCE_STRATA,
     assign_irrelevant_images,
@@ -17,6 +19,36 @@ from vlm_anchor.metrics import evaluate_sample, summarize_experiment
 from vlm_anchor.models import InferenceConfig, build_runner
 from vlm_anchor.utils import dump_csv, dump_json, dump_jsonl, ensure_dir, load_yaml, resolve_path, set_seed
 from vlm_anchor.visualization import save_experiment_analysis_figures
+
+
+class _PrefetchPrepDataset(torch.utils.data.Dataset):
+    """DataLoader-fed CPU preprocessing. Runs build_conditions +
+    runner.prepare_inputs_cpu in worker processes so model.generate() in the
+    main thread overlaps with image processing / tokenization on the next
+    sample. Only safe with HFAttentionRunner (other runners route through
+    a sequential fallback)."""
+
+    def __init__(self, samples: list, runner) -> None:
+        self.samples = samples
+        self.runner = runner
+
+    def __len__(self) -> int:
+        return len(self.samples)
+
+    def __getitem__(self, idx: int):
+        sample = self.samples[idx]
+        prepared: list = []
+        for cond in build_conditions(sample):
+            inputs_cpu = self.runner.prepare_inputs_cpu(
+                cond["question"], cond["input_images"]
+            )
+            prepared.append((cond, inputs_cpu))
+        return prepared
+
+
+def _identity_collate(batch):
+    # batch_size=1; unwrap so main loop sees the per-sample list directly.
+    return batch[0]
 
 
 def parse_args() -> argparse.Namespace:
@@ -157,14 +189,51 @@ def main() -> None:
 
         records: list[dict] = []
 
-        for sample in tqdm(samples, desc=model_name):
+        # DataLoader prefetch path: only when the runner exposes the split API
+        # (HFAttentionRunner). Workers pre-build (cond, CPU inputs) tuples while
+        # the main thread runs model.generate, overlapping CPU preprocessing
+        # with GPU compute. Other runners (FastVLM, ConvLLaVA) fall back to the
+        # sequential path because they bundle prep + generate in one call.
+        #
+        # OFF by default during initial bring-up; set VLM_ENABLE_PREFETCH=1 to
+        # turn on. Once validated on a smoke run, can be flipped to default-on.
+        import os as _os
+        _enable = _os.environ.get("VLM_ENABLE_PREFETCH", "").strip() == "1"
+        use_prefetch = (
+            _enable
+            and hasattr(runner, "prepare_inputs_cpu")
+            and hasattr(runner, "generate_from_cpu_inputs")
+        )
+        if use_prefetch:
+            loader = torch.utils.data.DataLoader(
+                _PrefetchPrepDataset(samples, runner),
+                batch_size=1,
+                num_workers=2,
+                prefetch_factor=2,
+                collate_fn=_identity_collate,
+                persistent_workers=False,
+            )
+            sample_iter = ((cond_inputs, None) for cond_inputs in loader)
+        else:
+            sample_iter = ((None, sample) for sample in samples)
+
+        for prepared, raw_sample in tqdm(sample_iter, total=len(samples), desc=model_name):
             base_prediction: str | None = None  # reset per sample-instance; target_only fills this in
-            for cond in build_conditions(sample):
-                result = runner.generate_number(
-                    cond["question"],
-                    cond["input_images"],
-                    max_new_tokens=cfg["sampling"]["max_new_tokens"],
-                )
+            cond_iter = (
+                prepared if use_prefetch else ((cond, None) for cond in build_conditions(raw_sample))
+            )
+            for cond, inputs_cpu in cond_iter:
+                if use_prefetch:
+                    result = runner.generate_from_cpu_inputs(
+                        inputs_cpu,
+                        max_new_tokens=cfg["sampling"]["max_new_tokens"],
+                    )
+                else:
+                    result = runner.generate_number(
+                        cond["question"],
+                        cond["input_images"],
+                        max_new_tokens=cfg["sampling"]["max_new_tokens"],
+                    )
                 sample_eval = evaluate_sample(
                     prediction=result["parsed_number"],
                     gt_answer=cond["ground_truth"],

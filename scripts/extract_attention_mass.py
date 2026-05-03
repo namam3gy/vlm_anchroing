@@ -565,19 +565,22 @@ def _install_lite_eager_attention():
             value_states = value
 
         # 1) attn_output via SDPA — no full attn matrix materialized.
-        # When attention_mask provided, SDPA uses it; otherwise falls back
-        # to is_causal handling. HF prepares causal masks for decoder LMs
-        # so attention_mask is generally not None here.
+        # Mirror HF's sdpa_attention_forward is_causal logic so this is
+        # safe outside the eager dispatch (defensive — eager pipeline always
+        # passes a non-None mask, but a direct caller with mask=None and
+        # q_len>1 needs is_causal=True to avoid leaking future tokens).
         if attention_mask is not None:
             mask_for_sdpa = attention_mask[:, :, :, : key_states.shape[-2]]
+            is_causal = False
         else:
             mask_for_sdpa = None
+            is_causal = query.shape[2] > 1 and getattr(module, "is_causal", True)
         attn_output = F.scaled_dot_product_attention(
             query, key_states, value_states,
             attn_mask=mask_for_sdpa,
             dropout_p=dropout if module.training else 0.0,
             scale=scaling,
-            is_causal=False,
+            is_causal=is_causal,
         )
         attn_output = attn_output.transpose(1, 2).contiguous()
 

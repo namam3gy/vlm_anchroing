@@ -177,9 +177,21 @@ class HFAttentionRunner(_BaseRunner):
         seq_len = inputs["input_ids"].shape[-1]
         return seq_len, inputs
 
+    def prepare_inputs_cpu(self, question: str, images: list[Any]) -> dict[str, Any]:
+        """CPU-only prep. Safe to call from DataLoader worker (no CUDA access).
+        Returns inputs as CPU tensors; main thread should call
+        `generate_from_cpu_inputs` to move to GPU and run model.generate."""
+        pil_images = [_to_pil(i) for i in images]
+        messages = self._build_prompt(question=question, num_images=len(pil_images))
+        text = self.processor.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+        return self.processor(images=pil_images, text=text, return_tensors="pt")
+
     @torch.no_grad()
-    def generate_number(self, question: str, images: list[Any], max_new_tokens: int = 4) -> dict[str, Any]:
-        seq_len, inputs = self._prepare_inputs(question=question, images=images)
+    def generate_from_cpu_inputs(self, inputs_cpu: dict[str, Any], max_new_tokens: int = 4) -> dict[str, Any]:
+        """Counterpart to prepare_inputs_cpu — moves CPU inputs to GPU and runs
+        the same generate path as `generate_number`."""
+        inputs = {k: (v.to(self.model.device) if hasattr(v, "to") else v) for k, v in inputs_cpu.items()}
+        seq_len = inputs["input_ids"].shape[-1]
         generate_kwargs = self._build_generate_kwargs(max_new_tokens)
         out = self.model.generate(**inputs, **generate_kwargs)
         generated = out.sequences[:, seq_len:]
@@ -191,6 +203,11 @@ class HFAttentionRunner(_BaseRunner):
             tokenizer=tokenizer,
             decoded=decoded,
         )
+
+    @torch.no_grad()
+    def generate_number(self, question: str, images: list[Any], max_new_tokens: int = 4) -> dict[str, Any]:
+        inputs_cpu = self.prepare_inputs_cpu(question=question, images=images)
+        return self.generate_from_cpu_inputs(inputs_cpu, max_new_tokens=max_new_tokens)
 
 
 class FastVLMRunner(_BaseRunner):
