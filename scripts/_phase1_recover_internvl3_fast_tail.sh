@@ -25,7 +25,10 @@ note "Watching for tally completion..."
 while true; do
   # Tally done if predictions.jsonl > 100M exists in any internvl3-8b run dir
   # under experiment_e5e_tallyqa_full (4-cond × 38K samples ≈ 100MB+)
-  done_pred=$(find outputs/experiment_e5e_tallyqa_full/internvl3-8b -name predictions.jsonl -size +50M 2>/dev/null | head -1)
+  # Look ONLY at the merged predictions.jsonl in the run dir (NOT the
+  # shard sub-files). Earlier bug: -name finds shard predictions too,
+  # firing the trigger before the merge step writes the final file.
+  done_pred=$(find outputs/experiment_e5e_tallyqa_full/internvl3-8b -maxdepth 2 -name predictions.jsonl -size +50M 2>/dev/null | grep -v _shards | head -1)
   if [ -n "$done_pred" ]; then
     note "Tally predictions.jsonl found: $done_pred"
     break
