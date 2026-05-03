@@ -37,8 +37,9 @@ DATASET_SOURCES = [
     ("InfographicVQA",  "experiment_e7_infographicvqa_full"),
 ]
 MODEL_DISPLAY = {
+    # llava-next-interleaved-7b excluded: native resolution too low for the
+    # chart/figure datasets to be informative (decision 2026-05-04).
     "llava-onevision-qwen2-7b-ov": "llava-onevision-7b",
-    "llava-next-interleaved-7b":   "llava-interleave-7b",
     "qwen2.5-vl-7b-instruct":      "qwen2.5-vl-7b",
     "internvl3-8b":                "internvl3-8b",
     "gemma3-4b-it":                "gemma3-4b",
