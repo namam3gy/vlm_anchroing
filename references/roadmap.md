@@ -48,7 +48,19 @@ Predictions are written `pred_b / pred_a / pred_m / pred_d`; ground truth is
 | **H6** | Cross-modal failures decouple into two orthogonal axes — `anchor-pull` vs. `multi-image distraction` | `adopt_rate(a)` and `acc_drop_d_vs_b` perfectly correlated → H6 fails | ✅ Suggested by E2 pilot (InternVL3 = high acc_drop / low adopt; LLaVA-1.5 = low acc_drop / high adopt; ConvLLaVA = both). Confirmed at full E4 Phase 2 scale |
 | **H7** ⚙ | `direction_follow_rate` is monotonic with `pred_b`-token logit / probability — i.e. uncertainty modulates anchor pull on a **continuous** confidence scale, of which wrong/correct (H2) is a coarse projection | `direction_follow_rate` flat across confidence quartiles | ☐ Pending §6 analysis (data captured commit `5f925b2`, no analysis yet) |
 
-## 3. Status snapshot — where we are (2026-05-02 — Phase 1 paper architecture restructure)
+## 3. Status snapshot — where we are (2026-05-04 — Phase 1 P0 v3 complete)
+
+### 3.0a Phase 1 P0 v3 final state (2026-05-04)
+
+Phase 1 P0 v3 substantively complete. See §10 changelog 2026-05-04 entry
+for the full commit chain. Headlines:
+
+- **Branch + master pushed** to origin (`phase1/p0-baseline-recalibration`).
+- **6-model × 5-dataset main matrix** at `docs/insights/_data/main_panel_5dataset_summary.md`. Models: llava-onevision-7b (Main), qwen2.5-vl-7b, internvl3-8b, gemma3-4b, qwen2.5-vl-32b, gemma3-27b. Last cell internvl3-8b/TallyQA rerun in flight (~07:00 ETA).
+- **Stage 4-final mitigation** (Phase B, commit `9f9dfa0`): cell L=26 K=8 α=1.0 ships. df reduction works (avg -2.5pp) with em(a) -2.4pp avg cost. **Unintended +9.2pp em(b) recovery** on wrong-base sids → paper §7.4 task #38.
+- **Phase D §7.1-7.3** (commit `c556fb6`): 24/24 cells on disk. New finding via `scripts/analyze_cross_dataset_peaks.py` — OneVision peak layer is **dataset-dependent** (L=27 on Plot/Tally, L=14 on Info/VQAv2).
+- **Phase E E1d causal ablation** (commit `2d11876`): OneVision × {Tally, Info, Chart, Math} 4/4. ChartQA + MathVista re-ran with per-dataset susceptibility CSVs after PlotQA-CSV-reuse bug.
+- **llava-next-interleaved-7b dropped** from main panel (commit `0e7998e`) — low native resolution, not informative for chart/figure datasets.
 
 ### 3.0 Architecture restructure summary (2026-05-02)
 
@@ -433,6 +445,66 @@ refactor, L1-L4 confidence). The work below operationalises the new
   `predictions.jsonl` only.
 
 ## 10. Changelog
+
+- **2026-05-04 ~02:45 (Phase 1 P0 v3 substantively COMPLETE).** Single-session
+  master queue execution + recoveries. All on origin (master + branch pushed
+  after `git filter-repo` removed historical 113MB CSV from history, see
+  below).
+
+  **Phases B → J orchestrated** by `scripts/_phase1_post_pilot_master_queue.sh`
+  (commits `9f9dfa0` → `8c7cc43` → master merge):
+  - **Phase B** Stage 4-final mitigation: chosen cell **L=26 K=8 α=1.0**
+    (PlotQA+InfoVQA pooled n5k, 5-dataset eval). df reduction works, em(a)
+    -2.4pp avg (acceptable per em-drop dealbreaker), surprise **em(b) +9.2pp
+    avg** recovery on wrong-base sids → paper §7.4 angle (#38).
+  - **Phase D** §7.1-7.3 cross-dataset attention: 5-panel × 4 datasets +
+    OneVision × 4 datasets = 24/24 cells. Cross-dataset peak comparison via
+    `scripts/analyze_cross_dataset_peaks.py` reveals OneVision peak L=27 on
+    PlotQA/TallyQA but L=14 on InfoVQA/VQAv2 → late-layer mechanism is
+    **dataset-dependent**, not purely model-specific.
+  - **Phase E** E1d causal ablation OneVision × {Tally, Info, Chart, Math}
+    4/4 (Chart + Math re-ran 2026-05-04 02:00 with proper per-dataset
+    susceptibility CSVs after PlotQA-CSV-reuse bug, commit `2d11876`).
+  - **Phase G** new-model baselines: internvl3-8b (config patched
+    `OpenGVLab/InternVL3-8B` → `-hf` mirror), qwen2.5-vl-32b-it, gemma3-4b-it
+    × 5 datasets each.
+  - **Phase H** qwen2.5-vl-7b §7.1-7.3 attention × 5 datasets.
+  - **Phase J** branch merge → master + push to origin.
+
+  **6-model main panel finalised**: llava-onevision-7b, qwen2.5-vl-7b,
+  internvl3-8b, gemma3-4b, qwen2.5-vl-32b, gemma3-27b. **llava-next-interleaved
+  dropped** (low native resolution, 2026-05-04 user decision). Summary at
+  `docs/insights/_data/main_panel_5dataset_summary.md` (gitignored). Last
+  cell internvl3-8b/TallyQA being rerun (2-shard + DataLoader prefetch
+  ON, ETA ~07:00).
+
+  **Pilot grid + cell selection** (commits `8fe1d81`, `dd17457`): 27-cell
+  pilot (L∈{25,26,27} × K∈{2,4,8} × α∈{0.5,1.0,2.0}) on PlotQA+InfoVQA
+  pooled n5k. `scripts/analyze_e6_pilot_cells.py` aggregator with em-drop
+  dealbreaker rule + wrong-base baseline filter (was averaging over correct-
+  base too, gave -45pp spurious dEM until fixed).
+
+  **Infrastructure milestones (this session)**:
+  - **DataLoader prefetch** in `run_experiment.py` (opt-in
+    `VLM_ENABLE_PREFETCH=1`). Smoke-tested byte-equal modulo 10⁻⁵ tail-token
+    logits. Used for internvl3 tally rerun.
+  - **lite_eager attention monkey-patch** defensive `is_causal` fix
+    (mirrors HF SDPA's dynamic logic).
+  - **gitignore expansion**: `docs/insights/_data/`, `docs/paper/`,
+    `docs/ppt/`, `docs/superpowers/plans/`, `docs/CHANGELOG.md` all
+    untracked + history-rewritten via `git filter-repo`. Local files
+    preserved; force-pushed master + feature branch.
+  - **fast-tail watcher bug fix** (`scripts/_phase1_recover_internvl3_fast_tail.sh`):
+    `find -name predictions.jsonl` was matching shard sub-files, firing
+    kill trigger before merge step. Now uses `-maxdepth 2` + `grep -v _shards`.
+  - **microsec + PID suffix** in `extract_attention_mass.py` output dir
+    (avoids 2-process-same-second collision after gemma4-e4b Phase D
+    corruption incident).
+
+  **Recovery patterns established**: panel HF id corrections (panel models
+  in master queue had wrong HF ids — `liuhaotian/llava-v1.5-7b` →
+  `llava-hf/llava-1.5-7b-hf`, `ConvLLaVA/ConvLLaVA-Stage5-7B-LoRA` →
+  `ConvLLaVA/ConvLLaVA-sft-1536`), parallel-write dir-collision fix.
 
 - **2026-05-02 ~08:39 (Phase 1 P0 v3 multi-GPU restart).** GPU count expanded
   from 1 → 3 (GPU 0/1/2 available). Sharded run + parallel orchestrator
