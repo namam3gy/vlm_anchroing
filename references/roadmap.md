@@ -57,7 +57,7 @@ for the full commit chain. Headlines:
 
 - **Branch + master pushed** to origin (`phase1/p0-baseline-recalibration`).
 - **6-model × 5-dataset main matrix** at `docs/insights/_data/main_panel_5dataset_summary.md`. Models: llava-onevision-7b (Main), qwen2.5-vl-7b, internvl3-8b, gemma3-4b, qwen2.5-vl-32b, gemma3-27b. Last cell internvl3-8b/TallyQA rerun in flight (~07:00 ETA).
-- **Stage 4-final mitigation** (Phase B, commit `9f9dfa0`): cell L=26 K=8 α=1.0 ships. df reduction works (avg -2.5pp) with em(a) -2.4pp avg cost. **Unintended +9.2pp em(b) recovery** on wrong-base sids → paper §7.4 task #38.
+- **Stage 4-final mitigation** (Phase B, commit `9f9dfa0`): cell L=26 K=8 α=1.0 ships. **Strict free-lunch**: avg Δdf = -2.9pp, **Δem(a) = +3.9pp benefit, Δem(b) = +8.8pp recovery** on wrong-base sids — paired-sids generator `scripts/build_e6_stage4_summary.py` → `docs/insights/_data/stage4_final_per_dataset.csv`. Earlier "em(a) -2.4pp cost" framing was a hand-copy error, corrected 2026-05-04 → paper §7.4 task #38.
 - **Phase D §7.1-7.3** (commit `c556fb6`): 24/24 cells on disk. New finding via `scripts/analyze_cross_dataset_peaks.py` — OneVision peak layer is **dataset-dependent** (L=27 on Plot/Tally, L=14 on Info/VQAv2).
 - **Phase E E1d causal ablation** (commit `2d11876`): OneVision × {Tally, Info, Chart, Math} 4/4. ChartQA + MathVista re-ran with per-dataset susceptibility CSVs after PlotQA-CSV-reuse bug.
 - **llava-next-interleaved-7b dropped** from main panel (commit `0e7998e`) — low native resolution, not informative for chart/figure datasets.
@@ -315,7 +315,7 @@ gt range (no [0,8] restriction).
 |---|---|---|
 | **E6 (historical) — Tally-only N=5000 calibration, gt ∈ [0,8] eval** | Subspace L31_K04_α=1.0 clears 4-dataset selection rule. df −46% to −56% on TallyQA/ChartQA/VQAv2/MathVista; em +0.9 to +3.3 pp. Caveat: gt ∈ [0,8] restriction made result look like partial solution. | ✅ landed 2026-05-01 — historical baseline (superseded) |
 | **E6 Phase 1 — Pilot grid + recalibration on PlotQA + InfoVQA pooled, full gt range, 5-dataset** | New calibration target: PlotQA+InfoVQA pooled n5k. **27-cell pilot grid** (L∈{25,26,27} × K∈{2,4,8} × α∈{0.5,1.0,2.0}) on OneVision Main. Aggregator `scripts/analyze_e6_pilot_cells.py` with em-drop dealbreaker rule + wrong-base baseline filter. | ✅ shipped 2026-05-03 — chosen cell **L=26 K=8 α=1.0** |
-| **E6 Stage 4-final eval (chosen cell × 5 datasets)** | Apply L=26 K=8 α=1.0 to OneVision on 5-dataset full gt range, n=5000 wrong-base subset per dataset. Compare baseline vs mitigation arm directly (same predictions.jsonl, two cells). | ✅ shipped 2026-05-03 (commit `9f9dfa0`). Avg Δdf=-2.5pp, Δem(a)=-2.4pp, **Δem(b)=+9.2pp recovery (paper task #38)** |
+| **E6 Stage 4-final eval (chosen cell × 5 datasets)** | Apply L=26 K=8 α=1.0 to OneVision on 5-dataset full gt range, n=5000 wrong-base subset per dataset. Compare baseline vs mitigation arm directly (same predictions.jsonl, two cells). Δ-table generator: `scripts/build_e6_stage4_summary.py`. | ✅ shipped 2026-05-03 (commit `9f9dfa0`). Paired wrong-base avg Δdf=-2.9pp, **Δem(a)=+3.9pp benefit, Δem(b)=+8.8pp recovery → strict free-lunch** (paper task #38; earlier "-2.4pp em(a) cost" framing was a hand-copy error, retracted 2026-05-04). |
 | **E6 Pilot validation (2026-05-01, llava n=200, historical)** | Existing Tally-calibrated subspace tested on PlotQA + InfoVQA pilots: PlotQA gt∈[1,8] Δdf −60%, em +3.85pp; InfoVQA gt∈[1,8] Δdf −24%, em +1.09pp. | ✅ historical |
 
 ### 6.6 §8 — Future work (scope only)

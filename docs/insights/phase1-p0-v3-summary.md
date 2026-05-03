@@ -52,13 +52,13 @@ OneVision E1d on TallyQA + InfoVQA + ChartQA + MathVista. 6-mode ablation table 
 
 **L=26 K=8 α=1.0 subspace projection** selected from 27-cell pilot grid (L∈{25,26,27} × K∈{2,4,8} × α∈{0.5,1.0,2.0}) on PlotQA+InfoVQA pooled n5k.
 
-Stage 4-final eval on 5 datasets (n=5000 wrong-base subset per dataset):
-- avg Δ adopt(a) = -0.036
-- avg Δ df(a) = **-0.025** (df reduction works)
-- avg Δ em(a) = -0.024 (within em-drop dealbreaker)
-- avg **Δ em(b) = +0.092** (unintended recovery on wrong-base sids)
+Stage 4-final eval on 5 datasets (n=5000 wrong-base subset per dataset, paired-sids comparison via `scripts/build_e6_stage4_summary.py` → `docs/insights/_data/stage4_final_per_dataset.csv`):
+- avg Δ adopt(a) = **-0.020**
+- avg Δ df(a) = **-0.029** (df reduction works)
+- avg **Δ em(a) = +0.039** (em on anchor arm IMPROVES — every dataset positive)
+- avg **Δ em(b) = +0.088** (recovery on wrong-base sids without anchor present)
 
-The em(b) +9.2pp finding is paper-novel — needs §7.4.5 prose update (task #38).
+This is a **strict free-lunch on the wrong-base subset**: anchor pull goes down, exact-match goes up on both arms. Earlier "Δ em(a) = -0.024 cost" framing was a hand-copy error from prior aggregation (corrected 2026-05-04 from generator output). Paper §7.4.5 prose update task #38.
 
 ## What did NOT land in this push
 

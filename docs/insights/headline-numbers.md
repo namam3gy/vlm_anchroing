@@ -59,18 +59,18 @@ PlotQA (0.226) ≈ MathVista (0.241) > InfoVQA (0.227) > ChartQA (0.204) ≫ Tal
 
 ### A.3 Mitigation chosen cell (Phase B Stage 4-final, commit `9f9dfa0`)
 
-**Subspace projection L=26 K=8 α=1.0**, calibrated on PlotQA+InfoVQA pooled n5k. Evaluated on n=5000 wrong-base subset per dataset. Same-population baseline vs mitigation comparison:
+**Subspace projection L=26 K=8 α=1.0**, calibrated on PlotQA+InfoVQA pooled n5k. Evaluated on n=5000 wrong-base subset per dataset. Paired-sids comparison (sids parseable on b+a in baseline AND mitigation arms). Source: `docs/insights/_data/stage4_final_per_dataset.{csv,md}` (gitignored, regenerable via `scripts/build_e6_stage4_summary.py`).
 
-| Dataset | n_elig | Δ adopt(a) | Δ df(a) | Δ em(a) | **Δ em(b)** |
+| Dataset | n_paired | Δ adopt(a) | Δ df(a) | Δ em(a) | **Δ em(b)** |
 |---|---:|---:|---:|---:|---:|
-| TallyQA | 4978→4298 | -0.009 | -0.014 | -0.020 | **+0.140** |
-| PlotQA  | 2069→1982 | -0.069 | -0.043 | -0.016 | **+0.052** |
-| InfoVQA |  428→ 390 | -0.032 | +0.001 | -0.026 | **+0.090** |
-| ChartQA |  192→ 178 | -0.026 | -0.046 | -0.022 | **+0.071** |
-| MathVista | 164→ 147 | -0.043 | -0.024 | -0.038 | **+0.105** |
-| **mean** |   | **-0.036** | **-0.025** | **-0.024** | **+0.092** |
+| TallyQA | 4978 | -0.0057 | -0.0034 | **+0.0657** | **+0.1382** |
+| PlotQA | 2306 | -0.0562 | -0.0516 | **+0.0243** | **+0.0473** |
+| InfoVQA | 443 | +0.0095 | -0.0068 | **+0.0339** | **+0.0903** |
+| ChartQA | 224 | -0.0333 | -0.0402 | **+0.0402** | **+0.0714** |
+| MathVista | 170 | -0.0153 | -0.0412 | **+0.0294** | **+0.0941** |
+| **mean** |   | **-0.0202** | **-0.0286** | **+0.0387** | **+0.0883** |
 
-**Verdict**: df reduction works (avg -2.5pp) under em-drop dealbreaker (6pp threshold; -2.4pp em(a) cost is well within). **em(b) +9.2pp recovery on wrong-base sids is unintended novelty** — paper §7.4 needs re-framing to surface this alongside df reduction (task #38).
+**Verdict**: df reduction works (avg -2.9pp). em(a) **+3.9pp** *and* em(b) **+8.8pp** — both arms improve on the wrong-base subset where mitigation fires. This is a **strict free-lunch**: anchor pull goes down, exact-match goes up on both anchored and non-anchored arms. Earlier "em(a) -2.4pp cost" framing in this section was a hand-copy error and is retracted (corrected 2026-05-04 from `scripts/build_e6_stage4_summary.py`). Paper §7.4 needs re-framing to surface the em(b) +8.8pp recovery as the headline alongside df reduction (task #38).
 
 ### A.4 §7.1-7.3 Cross-dataset peak layer (Phase D, commit `c556fb6`)
 
@@ -80,7 +80,7 @@ Per-(model, dataset) peak attention layer at answer step (`docs/insights/_data/c
 |---|:-:|:-:|:-:|:-:|
 | gemma4-e4b | 5/42 | 5/42 | 5/42 | 5/42 |
 | llava-1.5-7b | 8/32 | 14/32 | 8/32 | 8/32 |
-| convllava-7b | 12/40 | 14/40 | 7/40 | 7/40 |
+| convllava-7b | 12/32 | 14/32 | 7/32 | 7/32 |
 | fastvlm-7b | 27/28 | 17/28 | 23/28 | 22/28 |
 | **llava-onevision-7b (Main)** | **14/28** | **27/28** | **27/28** | **14/28** |
 | qwen2.5-vl-7b | — | — | — | 22/28 |
