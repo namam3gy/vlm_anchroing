@@ -36,3 +36,8 @@ docs/ppt/slide-*.jpg
 
 # Phase 1 baseline run logs
 logs/
+
+# Generated CSV outputs under docs/insights/_data — large + reproducible
+# from scripts/. Markdown summaries (*.md) and small reference assets stay
+# tracked.
+docs/insights/_data/*.csv
