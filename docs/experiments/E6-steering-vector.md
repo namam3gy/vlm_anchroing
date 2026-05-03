@@ -1,9 +1,62 @@
-# E6 — anchor-agnostic steering-vector mitigation (Phase 1 PoC results)
+# E6 — anchor-agnostic steering-vector mitigation
+
+> **2026-05-04 status — supersedes most of the historical content below.**
+> Phase 1 P0 v3 shipped subspace-projection mitigation on `llava-onevision-qwen2-7b-ov` Main. Read **§A — Phase 1 P0 v3 final** first; **§B onwards** is historical.
+
+## §A. Phase 1 P0 v3 final mitigation (2026-05-04)
+
+- **Main**: `llava-onevision-qwen2-7b-ov`
+- **Calibration**: PlotQA + InfographicVQA pooled n5k (wrong-base sids)
+- **Method**: Method 1 — multi-direction subspace projection (top-K SVD of D_wrong)
+- **Chosen cell**: **L=26, K=8, α=1.0** (commit `9f9dfa0`, 2026-05-03)
+
+### Pilot grid + selection
+
+27 cells: L ∈ {25, 26, 27} × K ∈ {2, 4, 8} × α ∈ {0.5, 1.0, 2.0}, on PlotQA + InfoVQA pooled wrong-base subset. Aggregator: `scripts/analyze_e6_pilot_cells.py`. Selection rule: reject cells with Δem(a) ≤ -0.06 on either dataset; rank surviving cells by combined |Δdf(a)| reduction.
+
+After fixing the wrong-base baseline filter (was averaging over correct-base too, gave -45pp spurious dEM), L=26 K=8 α=1.0 surfaced as best surviving cell:
+- pilot pooled mean dDF = -0.040
+- pilot pooled mean dEM = +0.025
+
+Pilot CSV: `docs/insights/_data/pilot_grid_cell_selection_pooled.csv`.
+
+### Stage 4-final eval on 5 datasets
+
+Evaluated on n=5000 wrong-base subset per dataset. Same predictions.jsonl holds both baseline (no intervention) and mitigation (L26_K8_α1.0) cells.
+
+| Dataset | n_elig | Δ adopt(a) | Δ df(a) | Δ em(a) | **Δ em(b)** ✨ |
+|---|---:|---:|---:|---:|---:|
+| TallyQA | 4978→4298 | -0.009 | -0.014 | -0.020 | **+0.140** |
+| PlotQA  | 2069→1982 | -0.069 | -0.043 | -0.016 | **+0.052** |
+| InfoVQA |  428→ 390 | -0.032 | +0.001 | -0.026 | **+0.090** |
+| ChartQA |  192→ 178 | -0.026 | -0.046 | -0.022 | **+0.071** |
+| MathVista | 164→ 147 | -0.043 | -0.024 | -0.038 | **+0.105** |
+| **mean** |   | **-0.036** | **-0.025** | **-0.024** | **+0.092** |
+
+### Verdict
+
+- **df reduction works** (avg -2.5pp across 5 datasets, em-drop dealbreaker passed).
+- **adopt drops** consistently (avg -3.6pp).
+- **em(a) cost** avg -2.4pp, within dealbreaker.
+- **🎯 New finding — em(b) +9.2pp recovery**: wrong-base sids on target_only get *recovered* (correctly answered) under L26_K8_α1.0 intervention even with no anchor present. Paper-novel side-effect; needs §7.4 prose update (task #38).
+
+### Source data + scripts
+
+- Calibration: `outputs/e6_steering/llava-onevision-qwen2-7b-ov/_subspace/subspace_plotqa_infovqa_pooled_n5k_K{2,4,8,16}.pt`
+- Sweep (chosen cell): `outputs/e6_steering/llava-onevision-qwen2-7b-ov/sweep_subspace_<ds>_plotqa_infovqa_pooled_n5k_chosen/predictions.jsonl` × 5 datasets (each holds baseline + L26_K8_α1.0)
+- Aggregator: `scripts/analyze_e6_pilot_cells.py`
+- Stage 4-final orchestration: `scripts/_phase1_post_pilot_master_queue.sh` Phase B
+
+---
+
+## §B. Historical — llava-next-interleaved-7b steering-vector PoC (2026-04-29)
 
 **Status (2026-04-29):** Phase 0 + Phase 0.5 + Phase 1 complete on
 `llava-next-interleaved-7b`. PoC clears the design-doc selection rule
 on **8 of 42 steered cells**. Chosen cell **L30 / α=1.0 / v_wrong** —
 df −14.2 % rel with all em metrics within ±0.5 pp of baseline.
+
+> Note 2026-05-04: This PoC validated the *steering-vector* approach but Phase 1 P0 v3 selected the *subspace-projection* (Method 1) variant on OneVision Main (§A). PoC kept as historical evidence.
 
 **Source data:**
 - `outputs/e6_steering/llava-next-interleaved-7b/calibration/v.pt`

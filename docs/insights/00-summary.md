@@ -1,5 +1,12 @@
 # Phase-A summary — what 17,730 samples × 7 models actually say
 
+> **[2026-05-04 update — Phase 1 P0 v3 has shipped a 6-model × 5-dataset main matrix.]**
+> The Phase-A umbrella below remains the *legacy* 7-model VQAv2-only result that motivates §1 framing. For current paper headlines see:
+> - `docs/insights/phase1-p0-v3-summary.md` — Phase 1 P0 v3 umbrella
+> - `docs/insights/headline-numbers.md §A` — current 6-model × 5-dataset numbers + mitigation results
+> - `references/project.md §0.0+§0.7` — final state + headline numbers in paper structure
+> - `references/roadmap.md §3.0a+§10` — operational status
+
 > **[Phase-A umbrella — pre-M2 numbers.]** The numbers below predate the
 > M2 metric refactor (2026-04-29) and the C-form direction-follow refactor
 > (2026-04-28). The headline framings (graded vs categorical, anchor-pull,

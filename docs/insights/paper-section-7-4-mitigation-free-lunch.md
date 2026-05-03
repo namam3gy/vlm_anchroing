@@ -1,5 +1,10 @@
 # §7.4 — Mitigation: a "free-lunch" attention re-weighting
 
+> **2026-05-04 update — needs revision for Phase 1 P0 v3 final.**
+> Phase 1 ran subspace-projection mitigation (E6 Method 1) on the new Main `llava-onevision-qwen2-7b-ov`. Chosen cell **L=26 K=8 α=1.0** ships in §7.4.5; see `docs/experiments/E6-steering-vector.md §A` and `docs/insights/headline-numbers.md §A.3`. Paper §7.4 prose below remains valid for the historical 3-model E4 mitigation result (LLaVA-1.5 / ConvLLaVA / InternVL3) which is now narrative §7.4 (the "free-lunch" angle on mid-stack archetypes). Pending tasks:
+> 1. Re-cast §7.4 as the *archetype-conditional* result on the 5-model mech panel.
+> 2. **Add the em(b) +9.2pp recovery finding** from §7.4.5 (subspace projection unintendedly recovers wrong-base target_only correctness — paper-novel side-effect). Task #38.
+
 **Status:** First-draft paper prose, 2026-04-29. Anchored to
 `docs/insights/E4-mitigation-evidence.md` (full Phase 2 numbers),
 `docs/experiments/E4-mitigation.md` (design + per-strength sweep),

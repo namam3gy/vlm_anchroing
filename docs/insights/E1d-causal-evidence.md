@@ -2,6 +2,13 @@
 
 **Status:** Causal follow-up to E1b across the 6-model panel. Source data: `outputs/causal_ablation/<model>/<run>/predictions.jsonl`. Aggregate tables: `outputs/causal_ablation/_summary/{per_model_per_mode.csv, by_stratum.csv}`. Full writeup: `docs/experiments/E1d-causal-ablation.md`.
 
+> **2026-05-04 update — Phase E extension on OneVision Main × 4 datasets.**
+> Phase 1 P0 v3 added OneVision E1d on TallyQA + InfoVQA + ChartQA + MathVista (4 datasets). Chart + Math originally ran with PlotQA susceptibility CSV (Phase E master queue bug) → empty output; recovered 2026-05-04 with proper per-dataset susceptibility CSVs (commit `2d11876`).
+>
+> OneVision aggregator output shows 0.000 baseline df on all 4 datasets — the analyzer's stratification logic does not match OneVision's per-dataset susceptibility CSV format. Raw predictions are correct in `outputs/causal_ablation/llava-onevision-qwen2-7b-ov/<run>/predictions.jsonl`. Refining the OneVision-aware analyzer is a Phase 3 follow-up. The 5-model mech panel results below remain valid; OneVision Main is added to the §7.3 narrative once the analyzer is fixed.
+>
+> ---
+
 > **2026-04-28 update (B안 — full C-form propagation).**
 > `analyze_causal_ablation.py` was refactored to read the canonical M2
 > `_moved` flag instead of computing a Phase-A pull-form
