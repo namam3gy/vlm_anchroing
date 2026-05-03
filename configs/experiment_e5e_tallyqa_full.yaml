@@ -16,12 +16,22 @@ inputs:
   anchor_distance_strata: [[0, 5]]   # absolute single-stratum, |a-GT| <= 5
 
 models:
+  - name: llava-onevision-qwen2-7b-ov
+    hf_model: llava-hf/llava-onevision-qwen2-7b-ov-hf
   - name: llava-next-interleaved-7b
     hf_model: llava-hf/llava-interleave-qwen-7b-hf
   - name: qwen2.5-vl-7b-instruct
     hf_model: Qwen/Qwen2.5-VL-7B-Instruct
   - name: gemma3-27b-it
     hf_model: google/gemma-3-27b-it
+  - name: internvl3-8b
+    hf_model: OpenGVLab/InternVL3-8B-hf
+  - name: qwen2.5-vl-32b-instruct
+    hf_model: Qwen/Qwen2.5-VL-32B-Instruct
+  - name: gemma3-12b-it
+    hf_model: google/gemma-3-12b-it
+  - name: gemma3-4b-it
+    hf_model: google/gemma-3-4b-it
 
 sampling:
   temperature: 0.0

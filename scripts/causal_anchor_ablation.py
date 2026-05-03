@@ -47,8 +47,10 @@ from vlm_anchor.data import (
 )
 from vlm_anchor.models import (
     FASTVLM_IMAGE_TOKEN_INDEX,
+    HFAttentionRunner,
     InferenceConfig,
     _to_pil,
+    build_runner,
 )
 from vlm_anchor.utils import extract_first_number, set_seed
 
@@ -60,6 +62,7 @@ from extract_attention_mass import (  # noqa: E402
     _find_image_token_spans,
     _resolve_image_token_id,
     _select_susceptibility_strata,
+    _split_onevision_image_run,
     build_eager_runner,
 )
 
@@ -166,10 +169,23 @@ def _resolve_anchor_span(runner, sample: dict, image_token_id: int | None) -> tu
     if len(images) < 2:
         return (0, 0)
 
-    if isinstance(runner, EagerAttentionRunner):
+    # HFAttentionRunner (sdpa) and EagerAttentionRunner (eager subclass) both
+    # share the input_ids + AutoProcessor pipeline. Match the parent class so
+    # either backend works under causal ablation hooks.
+    if isinstance(runner, HFAttentionRunner) and not isinstance(runner, (EagerConvLLaVARunner, EagerFastVLMRunner)):
         # HF input_ids path — re-prepare inputs and scan for image_token_id
         _, inputs = runner._prepare_inputs(question=sample["question"], images=images)
         spans = _find_image_token_spans(inputs["input_ids"], image_token_id)
+        # OneVision concatenates multiple <image> tokens into one big run.
+        # Split via image_sizes when it looks like that's happened.
+        if (
+            len(spans) == 1
+            and len(images) > 1
+            and type(runner.processor).__name__ == "LlavaOnevisionProcessor"
+        ):
+            spans = _split_onevision_image_run(
+                spans[0], inputs.get("image_sizes"), runner.processor
+            )
         return spans[1] if len(spans) >= 2 else (0, 0)
 
     if isinstance(runner, EagerConvLLaVARunner):
@@ -278,6 +294,12 @@ def _parse_args() -> argparse.Namespace:
         default="baseline,ablate_peak,ablate_peak_window,ablate_lower_half,ablate_upper_half,ablate_all",
         help="Comma-separated ablation modes to run."
     )
+    # Sharding (multi-GPU fan-out, same scheme as run_experiment.py).
+    parser.add_argument("--shard-idx", type=int, default=None)
+    parser.add_argument("--num-shards", type=int, default=None)
+    parser.add_argument("--output-dir", default=None,
+                        help="Override default outputs/causal_ablation/<model>/<ts>/. "
+                             "Required when sharding (driver provides per-shard subdir).")
     return parser.parse_args()
 
 
@@ -311,7 +333,17 @@ def main() -> None:
     )
     if args.max_samples:
         enriched = enriched[: args.max_samples]
-    print(f"[setup] {len(enriched)} sample-instances")
+
+    sharded = args.num_shards is not None and args.num_shards > 1
+    if sharded:
+        if args.shard_idx is None or not (0 <= args.shard_idx < args.num_shards):
+            raise ValueError("--shard-idx must be in [0, num_shards)")
+        if args.output_dir is None:
+            raise ValueError("--output-dir is required when sharding")
+        enriched = enriched[args.shard_idx :: args.num_shards]
+        print(f"[shard {args.shard_idx}/{args.num_shards}] {len(enriched)} sample-instances")
+    else:
+        print(f"[setup] {len(enriched)} sample-instances")
 
     sampling = config["sampling"]
     prompt = config["prompt"]
@@ -323,9 +355,22 @@ def main() -> None:
         max_new_tokens=sampling["max_new_tokens"],
     )
     print(f"[setup] loading {args.hf_model} (eager attention)")
-    runner = build_eager_runner(args.hf_model, inference_config=inference_cfg)
+    # E1d ablation hooks the attention module's attention_mask kwarg before
+    # forward — works identically with eager and sdpa attention. SDPA is
+    # ~2-3x faster on long-sequence forwards, so use it. Falls back to the
+    # legacy eager path for ConvLLaVA / FastVLM (which build_runner doesn't
+    # cover): for those, build_eager_runner handles the bespoke loaders.
+    lower = args.hf_model.lower()
+    if "fastvlm" in lower or "llava-qwen" in lower or "convllava" in lower:
+        runner = build_eager_runner(args.hf_model, inference_config=inference_cfg)
+    else:
+        runner = build_runner(args.hf_model, inference_config=inference_cfg)
     image_token_id: int | None = None
-    if isinstance(runner, EagerAttentionRunner):
+    # HFAttentionRunner (sdpa) and EagerAttentionRunner (eager subclass) both
+    # use the input_ids + AutoProcessor pipeline. Resolve image_token_id for
+    # both. Keep the explicit non-ConvLLaVA / non-FastVLM gate so the bespoke
+    # runners (which lack a processor.image_token_id) skip this branch.
+    if isinstance(runner, HFAttentionRunner) and not isinstance(runner, (EagerConvLLaVARunner, EagerFastVLMRunner)):
         image_token_id = _resolve_image_token_id(runner.processor)
     layers = _get_llm_layers(runner.model)
     n_layers = len(layers)
@@ -334,8 +379,13 @@ def main() -> None:
     modes = [m.strip() for m in args.modes.split(",") if m.strip()]
     print(f"[setup] modes = {modes}")
 
-    run_id = datetime.now().strftime("%Y%m%d-%H%M%S")
-    out_root = PROJECT_ROOT / "outputs" / "causal_ablation" / args.model / run_id
+    if args.output_dir is not None:
+        out_root = Path(args.output_dir)
+        if not out_root.is_absolute():
+            out_root = PROJECT_ROOT / args.output_dir
+    else:
+        run_id = datetime.now().strftime("%Y%m%d-%H%M%S")
+        out_root = PROJECT_ROOT / "outputs" / "causal_ablation" / args.model / run_id
     out_root.mkdir(parents=True, exist_ok=True)
     out_jsonl = out_root / "predictions.jsonl"
     print(f"[setup] writing to {out_jsonl}")

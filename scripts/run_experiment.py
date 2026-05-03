@@ -6,6 +6,8 @@ from pathlib import Path
 
 from tqdm import tqdm
 
+import torch.utils.data
+
 from vlm_anchor.data import (
     ANCHOR_DISTANCE_STRATA,
     assign_irrelevant_images,
@@ -19,12 +21,53 @@ from vlm_anchor.utils import dump_csv, dump_json, dump_jsonl, ensure_dir, load_y
 from vlm_anchor.visualization import save_experiment_analysis_figures
 
 
+class _PrefetchPrepDataset(torch.utils.data.Dataset):
+    """DataLoader-fed CPU preprocessing. Runs build_conditions +
+    runner.prepare_inputs_cpu in worker processes so model.generate() in the
+    main thread overlaps with image processing / tokenization on the next
+    sample. Only safe with HFAttentionRunner (other runners route through
+    a sequential fallback)."""
+
+    def __init__(self, samples: list, runner) -> None:
+        self.samples = samples
+        self.runner = runner
+
+    def __len__(self) -> int:
+        return len(self.samples)
+
+    def __getitem__(self, idx: int):
+        sample = self.samples[idx]
+        prepared: list = []
+        for cond in build_conditions(sample):
+            inputs_cpu = self.runner.prepare_inputs_cpu(
+                cond["question"], cond["input_images"]
+            )
+            prepared.append((cond, inputs_cpu))
+        return prepared
+
+
+def _identity_collate(batch):
+    # batch_size=1; unwrap so main loop sees the per-sample list directly.
+    return batch[0]
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", type=str, default="configs/experiment.yaml")
     parser.add_argument("--output-root", type=str, default=None)
     parser.add_argument("--max-samples", type=int, default=None)
     parser.add_argument("--models", nargs="*", default=None, help="Subset of model names from config.")
+    # Sharding (multi-GPU fan-out). When --num-shards > 1, samples are sliced
+    # round-robin so each shard processes samples[shard_idx::num_shards].
+    # Greedy decoding (temperature=0) makes the union byte-identical to a
+    # single-process run; merging is concat + re-summarize.
+    parser.add_argument("--shard-idx", type=int, default=None)
+    parser.add_argument("--num-shards", type=int, default=None)
+    # When set, write predictions/summary directly into this directory and
+    # skip the default <experiment_root>/<model>/<timestamp>/ layout. Used by
+    # the sharded driver to land each shard in its own subdir while sharing
+    # one timestamp at the parent level.
+    parser.add_argument("--output-dir", type=str, default=None)
     return parser.parse_args()
 
 
@@ -44,6 +87,13 @@ def main() -> None:
     )
     experiment_root = ensure_dir(output_root / config_path.stem)
     timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+
+    sharded = args.num_shards is not None and args.num_shards > 1
+    if sharded:
+        if args.shard_idx is None or not (0 <= args.shard_idx < args.num_shards):
+            raise ValueError("--shard-idx must be in [0, num_shards) when --num-shards > 1")
+        if args.output_dir is None:
+            raise ValueError("--output-dir is required when sharding (driver provides shared parent path)")
 
     ds_cfg = cfg["vqa_dataset"]
     max_samples = args.max_samples if args.max_samples is not None else ds_cfg.get("max_samples")
@@ -94,6 +144,14 @@ def main() -> None:
             variants_per_sample=int(cfg["inputs"].get("irrelevant_sets_per_sample", 1)),
         )
 
+    # Apply shard slicing AFTER all sample-list construction so every shard
+    # observes the identical canonical sample order before slicing.
+    if sharded:
+        samples = samples[args.shard_idx :: args.num_shards]
+        print(
+            f"[shard {args.shard_idx}/{args.num_shards}] processing {len(samples)} samples"
+        )
+
     inf_cfg = InferenceConfig(
         system_prompt=cfg["prompt"]["system"],
         user_template=cfg["prompt"]["user_template"],
@@ -107,6 +165,11 @@ def main() -> None:
         wanted = set(args.models)
         selected_models = [m for m in selected_models if m["name"] in wanted]
 
+    if args.output_dir is not None and len(selected_models) != 1:
+        raise ValueError(
+            "--output-dir requires exactly one selected model (use --models <name>)"
+        )
+
     all_records: list[dict] = []
 
     import gc
@@ -115,7 +178,10 @@ def main() -> None:
     for model_idx, model_cfg in enumerate(selected_models):
         model_name = model_cfg["name"]
         print(f"\n=== Running {model_name} ===")
-        model_out_dir = ensure_dir(experiment_root / model_name / timestamp)
+        if args.output_dir is not None:
+            model_out_dir = ensure_dir(resolve_path(args.output_dir, base_dir=Path.cwd()))
+        else:
+            model_out_dir = ensure_dir(experiment_root / model_name / timestamp)
         hf_model = model_cfg.get("hf_model")
         if not hf_model:
             raise ValueError(f"Model {model_name} is missing `hf_model`, which is required for HF-only execution.")
@@ -123,14 +189,51 @@ def main() -> None:
 
         records: list[dict] = []
 
-        for sample in tqdm(samples, desc=model_name):
+        # DataLoader prefetch path: only when the runner exposes the split API
+        # (HFAttentionRunner). Workers pre-build (cond, CPU inputs) tuples while
+        # the main thread runs model.generate, overlapping CPU preprocessing
+        # with GPU compute. Other runners (FastVLM, ConvLLaVA) fall back to the
+        # sequential path because they bundle prep + generate in one call.
+        #
+        # OFF by default during initial bring-up; set VLM_ENABLE_PREFETCH=1 to
+        # turn on. Once validated on a smoke run, can be flipped to default-on.
+        import os as _os
+        _enable = _os.environ.get("VLM_ENABLE_PREFETCH", "").strip() == "1"
+        use_prefetch = (
+            _enable
+            and hasattr(runner, "prepare_inputs_cpu")
+            and hasattr(runner, "generate_from_cpu_inputs")
+        )
+        if use_prefetch:
+            loader = torch.utils.data.DataLoader(
+                _PrefetchPrepDataset(samples, runner),
+                batch_size=1,
+                num_workers=2,
+                prefetch_factor=2,
+                collate_fn=_identity_collate,
+                persistent_workers=False,
+            )
+            sample_iter = ((cond_inputs, None) for cond_inputs in loader)
+        else:
+            sample_iter = ((None, sample) for sample in samples)
+
+        for prepared, raw_sample in tqdm(sample_iter, total=len(samples), desc=model_name):
             base_prediction: str | None = None  # reset per sample-instance; target_only fills this in
-            for cond in build_conditions(sample):
-                result = runner.generate_number(
-                    cond["question"],
-                    cond["input_images"],
-                    max_new_tokens=cfg["sampling"]["max_new_tokens"],
-                )
+            cond_iter = (
+                prepared if use_prefetch else ((cond, None) for cond in build_conditions(raw_sample))
+            )
+            for cond, inputs_cpu in cond_iter:
+                if use_prefetch:
+                    result = runner.generate_from_cpu_inputs(
+                        inputs_cpu,
+                        max_new_tokens=cfg["sampling"]["max_new_tokens"],
+                    )
+                else:
+                    result = runner.generate_number(
+                        cond["question"],
+                        cond["input_images"],
+                        max_new_tokens=cfg["sampling"]["max_new_tokens"],
+                    )
                 sample_eval = evaluate_sample(
                     prediction=result["parsed_number"],
                     gt_answer=cond["ground_truth"],
@@ -192,7 +295,10 @@ def main() -> None:
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
 
-    if all_records:
+    # Skip figure rendering for sharded runs — the driver merges predictions
+    # and regenerates figures from the unified record set. Also skip when an
+    # explicit --output-dir is provided (caller is orchestrating layout).
+    if all_records and not sharded and args.output_dir is None:
         save_experiment_analysis_figures(all_records, experiment_root / "analysis" / timestamp)
 
 

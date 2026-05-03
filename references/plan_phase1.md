@@ -6,64 +6,47 @@ sequence with `references/project.md §0.4` (paper architecture) and
 
 ## 0. Context (read first)
 
-Decision summary (2026-05-02):
+Decision summary (2026-05-02 v2 — Main switch + Gemma scale):
 
-- **Main model**: `llava-interleave-7b` — every section primary
-- **Sub panel**: + `qwen2.5-vl-7b-instruct` + `gemma3-27b-it`
-- **5-dataset main matrix**: TallyQA + ChartQA + MathVista + **PlotQA** + **InfographicVQA**
+- **Main model**: `gemma3-27b-it` — every section primary (revised from initial llava-interleave choice; SigLIP-896 perfect-square 64×64 grid keeps mechanism panel intact AND resolves chart-text legibility bottleneck of llava's 384-fixed encoder)
+- **Sub panel**: `qwen2.5-vl-7b-instruct` (cross-family) + `gemma3-12b-it` + `gemma3-4b-it` (within-family scale ablation)
+- **Mechanism panel**: gemma4-e4b + llava-1.5-7b + convllava-7b + fastvlm-7b + **gemma3-27b-it** (Main replaces llava-interleave)
+- **Dropped from headlines**: `llava-interleave-7b` data preserved as legacy reference (low-res-control); not pushed as headline
+- **5-dataset main matrix**: TallyQA + ChartQA + MathVista + **PlotQA** + **InfographicVQA**, n=5000 target (or full numeric where smaller)
 - **Dropped**: VQAv2 (legacy, multi-GT). Existing 7-model VQAv2 → appendix only.
-- **§7.4.5 mitigation**: recalibrate on PlotQA + InfoVQA pooled, full gt range (no [0,8] restriction)
+- **TallyQA**: re-run at n=5000 stratified (was 38k full); legacy 38k archive at `outputs/_legacy_tallyqa_n38k/`
+- **§7.4.5 mitigation**: recalibrate on PlotQA + InfoVQA pooled, full gt range; sweep cap 5000 wrong-base; **backbone is now gemma3-27b** (not llava-interleave)
 - **§7 mechanism**: 5-model perfect-square panel only (incl Main); InternVL3 + Qwen2.5-VL → appendix
 
 ## 1. Phase 1 task list (P0 only — execute in order)
 
-### 1.1 Run baseline E5e on the 2 new Main datasets, 3-model panel
+### 1.1 Run baseline E5e/E7 on the 3 datasets needing fresh runs, 3-model panel
 
-Configs already exist:
+Configs (post 2026-05-02 restructure):
 
-- `configs/experiment_e7_plotqa_full.yaml` — 3 models (Main + Sub-A + Sub-B), `max_samples: 500` (raise to 2500 stratified before kicking off — see `samples_per_answer: 5` to keep gt-bin diversity)
-- `configs/experiment_e7_infographicvqa_full.yaml` — same 3 models, `max_samples: 500` (raise to 1147 = full numeric)
+- `configs/experiment_e7_plotqa_full.yaml` — 3 models, `max_samples: 5000`. PlotQA snapshot is fetch-time stratified (5 gt bins × 1000) via `scripts/fetch_plotqa_test.py --max-samples 5000 --stratified`.
+- `configs/experiment_e7_infographicvqa_full.yaml` — 3 models, `max_samples: 1147` = full numeric subset (data-bound, cap not binding).
+- `configs/experiment_e5e_tallyqa_full.yaml` — 3 models, `max_samples: 5000` + `samples_per_answer: 700` for runtime stratification across gt 0-8. Existing 38k full-set runs archived to `outputs/_legacy_tallyqa_n38k/` (paper-architecture restructure: all main matrix at n=5000 for cross-dataset comparability).
 
-Before kicking off:
+ChartQA (`experiment_e5e_chartqa_full`) and MathVista (`experiment_e5e_mathvista_full`) reuse existing E5e runs — both data-bound below 5000 cap (~705 / ~385 numeric subset respectively).
 
-```bash
-# Bump n in configs
-# In experiment_e7_plotqa_full.yaml: max_samples 500 → 2500
-# In experiment_e7_infographicvqa_full.yaml: max_samples 500 → 1147
-```
-
-Execute (parallel across models via `--models` flag + GPU pinning, or via resmgr):
+Execute via the sequential GPU-1 driver (paper-run constraint: GPU 0 reserved for shared use):
 
 ```bash
-# ---- PlotQA ----
-# Suggested split: 3 GPUs, one model each (or via resmgr)
-CUDA_VISIBLE_DEVICES=0 uv run python scripts/run_experiment.py \
-    --config configs/experiment_e7_plotqa_full.yaml \
-    --models llava-next-interleaved-7b &
-CUDA_VISIBLE_DEVICES=1 uv run python scripts/run_experiment.py \
-    --config configs/experiment_e7_plotqa_full.yaml \
-    --models qwen2.5-vl-7b-instruct &
-CUDA_VISIBLE_DEVICES=2 uv run python scripts/run_experiment.py \
-    --config configs/experiment_e7_plotqa_full.yaml \
-    --models gemma3-27b-it &
-wait
-
-# ---- InfographicVQA ----
-CUDA_VISIBLE_DEVICES=0 uv run python scripts/run_experiment.py \
-    --config configs/experiment_e7_infographicvqa_full.yaml \
-    --models llava-next-interleaved-7b &
-CUDA_VISIBLE_DEVICES=1 uv run python scripts/run_experiment.py \
-    --config configs/experiment_e7_infographicvqa_full.yaml \
-    --models qwen2.5-vl-7b-instruct &
-CUDA_VISIBLE_DEVICES=2 uv run python scripts/run_experiment.py \
-    --config configs/experiment_e7_infographicvqa_full.yaml \
-    --models gemma3-27b-it &
-wait
+# 3-model × 3-dataset (PlotQA + InfoVQA + TallyQA) sequential on GPU 1.
+bash scripts/_phase1_baseline.sh > logs/phase1/baseline.log 2>&1 &
 ```
 
-Expected wall: ~9h PlotQA + ~4h InfoVQA = ~13h total at 3-GPU parallel.
+Expected wall on GPU 1 sequential (per-inference: llava ~120ms, qwen ~180ms, gemma3-27b ~550ms; 4 conditions per sid):
+- PlotQA n=5000: 5000 × 4 × 0.85s ≈ 4h 40min
+- InfoVQA n=1147: 1147 × 4 × 0.85s ≈ 1h 5min
+- TallyQA n=5000: 5000 × 4 × 0.85s ≈ 4h 40min
+- **Total ≈ 10h 30min sequential** (model loading overhead negligible at ~30s × 9 cells)
 
-Output: `outputs/experiment_e7_plotqa_full/<model>/<ts>/predictions.jsonl` and `outputs/experiment_e7_infographicvqa_full/<model>/<ts>/predictions.jsonl`.
+Output:
+- `outputs/experiment_e7_plotqa_full/<model>/<ts>/predictions.jsonl`
+- `outputs/experiment_e7_infographicvqa_full/<model>/<ts>/predictions.jsonl`
+- `outputs/experiment_e5e_tallyqa_full/<model>/<ts>/predictions.jsonl` (fresh n=5000; legacy 38k at `outputs/_legacy_tallyqa_n38k/`)
 
 ### 1.2 E6 Subspace recalibration on PlotQA + InfoVQA pooled
 
@@ -125,6 +108,8 @@ uv run python scripts/e6_compute_subspace.py \
 > is a separate code path.
 
 ### 1.3 E6 sweep at single cell L31_K04_α=1.0 across 5 datasets, full gt range
+
+**Sweep cap**: `--max-samples 5000` wrong-base sids per dataset (raised from 500 in 2026-05-02 statistical-power revision; smaller datasets cap naturally below 5000 by their eligible-4cond wrong-base count).
 
 ```bash
 SUBSPACE_PT=outputs/e6_steering/llava-next-interleaved-7b/_subspace/subspace_${TAG}_K16.pt

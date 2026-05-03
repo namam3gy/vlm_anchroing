@@ -33,3 +33,6 @@ outputs/
 docs/ppt/paper_summary.pdf
 docs/ppt/slide-*.jpg
 
+
+# Phase 1 baseline run logs
+logs/

@@ -77,40 +77,42 @@ applies to `pred_m` (mask arm).
 
 ### §0.4 Model panel and dataset matrix
 
-#### §0.4.1 Model tiering (paper-wide consistency, finalised 2026-05-02)
+#### §0.4.1 Model tiering (paper-wide consistency, **revised 2026-05-02 v3**)
+
+**Revision rationale (2026-05-02 v3)**: After v2 (Main=Gemma3-27B), reviewer-recognition / citation-friendliness analysis showed Gemma3 is Tier 3 in VLM analysis paper lineage (LLaVA / Qwen-VL are Tier 1 de facto standards). Switched Main to **LLaVA-OneVision-7B-OV** which is the LLaVA flagship 2025 (multi-image native by design + AnyRes high-res via 1-7 crops × 384×384 perfect-square per crop), matching reviewer-expected baseline. The AnyRes multi-crop layout breaks the §7.1-7.3 single-grid-bbox-routing assumption, so the mechanism panel runs as a 4-archetype perfect-square panel (Main not in §7.1-7.3 mech but is in §7.4 + §7.4.5). LLM-layer mechanism methods (E4 attention re-weighting, E6 subspace projection) include Main directly.
 
 | Tier | Models | Used in | Role |
 |---|---|---|---|
-| **🟢 Main** | `llava-interleave-7b` (llava-hf/llava-interleave-qwen-7b-hf) | §3, §5, §6, §7.1–7.3, §7.4, §7.4.5 — **all headline numbers** | Primary model for every paper claim. SigLIP+Qwen2-7B. Multi-image native (LLaVA-Interleave is built for interleaved multi-image, matches our 2-image setup). Standard 2025–2026 strong VLM baseline. The model E6 deployable mitigation works on. |
-| **🟡 Sub-A (cross-family robustness)** | `qwen2.5-vl-7b-instruct` | §3, §5, §6 | Same scale as Main (7B), different encoder (native Qwen-ViT vs SigLIP). Established 2025-2026 standard baseline (Cambrian, Eagle-1, MM1.5, NVLM, InternVL2.5 comparison tables). Disjoint from §5 γ-β qwen3 reasoning ablation (avoids same-family confound). |
-| **🟡 Sub-B (cross-family + scale)** | `gemma3-27b-it` | §3, §5, §6 | Different model family (Gemma2 LLM + SigLIP). 27B = clear scale contrast vs 7B Main. Strong numeric VQA baseline (4B variant too weak — base accuracy floor causes wrong/correct distinction noise). Established stable HF integration. |
-| **🔵 Mechanism panel (perfect-square only)** | gemma4-e4b, llava-1.5-7b, convllava-7b, fastvlm-7b, **llava-interleave-7b** | §7.1–7.3 (E1-patch digit-bbox attention) | Encoder-archetype panel restricted to perfect-square visual-token grids where digit-bbox→token mapping is implementation-clean. InternVL3-8b (multi-tile) and Qwen2.5-VL-7b (17×23 non-square) → appendix only (per-encoder bbox routing varies; correctness not guaranteed). |
-| **🟣 Reasoning ablation** | `qwen3-vl-8b` (instruct vs thinking) | §5 γ-β | Reasoning-mode amplification contrast. Single-purpose, kept disjoint from Sub-A/B. |
-| **🟤 Wider behavioural breadth (appendix)** | gemma3-27b-it, gemma4-31b-it, gemma4-e4b, llava-interleave-7b, qwen2.5-vl-7b, qwen3-vl-8b, qwen3-vl-30b (existing 7-model panel on legacy VQAv2 — deferred from §3 main into appendix) | appendix only | Historical 7-model VQAv2 panel preserved for breadth supplementary; not in main matrix. |
+| **🟢 Main** | `llava-onevision-qwen2-7b-ov` (llava-hf/llava-onevision-qwen2-7b-ov-hf) | §3, §5, §6, §7.4, §7.4.5 — **all headline numbers** | Primary model. SigLIP-So400M-384 + Qwen2-7B LLM. Multi-image + video + single-image unified architecture (OV variant). AnyRes per-image dynamic crops up to 7 × 384×384 (within-crop 27×27 perfect-square; multi-crop layout overall). Tier 1 LLaVA family — direct successor to LLaVA-Interleave with chart-grade resolution restored. |
+| **🟡 Sub-A (cross-family)** | `qwen2.5-vl-7b-instruct` | §3, §5, §6 | Tier 1 cross-family. Different ViT (dynamic-resolution Qwen-ViT non-square). Chart-domain pretrained. Strong base accuracy on chart datasets (~78% PlotQA/InfoVQA). Demonstrates anchoring as universal (non-zero on strongest baseline) but graded. |
+| **🟡 Sub-B (cross-family + scale-up)** | `gemma3-27b-it` | §3, §5, §6 | Tier 3 family but useful as cross-family large-scale check (27B vs 7B Main). SigLIP-896 fixed perfect-square encoder (different resolution strategy from Main). Mid-tier accuracy (~51-71%). |
+| **🔵 Mechanism panel (perfect-square, 4-archetype)** | gemma4-e4b, llava-1.5-7b, convllava-7b, fastvlm-7b | §7.1–7.3 (E1-patch digit-bbox attention) | 4-archetype encoder panel: SigLIP-Gemma early / CLIP-336 mid-stack / ConvNeXt / FastViT. All perfect-square single-grid for clean bbox→token routing. **Main (OneVision) is NOT in §7.1-7.3** due to AnyRes multi-crop incompatibility; we instead include Main in §7.4 (E4 attention re-weighting) and §7.4.5 (E6 Subspace projection) which operate at LLM layer and are encoder-agnostic. Phase 2 may add OneVision-specific multi-crop bbox routing to extend §7.1-7.3 to Main. |
+| **🟣 Reasoning ablation** | `qwen3-vl-8b` (instruct vs thinking) | §5 γ-β | Reasoning-mode amplification contrast. Single-purpose, disjoint from Sub-A. |
+| **🟤 Legacy / breadth (appendix)** | `llava-interleave-7b`, gemma4-31b-it, gemma3-12b/4b-it, qwen3-vl-8b/30b, the 7-model VQAv2 panel | appendix only | LLaVA-Interleave preserved as direct predecessor reference. Gemma3 4B/12B held in reserve for potential within-family scale ablation in Phase 2. Historical 7-model VQAv2 panel preserved for behavioural breadth. |
 
 #### §0.4.2 Dataset finalisation (5-dataset main matrix, finalised 2026-05-02)
 
 | Dataset | Role | Notes |
 |---|---|---|
-| **PlotQA** (test V1) | **Main dataset** | Real-world chart values. 96K numeric Q-A post-filter (template ∈ {data_retrieval, min_max, arithmetic}, positive int, gt ≤ 10000). Wide gt distribution. n=2500 stratified by gt-bin. |
-| **InfographicVQA** (val) | **Main dataset** | Different visual modality (infographic, not chart or natural image). 1,147 numeric. Heavy mid-range (gt-bin (20,100] = 479 samples — percent-heavy). |
-| **TallyQA** (test) | Sub-dataset | Natural image counting (gt 0–15 typical). Continues to anchor §5/§7.4.5 small-gt regime. |
-| **ChartQA** (test) | Sub-dataset | Chart values, mid-to-wide gt range. 2500 full set. |
-| **MathVista** (testmini) | Sub-dataset | Mixed math/science VQA. 1000 testmini + reasoning-mode γ-β subset. |
+| **PlotQA** (test V1) | **Main dataset** | Real-world chart values. 96K numeric Q-A post-filter (template ∈ {data_retrieval, min_max, arithmetic}, positive int, gt ≤ 10000). Wide gt distribution. **n=5000 stratified by gt-bin (5 × 1000)**. |
+| **InfographicVQA** (val) | **Main dataset** | Different visual modality (infographic, not chart or natural image). **1,147 numeric (full)**. Heavy mid-range (gt-bin (20,100] = 479 samples — percent-heavy); cap of 5000 not binding since dataset is data-bound. |
+| **TallyQA** (test) | Sub-dataset | Natural image counting (gt 0–8 after `answer_range=8` filter). **n=5000 stratified by gt-value (≤700 per gt; small-gt 0-4 fully filled, gt 5-8 capped by availability)**. Anchors §5/§7.4.5 small-gt regime. |
+| **ChartQA** (test) | Sub-dataset | Chart values, mid-to-wide gt range. ~705 numeric (full); cap not binding. |
+| **MathVista** (testmini) | Sub-dataset | Mixed math/science VQA. ~385 numeric integer (full testmini after filter); cap not binding. + reasoning-mode γ-β subset. |
 | ~~VQAv2 number~~ | **DROPPED** | Multiple-GT (10-annotator vote), open-vocabulary text answers, full-eval impractical, legacy benchmark. Modern numeric VQA papers use TallyQA/Chart/Doc/Math/Plot/Info — VQAv2 not in this lineage. Existing 7-model panel data preserved in appendix for behavioural breadth supplementary. |
 
-All 5 datasets evaluated under the same canonical setup: temperature=0, top_p=1.0, max_new_tokens=16, JSON-strict prompt, 4-condition (b / a-S1 / m-S1 / d), `samples_per_answer=5`, **per-dataset n cap = 5000** (PlotQA → 2500 stratified, InfoVQA → 1147 full numeric, ChartQA → 2500, TallyQA → ≤5000, MathVista → 1000).
+All 5 datasets evaluated under the same canonical setup: temperature=0, top_p=1.0, max_new_tokens=16, JSON-strict prompt, 4-condition (b / a-S1 / m-S1 / d). **Per-dataset n target = 5000 stratified by gt-bin** (PlotQA → 5000 fetch-time stratified across 5 gt bins, TallyQA → 5000 runtime stratified via `samples_per_answer=700` × `max_samples=5000`); InfoVQA / ChartQA / MathVista take their **full numeric subset** which falls below the 5000 cap (1147 / ~705 / ~385 respectively). The §7.4.5 sweep cap was raised from 500 → 5000 wrong-base sids per the 2026-05-02 statistical-power revision (evidence: wrong-base direction-follow rate is 3-5× stronger than correct-base across datasets, so a larger wrong-base sweep cell gives tighter mitigation effect estimates).
 
 #### §0.4.3 Section-wise cell summary (Phase 1 target)
 
 | Section | Models | Datasets | Conditions | n per cell | Cells |
 |---|---|---|---|---|---|
-| §3 main panel (3-model × 5-dataset) | Main + Sub-A + Sub-B (3) | TallyQA, ChartQA, MathVista, **PlotQA**, **InfoVQA** (5) | b / a-S1 / m-S1 / d (4) | 1k–5k | 15 |
+| §3 main panel (3-model × 5-dataset) | Main(llava-onevision-7b-ov) + Sub-A(qwen2.5-vl-7b) + Sub-B(gemma3-27b) (3) | TallyQA, ChartQA, MathVista, **PlotQA**, **InfoVQA** (5) | b / a-S1 / m-S1 / d (4) | 1k–full | 15 |
 | §5 distance + digit-mask | same 3 | same 5 | b + 5×a-strata + 5×m-strata + d (12, E5b/c) | 500–2500 | 15 |
 | §6 confidence-modulated | same 3 | same 5 | reuses §3+§5 outputs | (reaggregation) | 0 new |
-| §7.1–7.3 mechanism (E1-patch) | 5-model perfect-square panel (incl. Main) | TallyQA + 1 chart + 1 info (3) | b + a + m (3) | 200 stratified | 15 |
-| §7.4 E4 attention re-weighting | 4-model (mid-stack cluster: llava-1.5, convllava, internvl3) + Main | 1 dataset (TallyQA or PlotQA) | E4 Phase 1 sweep + Phase 2 full | 200 / full | 4 |
-| §7.4.5 E6 Subspace mitigation | Main only | all 5 | calibration + sweep cells | 500 wrong-base | 5 |
+| §7.1–7.3 mechanism (E1-patch) | 4-archetype perfect-square panel (Main NOT included; Phase 2 adds OneVision multi-crop routing if pursued) | TallyQA + 1 chart + 1 info (3) | b + a + m (3) | 200 stratified | 12 |
+| §7.4 E4 attention re-weighting | 4-model (mid-stack cluster: llava-1.5, convllava, internvl3) + Main (llava-onevision-7b-ov) | 1 dataset (TallyQA or PlotQA) | E4 Phase 1 sweep + Phase 2 full | 200 / full | 4 |
+| §7.4.5 E6 Subspace mitigation | Main only | all 5 | calibration + sweep cells | up to 5000 wrong-base (capped by per-dataset eligible-4cond wrong-base count) | 5 |
 | §5 γ-β reasoning | qwen3-vl-8b instruct vs thinking | MathVista | b/a/m/d (4) | full testmini subset | 2 |
 | Appendix (legacy 7-model) | 7 models | VQAv2 only | b/a/d (3) | full | 7 |
 

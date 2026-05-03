@@ -157,6 +157,18 @@ def _parse_args() -> argparse.Namespace:
     ap.add_argument("--subspace-scope", default="pooled",
                     help="Label for the subspace scope; written into records and "
                          "output directory name (e.g. 'pooled', 'vqa').")
+    # Sharding (multi-GPU fan-out for calibrate-subspace / sweep-subspace).
+    # When --num-shards K > 1, the eligible-sid list is sliced round-robin
+    # so each shard processes its own [shard_idx::K] slice. The driver
+    # merges shard outputs (D-tensor stack for calibrate; predictions
+    # concat for sweep) and produces the canonical final layout.
+    ap.add_argument("--shard-idx", type=int, default=None)
+    ap.add_argument("--num-shards", type=int, default=None)
+    # When set, the phase writes its primary output (D_*.pt for calibrate,
+    # predictions.jsonl for sweep) into this directory and skips the
+    # default outputs/e6_steering/<model>/<...>/ layout. The driver
+    # provides one shard subdir per launched subprocess.
+    ap.add_argument("--output-dir", default=None)
     return ap.parse_args()
 
 
@@ -390,8 +402,18 @@ def _build_runner_and_layers(args, config):
         top_p=sampling["top_p"],
         max_new_tokens=sampling["max_new_tokens"],
     )
-    print(f"[setup] loading {args.hf_model}")
-    runner = build_eager_runner(args.hf_model, inference_config=inference_cfg)
+    print(f"[setup] loading {args.hf_model} (sdpa attention)")
+    # Calibrate-subspace and sweep-subspace phases don't need attention
+    # weights — only attn_output (residuals / generations). Use the
+    # standard SDPA-backed HFAttentionRunner instead of the eager-attention
+    # runner that historically lived here. SDPA is mathematically
+    # equivalent to eager (within bf16 precision) but uses a fused kernel
+    # that avoids materialising the full (1, H, Q, K) attention matrix —
+    # ~3× faster on AnyRes long-sequence forwards. The forward hook for
+    # subspace projection in _install_projection_hook hooks the layer
+    # output (residual stream), independent of attn implementation.
+    from vlm_anchor.models import build_runner
+    runner = build_runner(args.hf_model, inference_config=inference_cfg)
     layers = _get_llm_layers(runner.model)
     print(f"[setup] LLM layers detected: {len(layers)}")
     return runner, layers
@@ -1282,10 +1304,28 @@ def _calibrate_subspace_from_predictions(args, config) -> None:
     ordered_sids = ([s for s in eligible_sids if s in wrong_sids]
                     + [s for s in eligible_sids if s not in wrong_sids])
 
+    sharded = args.num_shards is not None and args.num_shards > 1
+    if sharded:
+        if args.shard_idx is None or not (0 <= args.shard_idx < args.num_shards):
+            raise ValueError("--shard-idx must be in [0, num_shards)")
+        if args.output_dir is None:
+            raise ValueError("--output-dir is required for sharded calibrate")
+        # Each shard caps at ceil(max_pairs / num_shards) so the total across
+        # shards equals max_pairs (modulo eligibility shortages).
+        ordered_sids = ordered_sids[args.shard_idx :: args.num_shards]
+        max_pairs = -(-args.max_calibrate_pairs // args.num_shards)  # ceil
+        print(f"[shard {args.shard_idx}/{args.num_shards}] "
+              f"slice {len(ordered_sids)} sids, cap {max_pairs} pairs")
+
     runner, layers = _build_runner_and_layers(args, config)
     n_layers = len(layers)
-    out_dir = (PROJECT_ROOT / "outputs" / "e6_steering" / args.model
-               / f"calibration_{dataset_tag}")
+    if args.output_dir is not None:
+        out_dir = Path(args.output_dir)
+        if not out_dir.is_absolute():
+            out_dir = PROJECT_ROOT / out_dir
+    else:
+        out_dir = (PROJECT_ROOT / "outputs" / "e6_steering" / args.model
+                   / f"calibration_{dataset_tag}")
     out_dir.mkdir(parents=True, exist_ok=True)
     print(f"[setup] writing to {out_dir}")
 
@@ -1329,8 +1369,51 @@ def _calibrate_subspace_from_predictions(args, config) -> None:
             print(f"  [progress] {n_pairs_so_far}/{max_pairs} pairs "
                   f"(wrong-base: {len(diffs_wrong)}); elapsed={elapsed:.1f}s")
 
-    _save_D_and_v(out_dir, diffs_wrong, diffs_all, n_layers, n_skipped, args,
-                  dataset_tag, time.time() - t0)
+    if sharded:
+        _save_shard_diffs(out_dir, diffs_wrong, diffs_all, n_layers, n_skipped,
+                          args, dataset_tag, time.time() - t0)
+    else:
+        _save_D_and_v(out_dir, diffs_wrong, diffs_all, n_layers, n_skipped, args,
+                      dataset_tag, time.time() - t0)
+
+
+def _save_shard_diffs(out_dir: Path, diffs_wrong: list, diffs_all: list,
+                      n_layers: int, n_skipped: int, args,
+                      dataset_tag: str, wall_seconds: float) -> None:
+    """Shard-mode save: D_wrong.pt + D_all.pt + shard_meta.json (no v / SVD).
+
+    The driver loads every shard, concatenates D_wrong / D_all across shards,
+    then calls _save_D_and_v on the merged tensors to land the canonical
+    calibration_<tag>/{D_wrong.pt, D_all.pt, v.pt, v_meta.json}.
+    """
+    if not diffs_all:
+        # An empty shard is allowed (some round-robin slices may exhaust
+        # eligibility before hitting the cap). Save a marker so the driver
+        # can detect and skip cleanly.
+        torch.save(torch.zeros(0, n_layers, 0), out_dir / "D_all.pt")
+        torch.save(torch.zeros(0, n_layers, 0), out_dir / "D_wrong.pt")
+        (out_dir / "shard_meta.json").write_text(json.dumps({
+            "shard_idx": args.shard_idx, "num_shards": args.num_shards,
+            "n_wrong": 0, "n_all": 0, "n_skipped": n_skipped,
+            "n_layers": n_layers, "d_model": 0,
+            "dataset_tag": dataset_tag, "wall_seconds": wall_seconds,
+            "empty": True,
+        }, indent=2))
+        return
+    D_all = torch.stack(diffs_all)
+    D_wrong = (torch.stack(diffs_wrong) if diffs_wrong
+               else torch.zeros(0, n_layers, D_all.shape[-1], dtype=D_all.dtype))
+    torch.save(D_all, out_dir / "D_all.pt")
+    torch.save(D_wrong, out_dir / "D_wrong.pt")
+    (out_dir / "shard_meta.json").write_text(json.dumps({
+        "shard_idx": args.shard_idx, "num_shards": args.num_shards,
+        "n_wrong": int(D_wrong.shape[0]), "n_all": int(D_all.shape[0]),
+        "n_skipped": n_skipped,
+        "n_layers": n_layers, "d_model": int(D_all.shape[-1]),
+        "dataset_tag": dataset_tag, "wall_seconds": wall_seconds,
+    }, indent=2))
+    print(f"[shard {args.shard_idx}/{args.num_shards}] saved D_wrong="
+          f"{tuple(D_wrong.shape)} D_all={tuple(D_all.shape)} to {out_dir}")
 
 
 def _save_D_and_v(out_dir: Path, diffs_wrong: list, diffs_all: list,
@@ -1492,8 +1575,23 @@ def _phase_sweep_subspace(args, config) -> None:
         eligible_sids = eligible_sids[:args.max_samples]
         print(f"[setup] capped to {len(eligible_sids)}")
 
-    out_dir = (PROJECT_ROOT / "outputs" / "e6_steering" / args.model
-               / f"sweep_subspace_{dataset_tag}_{scope}")
+    sharded = args.num_shards is not None and args.num_shards > 1
+    if sharded:
+        if args.shard_idx is None or not (0 <= args.shard_idx < args.num_shards):
+            raise ValueError("--shard-idx must be in [0, num_shards)")
+        if args.output_dir is None:
+            raise ValueError("--output-dir is required for sharded sweep")
+        eligible_sids = eligible_sids[args.shard_idx :: args.num_shards]
+        print(f"[shard {args.shard_idx}/{args.num_shards}] processing "
+              f"{len(eligible_sids)} sids")
+
+    if args.output_dir is not None:
+        out_dir = Path(args.output_dir)
+        if not out_dir.is_absolute():
+            out_dir = PROJECT_ROOT / out_dir
+    else:
+        out_dir = (PROJECT_ROOT / "outputs" / "e6_steering" / args.model
+                   / f"sweep_subspace_{dataset_tag}_{scope}")
     out_dir.mkdir(parents=True, exist_ok=True)
     out_path = out_dir / "predictions.jsonl"
     completed = _load_completed_keys_subspace(out_path)

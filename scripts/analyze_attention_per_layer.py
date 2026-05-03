@@ -46,7 +46,45 @@ CANONICAL_RUNS: dict[str, str] = {
     "internvl3-8b": "20260424-121334",
     "convllava-7b": "20260424-134840",
     "fastvlm-7b": "20260424-135205",
+    # OneVision (Phase 1 P0 v3 Main; AnyRes; populated post-run).
+    # If absent, falls back to the latest run dir for the model.
 }
+
+
+def _resolve_run(model: str) -> str | None:
+    """Return canonical run id for `model`, or auto-pick the latest run dir.
+
+    Auto-fallback lets us add new models (e.g. OneVision) without
+    pre-registering a timestamp.
+    """
+    if model in CANONICAL_RUNS:
+        return CANONICAL_RUNS[model]
+    model_dir = ATT_ROOT / model
+    if not model_dir.exists():
+        return None
+    runs = sorted(p.name for p in model_dir.iterdir() if p.is_dir())
+    return runs[-1] if runs else None
+
+
+def _load_records_combined(model: str) -> list[dict]:
+    """Load and concatenate per_step_attention.jsonl across ALL run dirs for
+    a model. Used to pool multi-dataset extractions (e.g. OneVision Phase 1
+    P0 v3 ran PlotQA + TallyQA + InfoVQA each in its own timestamped run).
+
+    For models in CANONICAL_RUNS, prefer the single canonical run unless
+    multiple run dirs exist on disk — then concatenate all.
+    """
+    model_dir = ATT_ROOT / model
+    if not model_dir.exists():
+        return []
+    run_dirs = sorted(p for p in model_dir.iterdir() if p.is_dir())
+    records: list[dict] = []
+    for rd in run_dirs:
+        jsonl = rd / "per_step_attention.jsonl"
+        if not jsonl.exists():
+            continue
+        records.extend(_load_records(jsonl))
+    return records
 
 _DIGIT_RE = re.compile(r"\d")
 
@@ -344,20 +382,31 @@ def main() -> None:
     susc_df = pd.read_csv(susc_path)
     susceptibility = dict(zip(susc_df["question_id"].astype(int), susc_df["susceptibility_stratum"]))
 
-    model_order = list(CANONICAL_RUNS.keys())
+    # Discover models from disk (anything with a run dir under ATT_ROOT) so
+    # late-arriving panel additions (e.g. OneVision) are picked up
+    # automatically without editing CANONICAL_RUNS.
+    discovered = sorted(
+        p.name for p in ATT_ROOT.iterdir()
+        if p.is_dir() and p.name not in {"_per_layer", "analysis"}
+    ) if ATT_ROOT.exists() else []
+    model_order = list(CANONICAL_RUNS.keys()) + [
+        m for m in discovered if m not in CANONICAL_RUNS
+    ]
 
     per_layer_rows: list[pd.DataFrame] = []
     peak_rows: list[dict] = []
     budget_rows: list[dict] = []
 
-    for model, run_id in CANONICAL_RUNS.items():
-        jsonl = ATT_ROOT / model / run_id / "per_step_attention.jsonl"
-        if not jsonl.exists():
-            print(f"[{model}] skipping — run {run_id} not present at {jsonl}")
+    for model in model_order:
+        # Load + concatenate all run dirs for this model (multi-dataset
+        # support). Falls back to canonical-single behaviour for models
+        # with only one run dir on disk.
+        records = _load_records_combined(model)
+        if not records:
+            print(f"[{model}] skipping — no run dir / records")
             continue
-        print(f"[{model}] loading {jsonl.relative_to(PROJECT_ROOT)}")
-        records = _load_records(jsonl)
-        print(f"  records={len(records)}")
+        run_dirs = sorted(p.name for p in (ATT_ROOT / model).iterdir() if p.is_dir())
+        print(f"[{model}] loaded {len(records)} records from {len(run_dirs)} run(s): {run_dirs}")
 
         for step_kind in ("answer", "step0"):
             arrays = _build_layer_arrays(records, step_kind, susceptibility)

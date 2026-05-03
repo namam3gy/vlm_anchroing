@@ -113,6 +113,13 @@ def aggregate_run(jsonl_path: Path) -> pd.DataFrame:
 
 
 def discover_runs(exp_dir: str | None) -> list[Path]:
+    """For each (exp, model), pick the predictions.jsonl with the most records.
+
+    Avoids pilot/smoke run dirs polluting per_cell aggregates when both a
+    pilot (n≈200) and a full run (n≈full-dataset) live under
+    outputs/<exp>/<model>/. Matches the "Phase A: pick largest run, not
+    alphabetically-latest" rule in scripts/phase_a_data_mining.py.
+    """
     root = REPO_ROOT / "outputs"
     if exp_dir:
         roots = [root / exp_dir]
@@ -120,11 +127,21 @@ def discover_runs(exp_dir: str | None) -> list[Path]:
         roots = [d for d in root.iterdir() if d.is_dir() and d.name.startswith("experiment_e5e")]
     out: list[Path] = []
     for r in roots:
-        for path in r.rglob("predictions.jsonl"):
-            if "analysis" in path.parts or "_logs" in path.parts:
-                continue
-            out.append(path)
-    return sorted(out)
+        if not r.is_dir():
+            continue
+        for model_dir in sorted(p for p in r.iterdir() if p.is_dir() and p.name != "analysis"):
+            candidates: list[tuple[int, Path]] = []
+            for run_dir in sorted(p for p in model_dir.iterdir() if p.is_dir() and p.name != "analysis"):
+                jsonl = run_dir / "predictions.jsonl"
+                if not jsonl.is_file() or "_logs" in jsonl.parts:
+                    continue
+                with jsonl.open() as f:
+                    n = sum(1 for _ in f)
+                candidates.append((n, jsonl))
+            if candidates:
+                candidates.sort()
+                out.append(candidates[-1][1])
+    return out
 
 
 def main():
