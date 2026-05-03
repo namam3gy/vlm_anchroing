@@ -273,9 +273,9 @@ PANEL_MODELS_HF=(
 )
 # Actual list — name and HF id pairs.
 declare -A PANEL_HF=(
-  [gemma4-e4b]="google/gemma-4-e4b-it"
-  [llava-1.5-7b]="liuhaotian/llava-v1.5-7b"
-  [convllava-7b]="ConvLLaVA/ConvLLaVA-Stage5-7B-LoRA"
+  [gemma4-e4b]="google/gemma-4-E4B-it"
+  [llava-1.5-7b]="llava-hf/llava-1.5-7b-hf"
+  [convllava-7b]="ConvLLaVA/ConvLLaVA-sft-1536"
   [fastvlm-7b]="apple/FastVLM-7B"
   [llava-next-interleaved-7b]="llava-hf/llava-interleave-qwen-7b-hf"
 )
