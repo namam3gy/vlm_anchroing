@@ -58,7 +58,9 @@ OneVision E1d on TallyQA + InfoVQA + ChartQA + MathVista. 6-mode ablation table 
 | MathVista | 0.171 | +0.000 | -0.005 | **+0.075** | -0.026 | **-0.045** |
 | PlotQA *(orphan eager pre-7f8ebb6)* | 0.243 | -0.006 | -0.010 | +0.024 | -0.039 | **-0.051** |
 
-3/5 datasets (TallyQA, MathVista, PlotQA) reproduce the classic E1d signature (mid-stack ablation amplifies, full ablation drops); ChartQA shows weaker signal; **InfoVQA shows minimal ablation effect** — consistent with the Phase D finding that InfoVQA's OneVision attention peak is at L=14 (mid-stack), not L=27 (last) — the chosen `--peak-layer 27` setting hits the wrong band for InfoVQA. Future work: per-dataset peak-layer routing for the ablation modes.
+3/5 datasets (TallyQA, MathVista, PlotQA) reproduce the classic E1d signature (mid-stack ablation amplifies, full ablation drops); ChartQA shows weaker signal; **InfoVQA shows minimal ablation effect** at all 6 modes.
+
+**B1 follow-up 2026-05-05 ~00:16 KST** — re-ran InfoVQA E1d with `--peak-layer 14` (Phase D's actual InfoVQA peak from `analyze_cross_dataset_peaks.py`) instead of the master script's hardcoded 27. Result: ablate_peak Δ_df = +0.015 (vs +0 at L27); ablate_peak_window, ablate_lower_half, ablate_upper_half, ablate_all all unchanged. The flat InfoVQA ablation profile is **not** a peak-layer-routing artefact — InfoVQA's OneVision anchor mechanism is genuinely diffuse, with no single layer band causally responsible. Comparison log: `outputs/_logs/phase3_b1_infovqa_peak14/compare_20260504-223234.log`. Launcher: `scripts/_phase3_b1_infovqa_peak14.sh`.
 
 ### Mitigation (§7.4.5) — chosen cell
 
