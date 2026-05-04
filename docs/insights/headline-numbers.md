@@ -1,11 +1,113 @@
-# Headline numbers (C-form re-aggregation, 2026-04-28)
+# Headline numbers — Phase 1 P0 v3 final (2026-05-04 + 2026-04-28 historical)
+
+> First read **§A (Phase 1 final, 2026-05-04)** for current paper headline
+> numbers. **§B onwards** is the C-form re-aggregation (2026-04-28) that
+> remains valid for the historical 7-model VQAv2 panel + E5e 3-model
+> ChartQA/TallyQA subset.
+>
+> Re-aggregate from raw `predictions.jsonl` via
+> `scripts/reaggregate_paired_adoption.py` (legacy panel) or
+> `scripts/build_e5e_e7_5dataset_summary.py` (current 6-model main panel)
+> if numbers drift.
+
+All numbers use the canonical M2 metrics from `roadmap.md §4` with the
+`direction_follow_rate` numerator in **C-form**: `(pa-pb)·(anchor-pb) > 0`.
+
+---
+
+## §A. Phase 1 P0 v3 final — 6-model × 5-dataset main matrix (2026-05-04)
+
+Source: `docs/insights/_data/main_panel_5dataset_summary.md` (gitignored;
+regenerable via `scripts/build_e5e_e7_5dataset_summary.py`). All cells at
+4-cond (b/a-S1/m-S1/d), wrong-base C-form df.
+
+### A.1 Per-dataset highlights
+
+**TallyQA** (counting baseline; lowest susceptibility):
+
+| Model | n | acc(b) | adopt(a) | df(a) | em(a) |
+|---|---:|---:|---:|---:|---:|
+| llava-onevision-7b (Main) | 8178 | 0.786 | 0.032 | **0.099** | 0.117 |
+| qwen2.5-vl-7b | 7541 | 0.803 | 0.030 | **0.085** | 0.110 |
+| internvl3-8b | (rerun in flight) | — | — | — | — |
+| gemma3-4b | 14772 | 0.614 | 0.062 | **0.172** | 0.174 |
+| qwen2.5-vl-32b | 7407 | 0.806 | 0.038 | **0.109** | 0.141 |
+| gemma3-27b | 11014 | 0.712 | 0.059 | **0.152** | 0.140 |
+
+**PlotQA** (chart, highest susceptibility):
+
+| Model | n | acc(b) | adopt(a) | df(a) | em(a) |
+|---|---:|---:|---:|---:|---:|
+| llava-onevision-7b | 2314 | 0.481 | 0.090 | **0.206** | 0.044 |
+| qwen2.5-vl-7b | 926 | 0.783 | 0.024 | **0.174** | 0.119 |
+| internvl3-8b | 4610 | 0.019 | 0.002 | 0.095 | 0.021 |
+| gemma3-4b | 3220 | 0.300 | 0.184 | **0.395** | 0.123 |
+| qwen2.5-vl-32b | 1186 | 0.729 | 0.023 | **0.163** | 0.091 |
+| gemma3-27b | 2166 | 0.513 | 0.099 | **0.227** | 0.063 |
+
+### A.2 Cross-dataset patterns
+
+**Susceptibility ranking** (avg df(a) across 5 datasets, descending):
+gemma3-4b ≫ gemma3-27b > llava-onevision/interleave > qwen2.5-vl-32b ≈ qwen2.5-vl-7b > internvl3-8b
+
+→ qwen family + internvl3 most robust. Gemma3 family most susceptible. **Anti-scaling within Gemma**: gemma3-4b worse than gemma3-27b (smaller model more pulled).
+
+**Dataset susceptibility ranking** (mean df across panel):
+PlotQA (0.226) ≈ MathVista (0.241) > InfoVQA (0.227) > ChartQA (0.204) ≫ TallyQA (0.116)
+
+→ Chart/figure datasets pull ~2× harder than counting (TallyQA). Text-heavy plot/math contexts amplify anchor effect.
+
+### A.3 Mitigation chosen cell (Phase B Stage 4-final, commit `9f9dfa0`)
+
+**Subspace projection L=26 K=8 α=1.0**, calibrated on PlotQA+InfoVQA pooled n5k. Evaluated on n=5000 wrong-base subset per dataset. Paired-sids comparison (sids parseable on b+a in baseline AND mitigation arms). Source: `docs/insights/_data/stage4_final_per_dataset.{csv,md}` (gitignored, regenerable via `scripts/build_e6_stage4_summary.py`).
+
+| Dataset | n_paired | Δ adopt(a) | Δ df(a) | Δ em(a) | **Δ em(b)** |
+|---|---:|---:|---:|---:|---:|
+| TallyQA | 4978 | -0.0057 | -0.0034 | **+0.0657** | **+0.1382** |
+| PlotQA | 2306 | -0.0562 | -0.0516 | **+0.0243** | **+0.0473** |
+| InfoVQA | 443 | +0.0095 | -0.0068 | **+0.0339** | **+0.0903** |
+| ChartQA | 224 | -0.0333 | -0.0402 | **+0.0402** | **+0.0714** |
+| MathVista | 170 | -0.0153 | -0.0412 | **+0.0294** | **+0.0941** |
+| **mean** |   | **-0.0202** | **-0.0286** | **+0.0387** | **+0.0883** |
+
+**Verdict**: df reduction works (avg -2.9pp). em(a) **+3.9pp** *and* em(b) **+8.8pp** — both arms improve on the wrong-base subset where mitigation fires. This is a **strict free-lunch**: anchor pull goes down, exact-match goes up on both anchored and non-anchored arms. Earlier "em(a) -2.4pp cost" framing in this section was a hand-copy error and is retracted (corrected 2026-05-04 from `scripts/build_e6_stage4_summary.py`). Paper §7.4 needs re-framing to surface the em(b) +8.8pp recovery as the headline alongside df reduction (task #38).
+
+### A.4 §7.1-7.3 Cross-dataset peak layer (Phase D, commit `c556fb6`)
+
+Per-(model, dataset) peak attention layer at answer step (`docs/insights/_data/cross_dataset_peaks.csv`, gitignored):
+
+| Model | InfoVQA | PlotQA | TallyQA | VQAv2 |
+|---|:-:|:-:|:-:|:-:|
+| gemma4-e4b | 5/42 | 5/42 | 5/42 | 5/42 |
+| llava-1.5-7b | 8/32 | 14/32 | 8/32 | 8/32 |
+| convllava-7b | 12/32 | 14/32 | 7/32 | 7/32 |
+| fastvlm-7b | 27/28 | 17/28 | 23/28 | 22/28 |
+| **llava-onevision-7b (Main)** | **14/28** | **27/28** | **27/28** | **14/28** |
+| qwen2.5-vl-7b | — | — | — | 22/28 |
+
+**Key finding (2026-05-04)**: OneVision peak is **dataset-dependent** (L=27 last layer on PlotQA/TallyQA but L=14 mid-stack on InfoVQA/VQAv2). Earlier "OneVision = late-layer model-specific" claim is partially correct: model architecture sets the layer band, but dataset content modulates which sub-band activates. Paper §7.2 needs to surface this dual conditioning.
+
+Other panel models show stable peak (gemma4-e4b L=5 across all 4 datasets — most consistent). llava-1.5-7b stable except PlotQA. fastvlm + convllava show small dataset variation.
+
+### A.5 Phase E E1d causal ablation OneVision × 4 datasets (commit `7a27750` + `2d11876`)
+
+Per-mode direction-follow rate at OneVision Main (`outputs/causal_ablation/_summary/per_model_per_mode.csv`):
+
+| Mode | TallyQA | InfoVQA | ChartQA | MathVista |
+|---|---:|---:|---:|---:|
+| baseline | 0.000 | 0.000 | 0.000 | 0.000 |
+| ablate_peak (L=27) | 0.000 | 0.000 | 0.000 | 0.000 |
+| ablate_upper_half | 0.000 | 0.000 | 0.000 | 0.000 |
+
+Note: OneVision baseline df is computed from intervention pipeline differently than from baseline run — the analyzer's stratification logic doesn't fit OneVision's susceptibility CSV well. The other panel models (5 mech) show clean **−4 to −10pp upper-half ablation** effects. Refining OneVision E1d aggregation is a Phase 3 follow-up. Raw predictions are present and correct in `outputs/causal_ablation/llava-onevision-qwen2-7b-ov/<run>/predictions.jsonl`.
+
+---
+
+## §B. Historical reference numbers (C-form re-aggregation, 2026-04-28)
 
 > Extracted from `references/roadmap.md §3.3` on 2026-04-29 to keep the
-> roadmap lightweight. Re-aggregate from raw `predictions.jsonl` via
-> `scripts/reaggregate_paired_adoption.py` if numbers drift.
+> roadmap lightweight.
 
-All numbers below use the canonical M2 metrics from `roadmap.md §4` with the
-`direction_follow_rate` numerator in **C-form**: `(pa-pb)·(anchor-pb) > 0`.
 Pre-refactor results archived at `outputs/before_C_form/`; side-by-side
 deltas in `docs/insights/C-form-migration-report.md`. Adopt and
 exact-match are unchanged by the refactor; only `direction_follow*`

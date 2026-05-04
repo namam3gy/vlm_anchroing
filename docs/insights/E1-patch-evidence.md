@@ -1,4 +1,14 @@
-# E1-patch — Digit-pixel attention concentration (4-model panel)
+# E1-patch — Digit-pixel attention concentration (5-model panel + OneVision)
+
+> **2026-05-04 update — Phase D shipped 24/24 cells on 5-panel × 4 datasets + OneVision × 4 datasets.**
+>
+> Mech panel finalised at **5 models**: gemma4-e4b, llava-1.5-7b, convllava-7b, fastvlm-7b, **internvl3-8b** (perfect-square 27×27 grid, added to mech panel 2026-05-04 — was previously appendix-only). OneVision Main added via AnyRes per-image bbox routing (lite_eager monkey-patch). llava-next-interleaved-7b is NOT in the mech panel (low resolution, 2026-05-04 user decision).
+>
+> **Cross-dataset finding (2026-05-04, new)**: OneVision peak attention layer is **dataset-dependent**: L=27 (last layer) on PlotQA + TallyQA, L=14 (mid-stack) on InfoVQA + VQAv2. See `docs/insights/headline-numbers.md §A.4` for the full per-(model, dataset) peak layer matrix. Cross-dataset comparison via `scripts/analyze_cross_dataset_peaks.py` (CSV at `docs/insights/_data/cross_dataset_peaks.csv`, gitignored).
+>
+> Phase D full attention data: `outputs/attention_analysis/<model>/<run>/per_step_attention.jsonl` for each (model, dataset) cell. Re-aggregate via `scripts/analyze_attention_per_layer.py` + `scripts/analyze_cross_dataset_peaks.py`.
+>
+> ---
 
 **Status:** POC (2026-04-29) extended to a **4-model panel** the same
 day on the perfect-square subset of the E1 mechanism panel. Source:
