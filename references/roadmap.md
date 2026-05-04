@@ -43,10 +43,10 @@ Predictions are written `pred_b / pred_a / pred_m / pred_d`; ground truth is
 | **H1** | Anchor pulls the prediction beyond the neutral baseline | `direction_follow_rate(a) ≤ direction_follow_rate(d) + chance` | ✅ all 7 main models, all 3 E5e models — `direction_follow_rate(a) > direction_follow_rate(d)` significantly |
 | **H2** | Anchoring is asymmetric: stronger on items the model originally got wrong | `direction_follow_rate(a)` for wrong-base ≤ correct-base | ✅ Phase A `A1`: +6.9 to +19.6 pp wrong > correct on direction-follow; M2 §5.1 confirms +0.040 mean wrong-correct gap on adopt at S0/S1 cells (22/22 wins) |
 | **H3** ❌ | ConvNeXt / encoder-free encoders less susceptible than ViT | `adopt_rate(ConvNeXt)` ≈ `adopt_rate(ViT)` | ❌ Falsified at adoption (E2 pilot 2026-04-24) and per-layer levels (E1b: ConvLLaVA's peak layer L16, signature identical to LLaVA-1.5 CLIP-ViT). Replaced by depth-axis framing (E1c) |
-| **H4** | Reasoning / thinking-mode reduces anchoring | thinking-on `df` ≤ thinking-off `df` | ⚠ Untested. VLMBias / LRM-judging suggests reasoning may *amplify* — write β experiment direction-agnostic |
+| **H4** | Reasoning / thinking-mode reduces anchoring | thinking-on `df` ≤ thinking-off `df` | ❌ Falsified, *amplification*. E5e γ-β on Qwen3-VL-8B Instruct vs Thinking on MathVista (`E5e-mathvista-reasoning-evidence.md`): ×2.9 df all-base, ×12.7 df on correct-base. H2 wrong > correct asymmetry collapses in thinking mode. Same direction as VLMBias / Wang LRM-judging. |
 | **H5** | "No-hedging" prompt amplifies anchor pull on uncertain items | `direction_follow` increases under strengthen | ⚠ Suggestive (gemma3-27b-it strengthen `mean_distance_to_anchor` = 2617 → hallucination, not anchor pull). Folded into §"strengthen anomaly" caveat |
 | **H6** | Cross-modal failures decouple into two orthogonal axes — `anchor-pull` vs. `multi-image distraction` | `adopt_rate(a)` and `acc_drop_d_vs_b` perfectly correlated → H6 fails | ✅ Suggested by E2 pilot (InternVL3 = high acc_drop / low adopt; LLaVA-1.5 = low acc_drop / high adopt; ConvLLaVA = both). Confirmed at full E4 Phase 2 scale |
-| **H7** ⚙ | `direction_follow_rate` is monotonic with `pred_b`-token logit / probability — i.e. uncertainty modulates anchor pull on a **continuous** confidence scale, of which wrong/correct (H2) is a coarse projection | `direction_follow_rate` flat across confidence quartiles | ☐ Pending §6 analysis (data captured commit `5f925b2`, no analysis yet) |
+| **H7** ⚙ | `direction_follow_rate` is monotonic with `pred_b`-token logit / probability — i.e. uncertainty modulates anchor pull on a **continuous** confidence scale, of which wrong/correct (H2) is a coarse projection | `direction_follow_rate` flat across confidence quartiles | ✅ Confirmed for non-reasoning panel — `L1-confidence-modulation-evidence.md` reports `entropy_top_k` Q4 − Q1 mean df = +0.152 on E5b/E5c/E5e, 23/35 anchor cells fully monotone. **Boundary case**: H7 monotonicity *collapses* under reasoning mode (`E5e-mathvista-reasoning-evidence.md` §3.1) and is panel-side compressed on InternVL3-8b (`E7-plotqa-infovqa-evidence.md` §4) — both deserve §6 prose paragraph distinguishing "uncertainty-modulated graded pull" from "reasoning-induced graded pull". |
 
 ## 3. Status snapshot — where we are (2026-05-04 — Phase 1 P0 v3 complete)
 
@@ -277,8 +277,8 @@ the coarsest possible projection of this monotonicity.
 |---|---|---|
 | **L1** | per-token logit / softmax-prob already captured (commit `5f925b2`) on E5b/E5c/E5e + 7 main runs | ✅ data |
 | **L2** | confidence-proxy menu — `top1_softmax_prob`, `top1_minus_top2_margin`, `entropy_top_k` — `scripts/analyze_confidence_anchoring.py` | ✅ landed 2026-04-29 |
-| **L3** | per-confidence-quartile `adopt_rate` and `direction_follow_rate` table, model × dataset; compare to A1 binary split | ✅ 112,008 (sample × arm) records over 34 cells; `_data/L1_*.csv` |
-| **L4** | report — pick the proxy + quartile shape with cleanest monotone trend; lift over A1 | ✅ `docs/insights/L1-confidence-modulation-evidence.md` — `entropy_top_k` wins; Q4 − Q1 mean df = +0.152 (C-form refreshed), 23/35 anchor cells fully monotone |
+| **L3** | per-confidence-quartile `adopt_rate` and `direction_follow_rate` table, model × dataset; compare to A1 binary split | ✅ 695,004 (sample × arm) records over 85 anchor cells (5-dataset × 7-model expansion 2026-05-04); `_data/L1_*.csv` |
+| **L4** | report — pick the proxy + quartile shape with cleanest monotone trend; lift over A1 | ✅ `docs/insights/L1-confidence-modulation-evidence.md` — under `log_prob_sum` Q4 − Q1 mean df = **+0.191** (51/85 monotone, 60 %); `cross_entropy` is the paper-clean default at +0.156 (43/85). **InternVL3-8b shows H7 reversal** on PlotQA (Δ −0.134), ChartQA (Δ −0.089), InfoVQA (Δ −0.156) — same model with H2 collapse in `E7-plotqa-infovqa-evidence.md` §4. New §2.E in L1 doc. |
 | **L5** | re-cast §6 narrative — "wrong/correct gap is a coarse projection of confidence monotonicity" | ✅ paper draft `docs/paper/sections/06_confidence.md` |
 | **L6** | VQAv2 main panel logit re-run (no logit capture pre-commit `5f925b2`) | ☐ P1 — opportunistic |
 
@@ -475,6 +475,17 @@ landed (commit `c556fb6`). Phase E E1d 4/4 landed (commits `7a27750` +
     +0.008 PlotQA / +0.024 InfoVQA — panel-side analogue of the thinking-mode
     H2 collapse); (3) 6/7 PlotQA models show **em(a) > em(b) un-mitigated
     free-lunch**, motivating §7.4.5 E6 mitigation.
+  - **§6 confidence quartile reaggregation on 5-dataset × 7-model matrix.**
+    Ran `scripts/recompute_answer_span_confidence.py` on 172 jsonl files
+    (added length-normalised proxies to runs lacking `answer_span_*` fields)
+    + `scripts/analyze_confidence_anchoring.py`. Coverage 35 → 85 anchor
+    cells; df Q4 − Q1 = +0.191 on `log_prob_sum` (51/85 monotone), +0.156
+    on `cross_entropy` paper-default (43/85). New §2.E in
+    `L1-confidence-modulation-evidence.md` documents **InternVL3-8b H7
+    reversal** on PlotQA / ChartQA / InfoVQA — least-confident records
+    anchor *less*, not more (Δ −0.089 to −0.156). Same model with
+    panel-side H2 collapse. §2 H7 row updated from ☐ to ✅ with boundary
+    cases noted; H4 row flipped to ❌ (γ-β amplification finding).
   - **OneVision Phase E E1d analyzer fix** (commits `a7e391c`, `de1f94e`):
     `analyze_causal_ablation.py` now emits per-(model, dataset) cells with
     OneVision dataset routing (hardcoded timestamp map + susceptibility-CSV

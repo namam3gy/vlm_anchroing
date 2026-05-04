@@ -1,5 +1,24 @@
 # L1 — Confidence-modulated anchoring (§6 of the paper)
 
+> **2026-05-04 update.** Re-aggregated on the **5-dataset × 7-model**
+> Phase 1 P0 v3 main matrix (was 4-dataset × 1-3 model). Coverage now:
+> 85 anchor cells across {VQAv2, TallyQA, ChartQA, MathVista, PlotQA,
+> InfoVQA} × {llava-interleave-7b, llava-onevision-7b, gemma3-4b-it,
+> gemma3-27b-it, internvl3-8b, qwen2.5-vl-7b, qwen2.5-vl-32b}. Best
+> proxy is now **`log_prob_sum`** (sequence-level confidence,
+> length-aware): mean `direction_follow_rate` Q4 − Q1 = **+0.191**,
+> **51/85 anchor cells fully monotone** (60 %). The shorter
+> `cross_entropy` proxy is the paper-clean default (length-invariant,
+> Q4 − Q1 = +0.156, 43/85 monotone). The qualitative
+> "uncertainty-modulated graded pull, with wrong/correct as coarse
+> binary projection" finding survives the expansion. **New finding
+> §3.3: InternVL3-8b shows H7 *reversal* on chart-stack datasets** —
+> least-confident records (Q4) anchor *less*, not more, on PlotQA / ChartQA.
+> Same model has near-zero wrong − correct gap on those datasets
+> (`E7-plotqa-infovqa-evidence.md` §4). Per-cell CSV refreshed at
+> `_data/L1_confidence_quartile_long.csv`; per-proxy summary at
+> `_data/L1_proxy_monotonicity.csv`.
+
 > **2026-04-28 update.** Re-run on C-form re-aggregated data: the
 > headline claim is *strengthened*. With `entropy_top_k`, mean
 > `direction_follow_rate` Q4 − Q1 = **+0.152** (was +0.128 under
@@ -10,6 +29,7 @@
 > "uncertainty-modulated graded pull, with wrong/correct as a coarse
 > binary projection" — survives unchanged. Figure
 > `paper_L1_confidence_quartile.png` regenerated against the new CSV.
+> *(2026-05-04 supersession: see top.)*
 
 ## §0. Intuition — what this analysis measures, in plain terms
 
@@ -235,6 +255,71 @@ Q1 is 0.20-0.30 vs. Q4 at 0.05-0.15. Likely a small-n artefact: per
 small validation set is noisier than on the larger experimental panels.
 The E5d cells are excluded from the headline trend table; their pattern
 will firm up if MathVista (γ-α / γ-β) replaces E5d at full scale.
+
+## 2.E. 5-dataset × 7-model expansion (2026-05-04, `cross_entropy` proxy)
+
+The §6 main panel now covers 7 models on 5 datasets (the same matrix used
+in §3.3 / §5; see `phase1-p0-v3-summary.md`). Per-cell `direction_follow`
+Q4 − Q1 on the S1 anchor arm under the paper-default `cross_entropy`
+proxy:
+
+| dataset | model | df Q1 | df Q4 | Δ |
+|---|---|---:|---:|---:|
+| TallyQA | gemma3-27b-it | 0.012 | 0.212 | **+0.200** |
+| TallyQA | gemma3-4b-it | 0.036 | 0.205 | +0.169 |
+| TallyQA | internvl3-8b | 0.003 | 0.151 | +0.149 |
+| TallyQA | llava-onevision-7b-ov | 0.008 | 0.087 | +0.080 |
+| TallyQA | qwen2.5-vl-7b-instruct | 0.002 | 0.101 | +0.099 |
+| TallyQA | qwen2.5-vl-32b-instruct | 0.006 | 0.108 | +0.102 |
+| ChartQA | gemma3-27b-it | 0.000 | 0.323 | **+0.323** |
+| ChartQA | gemma3-4b-it | 0.045 | 0.305 | +0.260 |
+| **ChartQA** | **internvl3-8b** | **0.089** | **0.000** | **−0.089** |
+| ChartQA | llava-onevision-7b-ov | 0.000 | 0.194 | +0.194 |
+| ChartQA | qwen2.5-vl-7b-instruct | 0.000 | 0.217 | +0.217 |
+| ChartQA | qwen2.5-vl-32b-instruct | 0.000 | 0.163 | +0.163 |
+| MathVista | gemma3-4b-it | 0.174 | 0.584 | **+0.410** |
+| MathVista | gemma3-27b-it | 0.033 | 0.462 | +0.429 |
+| MathVista | internvl3-8b | 0.078 | 0.200 | +0.122 |
+| MathVista | qwen2.5-vl-32b-instruct | 0.000 | 0.236 | +0.236 |
+| PlotQA | gemma3-4b-it | 0.092 | 0.479 | **+0.387** |
+| PlotQA | gemma3-27b-it | 0.003 | 0.338 | +0.336 |
+| **PlotQA** | **internvl3-8b** | **0.134** | **0.000** | **−0.134** |
+| PlotQA | qwen2.5-vl-32b-instruct | 0.000 | 0.176 | +0.176 |
+| InfoVQA | gemma3-27b-it | 0.019 | 0.454 | **+0.435** |
+| InfoVQA | gemma3-4b-it | 0.068 | 0.406 | +0.338 |
+| **InfoVQA** | **internvl3-8b** | **0.186** | **0.030** | **−0.156** |
+
+(Full 85-cell table in `_data/L1_confidence_quartile_long.csv`.)
+
+**InternVL3-8b shows H7 reversal on 3 of 5 datasets (PlotQA / ChartQA /
+InfoVQA).** Least-confident records anchor *less*, not more — the most
+confident records (Q1) are pulled hardest. This is the panel-side
+analogue of the same model's H2 collapse (near-zero wrong − correct
+gap on the same datasets, see `E7-plotqa-infovqa-evidence.md` §4).
+
+Two readings consistent with the rest of the panel:
+
+1. **Robustness via format-locking, not graded-uncertainty modulation.**
+   InternVL3 emits "Based on..." prose despite the JSON-strict prompt
+   (~30 % parse-failure on E4 Phase 1, see roadmap §9). When confidence
+   is high, the model emits whatever its prose preamble says; when
+   confidence is low, the prose more often contains the *gt* string
+   rather than the anchor — so the anchor "doesn't stick" on Q4 the
+   way it does for other models. Tests: re-run InternVL3 with
+   `--max-new-tokens 16` to capture more of the prose tail.
+2. **Selection effect from baseline em.** InternVL3's `em(b)` is very
+   low on chart-stack datasets (PlotQA 0.019, ChartQA ~0.05). The
+   high-confidence records (Q1) are over-represented among the few
+   correct-base sids; on those, the model trusts its parse more,
+   making Q1 *more* anchor-vulnerable. Tests: stratify InternVL3 cells
+   by `base_correct` first, then by quartile within each.
+
+The reversal **does not propagate** into the panel mean (51/85 still
+monotone); it's an InternVL3-specific anomaly. But the §6 prose should
+acknowledge it as a cell where the "graded confidence pull" reading
+breaks down, similar to the E5e γ-β reasoning-mode cell
+(`E5e-mathvista-reasoning-evidence.md` §3.1) — different mechanism,
+same surface symptom.
 
 ## 3. Why direction-follow modulation is bigger than adopt modulation
 
