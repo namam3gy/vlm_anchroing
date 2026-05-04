@@ -124,7 +124,7 @@ in-flight · ☐ not started.
 | `experiment_e5e_chartqa_full` | ChartQA | b/a/m/d (S1) | llava-interleave-7b, qwen2.5-vl-7b, gemma3-27b-it | ✅ |
 | `experiment_e5e_tallyqa_full` | TallyQA | b/a/m/d (S1) | same 3 | ✅ — gemma3-27b cell landed 2026-04-29 (inference 2026-04-28 23:28, C-form re-aggregation 2026-04-29) |
 | `experiment_e5e_mathvista_full` (γ-α) | MathVista | b/a/m/d (S1) | llava-interleave-7b, qwen2.5-vl-7b, gemma3-27b-it | ✅ landed 2026-04-29 — `docs/insights/E5e-mathvista-evidence.md` |
-| MathVista (γ-β) reasoning-mode | MathVista | b/a/m/d (S1) | qwen3-vl-8b-instruct + qwen3-vl-8b-thinking | ✅ landed 2026-04-28 — thinking *amplifies* anchor pull (S1 anchor arm, all-base, n=365: instruct adopt(a)=0.074 df(a)=0.102 → thinking adopt(a)=0.117 df(a)=0.291; ratios ×1.6 adopt, ×2.9 df). VLMBias / LRM-judging gain confirmed |
+| MathVista (γ-β) reasoning-mode | MathVista | b/a/m/d (S1) | qwen3-vl-8b-instruct + qwen3-vl-8b-thinking | ✅ landed 2026-04-28; full evidence doc `docs/insights/E5e-mathvista-reasoning-evidence.md` 2026-05-04 — all-base ratio ×1.6 adopt / ×2.9 df hides a much stronger correct-base ×12.7 df amplification (instruct df_correct=0.021 → thinking df_correct=0.267); H2 wrong > correct asymmetry collapses in thinking, evidence that H7 confidence-monotonicity (L1) breaks down with chain-of-thought |
 | VQAv2 4-condition (b/a/m/d) | VQAv2 | full grid cross-model | TBD | ☐ P1 (kept, time-permitting) |
 
 ### 3.2 Mechanistic runs
@@ -263,7 +263,7 @@ robustness).
 | **E5e S1-only cross-model** | b/a/m/d × ChartQA + TallyQA × 3 models | ✅ |
 | **E5b/c cross-model expansion** | extend E5b + E5c to 3-model E5e panel (qwen2.5-vl-7b, gemma3-27b-it ∪ llava-interleave-7b) on VQAv2 + TallyQA | ✅ 3/3 — qwen2.5-vl-7b landed 2026-04-29 (a−m at floor on both datasets); gemma3-27b-it landed 2026-04-29 (VQAv2 n=12,000 full; TallyQA at `max_samples=300`, n=3,600). Headline: VQAv2 `a−m` = +5.7 pp adopt / +6.0 pp df (second-largest, behind llava); TallyQA `a−m` = +2.1 pp adopt / df-tie. Direction-consistent with main-panel ranking |
 | **E5e MathVista (γ-α)** | MathVista b/a/m/d (S1) × 3 models | ✅ landed 2026-04-29; **C-form refresh 2026-04-28**: gemma3-27b wrong-base S1 `adopt(a) = 0.230`, `df(a) = 0.332` (panel-largest cell). All 3 models in graded-tilt regime under C-form (df > 0 universally); pre-refactor "categorical-replace df=0" reading was a driver-bug artefact, retracted in `E5e-mathvista-evidence.md` §5 |
-| **E5e MathVista (γ-β)** | reasoning-mode VLM × MathVista — Qwen3-VL-8B-Instruct vs. Qwen3-VL-8B-Thinking (separate weights), 4-cond S1, max_new_tokens=512, runner is `</think>`-aware | ✅ landed 2026-04-28. Headline (C-form, S1 anchor arm, all-base, n=365): instruct adopt(a)=0.074 / df(a)=0.102, thinking adopt(a)=0.117 / df(a)=0.291. Thinking amplifies anchor pull (×1.6 adopt, ×2.9 df) — direction-agnostic hypothesis (H4) lands on the *amplification* side, consistent with VLMBias / Wang LRM-judging |
+| **E5e MathVista (γ-β)** | reasoning-mode VLM × MathVista — Qwen3-VL-8B-Instruct vs. Qwen3-VL-8B-Thinking (separate weights), 4-cond S1, max_new_tokens=512, runner is `</think>`-aware | ✅ landed 2026-04-28; full evidence doc `docs/insights/E5e-mathvista-reasoning-evidence.md` (2026-05-04). Headline (C-form, S1 anchor arm, all-base, n=365): instruct adopt(a)=0.074 / df(a)=0.102, thinking adopt(a)=0.117 / df(a)=0.291 (×1.6 adopt, ×2.9 df). **Wrong / correct split**: instruct df(a) wrong=0.256 / correct=0.021; thinking df(a) wrong=0.327 / correct=0.267 — correct-base ratio ×12.7. H2 wrong > correct asymmetry collapses in reasoning mode → first cell where the H7 continuous-confidence monotonicity (`L1-confidence-modulation-evidence.md`) is empirically violated |
 | **VQAv2 4-condition** | b/a/m/d cross-model VQAv2 | ☐ P1 (kept) |
 
 ### 6.4 §6 — Confidence-modulated anchoring (logit-based)
@@ -458,6 +458,35 @@ landed (commit `c556fb6`). Phase E E1d 4/4 landed (commits `7a27750` +
   `predictions.jsonl` only.
 
 ## 10. Changelog
+
+- **2026-05-04 ~17:30 (Phase 2 insight mining batch 1).** Audit pass on
+  experiments that had outputs but no full insight write-up. Landed:
+  - **E5e γ-β reasoning evidence doc** (`docs/insights/E5e-mathvista-reasoning-evidence.md` +
+    `notebooks/E5e_reasoning_ablation.ipynb` +
+    `_data/experiment_e5e_mathvista_reasoning_per_cell.csv`). Wrong-base / correct-base
+    split surfaced — correct-base df ratio is **×12.7** (instruct 0.021 → thinking 0.267),
+    much stronger than the all-base ×2.9 headline. Direct violation of H7 confidence
+    monotonicity in reasoning mode.
+  - **OneVision Phase E E1d analyzer fix** (commits `a7e391c`, `de1f94e`):
+    `analyze_causal_ablation.py` now emits per-(model, dataset) cells with
+    OneVision dataset routing (hardcoded timestamp map + susceptibility-CSV
+    auto-detect fallback). Reaggregated 5 OneVision Phase E run dirs to add
+    M2 / C-form per-row flags.
+  - **OneVision Phase E E1d INFERENCE bug** (commit `8895128`): bisected the
+    "ablation no-op on 4/4 datasets" symptom to commit `7f8ebb6` (May 3 07:23 KST,
+    "switch to SDPA"). Empirical verification on 5 chartqa sids: eager 3/5 differ
+    vs sdpa 1/5 — SDPA dispatch silently drops the `attention_mask` bias from
+    `_make_anchor_mask_hook`. The orphaned PlotQA run 20260503-002050 (eager
+    pre-commit) has 26-36 % differing — the expected level. New
+    `--attn-implementation` flag added; eager re-run launched
+    (`scripts/_phase2_e1d_eager_rerun.sh` ~2-3h wall on H200 for the 4
+    headline datasets).
+  - Blast-radius audit: SDPA-mask-bias bug confined to `causal_anchor_ablation.py`.
+    E4 attention re-weighting uses `build_eager_runner` explicitly. E6 family
+    (steering / leace / cogbias / qao) hooks layer output, not attention_mask.
+    §7.1-7.3 attention extraction (`extract_attention_mass.py`) uses
+    `lite_eager` monkey-patch on a separate dispatch path that reads attention
+    output rather than modifying input mask. None affected.
 
 - **2026-05-04 ~10:31 (Phase 2 E5b 5-stratum cross-dataset, OneVision Main).**
   Queue script `scripts/_phase1_e5b_5strat_onevision_queue.sh` ran 4
