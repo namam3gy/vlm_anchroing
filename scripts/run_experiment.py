@@ -68,6 +68,8 @@ def parse_args() -> argparse.Namespace:
     # the sharded driver to land each shard in its own subdir while sharing
     # one timestamp at the parent level.
     parser.add_argument("--output-dir", type=str, default=None)
+    parser.add_argument("--max-new-tokens", type=int, default=None,
+                        help="Override sampling.max_new_tokens from config (e.g. 16 for InternVL3 prose-leak test).")
     return parser.parse_args()
 
 
@@ -79,6 +81,9 @@ def main() -> None:
         config_path = resolve_path(args.config, base_dir=project_root)
     cfg = load_yaml(config_path)
     set_seed(cfg["seed"])
+    if args.max_new_tokens is not None:
+        cfg.setdefault("sampling", {})["max_new_tokens"] = int(args.max_new_tokens)
+        print(f"[setup] max_new_tokens overridden via CLI: {args.max_new_tokens}")
 
     output_root = (
         resolve_path(args.output_root, base_dir=Path.cwd())
