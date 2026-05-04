@@ -294,6 +294,15 @@ def _parse_args() -> argparse.Namespace:
         default="baseline,ablate_peak,ablate_peak_window,ablate_lower_half,ablate_upper_half,ablate_all",
         help="Comma-separated ablation modes to run."
     )
+    parser.add_argument(
+        "--attn-implementation", type=str, default="sdpa", choices=["sdpa", "eager"],
+        help="Attention implementation. SDPA is ~2-3x faster but on certain "
+             "architectures (notably OneVision AnyRes) the SDPA dispatch path "
+             "can ignore the attention_mask bias added by _make_anchor_mask_hook, "
+             "making the ablation a no-op. Use 'eager' to verify or for a "
+             "guaranteed-correct run. Has no effect on ConvLLaVA / FastVLM / "
+             "LLaVA-Qwen which always use the bespoke eager runners."
+    )
     # Sharding (multi-GPU fan-out, same scheme as run_experiment.py).
     parser.add_argument("--shard-idx", type=int, default=None)
     parser.add_argument("--num-shards", type=int, default=None)
@@ -354,17 +363,23 @@ def main() -> None:
         top_p=sampling["top_p"],
         max_new_tokens=sampling["max_new_tokens"],
     )
-    print(f"[setup] loading {args.hf_model} (eager attention)")
+    print(f"[setup] loading {args.hf_model} (attn_implementation={args.attn_implementation})")
     # E1d ablation hooks the attention module's attention_mask kwarg before
-    # forward — works identically with eager and sdpa attention. SDPA is
-    # ~2-3x faster on long-sequence forwards, so use it. Falls back to the
-    # legacy eager path for ConvLLaVA / FastVLM (which build_runner doesn't
-    # cover): for those, build_eager_runner handles the bespoke loaders.
+    # forward. Empirically, SDPA's dispatch path on OneVision AnyRes silently
+    # drops the bias modification, making every ablate_* mode produce identical
+    # output to baseline (verified 2026-05-04 across 4/4 OneVision Phase E
+    # datasets — tally/info/chart/math show 0-2/200 sids differing). Eager
+    # attention's explicit `(QK^T / sqrt(d)) + attention_mask` add path always
+    # honours the modification.
+    #
+    # ConvLLaVA / FastVLM / LLaVA-Qwen have bespoke loaders covered by
+    # build_eager_runner regardless of the requested backend.
     lower = args.hf_model.lower()
     if "fastvlm" in lower or "llava-qwen" in lower or "convllava" in lower:
         runner = build_eager_runner(args.hf_model, inference_config=inference_cfg)
     else:
-        runner = build_runner(args.hf_model, inference_config=inference_cfg)
+        runner = build_runner(args.hf_model, inference_config=inference_cfg,
+                              attn_implementation=args.attn_implementation)
     image_token_id: int | None = None
     # HFAttentionRunner (sdpa) and EagerAttentionRunner (eager subclass) both
     # use the input_ids + AutoProcessor pipeline. Resolve image_token_id for
