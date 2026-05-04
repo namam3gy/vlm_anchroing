@@ -358,12 +358,56 @@ single-digit answers, so the format-locking pathway is shut off.
 This corroborates hypothesis (a): the reversal correlates with
 datasets where the model is most likely to emit a prose wrapper.
 
-**Takeaway for §6.6 paper prose**: the InternVL3 reversal is a
-*format-locking artefact*, not a confidence-modulation pathology.
-The prose preamble on chart-text-heavy datasets carries the gt for
-high-confidence records and bypasses the anchor for low-confidence
-records. `--max-new-tokens 16` (vs the panel default of 8) is the
-predicted fix; B3 in the priority queue tests this directly.
+**Provisional takeaway for §6.6 paper prose**: hypothesis (b)
+selection effect is falsified; format-locking-via-truncation is the
+remaining candidate. **Updated 2026-05-04** — the B3 follow-up below
+also falsifies the truncation form of hypothesis (a).
+
+#### B3 follow-up (2026-05-04): max-new-tokens 16 does NOT restore monotonicity
+
+Smoke-test of the format-locking hypothesis: re-ran InternVL3-8b on
+InfoVQA with `--max-new-tokens 16` (vs panel default 8) on n=250
+sids; results vs the existing max=8 full run on n=1147:
+
+| condition | max=8 (n=865 wrong) | max=16 (n=193 wrong) |
+|---|---:|---:|
+| Q1 df (most confident) | 0.111 | 0.146 |
+| Q4 df (least confident) | 0.014 | 0.000 |
+| **Δ Q4 − Q1 wrong-base** | **−0.097** | **−0.146** |
+
+| condition | max=8 (n=211 correct) | max=16 (n=38 correct) |
+|---|---:|---:|
+| Q1 df | 0.135 | 0.222 |
+| Q4 df | 0.018 | 0.000 |
+| **Δ Q4 − Q1 correct-base** | **−0.116** | **−0.222** |
+
+The reversal **persists, in fact slightly stronger** at max=16. The
+all-base panel-level df is very close between the two runs
+(max=8: df(a) = 0.155, df(m) = 0.138; max=16: df(a) = 0.180,
+df(m) = 0.185), so max-tokens isn't gating overall anchor behaviour —
+just truncation is not the cause of the Q1 > Q4 inversion.
+
+Both candidate mechanisms (selection effect, format-locking via
+truncation) are now falsified. The InternVL3 chart-stack reversal is
+a genuine "high-confidence records anchor more" pattern. Possible
+remaining mechanisms (left for §8 future work):
+
+- **Confident-confabulation hypothesis.** InternVL3's high-confidence
+  records on chart-stack data are the ones where the gt is plausibly
+  visible in the chart; the model commits to a parse, and the anchor
+  digit gets emitted as the parsed token *because* it matches a
+  visual digit pattern the model was already locked onto. Low
+  confidence → genuine uncertainty → the parsed first digit is
+  whichever number bubbled up from the chart context, often gt-like.
+- **Per-architecture interaction with InternViT-300M.** The other
+  panel models use SigLIP / CLIP-ViT / Qwen-ViT / ConvNeXt; InternVL3
+  is the only InternViT model in our panel. The reversal coincides
+  with this encoder family — a single-model finding that needs
+  cross-encoder testing to be falsifiable.
+
+Paper-side action: cite the reversal as a documented but not yet
+mechanistically explained boundary case. §6.6 paper prose updated to
+match.
 
 ## 3. Why direction-follow modulation is bigger than adopt modulation
 
