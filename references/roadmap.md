@@ -497,9 +497,16 @@ landed (commit `c556fb6`). Phase E E1d 4/4 landed (commits `7a27750` +
     vs sdpa 1/5 — SDPA dispatch silently drops the `attention_mask` bias from
     `_make_anchor_mask_hook`. The orphaned PlotQA run 20260503-002050 (eager
     pre-commit) has 26-36 % differing — the expected level. New
-    `--attn-implementation` flag added; eager re-run launched
-    (`scripts/_phase2_e1d_eager_rerun.sh` ~2-3h wall on H200 for the 4
-    headline datasets).
+    `--attn-implementation` flag added; eager re-run completed
+    (`scripts/_phase2_e1d_eager_rerun.sh` 17:40 → 21:35, ~3h55m on H200).
+    **Final 4-dataset deltas vs baseline df** (`per_model_per_mode.csv`):
+    TallyQA Δ_lower_half=+0.050 / Δ_all=−0.040; MathVista Δ_lower_half=+0.075 /
+    Δ_all=−0.045; ChartQA Δ_lower_half=+0.026 / Δ_all=+0.006; InfoVQA all
+    Δ ≤ |0.008| (minimal). 3/4 datasets reproduce classic E1d signature
+    (mid-stack ablation amplifies, full ablation drops); InfoVQA's flat
+    response is consistent with its Phase D peak at L=14 (the chosen
+    `--peak-layer 27` setting routes ablation through the wrong band).
+    `phase1-p0-v3-summary.md` caveat #2 retired.
   - Blast-radius audit: SDPA-mask-bias bug confined to `causal_anchor_ablation.py`.
     E4 attention re-weighting uses `build_eager_runner` explicitly. E6 family
     (steering / leace / cogbias / qao) hooks layer output, not attention_mask.
