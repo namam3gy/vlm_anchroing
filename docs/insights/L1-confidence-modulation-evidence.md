@@ -321,6 +321,50 @@ breaks down, similar to the E5e γ-β reasoning-mode cell
 (`E5e-mathvista-reasoning-evidence.md` §3.1) — different mechanism,
 same surface symptom.
 
+#### B2 follow-up (2026-05-04): wrong-base / correct-base × quartile decomposition
+
+To distinguish hypotheses (a) and (b), we stratified InternVL3-8b's
+a-arm pair records by `exact_match_b` (correct vs wrong base) before
+computing Q1 / Q4 within each subset. Hypothesis (b) (selection
+effect from very low em(b)) predicts the reversal should *vanish* on
+wrong-base records — that's where the population is large and not
+selected on confidence. Instead:
+
+| dataset | base | n | Q1 df | Q4 df | Δ Q4 − Q1 |
+|---|---|---:|---:|---:|---:|
+| ChartQA | wrong | 514 | 0.117 | 0.000 | **−0.117** |
+| ChartQA | correct | 115 | 0.036 | 0.000 | −0.036 |
+| InfographicVQA | wrong | 861 | 0.158 | 0.005 | **−0.154** |
+| InfographicVQA | correct | 211 | 0.077 | 0.055 | −0.022 |
+| MathVista | wrong | 218 | 0.074 | 0.018 | −0.056 |
+| MathVista | correct | 143 | 0.029 | 0.053 | +0.024 |
+| PlotQA | wrong | **4,610** | 0.046 | 0.000 | −0.046 |
+| PlotQA | correct | 97 | 0.042 | 0.040 | −0.002 |
+| TallyQA | wrong | 6,934 | 0.015 | 0.082 | **+0.067** |
+| TallyQA | correct | 31,311 | 0.002 | 0.054 | +0.052 |
+
+The reversal **persists on wrong-base records** for 4 of 5 datasets
+(ChartQA, InfographicVQA, MathVista, PlotQA). It's actually
+*strongest* on wrong-base for InfoVQA (Δ −0.154 at n=861), strong on
+ChartQA (Δ −0.117 at n=514), and unambiguous on the n=4,610 PlotQA
+wrong-base cell. Hypothesis (b) is **falsified**: the reversal isn't
+a small-sample artefact of the correct-base subset.
+
+TallyQA is the only dataset that retains the normal Q4 > Q1
+direction on InternVL3 (Δ +0.067 wrong, +0.052 correct). TallyQA's
+answer space is 0-9 single digits — the prose preamble that
+dominates other datasets ("Based on...") doesn't materialise around
+single-digit answers, so the format-locking pathway is shut off.
+This corroborates hypothesis (a): the reversal correlates with
+datasets where the model is most likely to emit a prose wrapper.
+
+**Takeaway for §6.6 paper prose**: the InternVL3 reversal is a
+*format-locking artefact*, not a confidence-modulation pathology.
+The prose preamble on chart-text-heavy datasets carries the gt for
+high-confidence records and bypasses the anchor for low-confidence
+records. `--max-new-tokens 16` (vs the panel default of 8) is the
+predicted fix; B3 in the priority queue tests this directly.
+
 ## 3. Why direction-follow modulation is bigger than adopt modulation
 
 `adopt_rate` measures literal-copy events (rare; 2-15 % at S1, near-zero
