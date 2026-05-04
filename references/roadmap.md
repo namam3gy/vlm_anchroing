@@ -101,8 +101,8 @@ in-flight · ☐ not started.
 
 | Experiment | Dataset | Conditions | Models | Status |
 |---|---|---|---|---|
-| `experiment_e7_plotqa_full` | PlotQA test V1 | b/a/m/d (S1) | 6-model main panel | ✅ shipped 2026-05-03 — 6-model × 5-dataset matrix complete |
-| `experiment_e7_infographicvqa_full` | InfographicVQA val | b/a/m/d (S1) | 6-model main panel | ✅ shipped 2026-05-03 |
+| `experiment_e7_plotqa_full` | PlotQA test V1 | b/a/m/d (S1) | 7-model panel | ✅ shipped 2026-05-03; standalone evidence doc `docs/insights/E7-plotqa-infovqa-evidence.md` 2026-05-04 — 7-model wrong-base df ranking, gemma3 anti-scaling 4B (0.395) > 27B (0.227), internvl3-8b H2 collapse (wrong−correct gap +0.008), 6/7 models show em(a) > em(b) free-lunch baseline |
+| `experiment_e7_infographicvqa_full` | InfographicVQA val | b/a/m/d (S1) | 7-model panel | ✅ shipped 2026-05-03; covered jointly in `E7-plotqa-infovqa-evidence.md` — gemma3 anti-scaling reverses (4B 0.324 < 27B 0.350), free-lunch claim doesn't generalise here (mixed em deltas) |
 | E5b/c PlotQA + InfoVQA + ChartQA + MathVista 3-model | 4 datasets | b + 5×a-strat + 5×m-strat + d | same 3 | 🟡 Phase 2 — OneVision Main shipped 2026-05-04 (4/4 datasets, 12-cond × 4 = 85,258 records). adopt monotonic decay S1→S5 on every dataset; df gentle decay (-0.04 to -0.06) on 3/4 (MathVista flat); em stable. Plausibility-window claim replicates at full GT range on a second architecture. Doc: `docs/insights/E5b-cross-dataset-onevision.md`, generator: `scripts/build_e5b_5strat_decay_summary.py`. 3-model expansion still pending (defer; OneVision is the §5 headline) |
 | E6 Subspace recalibration on PlotQA + InfoVQA pooled, 5-dataset full-range eval | 5 datasets | b/a/m/d (S1) + cell sweep | Main only | ✅ shipped — chosen L=26 K=8 α=1.0; Stage 4-final eval done. **Bonus em(b) +9.2pp** finding for paper §7.4 task #38 |
 | Phase D §7.1-7.3 cross-dataset attention | 4 datasets (Tally/Plot/Info/VQAv2) | b/a/m/d (S1) | 5-panel + OneVision = 6 models | ✅ shipped 2026-05-03 — 24/24 cells; cross-dataset peaks via `analyze_cross_dataset_peaks.py` |
@@ -467,6 +467,14 @@ landed (commit `c556fb6`). Phase E E1d 4/4 landed (commits `7a27750` +
     split surfaced — correct-base df ratio is **×12.7** (instruct 0.021 → thinking 0.267),
     much stronger than the all-base ×2.9 headline. Direct violation of H7 confidence
     monotonicity in reasoning mode.
+  - **E7 PlotQA + InfoVQA standalone evidence doc**
+    (`docs/insights/E7-plotqa-infovqa-evidence.md` +
+    `notebooks/E7_plotqa_infovqa.ipynb`). Surfaces 3 findings the §3.3
+    umbrella hides: (1) Gemma3 anti-scaling is **PlotQA-driven** and reverses
+    on InfoVQA; (2) **InternVL3-8b shows H2 collapse** (wrong−correct df gap
+    +0.008 PlotQA / +0.024 InfoVQA — panel-side analogue of the thinking-mode
+    H2 collapse); (3) 6/7 PlotQA models show **em(a) > em(b) un-mitigated
+    free-lunch**, motivating §7.4.5 E6 mitigation.
   - **OneVision Phase E E1d analyzer fix** (commits `a7e391c`, `de1f94e`):
     `analyze_causal_ablation.py` now emits per-(model, dataset) cells with
     OneVision dataset routing (hardcoded timestamp map + susceptibility-CSV
