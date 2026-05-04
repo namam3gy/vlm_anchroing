@@ -103,7 +103,30 @@ def _latest_run(model: str) -> Path | None:
     return runs[-1] if runs else None
 
 
-def _load_model(model: str) -> pd.DataFrame | None:
+def _detect_dataset_via_susceptibility(qids: set[int],
+                                       susc_per_ds: dict[str, dict[int, str]]) -> str | None:
+    """Match qids against per-dataset OneVision susceptibility CSVs and return
+    the dataset with the most overlap (≥ 50% of qids match).
+
+    Used as fallback when a multi-dataset run dir's timestamp isn't in the
+    hardcoded ``ONEVISION_RUN_DATASET`` map (e.g. for re-runs added after the
+    map was last updated).
+    """
+    if not qids:
+        return None
+    best_ds = None
+    best_overlap = 0
+    for ds, csv_map in susc_per_ds.items():
+        overlap = len(qids & set(csv_map.keys()))
+        if overlap > best_overlap:
+            best_overlap = overlap
+            best_ds = ds
+    if best_ds and best_overlap >= len(qids) // 2:
+        return best_ds
+    return None
+
+
+def _load_model(model: str, susc_per_ds: dict[str, dict[int, str]] | None = None) -> pd.DataFrame | None:
     """Load predictions from ALL run dirs and dedupe by (sample, condition, mode).
 
     Later runs (sorted by directory name, which is a timestamp) override earlier ones for
@@ -111,8 +134,9 @@ def _load_model(model: str) -> pd.DataFrame | None:
     control runs (e.g. ablate_layer0) on top of an earlier multi-mode run.
 
     Multi-dataset models (Phase E OneVision, see ``MULTI_DATASET_MODELS``) are
-    tagged with a ``dataset`` column derived from the run timestamp. Other models
-    get ``dataset = "vqav2"`` (the legacy single-dataset E1d setup).
+    tagged with a ``dataset`` column derived from the run timestamp; if the
+    timestamp isn't in the hardcoded map, fall back to qid-set matching against
+    per-dataset susceptibility CSVs. Other models get ``dataset = "vqav2"``.
     """
     runs = _all_runs(model)
     if not runs:
@@ -125,9 +149,18 @@ def _load_model(model: str) -> pd.DataFrame | None:
             continue
         if run_to_dataset is not None:
             dataset = run_to_dataset.get(run_dir.name)
-            if dataset is None:
-                # Unknown timestamp for a multi-dataset model — skip rather than
-                # silently merge into a wrong cell.
+            if dataset is None and susc_per_ds:
+                # Detect via susceptibility CSV qid intersection.
+                qids: set[int] = set()
+                for line in path.read_text().splitlines():
+                    if line.strip():
+                        qids.add(int(json.loads(line)["question_id"]))
+                dataset = _detect_dataset_via_susceptibility(qids, susc_per_ds)
+                if dataset is None:
+                    print(f"[{model}] {run_dir.name}: dataset unknown — skipping")
+                    continue
+                print(f"[{model}] {run_dir.name}: auto-detected dataset={dataset}")
+            elif dataset is None:
                 continue
         else:
             dataset = "vqav2"
@@ -311,7 +344,7 @@ def main() -> None:
     per_model_rows: list[dict] = []
     stratum_rows: list[dict] = []
     for model in PANEL_MODELS:
-        df = _load_model(model)
+        df = _load_model(model, susc_per_ds=susceptibility_per_ds)
         if df is None:
             print(f"[{model}] skipping — no run found")
             continue
