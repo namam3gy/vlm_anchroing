@@ -61,6 +61,7 @@ for the full commit chain. Headlines:
 - **Phase D §7.1-7.3** (commit `c556fb6`): 24/24 cells on disk. New finding via `scripts/analyze_cross_dataset_peaks.py` — OneVision peak layer is **dataset-dependent** (L=27 on Plot/Tally, L=14 on Info/VQAv2).
 - **Phase E E1d causal ablation** (commit `2d11876`): OneVision × {Tally, Info, Chart, Math} 4/4. ChartQA + MathVista re-ran with per-dataset susceptibility CSVs after PlotQA-CSV-reuse bug.
 - **llava-next-interleaved-7b dropped** from main panel (commit `0e7998e`) — low native resolution, not informative for chart/figure datasets.
+- **E5b 5-stratum cross-dataset extension** (Phase 2, 2026-05-04 10:31): OneVision Main on 4 datasets (MathVista, ChartQA, InfoVQA, PlotQA), 12-cond × 4 = 85,258 records. adopt monotonic decay S1→S5 on every dataset; df gentle decay -0.04 to -0.06 on 3/4 (MathVista flat); em stable. Plausibility-window claim replicates at full GT range on a second architecture (the original E5b was llava-interleave on GT≤8). Doc: `docs/insights/E5b-cross-dataset-onevision.md`, generator: `scripts/build_e5b_5strat_decay_summary.py` → `docs/insights/_data/e5b_5strat_decay_per_dataset.{csv,md}`.
 
 ### 3.0 Architecture restructure summary (2026-05-02)
 
@@ -102,7 +103,7 @@ in-flight · ☐ not started.
 |---|---|---|---|---|
 | `experiment_e7_plotqa_full` | PlotQA test V1 | b/a/m/d (S1) | 6-model main panel | ✅ shipped 2026-05-03 — 6-model × 5-dataset matrix complete |
 | `experiment_e7_infographicvqa_full` | InfographicVQA val | b/a/m/d (S1) | 6-model main panel | ✅ shipped 2026-05-03 |
-| E5b/c PlotQA + InfoVQA + ChartQA + MathVista 3-model | 4 datasets | b + 5×a-strat + 5×m-strat + d | same 3 | ☐ Phase 2 (digit-pixel causality breadth — defer; 6-cond expansion was reverted to 4-cond after 30/30 4-cond cells already covered) |
+| E5b/c PlotQA + InfoVQA + ChartQA + MathVista 3-model | 4 datasets | b + 5×a-strat + 5×m-strat + d | same 3 | 🟡 Phase 2 — OneVision Main shipped 2026-05-04 (4/4 datasets, 12-cond × 4 = 85,258 records). adopt monotonic decay S1→S5 on every dataset; df gentle decay (-0.04 to -0.06) on 3/4 (MathVista flat); em stable. Plausibility-window claim replicates at full GT range on a second architecture. Doc: `docs/insights/E5b-cross-dataset-onevision.md`, generator: `scripts/build_e5b_5strat_decay_summary.py`. 3-model expansion still pending (defer; OneVision is the §5 headline) |
 | E6 Subspace recalibration on PlotQA + InfoVQA pooled, 5-dataset full-range eval | 5 datasets | b/a/m/d (S1) + cell sweep | Main only | ✅ shipped — chosen L=26 K=8 α=1.0; Stage 4-final eval done. **Bonus em(b) +9.2pp** finding for paper §7.4 task #38 |
 | Phase D §7.1-7.3 cross-dataset attention | 4 datasets (Tally/Plot/Info/VQAv2) | b/a/m/d (S1) | 5-panel + OneVision = 6 models | ✅ shipped 2026-05-03 — 24/24 cells; cross-dataset peaks via `analyze_cross_dataset_peaks.py` |
 | Phase E E1d causal ablation OneVision × {Tally, Info, Chart, Math} | 4 datasets | sweep × 6 modes | OneVision Main | ✅ shipped 2026-05-03 + 2026-05-04 chart/math recovery |
@@ -457,6 +458,22 @@ landed (commit `c556fb6`). Phase E E1d 4/4 landed (commits `7a27750` +
   `predictions.jsonl` only.
 
 ## 10. Changelog
+
+- **2026-05-04 ~10:31 (Phase 2 E5b 5-stratum cross-dataset, OneVision Main).**
+  Queue script `scripts/_phase1_e5b_5strat_onevision_queue.sh` ran 4
+  datasets (MathVista, ChartQA, InfoVQA, PlotQA) in S1→S5 12-cond
+  (b + a/m × {S1..S5} + d) under `anchor_distance_scheme: relative`. Total
+  85,258 records on 2 H200 with DataLoader prefetch + 2-shard sharding,
+  ~3.5 h wall-clock. Per-cell aggregation via `analyze_e5e_wrong_correct.py`,
+  decay summary via `scripts/build_e5b_5strat_decay_summary.py`. Insight
+  doc: `docs/insights/E5b-cross-dataset-onevision.md`. **Headline**: adopt
+  monotonic decay S1→S5 on every dataset (PlotQA: 8.7 % → 0.7 %, MathVista:
+  10.5 % → 1.6 %, InfoVQA: 4.5 % → 0.2 %, ChartQA: 2.8 % → 0.4 %); df
+  gentle decay (-0.04 to -0.06) on 3/4 datasets, MathVista flat; em stable
+  across strata. Plausibility-window claim replicates at full GT range on
+  a second architecture. Outputs gitignored under
+  `outputs/experiment_e5b_5strat_<ds>_onevision/`. Master merge commit
+  `16aebcf`.
 
 - **2026-05-04 ~02:45 (Phase 1 P0 v3 substantively COMPLETE).** Single-session
   master queue execution + recoveries. All on origin (master + branch pushed
