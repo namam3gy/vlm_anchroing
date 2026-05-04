@@ -56,6 +56,29 @@ MODE_ORDER = [
     "ablate_all",
 ]
 
+# Phase E (Phase 1 P0 v3) ran the Main model OneVision across 4 datasets in
+# separate timestamped run dirs. Other panel models ran on the legacy
+# single-dataset (VQAv2-anchored) E1d. The mapping below partitions
+# OneVision rows by run timestamp so per-(model, dataset) cells can be
+# emitted instead of one all-data row that mixes 4 datasets.
+#
+# 20260503-002050 → plotqa (orphaned ChartQA-with-PlotQA-CSV bug; bonus 5th cell, footnote only)
+# 20260503-111305 → tallyqa
+# 20260503-112116 → infovqa
+# 20260504-015933 → chartqa (recovery, commit 2d11876)
+# 20260504-021140 → mathvista (recovery, commit 2d11876)
+ONEVISION_RUN_DATASET = {
+    "20260503-002050": "plotqa",
+    "20260503-111305": "tallyqa",
+    "20260503-112116": "infovqa",
+    "20260504-015933": "chartqa",
+    "20260504-021140": "mathvista",
+}
+MULTI_DATASET_MODELS = {
+    "llava-onevision-qwen2-7b-ov": ONEVISION_RUN_DATASET,
+}
+HEADLINE_DATASETS = ["tallyqa", "infovqa", "chartqa", "mathvista"]
+
 _NUM_RE = re.compile(r"-?\d+")
 
 
@@ -86,21 +109,35 @@ def _load_model(model: str) -> pd.DataFrame | None:
     Later runs (sorted by directory name, which is a timestamp) override earlier ones for
     overlapping (sample_instance_id, condition, mode) tuples. This lets us layer additive
     control runs (e.g. ablate_layer0) on top of an earlier multi-mode run.
+
+    Multi-dataset models (Phase E OneVision, see ``MULTI_DATASET_MODELS``) are
+    tagged with a ``dataset`` column derived from the run timestamp. Other models
+    get ``dataset = "vqav2"`` (the legacy single-dataset E1d setup).
     """
     runs = _all_runs(model)
     if not runs:
         return None
+    run_to_dataset = MULTI_DATASET_MODELS.get(model)
     rows = []
     for run_dir in runs:
         path = run_dir / "predictions.jsonl"
         if not path.exists():
             continue
+        if run_to_dataset is not None:
+            dataset = run_to_dataset.get(run_dir.name)
+            if dataset is None:
+                # Unknown timestamp for a multi-dataset model — skip rather than
+                # silently merge into a wrong cell.
+                continue
+        else:
+            dataset = "vqav2"
         for line in path.read_text().splitlines():
             if not line.strip():
                 continue
             r = json.loads(line)
             rows.append({
                 "model": r["model"],
+                "dataset": dataset,
                 "sample_instance_id": r["sample_instance_id"],
                 "question_id": int(r["question_id"]),
                 "condition": r["condition"],
@@ -121,26 +158,29 @@ def _load_model(model: str) -> pd.DataFrame | None:
         return None
     df = pd.DataFrame(rows)
     df = df.sort_values("_run_order").drop_duplicates(
-        subset=["sample_instance_id", "condition", "mode"], keep="last"
+        subset=["dataset", "sample_instance_id", "condition", "mode"], keep="last"
     ).drop(columns=["_run_order"])
     return df.reset_index(drop=True)
 
 
 def _build_triplets(df: pd.DataFrame) -> pd.DataFrame:
-    """Build per-(sample_instance_id, mode) rows with base / number / anchor columns.
+    """Build per-(dataset, sample_instance_id, mode) rows with base / number / anchor columns.
 
     base_pred is taken from condition=target_only, mode=baseline (ablations on target_only
     are noops because anchor span is empty for single-image samples, so we can collapse).
+
+    The dataset key is included so multi-dataset models (Phase E OneVision) don't
+    cross-pollinate base preds across datasets even if sids accidentally collide.
     """
     base = (
         df.loc[(df["condition"] == "target_only") & (df["mode"] == "baseline"),
-               ["sample_instance_id", "parsed_number"]]
+               ["dataset", "sample_instance_id", "parsed_number"]]
           .rename(columns={"parsed_number": "base_pred"})
-          .drop_duplicates(subset=["sample_instance_id"])
+          .drop_duplicates(subset=["dataset", "sample_instance_id"])
     )
     num_rows = df.loc[df["condition"] == "target_plus_irrelevant_number"].copy()
     num_rows = num_rows.rename(columns={"parsed_number": "num_pred"})
-    num_rows = num_rows.merge(base, on="sample_instance_id", how="inner")
+    num_rows = num_rows.merge(base, on=["dataset", "sample_instance_id"], how="inner")
     return num_rows
 
 
@@ -232,6 +272,24 @@ def _load_susceptibility() -> dict[int, str]:
     return dict(zip(df["question_id"].astype(int), df["susceptibility_stratum"]))
 
 
+def _load_susceptibility_per_dataset() -> dict[str, dict[int, str]]:
+    """Load per-dataset OneVision susceptibility CSVs.
+
+    Used for OneVision Phase E E1d cells where each dataset has its own
+    top/bottom-decile partition; the legacy single-file
+    ``susceptibility_strata.csv`` is panel-wide and doesn't apply.
+    """
+    out: dict[str, dict[int, str]] = {}
+    data_dir = PROJECT_ROOT / "docs/insights/_data"
+    for ds in HEADLINE_DATASETS + ["plotqa"]:
+        path = data_dir / f"susceptibility_{ds}_onevision.csv"
+        if path.exists():
+            df = pd.read_csv(path)
+            out[ds] = dict(zip(df["question_id"].astype(int),
+                               df["susceptibility_stratum"]))
+    return out
+
+
 def _mode_sort_key(m: str) -> int:
     try:
         return MODE_ORDER.index(m)
@@ -248,6 +306,7 @@ def main() -> None:
     SUMMARY_DIR.mkdir(parents=True, exist_ok=True)
 
     susceptibility = _load_susceptibility()
+    susceptibility_per_ds = _load_susceptibility_per_dataset()
 
     per_model_rows: list[dict] = []
     stratum_rows: list[dict] = []
@@ -259,51 +318,66 @@ def main() -> None:
         runs = _all_runs(model)
         rel_runs = ", ".join(p.name for p in runs)
         print(f"[{model}] loading {len(runs)} run(s) [{rel_runs}] -> {len(df)} unique records")
-        df["stratum"] = df["question_id"].map(susceptibility)
+
+        # Per-row stratum: panel-wide map for legacy models; per-dataset
+        # OneVision susceptibility for Phase E.
+        if model in MULTI_DATASET_MODELS:
+            df["stratum"] = [
+                susceptibility_per_ds.get(ds, {}).get(int(qid))
+                for ds, qid in zip(df["dataset"], df["question_id"])
+            ]
+        else:
+            df["stratum"] = df["question_id"].map(susceptibility)
+
         triplets_all = _build_triplets(df)
 
-        for mode in sorted(df["mode"].unique(), key=_mode_sort_key):
-            sub = triplets_all.loc[triplets_all["mode"] == mode]
-            stats = _compute_metrics(sub)
-            ci_df_lo, ci_df_hi = _bootstrap_ci(sub, "direction_follow_rate",
-                                               args.bootstrap_n, args.rng_seed)
-            ci_ad_lo, ci_ad_hi = _bootstrap_ci(sub, "adoption_rate",
-                                               args.bootstrap_n, args.rng_seed)
-            ci_md_lo, ci_md_hi = _bootstrap_ci(sub, "mean_distance_to_anchor",
-                                               args.bootstrap_n, args.rng_seed)
-            per_model_rows.append({
-                "model": model, "mode": mode, "stratum": "all",
-                **stats,
-                "df_ci_low": ci_df_lo, "df_ci_high": ci_df_hi,
-                "adopt_ci_low": ci_ad_lo, "adopt_ci_high": ci_ad_hi,
-                "mean_dist_ci_low": ci_md_lo, "mean_dist_ci_high": ci_md_hi,
-            })
-
-            for stratum_name in ("top_decile_susceptible", "bottom_decile_resistant"):
-                mask = sub["stratum"] == stratum_name
-                stratum_sub = sub.loc[mask]
-                s_stats = _compute_metrics(stratum_sub)
-                s_ci_lo, s_ci_hi = _bootstrap_ci(stratum_sub, "direction_follow_rate",
-                                                 args.bootstrap_n, args.rng_seed)
-                stratum_rows.append({
-                    "model": model, "mode": mode, "stratum": stratum_name,
-                    **s_stats,
-                    "df_ci_low": s_ci_lo, "df_ci_high": s_ci_hi,
+        # Iterate per (dataset, mode). Single-dataset models have one dataset cell.
+        for dataset in sorted(triplets_all["dataset"].unique()):
+            ds_triplets = triplets_all.loc[triplets_all["dataset"] == dataset]
+            for mode in sorted(ds_triplets["mode"].unique(), key=_mode_sort_key):
+                sub = ds_triplets.loc[ds_triplets["mode"] == mode]
+                stats = _compute_metrics(sub)
+                ci_df_lo, ci_df_hi = _bootstrap_ci(sub, "direction_follow_rate",
+                                                   args.bootstrap_n, args.rng_seed)
+                ci_ad_lo, ci_ad_hi = _bootstrap_ci(sub, "adoption_rate",
+                                                   args.bootstrap_n, args.rng_seed)
+                ci_md_lo, ci_md_hi = _bootstrap_ci(sub, "mean_distance_to_anchor",
+                                                   args.bootstrap_n, args.rng_seed)
+                per_model_rows.append({
+                    "model": model, "dataset": dataset,
+                    "mode": mode, "stratum": "all",
+                    **stats,
+                    "df_ci_low": ci_df_lo, "df_ci_high": ci_df_hi,
+                    "adopt_ci_low": ci_ad_lo, "adopt_ci_high": ci_ad_hi,
+                    "mean_dist_ci_low": ci_md_lo, "mean_dist_ci_high": ci_md_hi,
                 })
+
+                for stratum_name in ("top_decile_susceptible", "bottom_decile_resistant"):
+                    mask = sub["stratum"] == stratum_name
+                    stratum_sub = sub.loc[mask]
+                    s_stats = _compute_metrics(stratum_sub)
+                    s_ci_lo, s_ci_hi = _bootstrap_ci(stratum_sub, "direction_follow_rate",
+                                                     args.bootstrap_n, args.rng_seed)
+                    stratum_rows.append({
+                        "model": model, "dataset": dataset,
+                        "mode": mode, "stratum": stratum_name,
+                        **s_stats,
+                        "df_ci_low": s_ci_lo, "df_ci_high": s_ci_hi,
+                    })
 
     df_summary = pd.DataFrame(per_model_rows)
     df_stratum = pd.DataFrame(stratum_rows)
 
-    # Attach delta-vs-baseline columns (per-model)
+    # Attach delta-vs-baseline columns (per (model, dataset))
     baseline = df_summary.loc[df_summary["mode"] == "baseline",
-                              ["model", "direction_follow_rate", "adoption_rate",
-                               "mean_distance_to_anchor"]]
+                              ["model", "dataset", "direction_follow_rate",
+                               "adoption_rate", "mean_distance_to_anchor"]]
     baseline = baseline.rename(columns={
         "direction_follow_rate": "base_df",
         "adoption_rate": "base_adopt",
         "mean_distance_to_anchor": "base_md",
     })
-    df_summary = df_summary.merge(baseline, on="model", how="left")
+    df_summary = df_summary.merge(baseline, on=["model", "dataset"], how="left")
     df_summary["delta_df"] = df_summary["direction_follow_rate"] - df_summary["base_df"]
     df_summary["delta_adopt"] = df_summary["adoption_rate"] - df_summary["base_adopt"]
     df_summary["delta_md"] = df_summary["mean_distance_to_anchor"] - df_summary["base_md"]
@@ -316,31 +390,6 @@ def main() -> None:
     print(f"[write] {stratum_csv}")
 
     # ─── Plots ───
-    def _bar_plot(metric: str, ylabel: str, out_path: Path) -> None:
-        models = [m for m in PANEL_MODELS if (df_summary["model"] == m).any()]
-        modes = [m for m in MODE_ORDER if (df_summary["mode"] == m).any()]
-        x = np.arange(len(models))
-        w = 0.8 / max(len(modes), 1)
-        fig, ax = plt.subplots(figsize=(max(8, 1.4 * len(models)), 5))
-        colours = plt.cm.tab10(np.linspace(0, 1, len(modes)))
-        for i, mode in enumerate(modes):
-            sub = df_summary[df_summary["mode"] == mode].set_index("model")
-            vals = np.array([sub.loc[m, metric] if m in sub.index else np.nan for m in models])
-            lo = np.array([sub.loc[m, f"{metric_to_ci(metric)}_ci_low"] if m in sub.index else np.nan for m in models])
-            hi = np.array([sub.loc[m, f"{metric_to_ci(metric)}_ci_high"] if m in sub.index else np.nan for m in models])
-            yerr = np.abs(np.vstack([vals - lo, hi - vals]))
-            ax.bar(x + (i - len(modes) / 2 + 0.5) * w, vals, width=w,
-                   color=colours[i], label=mode, yerr=yerr, capsize=2)
-        ax.set_xticks(x)
-        ax.set_xticklabels(models, rotation=15, ha="right", fontsize=9)
-        ax.set_ylabel(ylabel)
-        ax.set_title(f"Causal anchor ablation — {metric}")
-        ax.legend(fontsize=8, loc="best")
-        ax.axhline(0, color="grey", lw=0.5)
-        fig.tight_layout()
-        fig.savefig(out_path, dpi=150)
-        plt.close(fig)
-
     def metric_to_ci(metric: str) -> str:
         return {
             "direction_follow_rate": "df",
@@ -348,23 +397,77 @@ def main() -> None:
             "mean_distance_to_anchor": "mean_dist",
         }[metric]
 
-    _bar_plot("direction_follow_rate", "direction_follow rate",
-              SUMMARY_DIR / "fig_direction_follow.png")
-    _bar_plot("adoption_rate", "adoption rate",
-              SUMMARY_DIR / "fig_adoption.png")
-    print(f"[write] {SUMMARY_DIR / 'fig_direction_follow.png'}")
-    print(f"[write] {SUMMARY_DIR / 'fig_adoption.png'}")
+    def _bar_plot_panel(df_panel: pd.DataFrame, x_keys: list[str], x_labels: list[str],
+                        x_col: str, metric: str, ylabel: str, title: str,
+                        out_path: Path) -> None:
+        modes = [m for m in MODE_ORDER if (df_panel["mode"] == m).any()]
+        x = np.arange(len(x_keys))
+        w = 0.8 / max(len(modes), 1)
+        fig, ax = plt.subplots(figsize=(max(8, 1.4 * len(x_keys)), 5))
+        colours = plt.cm.tab10(np.linspace(0, 1, len(modes)))
+        for i, mode in enumerate(modes):
+            sub = df_panel[df_panel["mode"] == mode].set_index(x_col)
+            vals = np.array([sub.loc[k, metric] if k in sub.index else np.nan for k in x_keys])
+            lo = np.array([sub.loc[k, f"{metric_to_ci(metric)}_ci_low"] if k in sub.index else np.nan for k in x_keys])
+            hi = np.array([sub.loc[k, f"{metric_to_ci(metric)}_ci_high"] if k in sub.index else np.nan for k in x_keys])
+            yerr = np.abs(np.vstack([vals - lo, hi - vals]))
+            ax.bar(x + (i - len(modes) / 2 + 0.5) * w, vals, width=w,
+                   color=colours[i], label=mode, yerr=yerr, capsize=2)
+        ax.set_xticks(x)
+        ax.set_xticklabels(x_labels, rotation=15, ha="right", fontsize=9)
+        ax.set_ylabel(ylabel)
+        ax.set_title(title)
+        ax.legend(fontsize=8, loc="best")
+        ax.axhline(0, color="grey", lw=0.5)
+        fig.tight_layout()
+        fig.savefig(out_path, dpi=150)
+        plt.close(fig)
+
+    # Cross-model panel: vqav2-only (the legacy single-dataset E1d setup; one
+    # row per model so the per-(model, dataset) shape collapses cleanly).
+    panel_df = df_summary[df_summary["dataset"] == "vqav2"]
+    panel_models = [m for m in PANEL_MODELS if (panel_df["model"] == m).any()]
+    if panel_models:
+        _bar_plot_panel(panel_df, panel_models, panel_models, "model",
+                        "direction_follow_rate", "direction_follow rate",
+                        "Causal anchor ablation — direction_follow_rate (legacy panel)",
+                        SUMMARY_DIR / "fig_direction_follow.png")
+        _bar_plot_panel(panel_df, panel_models, panel_models, "model",
+                        "adoption_rate", "adoption rate",
+                        "Causal anchor ablation — adoption_rate (legacy panel)",
+                        SUMMARY_DIR / "fig_adoption.png")
+        print(f"[write] {SUMMARY_DIR / 'fig_direction_follow.png'}")
+        print(f"[write] {SUMMARY_DIR / 'fig_adoption.png'}")
+
+    # Per-dataset panel for multi-dataset Main models (Phase E OneVision).
+    for model in MULTI_DATASET_MODELS:
+        ds_df = df_summary[(df_summary["model"] == model) &
+                            df_summary["dataset"].isin(HEADLINE_DATASETS)]
+        if ds_df.empty:
+            continue
+        ds_keys = [d for d in HEADLINE_DATASETS if (ds_df["dataset"] == d).any()]
+        slug = model.split("/")[-1]
+        _bar_plot_panel(ds_df, ds_keys, ds_keys, "dataset",
+                        "direction_follow_rate", "direction_follow rate",
+                        f"Phase E E1d — {model} per dataset",
+                        SUMMARY_DIR / f"fig_direction_follow_{slug}_per_dataset.png")
+        _bar_plot_panel(ds_df, ds_keys, ds_keys, "dataset",
+                        "adoption_rate", "adoption rate",
+                        f"Phase E E1d — {model} per dataset",
+                        SUMMARY_DIR / f"fig_adoption_{slug}_per_dataset.png")
+        print(f"[write] {SUMMARY_DIR / f'fig_direction_follow_{slug}_per_dataset.png'}")
 
     # ─── Printable summary ───
-    print("\n=== direction_follow by model × mode ===")
-    pivot_df = df_summary.pivot(index="model", columns="mode",
-                                 values="direction_follow_rate").reindex(
-        index=PANEL_MODELS, columns=MODE_ORDER)
+    print("\n=== direction_follow by (model, dataset) × mode ===")
+    pivot_df = df_summary.pivot_table(index=["model", "dataset"], columns="mode",
+                                       values="direction_follow_rate",
+                                       aggfunc="first")
+    pivot_df = pivot_df.reindex(columns=[m for m in MODE_ORDER if m in pivot_df.columns])
     print(pivot_df.round(3).to_string())
-    print("\n=== adoption by model × mode ===")
-    pivot_ad = df_summary.pivot(index="model", columns="mode",
-                                values="adoption_rate").reindex(
-        index=PANEL_MODELS, columns=MODE_ORDER)
+    print("\n=== adoption by (model, dataset) × mode ===")
+    pivot_ad = df_summary.pivot_table(index=["model", "dataset"], columns="mode",
+                                       values="adoption_rate", aggfunc="first")
+    pivot_ad = pivot_ad.reindex(columns=[m for m in MODE_ORDER if m in pivot_ad.columns])
     print(pivot_ad.round(3).to_string())
 
 
