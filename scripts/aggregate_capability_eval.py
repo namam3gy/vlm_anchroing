@@ -65,7 +65,15 @@ def bootstrap_score_diff(scores_baseline: list[float],
                          scores_mit: list[float],
                          n_bootstrap: int = 1000,
                          seed: int = 0) -> tuple[float, float]:
-    """For sum-style scoring (OCRBench): Δ + 95% CI via paired bootstrap."""
+    """For sum-style scoring (OCRBench): Δ + paired-bootstrap CI.
+
+    Returns ``(delta, se_proxy)``. ``se_proxy = (CI_hi − CI_lo) / (2·1.96)``
+    is a normal-approximation back-out from the percentile CI — accurate when
+    the bootstrap distribution is roughly symmetric, may underestimate the
+    true SE when the per-question score margins are skewed (e.g. mostly 0/1
+    with rare partial-credit). Caller treats this as a coarse SE proxy, not
+    a true bootstrap SE.
+    """
     if len(scores_baseline) != len(scores_mit):
         raise ValueError("paired scores must have same length")
     rng = random.Random(seed)
