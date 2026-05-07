@@ -32,6 +32,7 @@ dependencies = [
   "qwen-vl-utils>=0.0.14",
   "tqdm>=4.66.0",
   "python-pptx>=1.0.2",
+  "vlmeval @ git+https://github.com/open-compass/VLMEvalKit@97ce03723ee58d3c56502188401761e018774b69",
 ]
 
 [build-system]
