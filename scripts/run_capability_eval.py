@@ -81,36 +81,38 @@ def _run_one_variant_bench(variant: str, bench_name: str, cfg: dict,
     _log(progress_log, f"BEGIN {variant} × {bench_name}")
     model = _build_model(variant, cfg, cfg["vlm_kwargs"])
 
-    dataset = build_dataset(bench_name)
-    if max_questions is not None and hasattr(dataset, "data") and len(dataset.data) > max_questions:
-        dataset.data = dataset.data.head(max_questions).reset_index(drop=True)
-        _log(progress_log, f"  sub-sampled to {len(dataset.data)} questions")
+    try:
+        dataset = build_dataset(bench_name)
+        if max_questions is not None and hasattr(dataset, "data") and len(dataset.data) > max_questions:
+            dataset.data = dataset.data.head(max_questions).reset_index(drop=True)
+            _log(progress_log, f"  sub-sampled to {len(dataset.data)} questions")
 
-    # Predictions xlsx — VLMEvalKit's standard output
-    preds_path = out_dir / f"{bench_name}_preds.xlsx"
-    _run_inference(model, dataset, preds_path, out_dir)
+        # Predictions xlsx — VLMEvalKit's standard output
+        preds_path = out_dir / f"{bench_name}_preds.xlsx"
+        _run_inference(model, dataset, preds_path, out_dir)
 
-    # Score the predictions; extract scalar accuracy + per-question correctness
-    score = dataset.evaluate(str(preds_path))
-    acc, correct = _extract_acc_and_correct(score, dataset, preds_path)
-    _log(progress_log,
-         f"END   {variant} × {bench_name}  n={len(correct)}  acc={acc*100:.2f}")
-
-    if variant == "mit":
-        calls = getattr(model, "_mit_calls", None)
-        if not calls or calls.get("prefill", 0) == 0:
-            raise RuntimeError(f"mit hook did not fire on {bench_name}: {calls}")
+        # Score the predictions; extract scalar accuracy + per-question correctness
+        score = dataset.evaluate(str(preds_path))
+        acc, correct = _extract_acc_and_correct(score, dataset, preds_path)
         _log(progress_log,
-             f"  hook calls on {bench_name}: prefill={calls['prefill']} "
-             f"decode={calls['decode']} other={calls['other']}")
+             f"END   {variant} × {bench_name}  n={len(correct)}  acc={acc*100:.2f}")
 
-    # Free model
-    del model
-    gc.collect()
-    if torch.cuda.is_available():
-        torch.cuda.empty_cache()
+        if variant == "mit":
+            calls = getattr(model, "_mit_calls", None)
+            if not calls or calls.get("prefill", 0) == 0:
+                raise RuntimeError(f"mit hook did not fire on {bench_name}: {calls}")
+            _log(progress_log,
+                 f"  hook calls on {bench_name}: prefill={calls['prefill']} "
+                 f"decode={calls['decode']} other={calls['other']}")
 
-    return {"acc": acc, "correct": correct, "preds_path": str(preds_path)}
+        return {"acc": acc, "correct": correct, "preds_path": str(preds_path)}
+    finally:
+        # Always free the model — even on hook-0 fail or inference error —
+        # so a 13h sweep doesn't OOM the next benchmark on a single failed pair.
+        del model
+        gc.collect()
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
 
 
 def _run_inference(model: Any, dataset: Any, preds_path: Path,
