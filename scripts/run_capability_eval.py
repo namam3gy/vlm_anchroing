@@ -92,8 +92,15 @@ def _run_one_variant_bench(variant: str, bench_name: str, cfg: dict,
     try:
         dataset = build_dataset(bench_name)
         if max_questions is not None and hasattr(dataset, "data") and len(dataset.data) > max_questions:
-            dataset.data = dataset.data.head(max_questions).reset_index(drop=True)
-            _log(progress_log, f"  sub-sampled to {len(dataset.data)} questions")
+            # Random sample with fixed seed (reproducible). Head(N) was wrong:
+            # VLMEvalKit TSVs are sorted by category, so head(N) picks just the
+            # first 1–2 categories and the smoke acc isn't comparable to the
+            # full-benchmark published numbers.
+            dataset.data = dataset.data.sample(
+                n=max_questions, random_state=0
+            ).sort_index().reset_index(drop=True)
+            _log(progress_log,
+                 f"  sub-sampled to {len(dataset.data)} questions (random_state=0)")
 
         # Run inference.  infer_data_job writes predictions to:
         #   {out_dir}/{variant}_{dataset.dataset_name}.xlsx
