@@ -179,8 +179,9 @@ def _extract_acc_and_correct(dataset: Any,
     if "OCRBench" in cls_names or dataset_name == "OCRBench":
         return _ocrbench_per_question(preds_path)
 
-    # --- YOrN (HallusionBench and related): _auxmatch.xlsx has 'score' col ---
-    if "ImageYOrNDataset" in cls_names or "YOrN" in cls_names:
+    # --- YORN (HallusionBench and related): _auxmatch.xlsx has 'score' col ---
+    # Note: VLMEvalKit's class is `ImageYORNDataset` (all-caps YORN), not YOrN.
+    if "ImageYORNDataset" in cls_names or "YORN" in cls_names:
         auxmatch = preds_path.with_name(
             preds_path.stem + "_auxmatch.xlsx"
         )
