@@ -67,3 +67,73 @@ def test_hook_dtype_device_match():
     new_output = hook(None, None, output)
     new_hidden = new_output[0] if isinstance(new_output, tuple) else new_output
     assert new_hidden.dtype == torch.float16
+
+
+# ── Aggregator + verdict tests ────────────────────────────────────────
+
+
+def _import_agg():
+    """Lazy import so this file is importable before Task 4 lands."""
+    import importlib.util
+    import sys
+    from pathlib import Path
+    p = Path(__file__).parent.parent / "scripts" / "aggregate_capability_eval.py"
+    spec = importlib.util.spec_from_file_location("agg", p)
+    mod = importlib.util.module_from_spec(spec)
+    sys.modules["agg"] = mod
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def test_mcnemar_paired_se_zero_when_identical():
+    agg = _import_agg()
+    n = 100
+    correct_b = [True] * 60 + [False] * 40
+    correct_m = list(correct_b)  # identical
+    delta, se = agg.mcnemar_paired(correct_b, correct_m)
+    assert delta == 0.0
+    assert se == 0.0
+
+
+def test_mcnemar_paired_se_nontrivial():
+    agg = _import_agg()
+    # 80 both correct, 5 only baseline correct, 10 only mit correct, 5 both wrong
+    correct_b = [True] * 85 + [False] * 15
+    correct_m = [True] * 80 + [False] * 5 + [True] * 10 + [False] * 5
+    delta, se = agg.mcnemar_paired(correct_b, correct_m)
+    # Δ in proportion: (80+10)/100 - (80+5)/100 = 0.05
+    assert abs(delta - 0.05) < 1e-9
+    # discordant pairs = 15 (5 + 10), McNemar SE on proportion ≈ sqrt(15)/100
+    expected_se = (15 ** 0.5) / 100
+    assert abs(se - expected_se) < 1e-9
+
+
+def test_verdict_strict_free_lunch():
+    agg = _import_agg()
+    deltas = {"a": 0.001, "b": -0.002, "c": -0.005, "d": 0.01, "e": -0.003}
+    macro = sum(deltas.values()) / len(deltas)
+    assert agg.verdict(deltas, macro) == "STRICT_FREE_LUNCH"
+
+
+def test_verdict_per_bench_degraded():
+    agg = _import_agg()
+    deltas = {"a": 0.0, "b": 0.0, "c": -0.012, "d": 0.0, "e": 0.0}  # c < -1pp
+    macro = sum(deltas.values()) / len(deltas)
+    v = agg.verdict(deltas, macro)
+    assert v.startswith("DEGRADED:")
+    assert "c" in v
+
+
+def test_verdict_macro_degraded():
+    agg = _import_agg()
+    # All within per-bench bound but macro < -0.5pp
+    deltas = {"a": -0.009, "b": -0.009, "c": -0.009, "d": -0.009, "e": -0.009}
+    macro = sum(deltas.values()) / len(deltas)
+    assert agg.verdict(deltas, macro) == "DEGRADED:macro"
+
+
+def test_verdict_helped_does_not_flip():
+    agg = _import_agg()
+    deltas = {"a": 0.02, "b": 0.0, "c": 0.0, "d": 0.0, "e": 0.0}
+    macro = sum(deltas.values()) / len(deltas)
+    assert agg.verdict(deltas, macro) == "STRICT_FREE_LUNCH"
