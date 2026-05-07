@@ -85,6 +85,15 @@ def _import_agg():
     return mod
 
 
+def test_thresholds_are_pre_registered():
+    """Pin verdict thresholds — paper §7.4.5 strict free-lunch claim
+    rests on these specific values being chosen ex-ante. Changing them
+    requires also editing this assertion (auditable in the diff)."""
+    agg = _import_agg()
+    assert agg.PER_BENCH_THRESHOLD == -0.01, "per-bench threshold must remain -1.0pp"
+    assert agg.MACRO_THRESHOLD == -0.005, "macro threshold must remain -0.5pp"
+
+
 def test_mcnemar_paired_se_zero_when_identical():
     agg = _import_agg()
     n = 100
