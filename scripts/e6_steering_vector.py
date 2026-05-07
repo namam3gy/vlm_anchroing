@@ -74,6 +74,7 @@ from vlm_anchor.data import (
     build_conditions,
     load_number_vqa_samples,
 )
+from vlm_anchor.hooks import make_subspace_projection_hook
 from vlm_anchor.models import InferenceConfig
 from vlm_anchor.utils import set_seed
 
@@ -825,28 +826,9 @@ SWEEP_CONDITIONS = (
 
 
 def _make_subspace_projection_hook(V_K: torch.Tensor, alpha: float):
-    """At prefill last token: h ← h − α · V_K^T · V_K · h.
-
-    V_K is (K, d_model); rows are top-K right singular vectors of the pooled
-    D matrix. Decode steps (seq_len == 1) are skipped so the effect propagates
-    through the KV cache (same convention as the ActAdd offset hook).
-    """
-    if alpha == 0:
-        return None
-
-    def hook(module, args, output):
-        hidden = output[0] if isinstance(output, tuple) else output
-        if not isinstance(hidden, torch.Tensor) or hidden.dim() != 3:
-            return output
-        if hidden.shape[1] <= 1:
-            return output  # decode step — no-op
-        V_cast = V_K.to(device=hidden.device, dtype=hidden.dtype)  # (K, d)
-        last = hidden[:, -1, :]  # (batch, d)
-        proj = (last @ V_cast.T) @ V_cast  # (batch, d)
-        hidden[:, -1, :] = last - alpha * proj
-        return output
-
-    return hook
+    """Backward-compat shim. Delegates to vlm_anchor.hooks.make_subspace_projection_hook
+    so anchoring and capability eval exercise identical projection math."""
+    return make_subspace_projection_hook(V_K, alpha)
 
 
 def _install_projection_hook(layers, layer_idx: int, V_K: torch.Tensor, alpha: float):
