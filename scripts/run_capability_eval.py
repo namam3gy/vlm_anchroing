@@ -12,11 +12,19 @@ Usage:
         [--max-questions 50]    # optional sub-sampling for smoke runs
 
 Notes:
-- We use VLMEvalKit's programmatic API (`vlmeval.inference.infer_data`
+- We use VLMEvalKit's programmatic API (`vlmeval.inference.infer_data_job`
   and `vlmeval.dataset.build_dataset`) rather than its CLI, so the same
   Python process holds both variant model instances when needed.
 - For memory hygiene, we tear down the model after every variant×bench
   pair before instantiating the next one.
+- `infer_data_job(model, work_dir, model_name, dataset, ...)` writes its
+  output to `{work_dir}/{model_name}_{dataset.dataset_name}.xlsx`.
+  We pass `model_name=variant` ("baseline" or "mit") so the two arms
+  never clobber each other even in the same out_dir.
+- `dataset.evaluate(eval_file)` aggregates results and writes side-files
+  but does NOT store per-question correctness for VQA/OCRBench types.
+  We read per-question correctness from the appropriate side-file
+  (MCQ/YOrN) or replicate the scoring loop ourselves (OCRBench).
 """
 
 from __future__ import annotations
@@ -87,13 +95,16 @@ def _run_one_variant_bench(variant: str, bench_name: str, cfg: dict,
             dataset.data = dataset.data.head(max_questions).reset_index(drop=True)
             _log(progress_log, f"  sub-sampled to {len(dataset.data)} questions")
 
-        # Predictions xlsx — VLMEvalKit's standard output
-        preds_path = out_dir / f"{bench_name}_preds.xlsx"
-        _run_inference(model, dataset, preds_path, out_dir)
+        # Run inference.  infer_data_job writes predictions to:
+        #   {out_dir}/{variant}_{dataset.dataset_name}.xlsx
+        # We pass model_name=variant so baseline and mit files are distinct.
+        _run_inference(model, dataset, variant, out_dir)
+        preds_path = out_dir / f"{variant}_{dataset.dataset_name}.xlsx"
 
-        # Score the predictions; extract scalar accuracy + per-question correctness
-        score = dataset.evaluate(str(preds_path))
-        acc, correct = _extract_acc_and_correct(score, dataset, preds_path)
+        # Score the predictions; extract scalar accuracy + per-question correctness.
+        # evaluate() writes side-files we later read for per-question correctness.
+        dataset.evaluate(str(preds_path))
+        acc, correct = _extract_acc_and_correct(dataset, preds_path)
         _log(progress_log,
              f"END   {variant} × {bench_name}  n={len(correct)}  acc={acc*100:.2f}")
 
@@ -115,58 +126,152 @@ def _run_one_variant_bench(variant: str, bench_name: str, cfg: dict,
             torch.cuda.empty_cache()
 
 
-def _run_inference(model: Any, dataset: Any, preds_path: Path,
+def _run_inference(model: Any, dataset: Any, model_name: str,
                    out_dir: Path) -> None:
-    """Call VLMEvalKit's inference helper. Adapt to whichever API name
-    exists in our pinned version."""
-    from vlmeval import inference
-    # VLMEvalKit names this differently across versions. Try the most
-    # common variants in order.
-    for fn_name in ("infer_data", "infer_data_api", "infer_data_job"):
-        fn = getattr(inference, fn_name, None)
-        if fn is not None:
-            return fn(model=model, dataset=dataset,
-                      work_dir=str(out_dir), nproc=1, verbose=False)
-    raise RuntimeError(
-        f"None of infer_data / infer_data_api / infer_data_job exist in "
-        f"vlmeval.inference (version {inference.__file__})"
+    """Call VLMEvalKit's infer_data_job with the correct signature.
+
+    Signature (from vlmeval/inference.py):
+        infer_data_job(model, work_dir, model_name, dataset,
+                       verbose=False, api_nproc=4, ignore_failed=False)
+
+    Writes predictions to: {work_dir}/{model_name}_{dataset.dataset_name}.xlsx
+    Returns the model object (we discard it; we already hold it).
+    """
+    from vlmeval.inference import infer_data_job
+    infer_data_job(
+        model, str(out_dir), model_name, dataset,
+        verbose=False,
     )
 
 
-def _extract_acc_and_correct(score: Any, dataset: Any, preds_path: Path
-                              ) -> tuple[float, list[bool]]:
-    """Adapter: VLMEvalKit's evaluate() returns benchmark-specific objects.
+def _extract_acc_and_correct(dataset: Any,
+                              preds_path: Path) -> tuple[float, list[bool]]:
+    """Extract scalar accuracy and per-question correctness from VLMEvalKit's
+    side-files, keyed by dataset type.
 
-    We read the predictions xlsx and compute scalar accuracy + per-question
-    correctness from standard columns. For OCRBench, we also support per-question
-    score columns.
+    VLMEvalKit's evaluate() writes side-files but does not expose per-question
+    correctness in its return value for all benchmark types.  We read the
+    appropriate side-file depending on dataset type:
+
+    - MCQ (ImageMCQDataset — MMStar, RealWorldQA, MMBench_DEV_EN):
+        evaluate() writes {preds_path stem}_exact_matching_result.xlsx with a
+        'hit' column (1/0) per question.  Read that file.
+
+    - YOrN (ImageYOrNDataset — HallusionBench):
+        evaluate() writes {preds_path stem}_auxmatch.xlsx with a boolean
+        'score' column per question.  Read that file.
+
+    - OCRBench (OCRBench class in image_vqa.py):
+        evaluate() writes {preds_path stem}_score.json with category sums
+        only — no per-question file.  We replicate the per-question match
+        loop from VLMEvalKit's OCRBench.evaluate() inline.
+        Correctness per question: bool (any answer string matched).
+        Scalar accuracy: mean(correct) in [0, 1].
     """
     import pandas as pd
+
+    dataset_name = dataset.dataset_name
+
+    # Determine dataset type from the class hierarchy.
+    cls_names = {c.__name__ for c in type(dataset).__mro__}
+
+    # --- OCRBench: no per-question side-file; replicate the scoring loop ---
+    if "OCRBench" in cls_names or dataset_name == "OCRBench":
+        return _ocrbench_per_question(preds_path)
+
+    # --- YOrN (HallusionBench and related): _auxmatch.xlsx has 'score' col ---
+    if "ImageYOrNDataset" in cls_names or "YOrN" in cls_names:
+        auxmatch = preds_path.with_name(
+            preds_path.stem + "_auxmatch.xlsx"
+        )
+        if not auxmatch.exists():
+            raise FileNotFoundError(
+                f"YOrN side-file not found: {auxmatch}  "
+                f"(dataset.evaluate() must have failed silently)"
+            )
+        df = pd.read_excel(auxmatch)
+        correct = [bool(int(s)) for s in df["score"]]
+        acc = sum(correct) / len(correct) if correct else 0.0
+        return acc, correct
+
+    # --- MCQ (ImageMCQDataset — covers MMStar, RealWorldQA, MMBench): ---
+    # evaluate() with model=None uses exact_matching and writes
+    # {stem}_exact_matching_result.{suffix}
+    if "ImageMCQDataset" in cls_names or "MCQ" in cls_names:
+        suffix = preds_path.suffix  # .xlsx
+        result_file = Path(str(preds_path).replace(
+            suffix, f"_exact_matching_result{suffix}"
+        ))
+        if not result_file.exists():
+            raise FileNotFoundError(
+                f"MCQ result file not found: {result_file}  "
+                f"(dataset.evaluate() must have failed silently)"
+            )
+        df = pd.read_excel(result_file)
+        correct = [bool(int(h)) for h in df["hit"]]
+        acc = sum(correct) / len(correct) if correct else 0.0
+        return acc, correct
+
+    # --- Fallback: try to read from the predictions file itself ---
+    # This path should not be reached for our 5 benchmarks, but is kept
+    # as a safety net with an informative error.
     df = pd.read_excel(preds_path)
     cols_lower = {c.lower(): c for c in df.columns}
-
-    # OCRBench-style: per-question score column
-    for cand in ("score", "scores"):
-        if cand in cols_lower:
-            per_q = df[cols_lower[cand]].astype(float).tolist()
-            mx = max(per_q) if per_q else 1.0
-            if mx > 1.0:
-                per_q = [s / mx for s in per_q]  # normalize 0..1
-            correct = [s >= 0.5 for s in per_q]
-            acc = sum(per_q) / len(per_q) if per_q else 0.0
-            return acc, correct
-
-    # MCQ-style: hit column or prediction vs answer
     if "hit" in cols_lower:
         correct = [bool(int(h)) for h in df[cols_lower["hit"]]]
-    elif "prediction" in cols_lower and "answer" in cols_lower:
-        correct = [str(p).strip().upper() == str(a).strip().upper()
-                   for p, a in zip(df[cols_lower["prediction"]],
-                                   df[cols_lower["answer"]])]
-    else:
-        raise RuntimeError(
-            f"Cannot extract correctness from columns: {list(df.columns)[:10]}"
-        )
+        acc = sum(correct) / len(correct) if correct else 0.0
+        return acc, correct
+    raise RuntimeError(
+        f"Cannot determine per-question correctness for dataset type "
+        f"{type(dataset).__name__} ({dataset_name}).  "
+        f"preds_path columns: {list(df.columns)[:10]}.  "
+        f"Add an explicit adapter for this dataset type."
+    )
+
+
+def _ocrbench_per_question(preds_path: Path) -> tuple[float, list[bool]]:
+    """Replicate OCRBench per-question match logic from VLMEvalKit.
+
+    VLMEvalKit's OCRBench.evaluate() (image_vqa.py) iterates rows and checks
+    whether any answer string appears in the prediction (case-folded for most
+    categories; raw for Handwritten Mathematical Expression Recognition).
+    It only writes category-level sums to _score.json — no per-question file.
+
+    We replicate the same loop so we get a per-question bool array for
+    McNemar paired testing.  Correctness = bool (any answer matched).
+    Scalar acc = mean(correct) in [0, 1] — comparable across sub-samples
+    since it's a proportion, not a raw sum.  The §7.4.5 table column shows
+    this as a % (×100), matching OCRBench's conventional "score/10" display.
+    """
+    import pandas as pd
+
+    df = pd.read_excel(preds_path)
+    correct: list[bool] = []
+    for _, row in df.iterrows():
+        predict = str(row["prediction"])
+        try:
+            answers = eval(str(row["answer"]))  # stored as a Python list repr
+        except Exception:
+            answers = [str(row["answer"])]
+        category = str(row.get("category", ""))
+
+        matched = False
+        if category == "Handwritten Mathematical Expression Recognition":
+            for ans in answers:
+                ans_norm = ans.strip().replace("\n", " ").replace(" ", "")
+                pred_norm = predict.strip().replace("\n", " ").replace(" ", "")
+                if ans_norm in pred_norm:
+                    matched = True
+                    break
+        else:
+            for ans in answers:
+                ans_norm = ans.lower().strip().replace("\n", " ")
+                pred_norm = predict.lower().strip().replace("\n", " ")
+                if ans_norm in pred_norm:
+                    matched = True
+                    break
+        correct.append(matched)
+
     acc = sum(correct) / len(correct) if correct else 0.0
     return acc, correct
 
@@ -193,6 +298,25 @@ def main():
          f"START run_id={run_id}  benchmarks={cfg['benchmarks']}  "
          f"cell={cfg['cell']}  max_questions={args.max_questions}")
 
+    # --- C3: Self-test guard ---
+    # In smoke mode (--max-questions set) the smoke run IS the test; skip.
+    # In full mode, run a 2-question wiring check before the 13h sweep.
+    if args.max_questions is None:
+        benchmarks = cfg["benchmarks"]
+        _log(progress_log,
+             f"SELF-TEST: wiring check on {benchmarks[0]} (2 questions) ...")
+        try:
+            _run_one_variant_bench(
+                "baseline", benchmarks[0], cfg, run_dir, progress_log,
+                max_questions=2,
+            )
+            _log(progress_log, "SELF-TEST: PASSED — entering full sweep")
+        except Exception as e:
+            _log(progress_log,
+                 f"SELF-TEST FAILED: {type(e).__name__}: {e}\n"
+                 f"Aborting before entering the 13h sweep.  Fix the issue and retry.")
+            raise SystemExit(1)
+
     rows: list[agg.BenchRow] = []
     for bench in cfg["benchmarks"]:
         try:
@@ -217,12 +341,14 @@ def main():
             )
             rows.append(row)
             agg.write_partial(rows, partial_csv, partial_md)
+            # I4: only print PASS/FAIL for OK rows
             verdict_marker = "PASS" if delta >= agg.PER_BENCH_THRESHOLD else "FAIL"
             _log(progress_log,
                  f"DELTA {bench}  Δ={delta*100:+.2f}pp  "
                  f"95%CI=[{row.ci_low*100:+.2f}, {row.ci_high*100:+.2f}]  "
                  f"{verdict_marker}")
         except Exception as e:
+            # I4: ERROR rows get their own log line; no PASS/FAIL marker
             _log(progress_log, f"ERROR on {bench}: {type(e).__name__}: {e}")
             rows.append(agg.BenchRow(
                 name=bench, n=0,
@@ -233,9 +359,9 @@ def main():
             agg.write_partial(rows, partial_csv, partial_md)
 
     v = agg.finalize(partial_csv, partial_md, final_csv, final_md)
+    # I2: route through _log so these land in progress.log
     _log(progress_log, f"FINAL VERDICT: {v}")
-    print(f"\nFinal table: {final_md}")
-    print(f"Verdict: {v}")
+    _log(progress_log, f"Final table: {final_md}")
     raise SystemExit(0 if v == "STRICT_FREE_LUNCH" else 1)
 
 
