@@ -376,6 +376,7 @@ landed (commit `c556fb6`). Phase E E1d 4/4 landed (commits `7a27750` +
 
 | Pri | Task | Where | Estimate |
 |---|---|---|---|
+| **P0 (NEW, 2026-05-08)** | E8 Mitigation capability-preservation regression test on OneVision Main | §7.4.5 | ✅ shipped — verdict: STRICT_FREE_LUNCH (macro Δ +0.50pp, HallusionBench Δ=+2.21pp CI excludes 0) |
 | **P1** | §7.4.5 paper prose update (Tally-cal headline → PlotQA+InfoVQA-cal headline at full gt range) | `docs/paper/sections/07_*.md` | text only |
 | **P1** | §3 / §5 / §6 paper prose update for 5-dataset matrix | `docs/paper/sections/0[3-6]_*.md` | text only |
 | **P1** | Citation verification — every 2026 arXiv ID in `references/project.md` and §2 paper draft must resolve to a real paper | §9 caveat | hours of manual verification, reviewer-defuse |
@@ -458,6 +459,35 @@ landed (commit `c556fb6`). Phase E E1d 4/4 landed (commits `7a27750` +
   `predictions.jsonl` only.
 
 ## 10. Changelog
+
+- **2026-05-08 ~04:38 (E8 capability-preservation regression test).**
+  New Phase 4 P0 shipped. Spec
+  `docs/superpowers/specs/2026-05-08-mitigation-general-capability-design.md`
+  + insight doc `docs/insights/E8-capability-preservation-evidence.md`.
+  - VLMEvalKit (commit `97ce037`) pinned as a dep; LLaVA-OneVision-HF
+    backend chosen over LLaVA-NeXT (avoids `llava` dep conflict; same
+    Qwen2 weights at the L=26 hook site).
+  - New `LLaVAOneVisionMitigated` subclass installs the chosen-cell hook
+    at construction; `vlm_anchor.hooks.make_subspace_projection_hook`
+    now the single source of truth (e6_steering_vector.py keeps a
+    1-line shim).
+  - Driver `scripts/run_capability_eval.py` orchestrates per-benchmark
+    interleaving (RealWorldQA → OCRBench → HallusionBench → MMStar →
+    MMBench-DEV-EN, fast-first). Aggregator
+    `scripts/aggregate_capability_eval.py` ships with pre-registered
+    thresholds (per-bench Δ ≥ -1.0pp, macro Δ ≥ -0.5pp), 12 unit tests
+    cover hook math + verdict logic + threshold-pinning.
+  - **Result: STRICT_FREE_LUNCH on full sweep (~1.5h H200, no LLM-judge).**
+    Macro Δ = +0.50pp; per-bench Δ ∈ [-0.80, +2.21]; HallusionBench
+    Δ=+2.21pp 95% CI=[+1.14, +3.28] **excludes zero — statistically
+    significant positive**. §7.4.5 strict free-lunch claim (originally
+    Δdf ≤ 0 ∧ Δem(a) ≥ 0 ∧ Δem(b) ≥ 0 within anchoring family) extends
+    to general VLM capability.
+  - Pipeline cross-check vs lmms-lab model card published numbers:
+    MMStar 61.67 vs 61.7 (essentially identical match); RealWorldQA
+    +3.5pp, MMBench +1.24pp, OCRBench match. Strong evidence of HF
+    mirror weight equivalence at the Qwen2 LM layer where the hook
+    operates.
 
 - **2026-05-04 ~17:30 (Phase 2 insight mining batch 1).** Audit pass on
   experiments that had outputs but no full insight write-up. Landed:
