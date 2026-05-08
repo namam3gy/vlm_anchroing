@@ -152,6 +152,16 @@ LRM-judging direction (text-only reasoning models can be *more* biased
 than their non-reasoning counterparts; H4 lands on the *amplification*
 side, not the *suppression* side).
 
+> **See `docs/insights/E5e-mathvista-reasoning-evidence.md` for the
+> wrong-base / correct-base split.** The all-base ×2.9 df ratio above
+> hides the much stronger ×12.7 amplification on the *correct-base*
+> subset, where instruct shows essentially zero pull (df = 0.021) and
+> thinking pulls almost as hard as on wrong-base (df = 0.267 vs 0.327).
+> The H2 wrong > correct asymmetry that holds across the entire main
+> panel collapses in reasoning mode — direct evidence that continuous
+> confidence monotonicity (H7, see `L1-confidence-modulation-evidence.md`)
+> breaks down with chain-of-thought.
+
 ## 7. Implications for §5 / §6 / §8 of the paper
 
 ### 7.1 §5 — graded-movement claim survives on MathVista

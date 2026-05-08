@@ -139,6 +139,7 @@ class HFAttentionRunner(_BaseRunner):
         model_name: str,
         inference_config: InferenceConfig | None = None,
         device: str | None = None,
+        attn_implementation: str = "sdpa",
     ):
         from transformers import AutoProcessor, AutoModelForImageTextToText
 
@@ -152,10 +153,10 @@ class HFAttentionRunner(_BaseRunner):
             dtype=dtype,
             trust_remote_code=True,
             device_map=self.device,
-            attn_implementation="sdpa",
+            attn_implementation=attn_implementation,
         )
         if hasattr(self.model.config, "_attn_implementation"):
-            self.model.config._attn_implementation = "sdpa"
+            self.model.config._attn_implementation = attn_implementation
         self.model.eval()
 
     def _build_prompt(self, question: str, num_images: int) -> list[dict]:
@@ -457,11 +458,17 @@ def build_runner(
     hf_model: str,
     inference_config: InferenceConfig | None = None,
     device: str | None = None,
+    attn_implementation: str = "sdpa",
 ) -> _BaseRunner:
-    """Dispatch to the right runner based on the HF model id."""
+    """Dispatch to the right runner based on the HF model id.
+
+    `attn_implementation` only flows to HFAttentionRunner; FastVLM / ConvLLaVA
+    have bespoke runners with their own attention paths.
+    """
     lower = hf_model.lower()
     if "fastvlm" in lower or "llava-qwen" in lower:
         return FastVLMRunner(hf_model, inference_config=inference_config, device=device)
     if "convllava" in lower:
         return ConvLLaVARunner(hf_model, inference_config=inference_config, device=device)
-    return HFAttentionRunner(hf_model, inference_config=inference_config, device=device)
+    return HFAttentionRunner(hf_model, inference_config=inference_config, device=device,
+                             attn_implementation=attn_implementation)

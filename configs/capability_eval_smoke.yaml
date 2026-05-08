@@ -1,0 +1,23 @@
+# E8 capability eval smoke config — sub-sampled 50q per benchmark for wiring check.
+# Driver: scripts/run_capability_eval.py with --max-questions 50
+
+subspace_path: outputs/e6_steering/llava-onevision-qwen2-7b-ov/_subspace/subspace_plotqa_infovqa_pooled_n5k_K16.pt
+
+cell:
+  layer: 26
+  K: 8
+  alpha: 1.0
+
+benchmarks:
+  - RealWorldQA
+  - OCRBench
+  - HallusionBench
+  - MMStar
+  - MMBench_DEV_EN
+
+vlm_kwargs:
+  model_path: llava-hf/llava-onevision-qwen2-7b-ov-hf
+
+output_root: outputs/capability_eval_smoke
+partial_csv: docs/insights/_data/capability_eval_smoke_partial.csv
+final_csv: docs/insights/_data/capability_eval_smoke.csv

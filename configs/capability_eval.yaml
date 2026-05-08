@@ -1,0 +1,34 @@
+# E8 capability eval config — chosen cell L=26, K=8, α=1.0 on OneVision-7b Main.
+# Driver:     scripts/run_capability_eval.py
+# Aggregator: scripts/aggregate_capability_eval.py
+# Spec:       docs/superpowers/specs/2026-05-08-mitigation-general-capability-design.md
+
+subspace_path: outputs/e6_steering/llava-onevision-qwen2-7b-ov/_subspace/subspace_plotqa_infovqa_pooled_n5k_K16.pt
+
+cell:
+  layer: 26
+  K: 8
+  alpha: 1.0
+
+# Fast-first ordering (ascending question count) so the first Δ surfaces ~2h in
+# rather than after the full ~13h sweep.
+benchmarks:
+  - RealWorldQA          # 765, accuracy
+  - OCRBench             # 1000, OCR per-question match (bool)
+  - HallusionBench       # 951, accuracy (Y/N)
+  - MMStar               # 1500, accuracy
+  - MMBench_DEV_EN       # 4329 raw → 1164 unique under CircularEval
+  - POPE                 # 5127, accuracy (Y/N — object-existence hallucination)
+
+# vlmeval LLaVA_OneVision_HF constructor kwargs.
+# Note: HF mirror of lmms-lab/llava-onevision-qwen2-7b-ov — same Qwen2 LM weights.
+vlm_kwargs:
+  model_path: llava-hf/llava-onevision-qwen2-7b-ov-hf
+
+output_root: outputs/capability_eval
+
+# Live partial summary (overwritten after each benchmark; gitignored)
+partial_csv: docs/insights/_data/capability_eval_partial.csv
+
+# Final summary (written once after the last benchmark; gitignored)
+final_csv: docs/insights/_data/capability_eval_per_benchmark.csv

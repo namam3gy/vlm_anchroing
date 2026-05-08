@@ -43,10 +43,10 @@ Predictions are written `pred_b / pred_a / pred_m / pred_d`; ground truth is
 | **H1** | Anchor pulls the prediction beyond the neutral baseline | `direction_follow_rate(a) ≤ direction_follow_rate(d) + chance` | ✅ all 7 main models, all 3 E5e models — `direction_follow_rate(a) > direction_follow_rate(d)` significantly |
 | **H2** | Anchoring is asymmetric: stronger on items the model originally got wrong | `direction_follow_rate(a)` for wrong-base ≤ correct-base | ✅ Phase A `A1`: +6.9 to +19.6 pp wrong > correct on direction-follow; M2 §5.1 confirms +0.040 mean wrong-correct gap on adopt at S0/S1 cells (22/22 wins) |
 | **H3** ❌ | ConvNeXt / encoder-free encoders less susceptible than ViT | `adopt_rate(ConvNeXt)` ≈ `adopt_rate(ViT)` | ❌ Falsified at adoption (E2 pilot 2026-04-24) and per-layer levels (E1b: ConvLLaVA's peak layer L16, signature identical to LLaVA-1.5 CLIP-ViT). Replaced by depth-axis framing (E1c) |
-| **H4** | Reasoning / thinking-mode reduces anchoring | thinking-on `df` ≤ thinking-off `df` | ⚠ Untested. VLMBias / LRM-judging suggests reasoning may *amplify* — write β experiment direction-agnostic |
+| **H4** | Reasoning / thinking-mode reduces anchoring | thinking-on `df` ≤ thinking-off `df` | ❌ Falsified, *amplification*. E5e γ-β on Qwen3-VL-8B Instruct vs Thinking on MathVista (`E5e-mathvista-reasoning-evidence.md`): ×2.9 df all-base, ×12.7 df on correct-base. H2 wrong > correct asymmetry collapses in thinking mode. Same direction as VLMBias / Wang LRM-judging. |
 | **H5** | "No-hedging" prompt amplifies anchor pull on uncertain items | `direction_follow` increases under strengthen | ⚠ Suggestive (gemma3-27b-it strengthen `mean_distance_to_anchor` = 2617 → hallucination, not anchor pull). Folded into §"strengthen anomaly" caveat |
 | **H6** | Cross-modal failures decouple into two orthogonal axes — `anchor-pull` vs. `multi-image distraction` | `adopt_rate(a)` and `acc_drop_d_vs_b` perfectly correlated → H6 fails | ✅ Suggested by E2 pilot (InternVL3 = high acc_drop / low adopt; LLaVA-1.5 = low acc_drop / high adopt; ConvLLaVA = both). Confirmed at full E4 Phase 2 scale |
-| **H7** ⚙ | `direction_follow_rate` is monotonic with `pred_b`-token logit / probability — i.e. uncertainty modulates anchor pull on a **continuous** confidence scale, of which wrong/correct (H2) is a coarse projection | `direction_follow_rate` flat across confidence quartiles | ☐ Pending §6 analysis (data captured commit `5f925b2`, no analysis yet) |
+| **H7** ⚙ | `direction_follow_rate` is monotonic with `pred_b`-token logit / probability — i.e. uncertainty modulates anchor pull on a **continuous** confidence scale, of which wrong/correct (H2) is a coarse projection | `direction_follow_rate` flat across confidence quartiles | ✅ Confirmed for non-reasoning panel — `L1-confidence-modulation-evidence.md` reports `entropy_top_k` Q4 − Q1 mean df = +0.152 on E5b/E5c/E5e, 23/35 anchor cells fully monotone. **Boundary case**: H7 monotonicity *collapses* under reasoning mode (`E5e-mathvista-reasoning-evidence.md` §3.1) and is panel-side compressed on InternVL3-8b (`E7-plotqa-infovqa-evidence.md` §4) — both deserve §6 prose paragraph distinguishing "uncertainty-modulated graded pull" from "reasoning-induced graded pull". |
 
 ## 3. Status snapshot — where we are (2026-05-04 — Phase 1 P0 v3 complete)
 
@@ -101,8 +101,8 @@ in-flight · ☐ not started.
 
 | Experiment | Dataset | Conditions | Models | Status |
 |---|---|---|---|---|
-| `experiment_e7_plotqa_full` | PlotQA test V1 | b/a/m/d (S1) | 6-model main panel | ✅ shipped 2026-05-03 — 6-model × 5-dataset matrix complete |
-| `experiment_e7_infographicvqa_full` | InfographicVQA val | b/a/m/d (S1) | 6-model main panel | ✅ shipped 2026-05-03 |
+| `experiment_e7_plotqa_full` | PlotQA test V1 | b/a/m/d (S1) | 7-model panel | ✅ shipped 2026-05-03; standalone evidence doc `docs/insights/E7-plotqa-infovqa-evidence.md` 2026-05-04 — 7-model wrong-base df ranking, gemma3 anti-scaling 4B (0.395) > 27B (0.227), internvl3-8b H2 collapse (wrong−correct gap +0.008), 6/7 models show em(a) > em(b) free-lunch baseline |
+| `experiment_e7_infographicvqa_full` | InfographicVQA val | b/a/m/d (S1) | 7-model panel | ✅ shipped 2026-05-03; covered jointly in `E7-plotqa-infovqa-evidence.md` — gemma3 anti-scaling reverses (4B 0.324 < 27B 0.350), free-lunch claim doesn't generalise here (mixed em deltas) |
 | E5b/c PlotQA + InfoVQA + ChartQA + MathVista 3-model | 4 datasets | b + 5×a-strat + 5×m-strat + d | same 3 | 🟡 Phase 2 — OneVision Main shipped 2026-05-04 (4/4 datasets, 12-cond × 4 = 85,258 records). adopt monotonic decay S1→S5 on every dataset; df gentle decay (-0.04 to -0.06) on 3/4 (MathVista flat); em stable. Plausibility-window claim replicates at full GT range on a second architecture. Doc: `docs/insights/E5b-cross-dataset-onevision.md`, generator: `scripts/build_e5b_5strat_decay_summary.py`. 3-model expansion still pending (defer; OneVision is the §5 headline) |
 | E6 Subspace recalibration on PlotQA + InfoVQA pooled, 5-dataset full-range eval | 5 datasets | b/a/m/d (S1) + cell sweep | Main only | ✅ shipped — chosen L=26 K=8 α=1.0; Stage 4-final eval done. **Bonus em(b) +9.2pp** finding for paper §7.4 task #38 |
 | Phase D §7.1-7.3 cross-dataset attention | 4 datasets (Tally/Plot/Info/VQAv2) | b/a/m/d (S1) | 5-panel + OneVision = 6 models | ✅ shipped 2026-05-03 — 24/24 cells; cross-dataset peaks via `analyze_cross_dataset_peaks.py` |
@@ -124,7 +124,7 @@ in-flight · ☐ not started.
 | `experiment_e5e_chartqa_full` | ChartQA | b/a/m/d (S1) | llava-interleave-7b, qwen2.5-vl-7b, gemma3-27b-it | ✅ |
 | `experiment_e5e_tallyqa_full` | TallyQA | b/a/m/d (S1) | same 3 | ✅ — gemma3-27b cell landed 2026-04-29 (inference 2026-04-28 23:28, C-form re-aggregation 2026-04-29) |
 | `experiment_e5e_mathvista_full` (γ-α) | MathVista | b/a/m/d (S1) | llava-interleave-7b, qwen2.5-vl-7b, gemma3-27b-it | ✅ landed 2026-04-29 — `docs/insights/E5e-mathvista-evidence.md` |
-| MathVista (γ-β) reasoning-mode | MathVista | b/a/m/d (S1) | qwen3-vl-8b-instruct + qwen3-vl-8b-thinking | ✅ landed 2026-04-28 — thinking *amplifies* anchor pull (S1 anchor arm, all-base, n=365: instruct adopt(a)=0.074 df(a)=0.102 → thinking adopt(a)=0.117 df(a)=0.291; ratios ×1.6 adopt, ×2.9 df). VLMBias / LRM-judging gain confirmed |
+| MathVista (γ-β) reasoning-mode | MathVista | b/a/m/d (S1) | qwen3-vl-8b-instruct + qwen3-vl-8b-thinking | ✅ landed 2026-04-28; full evidence doc `docs/insights/E5e-mathvista-reasoning-evidence.md` 2026-05-04 — all-base ratio ×1.6 adopt / ×2.9 df hides a much stronger correct-base ×12.7 df amplification (instruct df_correct=0.021 → thinking df_correct=0.267); H2 wrong > correct asymmetry collapses in thinking, evidence that H7 confidence-monotonicity (L1) breaks down with chain-of-thought |
 | VQAv2 4-condition (b/a/m/d) | VQAv2 | full grid cross-model | TBD | ☐ P1 (kept, time-permitting) |
 
 ### 3.2 Mechanistic runs
@@ -263,7 +263,7 @@ robustness).
 | **E5e S1-only cross-model** | b/a/m/d × ChartQA + TallyQA × 3 models | ✅ |
 | **E5b/c cross-model expansion** | extend E5b + E5c to 3-model E5e panel (qwen2.5-vl-7b, gemma3-27b-it ∪ llava-interleave-7b) on VQAv2 + TallyQA | ✅ 3/3 — qwen2.5-vl-7b landed 2026-04-29 (a−m at floor on both datasets); gemma3-27b-it landed 2026-04-29 (VQAv2 n=12,000 full; TallyQA at `max_samples=300`, n=3,600). Headline: VQAv2 `a−m` = +5.7 pp adopt / +6.0 pp df (second-largest, behind llava); TallyQA `a−m` = +2.1 pp adopt / df-tie. Direction-consistent with main-panel ranking |
 | **E5e MathVista (γ-α)** | MathVista b/a/m/d (S1) × 3 models | ✅ landed 2026-04-29; **C-form refresh 2026-04-28**: gemma3-27b wrong-base S1 `adopt(a) = 0.230`, `df(a) = 0.332` (panel-largest cell). All 3 models in graded-tilt regime under C-form (df > 0 universally); pre-refactor "categorical-replace df=0" reading was a driver-bug artefact, retracted in `E5e-mathvista-evidence.md` §5 |
-| **E5e MathVista (γ-β)** | reasoning-mode VLM × MathVista — Qwen3-VL-8B-Instruct vs. Qwen3-VL-8B-Thinking (separate weights), 4-cond S1, max_new_tokens=512, runner is `</think>`-aware | ✅ landed 2026-04-28. Headline (C-form, S1 anchor arm, all-base, n=365): instruct adopt(a)=0.074 / df(a)=0.102, thinking adopt(a)=0.117 / df(a)=0.291. Thinking amplifies anchor pull (×1.6 adopt, ×2.9 df) — direction-agnostic hypothesis (H4) lands on the *amplification* side, consistent with VLMBias / Wang LRM-judging |
+| **E5e MathVista (γ-β)** | reasoning-mode VLM × MathVista — Qwen3-VL-8B-Instruct vs. Qwen3-VL-8B-Thinking (separate weights), 4-cond S1, max_new_tokens=512, runner is `</think>`-aware | ✅ landed 2026-04-28; full evidence doc `docs/insights/E5e-mathvista-reasoning-evidence.md` (2026-05-04). Headline (C-form, S1 anchor arm, all-base, n=365): instruct adopt(a)=0.074 / df(a)=0.102, thinking adopt(a)=0.117 / df(a)=0.291 (×1.6 adopt, ×2.9 df). **Wrong / correct split**: instruct df(a) wrong=0.256 / correct=0.021; thinking df(a) wrong=0.327 / correct=0.267 — correct-base ratio ×12.7. H2 wrong > correct asymmetry collapses in reasoning mode → first cell where the H7 continuous-confidence monotonicity (`L1-confidence-modulation-evidence.md`) is empirically violated |
 | **VQAv2 4-condition** | b/a/m/d cross-model VQAv2 | ☐ P1 (kept) |
 
 ### 6.4 §6 — Confidence-modulated anchoring (logit-based)
@@ -277,8 +277,8 @@ the coarsest possible projection of this monotonicity.
 |---|---|---|
 | **L1** | per-token logit / softmax-prob already captured (commit `5f925b2`) on E5b/E5c/E5e + 7 main runs | ✅ data |
 | **L2** | confidence-proxy menu — `top1_softmax_prob`, `top1_minus_top2_margin`, `entropy_top_k` — `scripts/analyze_confidence_anchoring.py` | ✅ landed 2026-04-29 |
-| **L3** | per-confidence-quartile `adopt_rate` and `direction_follow_rate` table, model × dataset; compare to A1 binary split | ✅ 112,008 (sample × arm) records over 34 cells; `_data/L1_*.csv` |
-| **L4** | report — pick the proxy + quartile shape with cleanest monotone trend; lift over A1 | ✅ `docs/insights/L1-confidence-modulation-evidence.md` — `entropy_top_k` wins; Q4 − Q1 mean df = +0.152 (C-form refreshed), 23/35 anchor cells fully monotone |
+| **L3** | per-confidence-quartile `adopt_rate` and `direction_follow_rate` table, model × dataset; compare to A1 binary split | ✅ 695,004 (sample × arm) records over 85 anchor cells (5-dataset × 7-model expansion 2026-05-04); `_data/L1_*.csv` |
+| **L4** | report — pick the proxy + quartile shape with cleanest monotone trend; lift over A1 | ✅ `docs/insights/L1-confidence-modulation-evidence.md` — under `log_prob_sum` Q4 − Q1 mean df = **+0.191** (51/85 monotone, 60 %); `cross_entropy` is the paper-clean default at +0.156 (43/85). **InternVL3-8b shows H7 reversal** on PlotQA (Δ −0.134), ChartQA (Δ −0.089), InfoVQA (Δ −0.156) — same model with H2 collapse in `E7-plotqa-infovqa-evidence.md` §4. New §2.E in L1 doc. |
 | **L5** | re-cast §6 narrative — "wrong/correct gap is a coarse projection of confidence monotonicity" | ✅ paper draft `docs/paper/sections/06_confidence.md` |
 | **L6** | VQAv2 main panel logit re-run (no logit capture pre-commit `5f925b2`) | ☐ P1 — opportunistic |
 
@@ -376,9 +376,12 @@ landed (commit `c556fb6`). Phase E E1d 4/4 landed (commits `7a27750` +
 
 | Pri | Task | Where | Estimate |
 |---|---|---|---|
-| **P1** | §7.4.5 paper prose update (Tally-cal headline → PlotQA+InfoVQA-cal headline at full gt range) | `docs/paper/sections/07_*.md` | text only |
-| **P1** | §3 / §5 / §6 paper prose update for 5-dataset matrix | `docs/paper/sections/0[3-6]_*.md` | text only |
-| **P1** | Citation verification — every 2026 arXiv ID in `references/project.md` and §2 paper draft must resolve to a real paper | §9 caveat | hours of manual verification, reviewer-defuse |
+| **P0 (NEW, 2026-05-08)** | E8 Mitigation capability-preservation regression test on OneVision Main | §7.4.5 | ✅ shipped — verdict: STRICT_FREE_LUNCH (6 benchmarks, macro Δ +0.41pp; HallusionBench Δ=+2.21pp CI excludes 0; POPE Δ=−0.06pp CI=[−0.21,+0.09]) |
+| **P1 (NEW, 2026-05-08)** | E8 follow-up: add MME (counting hallucination, "Count" subset directly tests number-anchor failure mode) + AMBER (multi-dim hallucination, contamination-clean Nov 2023) to capability panel — both VLMEvalKit YORN-supported, no LLM judge, no code change needed | §7.4.5 | ~/LMUData curl-k for MME.tsv + AMBER.tsv; ~1.5–2h GPU on H200; merge into 6→8 row table |
+| **P1 (NEW, 2026-05-08)** | E8 follow-up: MMMU-DEV-VAL with LLM-judge (multi-discipline reasoning, ~$1-2 GPT-4o-mini cost) | §7.4.5 | deferred until paper §7.4.5 prose locked; reviewer pre-check value justifies cost at that point |
+| **P1** | §7.4.5 paper prose update (Tally-cal headline → PlotQA+InfoVQA-cal headline at full gt range) | `docs/paper/sections/07_*.md` | ✅ shipped 2026-05-08 — §7.4.5 + §7.5 + §7.6 + Capability Preservation subsections cohesive on L26_K8_α=1.0, 5-dataset paired-sids deltas, strict free-lunch, 6-bench E8 macro Δ +0.41 pp |
+| **P1** | §3 / §5 / §6 paper prose update for 5-dataset matrix | `docs/paper/sections/0[3-6]_*.md` | ✅ shipped 2026-05-04 batch 1 (§3.6 / §4 / §5 / §6 5-dataset rewrites); cross-section drift to §1 / §8 closed 2026-05-08 (this changelog entry) |
+| **P1** | Citation verification — every 2026 arXiv ID in `references/project.md` and §2 paper draft must resolve to a real paper | §9 caveat | ✅ shipped 2026-05-08 — 9/9 arXiv IDs verified, 3 venue tags resolved (NAACL 2025 ✅, HCAIR ICLR 2026 ✅, EMNLP Findings ❌ for CIVET); audit doc closed |
 | **P3** | Image-vs-text anchor (F2) follow-up paper | §6.6 | future |
 | **P3** | InternVL3 + Qwen2.5-VL E1-patch non-square (appendix only) | §6.5 §7 | 1–2 days/model implementation if pursued |
 
@@ -458,6 +461,151 @@ landed (commit `c556fb6`). Phase E E1d 4/4 landed (commits `7a27750` +
   `predictions.jsonl` only.
 
 ## 10. Changelog
+
+- **2026-05-08 ~21:30 (Phase 4 P1 paper polish — cross-section
+  consistency pass + venue-tag verification).**  Phase 4 P1 batch
+  shipped (paper polish, write phase).
+  - **§1 / §8.5 cross-section drift resolved against E8 STRICT_FREE_LUNCH.**
+    §1 abstract now carries the 6-benchmark capability-preservation
+    headline (macro Δ = +0.41 pp, HallusionBench Δ = +2.21 pp 95 % CI
+    excluding zero, POPE Δ = −0.06 pp 95 % CI [−0.21, +0.09]).
+    §1.4 mechanism+mitigation paragraph extended with the same.
+    §1.6 contribution #5 lists E8 explicitly. §8.5 conclusion
+    rewritten to lead with E6 deployable + E8 capability preserved.
+  - **§1.3 confidence-claim numbers re-aligned to §6 actual figures.**
+    Old "Q4-Q1 = +15.2 pp" / "23 of 35 cells" (legacy 4-dataset
+    4-model panel) replaced with paper-default
+    `cross_entropy` Q4-Q1 = +15.6 pp (43 / 85 cells) and
+    `log_prob_sum` +19.1 pp (51 / 85, 60 %) on the 5-dataset ×
+    7-model panel. §1.6 contribution #3 now lists the six-model
+    Phase 1 P0 v3 main panel + supplementary llava-interleave
+    cell + cross-dataset E5e + γ-β reasoning-mode pair.
+  - **§5.4 stale "pending gemma3-27b-it E5c" wording removed.** Cell
+    landed 2026-04-29 (VQAv2 a−m = +5.7 pp, TallyQA a−m = +2.1 pp).
+    Table extended to include the cell; prose rewritten to reflect
+    3-model panel resolution.
+  - **§4.4 sample-sizes table extended with E8 capability eval row**
+    (10,507 questions × 2 variants = 21,014 generations).
+  - **Citation venue-tag audit closed (2026-05-08).** Three
+    arXiv-2025+ venue tags from `docs/insights/citation-audit-2026-05.md`
+    verified via WebFetch on arXiv abs pages:
+    NAACL 2025 ✅ for 2502.08193 (Wang-Zhao-Larson typographic);
+    HCAIR @ ICLR 2026 ✅ for 2505.15392 (Huang anchoring);
+    EMNLP Findings 2025 ❌ for 2506.05146 (CIVET) — paper is arXiv
+    preprint only, no named venue. §2 paper draft tag removed
+    (arXiv:2506.05146, 2025); `references/project.md` "What EMNLP
+    Main demands" strategic argument softened (CIVET no longer cited
+    as a "Findings" example, instead as a behavioral-probing-only
+    arXiv example in the same class). Audit doc updated with verified
+    statuses + new action items pruned to non-arXiv reference checks
+    (Jones&Steinhardt, Echterhoff, Goh, Hagendorff, Mussweiler&Strack,
+    Tversky&Kahneman, Jacowitz&Kahneman).
+  - Files committed: `references/project.md`,
+    `docs/insights/citation-audit-2026-05.md`. Paper-section edits
+    are local-only (`docs/paper/sections/01/02/04/05/08_*.md`,
+    gitignored per existing convention).
+
+- **2026-05-08 ~20:45 (E8 follow-up: POPE added to the panel).**
+  Sixth held-out benchmark — POPE (object-existence hallucination
+  diagnostic, n=5127) added to the capability eval as a complementary
+  hallucination axis to HallusionBench (illusion/depth). **Result:
+  Δ=−0.06pp, 95 % CI=[−0.21, +0.09]** — tight CI essentially pins the
+  effect to zero. 6-benchmark macro Δ = **+0.41 pp**, verdict still
+  STRICT_FREE_LUNCH. POPE is the largest single benchmark on the panel,
+  so its tight CI dominates the noise-floor estimate.
+  - Driver fix landed (commit `23fe5bc`): VLMEvalKit's YORN
+    `evaluate()` short-circuits on existing `_auxmatch.xlsx`, so the
+    self-test pass's 2-row auxmatch poisoned the full sweep's
+    extraction (driver reported n=2 despite full 5127-question
+    inference). Fixed by wiping `out_dir/<variant>/<bench>` at run
+    start.
+  - Memory file `feedback_vlmevalkit_quirks.md` extended to four
+    quirks (YORN cache + 3 prior); insight doc + paper §7.4.5
+    sub-section regenerated with the 6-row table.
+
+- **2026-05-08 ~04:38 (E8 capability-preservation regression test).**
+  New Phase 4 P0 shipped. Spec
+  `docs/superpowers/specs/2026-05-08-mitigation-general-capability-design.md`
+  + insight doc `docs/insights/E8-capability-preservation-evidence.md`.
+  - VLMEvalKit (commit `97ce037`) pinned as a dep; LLaVA-OneVision-HF
+    backend chosen over LLaVA-NeXT (avoids `llava` dep conflict; same
+    Qwen2 weights at the L=26 hook site).
+  - New `LLaVAOneVisionMitigated` subclass installs the chosen-cell hook
+    at construction; `vlm_anchor.hooks.make_subspace_projection_hook`
+    now the single source of truth (e6_steering_vector.py keeps a
+    1-line shim).
+  - Driver `scripts/run_capability_eval.py` orchestrates per-benchmark
+    interleaving (RealWorldQA → OCRBench → HallusionBench → MMStar →
+    MMBench-DEV-EN, fast-first). Aggregator
+    `scripts/aggregate_capability_eval.py` ships with pre-registered
+    thresholds (per-bench Δ ≥ -1.0pp, macro Δ ≥ -0.5pp), 12 unit tests
+    cover hook math + verdict logic + threshold-pinning.
+  - **Result: STRICT_FREE_LUNCH on full sweep (~1.5h H200, no LLM-judge).**
+    Macro Δ = +0.50pp; per-bench Δ ∈ [-0.80, +2.21]; HallusionBench
+    Δ=+2.21pp 95% CI=[+1.14, +3.28] **excludes zero — statistically
+    significant positive**. §7.4.5 strict free-lunch claim (originally
+    Δdf ≤ 0 ∧ Δem(a) ≥ 0 ∧ Δem(b) ≥ 0 within anchoring family) extends
+    to general VLM capability.
+  - Pipeline cross-check vs lmms-lab model card published numbers:
+    MMStar 61.67 vs 61.7 (essentially identical match); RealWorldQA
+    +3.5pp, MMBench +1.24pp, OCRBench match. Strong evidence of HF
+    mirror weight equivalence at the Qwen2 LM layer where the hook
+    operates.
+
+- **2026-05-04 ~17:30 (Phase 2 insight mining batch 1).** Audit pass on
+  experiments that had outputs but no full insight write-up. Landed:
+  - **E5e γ-β reasoning evidence doc** (`docs/insights/E5e-mathvista-reasoning-evidence.md` +
+    `notebooks/E5e_reasoning_ablation.ipynb` +
+    `_data/experiment_e5e_mathvista_reasoning_per_cell.csv`). Wrong-base / correct-base
+    split surfaced — correct-base df ratio is **×12.7** (instruct 0.021 → thinking 0.267),
+    much stronger than the all-base ×2.9 headline. Direct violation of H7 confidence
+    monotonicity in reasoning mode.
+  - **E7 PlotQA + InfoVQA standalone evidence doc**
+    (`docs/insights/E7-plotqa-infovqa-evidence.md` +
+    `notebooks/E7_plotqa_infovqa.ipynb`). Surfaces 3 findings the §3.3
+    umbrella hides: (1) Gemma3 anti-scaling is **PlotQA-driven** and reverses
+    on InfoVQA; (2) **InternVL3-8b shows H2 collapse** (wrong−correct df gap
+    +0.008 PlotQA / +0.024 InfoVQA — panel-side analogue of the thinking-mode
+    H2 collapse); (3) 6/7 PlotQA models show **em(a) > em(b) un-mitigated
+    free-lunch**, motivating §7.4.5 E6 mitigation.
+  - **§6 confidence quartile reaggregation on 5-dataset × 7-model matrix.**
+    Ran `scripts/recompute_answer_span_confidence.py` on 172 jsonl files
+    (added length-normalised proxies to runs lacking `answer_span_*` fields)
+    + `scripts/analyze_confidence_anchoring.py`. Coverage 35 → 85 anchor
+    cells; df Q4 − Q1 = +0.191 on `log_prob_sum` (51/85 monotone), +0.156
+    on `cross_entropy` paper-default (43/85). New §2.E in
+    `L1-confidence-modulation-evidence.md` documents **InternVL3-8b H7
+    reversal** on PlotQA / ChartQA / InfoVQA — least-confident records
+    anchor *less*, not more (Δ −0.089 to −0.156). Same model with
+    panel-side H2 collapse. §2 H7 row updated from ☐ to ✅ with boundary
+    cases noted; H4 row flipped to ❌ (γ-β amplification finding).
+  - **OneVision Phase E E1d analyzer fix** (commits `a7e391c`, `de1f94e`):
+    `analyze_causal_ablation.py` now emits per-(model, dataset) cells with
+    OneVision dataset routing (hardcoded timestamp map + susceptibility-CSV
+    auto-detect fallback). Reaggregated 5 OneVision Phase E run dirs to add
+    M2 / C-form per-row flags.
+  - **OneVision Phase E E1d INFERENCE bug** (commit `8895128`): bisected the
+    "ablation no-op on 4/4 datasets" symptom to commit `7f8ebb6` (May 3 07:23 KST,
+    "switch to SDPA"). Empirical verification on 5 chartqa sids: eager 3/5 differ
+    vs sdpa 1/5 — SDPA dispatch silently drops the `attention_mask` bias from
+    `_make_anchor_mask_hook`. The orphaned PlotQA run 20260503-002050 (eager
+    pre-commit) has 26-36 % differing — the expected level. New
+    `--attn-implementation` flag added; eager re-run completed
+    (`scripts/_phase2_e1d_eager_rerun.sh` 17:40 → 21:35, ~3h55m on H200).
+    **Final 4-dataset deltas vs baseline df** (`per_model_per_mode.csv`):
+    TallyQA Δ_lower_half=+0.050 / Δ_all=−0.040; MathVista Δ_lower_half=+0.075 /
+    Δ_all=−0.045; ChartQA Δ_lower_half=+0.026 / Δ_all=+0.006; InfoVQA all
+    Δ ≤ |0.008| (minimal). 3/4 datasets reproduce classic E1d signature
+    (mid-stack ablation amplifies, full ablation drops); InfoVQA's flat
+    response is consistent with its Phase D peak at L=14 (the chosen
+    `--peak-layer 27` setting routes ablation through the wrong band).
+    `phase1-p0-v3-summary.md` caveat #2 retired.
+  - Blast-radius audit: SDPA-mask-bias bug confined to `causal_anchor_ablation.py`.
+    E4 attention re-weighting uses `build_eager_runner` explicitly. E6 family
+    (steering / leace / cogbias / qao) hooks layer output, not attention_mask.
+    §7.1-7.3 attention extraction (`extract_attention_mass.py`) uses
+    `lite_eager` monkey-patch on a separate dispatch path that reads attention
+    output rather than modifying input mask. None affected.
 
 - **2026-05-04 ~10:31 (Phase 2 E5b 5-stratum cross-dataset, OneVision Main).**
   Queue script `scripts/_phase1_e5b_5strat_onevision_queue.sh` ran 4

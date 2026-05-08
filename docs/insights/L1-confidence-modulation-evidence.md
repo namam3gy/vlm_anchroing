@@ -1,5 +1,24 @@
 # L1 — Confidence-modulated anchoring (§6 of the paper)
 
+> **2026-05-04 update.** Re-aggregated on the **5-dataset × 7-model**
+> Phase 1 P0 v3 main matrix (was 4-dataset × 1-3 model). Coverage now:
+> 85 anchor cells across {VQAv2, TallyQA, ChartQA, MathVista, PlotQA,
+> InfoVQA} × {llava-interleave-7b, llava-onevision-7b, gemma3-4b-it,
+> gemma3-27b-it, internvl3-8b, qwen2.5-vl-7b, qwen2.5-vl-32b}. Best
+> proxy is now **`log_prob_sum`** (sequence-level confidence,
+> length-aware): mean `direction_follow_rate` Q4 − Q1 = **+0.191**,
+> **51/85 anchor cells fully monotone** (60 %). The shorter
+> `cross_entropy` proxy is the paper-clean default (length-invariant,
+> Q4 − Q1 = +0.156, 43/85 monotone). The qualitative
+> "uncertainty-modulated graded pull, with wrong/correct as coarse
+> binary projection" finding survives the expansion. **New finding
+> §3.3: InternVL3-8b shows H7 *reversal* on chart-stack datasets** —
+> least-confident records (Q4) anchor *less*, not more, on PlotQA / ChartQA.
+> Same model has near-zero wrong − correct gap on those datasets
+> (`E7-plotqa-infovqa-evidence.md` §4). Per-cell CSV refreshed at
+> `_data/L1_confidence_quartile_long.csv`; per-proxy summary at
+> `_data/L1_proxy_monotonicity.csv`.
+
 > **2026-04-28 update.** Re-run on C-form re-aggregated data: the
 > headline claim is *strengthened*. With `entropy_top_k`, mean
 > `direction_follow_rate` Q4 − Q1 = **+0.152** (was +0.128 under
@@ -10,6 +29,7 @@
 > "uncertainty-modulated graded pull, with wrong/correct as a coarse
 > binary projection" — survives unchanged. Figure
 > `paper_L1_confidence_quartile.png` regenerated against the new CSV.
+> *(2026-05-04 supersession: see top.)*
 
 ## §0. Intuition — what this analysis measures, in plain terms
 
@@ -235,6 +255,159 @@ Q1 is 0.20-0.30 vs. Q4 at 0.05-0.15. Likely a small-n artefact: per
 small validation set is noisier than on the larger experimental panels.
 The E5d cells are excluded from the headline trend table; their pattern
 will firm up if MathVista (γ-α / γ-β) replaces E5d at full scale.
+
+## 2.E. 5-dataset × 7-model expansion (2026-05-04, `cross_entropy` proxy)
+
+The §6 main panel now covers 7 models on 5 datasets (the same matrix used
+in §3.3 / §5; see `phase1-p0-v3-summary.md`). Per-cell `direction_follow`
+Q4 − Q1 on the S1 anchor arm under the paper-default `cross_entropy`
+proxy:
+
+| dataset | model | df Q1 | df Q4 | Δ |
+|---|---|---:|---:|---:|
+| TallyQA | gemma3-27b-it | 0.012 | 0.212 | **+0.200** |
+| TallyQA | gemma3-4b-it | 0.036 | 0.205 | +0.169 |
+| TallyQA | internvl3-8b | 0.003 | 0.151 | +0.149 |
+| TallyQA | llava-onevision-7b-ov | 0.008 | 0.087 | +0.080 |
+| TallyQA | qwen2.5-vl-7b-instruct | 0.002 | 0.101 | +0.099 |
+| TallyQA | qwen2.5-vl-32b-instruct | 0.006 | 0.108 | +0.102 |
+| ChartQA | gemma3-27b-it | 0.000 | 0.323 | **+0.323** |
+| ChartQA | gemma3-4b-it | 0.045 | 0.305 | +0.260 |
+| **ChartQA** | **internvl3-8b** | **0.089** | **0.000** | **−0.089** |
+| ChartQA | llava-onevision-7b-ov | 0.000 | 0.194 | +0.194 |
+| ChartQA | qwen2.5-vl-7b-instruct | 0.000 | 0.217 | +0.217 |
+| ChartQA | qwen2.5-vl-32b-instruct | 0.000 | 0.163 | +0.163 |
+| MathVista | gemma3-4b-it | 0.174 | 0.584 | **+0.410** |
+| MathVista | gemma3-27b-it | 0.033 | 0.462 | +0.429 |
+| MathVista | internvl3-8b | 0.078 | 0.200 | +0.122 |
+| MathVista | qwen2.5-vl-32b-instruct | 0.000 | 0.236 | +0.236 |
+| PlotQA | gemma3-4b-it | 0.092 | 0.479 | **+0.387** |
+| PlotQA | gemma3-27b-it | 0.003 | 0.338 | +0.336 |
+| **PlotQA** | **internvl3-8b** | **0.134** | **0.000** | **−0.134** |
+| PlotQA | qwen2.5-vl-32b-instruct | 0.000 | 0.176 | +0.176 |
+| InfoVQA | gemma3-27b-it | 0.019 | 0.454 | **+0.435** |
+| InfoVQA | gemma3-4b-it | 0.068 | 0.406 | +0.338 |
+| **InfoVQA** | **internvl3-8b** | **0.186** | **0.030** | **−0.156** |
+
+(Full 85-cell table in `_data/L1_confidence_quartile_long.csv`.)
+
+**InternVL3-8b shows H7 reversal on 3 of 5 datasets (PlotQA / ChartQA /
+InfoVQA).** Least-confident records anchor *less*, not more — the most
+confident records (Q1) are pulled hardest. This is the panel-side
+analogue of the same model's H2 collapse (near-zero wrong − correct
+gap on the same datasets, see `E7-plotqa-infovqa-evidence.md` §4).
+
+Two readings consistent with the rest of the panel:
+
+1. **Robustness via format-locking, not graded-uncertainty modulation.**
+   InternVL3 emits "Based on..." prose despite the JSON-strict prompt
+   (~30 % parse-failure on E4 Phase 1, see roadmap §9). When confidence
+   is high, the model emits whatever its prose preamble says; when
+   confidence is low, the prose more often contains the *gt* string
+   rather than the anchor — so the anchor "doesn't stick" on Q4 the
+   way it does for other models. Tests: re-run InternVL3 with
+   `--max-new-tokens 16` to capture more of the prose tail.
+2. **Selection effect from baseline em.** InternVL3's `em(b)` is very
+   low on chart-stack datasets (PlotQA 0.019, ChartQA ~0.05). The
+   high-confidence records (Q1) are over-represented among the few
+   correct-base sids; on those, the model trusts its parse more,
+   making Q1 *more* anchor-vulnerable. Tests: stratify InternVL3 cells
+   by `base_correct` first, then by quartile within each.
+
+The reversal **does not propagate** into the panel mean (51/85 still
+monotone); it's an InternVL3-specific anomaly. But the §6 prose should
+acknowledge it as a cell where the "graded confidence pull" reading
+breaks down, similar to the E5e γ-β reasoning-mode cell
+(`E5e-mathvista-reasoning-evidence.md` §3.1) — different mechanism,
+same surface symptom.
+
+#### B2 follow-up (2026-05-04): wrong-base / correct-base × quartile decomposition
+
+To distinguish hypotheses (a) and (b), we stratified InternVL3-8b's
+a-arm pair records by `exact_match_b` (correct vs wrong base) before
+computing Q1 / Q4 within each subset. Hypothesis (b) (selection
+effect from very low em(b)) predicts the reversal should *vanish* on
+wrong-base records — that's where the population is large and not
+selected on confidence. Instead:
+
+| dataset | base | n | Q1 df | Q4 df | Δ Q4 − Q1 |
+|---|---|---:|---:|---:|---:|
+| ChartQA | wrong | 514 | 0.117 | 0.000 | **−0.117** |
+| ChartQA | correct | 115 | 0.036 | 0.000 | −0.036 |
+| InfographicVQA | wrong | 861 | 0.158 | 0.005 | **−0.154** |
+| InfographicVQA | correct | 211 | 0.077 | 0.055 | −0.022 |
+| MathVista | wrong | 218 | 0.074 | 0.018 | −0.056 |
+| MathVista | correct | 143 | 0.029 | 0.053 | +0.024 |
+| PlotQA | wrong | **4,610** | 0.046 | 0.000 | −0.046 |
+| PlotQA | correct | 97 | 0.042 | 0.040 | −0.002 |
+| TallyQA | wrong | 6,934 | 0.015 | 0.082 | **+0.067** |
+| TallyQA | correct | 31,311 | 0.002 | 0.054 | +0.052 |
+
+The reversal **persists on wrong-base records** for 4 of 5 datasets
+(ChartQA, InfographicVQA, MathVista, PlotQA). It's actually
+*strongest* on wrong-base for InfoVQA (Δ −0.154 at n=861), strong on
+ChartQA (Δ −0.117 at n=514), and unambiguous on the n=4,610 PlotQA
+wrong-base cell. Hypothesis (b) is **falsified**: the reversal isn't
+a small-sample artefact of the correct-base subset.
+
+TallyQA is the only dataset that retains the normal Q4 > Q1
+direction on InternVL3 (Δ +0.067 wrong, +0.052 correct). TallyQA's
+answer space is 0-9 single digits — the prose preamble that
+dominates other datasets ("Based on...") doesn't materialise around
+single-digit answers, so the format-locking pathway is shut off.
+This corroborates hypothesis (a): the reversal correlates with
+datasets where the model is most likely to emit a prose wrapper.
+
+**Provisional takeaway for §6.6 paper prose**: hypothesis (b)
+selection effect is falsified; format-locking-via-truncation is the
+remaining candidate. **Updated 2026-05-04** — the B3 follow-up below
+also falsifies the truncation form of hypothesis (a).
+
+#### B3 follow-up (2026-05-04): max-new-tokens 16 does NOT restore monotonicity
+
+Smoke-test of the format-locking hypothesis: re-ran InternVL3-8b on
+InfoVQA with `--max-new-tokens 16` (vs panel default 8) on n=250
+sids; results vs the existing max=8 full run on n=1147:
+
+| condition | max=8 (n=865 wrong) | max=16 (n=193 wrong) |
+|---|---:|---:|
+| Q1 df (most confident) | 0.111 | 0.146 |
+| Q4 df (least confident) | 0.014 | 0.000 |
+| **Δ Q4 − Q1 wrong-base** | **−0.097** | **−0.146** |
+
+| condition | max=8 (n=211 correct) | max=16 (n=38 correct) |
+|---|---:|---:|
+| Q1 df | 0.135 | 0.222 |
+| Q4 df | 0.018 | 0.000 |
+| **Δ Q4 − Q1 correct-base** | **−0.116** | **−0.222** |
+
+The reversal **persists, in fact slightly stronger** at max=16. The
+all-base panel-level df is very close between the two runs
+(max=8: df(a) = 0.155, df(m) = 0.138; max=16: df(a) = 0.180,
+df(m) = 0.185), so max-tokens isn't gating overall anchor behaviour —
+just truncation is not the cause of the Q1 > Q4 inversion.
+
+Both candidate mechanisms (selection effect, format-locking via
+truncation) are now falsified. The InternVL3 chart-stack reversal is
+a genuine "high-confidence records anchor more" pattern. Possible
+remaining mechanisms (left for §8 future work):
+
+- **Confident-confabulation hypothesis.** InternVL3's high-confidence
+  records on chart-stack data are the ones where the gt is plausibly
+  visible in the chart; the model commits to a parse, and the anchor
+  digit gets emitted as the parsed token *because* it matches a
+  visual digit pattern the model was already locked onto. Low
+  confidence → genuine uncertainty → the parsed first digit is
+  whichever number bubbled up from the chart context, often gt-like.
+- **Per-architecture interaction with InternViT-300M.** The other
+  panel models use SigLIP / CLIP-ViT / Qwen-ViT / ConvNeXt; InternVL3
+  is the only InternViT model in our panel. The reversal coincides
+  with this encoder family — a single-model finding that needs
+  cross-encoder testing to be falsifiable.
+
+Paper-side action: cite the reversal as a documented but not yet
+mechanistically explained boundary case. §6.6 paper prose updated to
+match.
 
 ## 3. Why direction-follow modulation is bigger than adopt modulation
 

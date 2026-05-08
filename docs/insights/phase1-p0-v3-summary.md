@@ -48,6 +48,20 @@ OneVision E1d on TallyQA + InfoVQA + ChartQA + MathVista. 6-mode ablation table 
 
 **Note**: Master queue's original ChartQA + MathVista runs were corrupted (PlotQA-CSV-reuse bug). Fixed 2026-05-04 by building per-dataset susceptibility CSVs from existing OneVision baselines + re-running. Commit `2d11876`.
 
+**SDPA mask-bias regression FIXED 2026-05-04 ~21:35** (caveat #2 below was retired). The "ablation no-op" symptom on all 4 datasets was bisected to commit `7f8ebb6` (SDPA switch). Eager re-run via `scripts/_phase2_e1d_eager_rerun.sh` produces valid Δ vs baseline:
+
+| dataset | base df | Δ peak | Δ peak_window | Δ lower_half | Δ upper_half | Δ all |
+|---|---:|---:|---:|---:|---:|---:|
+| TallyQA | 0.130 | -0.005 | +0.005 | **+0.050** | -0.025 | **-0.040** |
+| InfoVQA | 0.167 | +0.000 | +0.005 | -0.006 | +0.004 | +0.008 |
+| ChartQA | 0.105 | +0.000 | +0.005 | +0.026 | -0.004 | +0.006 |
+| MathVista | 0.171 | +0.000 | -0.005 | **+0.075** | -0.026 | **-0.045** |
+| PlotQA *(orphan eager pre-7f8ebb6)* | 0.243 | -0.006 | -0.010 | +0.024 | -0.039 | **-0.051** |
+
+3/5 datasets (TallyQA, MathVista, PlotQA) reproduce the classic E1d signature (mid-stack ablation amplifies, full ablation drops); ChartQA shows weaker signal; **InfoVQA shows minimal ablation effect** at all 6 modes.
+
+**B1 follow-up 2026-05-05 ~00:16 KST** — re-ran InfoVQA E1d with `--peak-layer 14` (Phase D's actual InfoVQA peak from `analyze_cross_dataset_peaks.py`) instead of the master script's hardcoded 27. Result: ablate_peak Δ_df = +0.015 (vs +0 at L27); ablate_peak_window, ablate_lower_half, ablate_upper_half, ablate_all all unchanged. The flat InfoVQA ablation profile is **not** a peak-layer-routing artefact — InfoVQA's OneVision anchor mechanism is genuinely diffuse, with no single layer band causally responsible. Comparison log: `outputs/_logs/phase3_b1_infovqa_peak14/compare_20260504-223234.log`. Launcher: `scripts/_phase3_b1_infovqa_peak14.sh`.
+
 ### Mitigation (§7.4.5) — chosen cell
 
 **L=26 K=8 α=1.0 subspace projection** selected from 27-cell pilot grid (L∈{25,26,27} × K∈{2,4,8} × α∈{0.5,1.0,2.0}) on PlotQA+InfoVQA pooled n5k.
@@ -69,7 +83,7 @@ This is a **strict free-lunch on the wrong-base subset**: anchor pull goes down,
 ## Known data caveats
 
 1. **internvl3-8b TallyQA cell**: rerun in flight (2026-05-04 02:42 → ~07:00 ETA) due to fast-tail watcher prematurely killing the original 3-shard run before merge step. Watcher bug fixed (`scripts/_phase1_recover_internvl3_fast_tail.sh`); rerun uses 2-shard + DataLoader prefetch.
-2. **OneVision E1d direction-follow rates show 0.000 baseline**: aggregator stratification logic doesn't match OneVision's susceptibility CSV. Raw predictions are correct (`outputs/causal_ablation/llava-onevision-qwen2-7b-ov/<run>/predictions.jsonl`); refining the analyzer is a Phase 3 follow-up.
+2. ~~**OneVision E1d direction-follow rates show 0.000 baseline**: aggregator stratification logic doesn't match OneVision's susceptibility CSV. Raw predictions are correct (`outputs/causal_ablation/llava-onevision-qwen2-7b-ov/<run>/predictions.jsonl`); refining the analyzer is a Phase 3 follow-up.~~ — **RESOLVED 2026-05-04** (commits `a7e391c`, `de1f94e`, `8895128`). Two layered bugs: (a) analyzer merged 4 OneVision datasets into one row; (b) **inference itself was no-op** because commit `7f8ebb6` switched `causal_anchor_ablation.py` from eager to SDPA, and SDPA dispatch silently drops the `attention_mask` bias added by `_make_anchor_mask_hook`. Fix: per-(model, dataset) analyzer + `--attn-implementation eager` flag + 4-dataset re-run. See "Causal ablation" section above for the new ablation deltas.
 3. **llava-next-interleaved-7b**: Phase D §7.1-7.3 attention data exists for plot/tally/info (not VQAv2). Model dropped from main panel 2026-05-04. Data preserved as supplementary.
 
 ## Reproduction
