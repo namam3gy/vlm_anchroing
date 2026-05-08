@@ -376,7 +376,7 @@ landed (commit `c556fb6`). Phase E E1d 4/4 landed (commits `7a27750` +
 
 | Pri | Task | Where | Estimate |
 |---|---|---|---|
-| **P0 (NEW, 2026-05-08)** | E8 Mitigation capability-preservation regression test on OneVision Main | §7.4.5 | ✅ shipped — verdict: STRICT_FREE_LUNCH (macro Δ +0.50pp, HallusionBench Δ=+2.21pp CI excludes 0) |
+| **P0 (NEW, 2026-05-08)** | E8 Mitigation capability-preservation regression test on OneVision Main | §7.4.5 | ✅ shipped — verdict: STRICT_FREE_LUNCH (6 benchmarks, macro Δ +0.41pp; HallusionBench Δ=+2.21pp CI excludes 0; POPE Δ=−0.06pp CI=[−0.21,+0.09]) |
 | **P1** | §7.4.5 paper prose update (Tally-cal headline → PlotQA+InfoVQA-cal headline at full gt range) | `docs/paper/sections/07_*.md` | text only |
 | **P1** | §3 / §5 / §6 paper prose update for 5-dataset matrix | `docs/paper/sections/0[3-6]_*.md` | text only |
 | **P1** | Citation verification — every 2026 arXiv ID in `references/project.md` and §2 paper draft must resolve to a real paper | §9 caveat | hours of manual verification, reviewer-defuse |
