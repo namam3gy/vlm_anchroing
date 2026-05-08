@@ -460,6 +460,24 @@ landed (commit `c556fb6`). Phase E E1d 4/4 landed (commits `7a27750` +
 
 ## 10. Changelog
 
+- **2026-05-08 ~20:45 (E8 follow-up: POPE added to the panel).**
+  Sixth held-out benchmark — POPE (object-existence hallucination
+  diagnostic, n=5127) added to the capability eval as a complementary
+  hallucination axis to HallusionBench (illusion/depth). **Result:
+  Δ=−0.06pp, 95 % CI=[−0.21, +0.09]** — tight CI essentially pins the
+  effect to zero. 6-benchmark macro Δ = **+0.41 pp**, verdict still
+  STRICT_FREE_LUNCH. POPE is the largest single benchmark on the panel,
+  so its tight CI dominates the noise-floor estimate.
+  - Driver fix landed (commit `23fe5bc`): VLMEvalKit's YORN
+    `evaluate()` short-circuits on existing `_auxmatch.xlsx`, so the
+    self-test pass's 2-row auxmatch poisoned the full sweep's
+    extraction (driver reported n=2 despite full 5127-question
+    inference). Fixed by wiping `out_dir/<variant>/<bench>` at run
+    start.
+  - Memory file `feedback_vlmevalkit_quirks.md` extended to four
+    quirks (YORN cache + 3 prior); insight doc + paper §7.4.5
+    sub-section regenerated with the 6-row table.
+
 - **2026-05-08 ~04:38 (E8 capability-preservation regression test).**
   New Phase 4 P0 shipped. Spec
   `docs/superpowers/specs/2026-05-08-mitigation-general-capability-design.md`

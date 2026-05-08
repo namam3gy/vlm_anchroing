@@ -10,10 +10,10 @@
 
 Cell L=26, K=8, α=1.0 (chosen §7.4.5 mitigation) on LLaVA-OneVision-7b
 (HF backend, `llava-hf/llava-onevision-qwen2-7b-ov-hf`) evaluated against
-5 held-out benchmarks (RealWorldQA, OCRBench, HallusionBench, MMStar,
-MMBench-DEV-EN; n_total=5380 raw, no LLM-judge). **Verdict:
-`STRICT_FREE_LUNCH`** — all per-benchmark Δ within ±1.0pp, macro Δ
-+0.50pp.
+6 held-out benchmarks (RealWorldQA, OCRBench, HallusionBench, MMStar,
+MMBench-DEV-EN, POPE; n_total=10,507 effective, no LLM-judge).
+**Verdict: `STRICT_FREE_LUNCH`** — all per-benchmark Δ within ±1.0pp,
+macro Δ +0.41pp.
 
 | Benchmark | n | baseline | +mit | Δ (pp) | 95% CI |
 |---|---:|---:|---:|---:|---|
@@ -22,7 +22,8 @@ MMBench-DEV-EN; n_total=5380 raw, no LLM-judge). **Verdict:
 | HallusionBench | 951 | 47.84 | 50.05 | **+2.21** | **[+1.14, +3.28]** |
 | MMStar | 1500 | 61.67 | 61.80 | +0.13 | [-0.77, +1.04] |
 | MMBench-DEV-EN | 1164 | 82.04 | 81.70 | -0.34 | [-0.82, +0.13] |
-| **Macro** |  |  |  | **+0.50** |  |
+| POPE | 5127 | 92.16 | 92.10 | -0.06 | [-0.21, +0.09] |
+| **Macro** |  |  |  | **+0.41** |  |
 
 MMBench-DEV-EN n=1164 is the unique-question count under VLMEvalKit's
 CircularEval (4329 raw rows / ~4 permutations).
@@ -32,7 +33,11 @@ The strict free-lunch claim of §7.4.5 (Δdf ≤ 0, Δem(a) ≥ 0,
 no per-benchmark threshold breach, macro positive. **HallusionBench
 shows a statistically significant positive Δ (+2.21pp, 95% CI excludes 0)**
 — the mitigation appears to actively help on the hallucination
-diagnostic, in addition to its anchoring effect.
+diagnostic, in addition to its anchoring effect. **POPE** (object-
+existence hallucination diagnostic, n=5127, complementary axis to
+HallusionBench's depth/illusion focus) confirms capability preservation
+at the largest sample size of the panel: Δ=-0.06pp with a tight 95% CI
+of [-0.21, +0.09] essentially pinning the effect to zero.
 
 ## Setup
 
@@ -49,8 +54,9 @@ diagnostic, in addition to its anchoring effect.
   on MMBench).
 - **Sampling:** VLMEvalKit default greedy decoding for both variants.
 - **Scoring:** VLMEvalKit standard, no LLM-judge fallback.
-- **Wall time:** 1h 33min for the full sweep (5 benchmarks × 2 variants
-  on a single H200, sequential).
+- **Wall time:** 1h 33min for the original 5 benchmarks; POPE
+  (n=5127) added in a follow-up ~55 min run — total ~2h 28min on a
+  single H200, sequential.
 
 ## Cross-check vs published numbers
 
@@ -62,6 +68,7 @@ Pipeline integrity validated against published OneVision-7B baselines:
 | RealWorldQA | 69.80 | 66.3 | +3.5 |
 | MMBench-DEV-EN | 82.04 | 80.8 | +1.24 |
 | OCRBench | 63.40 | ~62-63 (paper range) | match |
+| POPE | 92.16 | (no canonical OV-7B accuracy found; F1 typically reported) | n/a |
 | HallusionBench | 47.84 | (no canonical OV-7B number found) | n/a |
 
 Published numbers from the lmms-lab model card. The +0 to +3pp gaps are
@@ -72,7 +79,7 @@ the published evaluation.
 
 ## Contamination notes
 
-LLaVA-OneVision-Data HF dataset card scanned 2026-05-08; none of the 5
+LLaVA-OneVision-Data HF dataset card scanned 2026-05-08; none of the 6
 selected benchmarks appear among its 89 instruction-tuning subsets.
 ChartQA, AI2D, ScienceQA were explicitly present in training and were
 therefore excluded from the candidate set. MMBench-DEV-EN is the public
@@ -80,7 +87,11 @@ dev split — not the held-out leaderboard test split — but the matching
 HF training-data scan found no `mmbench` subset; **MMStar (designed
 to be contamination-resistant) is included as a cross-check**, and its
 Δ of +0.13pp confirms that on a contamination-vetted benchmark, the
-mitigation is essentially neutral.
+mitigation is essentially neutral. POPE images come from MS COCO
+val2014 — OneVision was trained on COCO-derived datasets, so question-
+level memorisation is theoretically possible but (a) is the
+field-standard convention for POPE and (b) does not bias the Δ
+comparison since both arms see identical questions.
 
 ## Reproducibility
 
@@ -89,9 +100,10 @@ cd /mnt/ddn/prod-runs/thyun.park/src/vlm_anchroing
 uv sync
 
 # One-time: pre-populate VLMEvalKit's TSV cache (its host's SSL cert
-# is expired; bypass with curl -k):
+# is expired; bypass with curl -k). Container restart wipes ~/LMUData,
+# so this loop must be re-run after every restart.
 mkdir -p ~/LMUData
-for name in RealWorldQA OCRBench HallusionBench MMStar MMBench_DEV_EN; do
+for name in RealWorldQA OCRBench HallusionBench MMStar MMBench_DEV_EN POPE; do
   curl -k -fsSL -o ~/LMUData/$name.tsv \
     https://opencompass.openxlab.space/utils/VLMEval/$name.tsv
 done
@@ -119,15 +131,23 @@ reproducibility).
    This was caught during smoke at n=500 (effective n=129) where the
    small-n DEGRADED verdict was a noise-floor artefact; full run at
    n=1164 settles to Δ=-0.34pp PASS.
-3. **Two non-paper-blocking smoke fixes** landed during E8 that improve
-   the smoke's diagnostic value and should be noted for any future
-   smoke users:
+3. **Three non-paper-blocking driver fixes** landed during E8 that
+   improve robustness and should be noted for any future user of this
+   pipeline:
    - YORN class-name case mismatch (`ImageYORNDataset` not `ImageYOrNDataset`)
      in the per-question correctness adapter (commit `4ec7144`).
    - `dataset.data.head(N)` was biased — VLMEvalKit TSVs are sorted
      by category, so head(50) on MMStar/OCRBench/HallusionBench picked
      just the first category. Replaced with random-sample at fixed seed
      (commit `b9f1498`).
+   - YORN `evaluate()` short-circuits on existing `_auxmatch.xlsx`
+     (`image_yorn.py:36`). The self-test guard wrote a 2-row auxmatch;
+     subsequent full-sweep `evaluate()` returned the stale n=2 result
+     even after a 5127-question re-inference. Fixed by wiping every
+     file under `out_dir/<variant>/<bench>` at run start (commit `23fe5bc`).
+     Caught when POPE was added; older 5 benchmarks were not bitten
+     because RealWorldQA was the self-test benchmark for the original
+     run and MCQ evaluate() does not have the same skip pattern.
 4. **HF backend pivot** from the originally-planned LLaVA-NeXT backend.
    The LLaVA-NeXT package was not in our venv and its dep pins risk
    conflict with our pinned torch/transformers. Pivoted to

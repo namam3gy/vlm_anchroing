@@ -17,7 +17,8 @@ benchmarks:
   - OCRBench             # 1000, OCR per-question match (bool)
   - HallusionBench       # 951, accuracy (Y/N)
   - MMStar               # 1500, accuracy
-  - MMBench_DEV_EN       # 4329, accuracy (CircularEval)
+  - MMBench_DEV_EN       # 4329 raw → 1164 unique under CircularEval
+  - POPE                 # 5127, accuracy (Y/N — object-existence hallucination)
 
 # vlmeval LLaVA_OneVision_HF constructor kwargs.
 # Note: HF mirror of lmms-lab/llava-onevision-qwen2-7b-ov — same Qwen2 LM weights.
