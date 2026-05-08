@@ -86,6 +86,15 @@ def _run_one_variant_bench(variant: str, bench_name: str, cfg: dict,
     out_dir = run_dir / variant / bench_name
     out_dir.mkdir(parents=True, exist_ok=True)
 
+    # Wipe any side-files from a prior call to this same (variant × bench)
+    # — typically the self-test pass, whose n=2 _auxmatch.xlsx would
+    # otherwise short-circuit VLMEvalKit's YORN evaluate() and leak n=2
+    # back to the full sweep. Also defensive against partial-run state if
+    # this same run_id is ever re-entered.
+    for f in out_dir.iterdir():
+        if f.is_file():
+            f.unlink()
+
     _log(progress_log, f"BEGIN {variant} × {bench_name}")
     model = _build_model(variant, cfg, cfg["vlm_kwargs"])
 
