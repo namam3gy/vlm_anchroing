@@ -379,9 +379,9 @@ landed (commit `c556fb6`). Phase E E1d 4/4 landed (commits `7a27750` +
 | **P0 (NEW, 2026-05-08)** | E8 Mitigation capability-preservation regression test on OneVision Main | §7.4.5 | ✅ shipped — verdict: STRICT_FREE_LUNCH (6 benchmarks, macro Δ +0.41pp; HallusionBench Δ=+2.21pp CI excludes 0; POPE Δ=−0.06pp CI=[−0.21,+0.09]) |
 | **P1 (NEW, 2026-05-08)** | E8 follow-up: add MME (counting hallucination, "Count" subset directly tests number-anchor failure mode) + AMBER (multi-dim hallucination, contamination-clean Nov 2023) to capability panel — both VLMEvalKit YORN-supported, no LLM judge, no code change needed | §7.4.5 | ~/LMUData curl-k for MME.tsv + AMBER.tsv; ~1.5–2h GPU on H200; merge into 6→8 row table |
 | **P1 (NEW, 2026-05-08)** | E8 follow-up: MMMU-DEV-VAL with LLM-judge (multi-discipline reasoning, ~$1-2 GPT-4o-mini cost) | §7.4.5 | deferred until paper §7.4.5 prose locked; reviewer pre-check value justifies cost at that point |
-| **P1** | §7.4.5 paper prose update (Tally-cal headline → PlotQA+InfoVQA-cal headline at full gt range) | `docs/paper/sections/07_*.md` | text only |
-| **P1** | §3 / §5 / §6 paper prose update for 5-dataset matrix | `docs/paper/sections/0[3-6]_*.md` | text only |
-| **P1** | Citation verification — every 2026 arXiv ID in `references/project.md` and §2 paper draft must resolve to a real paper | §9 caveat | hours of manual verification, reviewer-defuse |
+| **P1** | §7.4.5 paper prose update (Tally-cal headline → PlotQA+InfoVQA-cal headline at full gt range) | `docs/paper/sections/07_*.md` | ✅ shipped 2026-05-08 — §7.4.5 + §7.5 + §7.6 + Capability Preservation subsections cohesive on L26_K8_α=1.0, 5-dataset paired-sids deltas, strict free-lunch, 6-bench E8 macro Δ +0.41 pp |
+| **P1** | §3 / §5 / §6 paper prose update for 5-dataset matrix | `docs/paper/sections/0[3-6]_*.md` | ✅ shipped 2026-05-04 batch 1 (§3.6 / §4 / §5 / §6 5-dataset rewrites); cross-section drift to §1 / §8 closed 2026-05-08 (this changelog entry) |
+| **P1** | Citation verification — every 2026 arXiv ID in `references/project.md` and §2 paper draft must resolve to a real paper | §9 caveat | ✅ shipped 2026-05-08 — 9/9 arXiv IDs verified, 3 venue tags resolved (NAACL 2025 ✅, HCAIR ICLR 2026 ✅, EMNLP Findings ❌ for CIVET); audit doc closed |
 | **P3** | Image-vs-text anchor (F2) follow-up paper | §6.6 | future |
 | **P3** | InternVL3 + Qwen2.5-VL E1-patch non-square (appendix only) | §6.5 §7 | 1–2 days/model implementation if pursued |
 
@@ -461,6 +461,49 @@ landed (commit `c556fb6`). Phase E E1d 4/4 landed (commits `7a27750` +
   `predictions.jsonl` only.
 
 ## 10. Changelog
+
+- **2026-05-08 ~21:30 (Phase 4 P1 paper polish — cross-section
+  consistency pass + venue-tag verification).**  Phase 4 P1 batch
+  shipped (paper polish, write phase).
+  - **§1 / §8.5 cross-section drift resolved against E8 STRICT_FREE_LUNCH.**
+    §1 abstract now carries the 6-benchmark capability-preservation
+    headline (macro Δ = +0.41 pp, HallusionBench Δ = +2.21 pp 95 % CI
+    excluding zero, POPE Δ = −0.06 pp 95 % CI [−0.21, +0.09]).
+    §1.4 mechanism+mitigation paragraph extended with the same.
+    §1.6 contribution #5 lists E8 explicitly. §8.5 conclusion
+    rewritten to lead with E6 deployable + E8 capability preserved.
+  - **§1.3 confidence-claim numbers re-aligned to §6 actual figures.**
+    Old "Q4-Q1 = +15.2 pp" / "23 of 35 cells" (legacy 4-dataset
+    4-model panel) replaced with paper-default
+    `cross_entropy` Q4-Q1 = +15.6 pp (43 / 85 cells) and
+    `log_prob_sum` +19.1 pp (51 / 85, 60 %) on the 5-dataset ×
+    7-model panel. §1.6 contribution #3 now lists the six-model
+    Phase 1 P0 v3 main panel + supplementary llava-interleave
+    cell + cross-dataset E5e + γ-β reasoning-mode pair.
+  - **§5.4 stale "pending gemma3-27b-it E5c" wording removed.** Cell
+    landed 2026-04-29 (VQAv2 a−m = +5.7 pp, TallyQA a−m = +2.1 pp).
+    Table extended to include the cell; prose rewritten to reflect
+    3-model panel resolution.
+  - **§4.4 sample-sizes table extended with E8 capability eval row**
+    (10,507 questions × 2 variants = 21,014 generations).
+  - **Citation venue-tag audit closed (2026-05-08).** Three
+    arXiv-2025+ venue tags from `docs/insights/citation-audit-2026-05.md`
+    verified via WebFetch on arXiv abs pages:
+    NAACL 2025 ✅ for 2502.08193 (Wang-Zhao-Larson typographic);
+    HCAIR @ ICLR 2026 ✅ for 2505.15392 (Huang anchoring);
+    EMNLP Findings 2025 ❌ for 2506.05146 (CIVET) — paper is arXiv
+    preprint only, no named venue. §2 paper draft tag removed
+    (arXiv:2506.05146, 2025); `references/project.md` "What EMNLP
+    Main demands" strategic argument softened (CIVET no longer cited
+    as a "Findings" example, instead as a behavioral-probing-only
+    arXiv example in the same class). Audit doc updated with verified
+    statuses + new action items pruned to non-arXiv reference checks
+    (Jones&Steinhardt, Echterhoff, Goh, Hagendorff, Mussweiler&Strack,
+    Tversky&Kahneman, Jacowitz&Kahneman).
+  - Files committed: `references/project.md`,
+    `docs/insights/citation-audit-2026-05.md`. Paper-section edits
+    are local-only (`docs/paper/sections/01/02/04/05/08_*.md`,
+    gitignored per existing convention).
 
 - **2026-05-08 ~20:45 (E8 follow-up: POPE added to the panel).**
   Sixth held-out benchmark — POPE (object-existence hallucination
