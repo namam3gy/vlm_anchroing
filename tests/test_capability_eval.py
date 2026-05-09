@@ -146,3 +146,69 @@ def test_verdict_helped_does_not_flip():
     deltas = {"a": 0.02, "b": 0.0, "c": 0.0, "d": 0.0, "e": 0.0}
     macro = sum(deltas.values()) / len(deltas)
     assert agg.verdict(deltas, macro) == "STRICT_FREE_LUNCH"
+
+
+# ── Merge subcommand tests ────────────────────────────────────────────
+
+
+def _write_csv(path, rows):
+    """Helper: write a final-format CSV with the given (name, delta) rows."""
+    import csv as _csv
+    with path.open("w", newline="") as f:
+        w = _csv.writer(f)
+        w.writerow(["benchmark", "n", "acc_baseline", "acc_mit",
+                    "delta", "se", "ci_low", "ci_high", "status", "note"])
+        for name, delta in rows:
+            w.writerow([name, 100, 0.5, 0.5 + delta,
+                        delta, 0.01,
+                        delta - 0.0196, delta + 0.0196,
+                        "OK", ""])
+
+
+def test_merge_combines_disjoint_panels(tmp_path):
+    agg = _import_agg()
+    a = tmp_path / "a.csv"
+    b = tmp_path / "b.csv"
+    out_csv = tmp_path / "out.csv"
+    out_md = tmp_path / "out.md"
+    _write_csv(a, [("X", 0.001), ("Y", -0.002)])
+    _write_csv(b, [("Z", 0.003), ("W", 0.0)])
+    v = agg.merge_finals([a, b], out_csv, out_md)
+    rows = list(out_csv.open())
+    # header + 4 rows
+    assert len(rows) == 5
+    assert v == "STRICT_FREE_LUNCH"
+    # Macro Δ = (0.001 - 0.002 + 0.003 + 0.0) / 4 = 0.0005
+    md = out_md.read_text()
+    assert "Macro Δ:" in md and "+0.05pp" in md
+
+
+def test_merge_later_overrides_earlier(tmp_path):
+    """Re-running a benchmark should supersede the older row."""
+    agg = _import_agg()
+    a = tmp_path / "a.csv"
+    b = tmp_path / "b.csv"
+    out_csv = tmp_path / "out.csv"
+    out_md = tmp_path / "out.md"
+    _write_csv(a, [("X", -0.05)])  # this would FAIL on its own
+    _write_csv(b, [("X", 0.005)])  # later run; passes
+    v = agg.merge_finals([a, b], out_csv, out_md)
+    assert v == "STRICT_FREE_LUNCH"
+    csv_text = out_csv.read_text()
+    # Later value wins (0.005 not -0.05)
+    assert "0.005" in csv_text
+    assert "-0.05" not in csv_text
+
+
+def test_merge_preserves_failure(tmp_path):
+    """If merged panel has a per-bench DEGRADED row, verdict reflects it."""
+    agg = _import_agg()
+    a = tmp_path / "a.csv"
+    b = tmp_path / "b.csv"
+    out_csv = tmp_path / "out.csv"
+    out_md = tmp_path / "out.md"
+    _write_csv(a, [("X", 0.0), ("Y", 0.0)])
+    _write_csv(b, [("Z", -0.05)])  # Δ < -1pp threshold
+    v = agg.merge_finals([a, b], out_csv, out_md)
+    assert v.startswith("DEGRADED:")
+    assert "Z" in v
