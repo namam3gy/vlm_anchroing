@@ -92,5 +92,61 @@ class Qwen3VLHookSmokeTest(unittest.TestCase):
         self.assertGreater(prefill.shape[1], 1)
 
 
+class ProjectionArithmeticTest(unittest.TestCase):
+    """V_K^T @ h projection produces correct amplitude regardless of h variation.
+
+    These tests validate the projection math used by
+    `scripts/run_gamma_beta_bridge.py::project_amplitude` independently of GPU
+    inference: a residual lying entirely in span(V_K) must have its
+    amplitude equal to the L2 norm of the basis coefficients, and a residual
+    in the orthogonal complement must project to ~0.
+    """
+
+    def test_projection_along_basis(self):
+        torch.manual_seed(0)
+        d_model = 4096
+        K = 8
+        # Random orthonormal basis via QR. Q's columns are orthonormal.
+        V_full = torch.linalg.qr(torch.randn(d_model, d_model))[0]
+        V_K = V_full[:, :K]   # shape (4096, 8)
+        # Construct a residual that lies entirely in span(V_K).
+        coeffs = torch.tensor([1.0, 2.0, 0.5, -1.5, 0.0, 3.0, -2.0, 1.0])
+        h = V_K @ coeffs   # shape (4096,)
+        # Projection = V_K^T @ h should recover coeffs (since V_K is orthonormal).
+        proj = V_K.T @ h
+        torch.testing.assert_close(proj, coeffs, rtol=1e-5, atol=1e-5)
+        amp = proj.norm().item()
+        self.assertAlmostEqual(amp, coeffs.norm().item(), places=4)
+
+    def test_projection_orthogonal_zero(self):
+        torch.manual_seed(1)
+        d_model = 4096
+        K = 8
+        V_full = torch.linalg.qr(torch.randn(d_model, d_model))[0]
+        V_K = V_full[:, :K]
+        # Residual entirely in the orthogonal complement.
+        coeffs_perp = torch.randn(d_model - K)
+        h_perp = V_full[:, K:] @ coeffs_perp
+        proj = V_K.T @ h_perp
+        # Should be ~0 (numerical noise from QR orthonormalization in float32).
+        self.assertLess(proj.norm().item(), 1e-3)
+
+    def test_per_token_amplitude_shape(self):
+        """project_amplitude takes (n_gen, d_model) and returns (n_gen,)."""
+        import sys
+        SCRIPTS_ROOT = PROJECT_ROOT / "scripts"
+        if str(SCRIPTS_ROOT) not in sys.path:
+            sys.path.insert(0, str(SCRIPTS_ROOT))
+        from run_gamma_beta_bridge import project_amplitude
+        torch.manual_seed(2)
+        d_model = 4096
+        K = 8
+        V_K = torch.linalg.qr(torch.randn(d_model, d_model))[0][:, :K]
+        residuals = torch.randn(7, d_model)   # 7 generated tokens
+        amps = project_amplitude(residuals, V_K)
+        self.assertEqual(amps.shape, (7,))
+        self.assertTrue((amps >= 0).all(), "amplitude must be non-negative")
+
+
 if __name__ == "__main__":
     unittest.main()
