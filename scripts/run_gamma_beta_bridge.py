@@ -17,7 +17,10 @@ Pipeline:
   5. Aggregate per-trace mean/max + raw per-token sequence at primary layer.
 
 Notes:
-  - `attn_implementation="eager"` guards memory:feedback_sdpa_mask_hook_bug.
+  - `attn_implementation="sdpa"` — memory:feedback_sdpa_mask_hook_bug only
+    affects pre-hooks that modify kwargs["attention_mask"]; our forward_hook
+    on layer *output* is unaffected. Eager OOMs at ~125 GB on multi-image
+    MathVista contexts (Q*K^T tensor); SDPA chunks for memory efficiency.
     SDPA bypasses pre-hook attention_mask kwargs; while this script uses only
     forward hooks (safe under SDPA), staying on eager keeps callbacks
     deterministic across the gamma-beta + steering branches.
@@ -336,10 +339,17 @@ def main() -> None:
         print(f"\n[model] {name} ({hf_id}) -> {out_path}")
 
         processor = AutoProcessor.from_pretrained(hf_id, trust_remote_code=True)
+        # SDPA chosen over eager: our hook is register_forward_hook on the LM
+        # decoder layer's *output* (residual stream after the layer), not a
+        # register_forward_pre_hook on self_attn modifying kwargs["attention_mask"]
+        # — the latter is what memory:feedback_sdpa_mask_hook_bug warns against.
+        # Eager OOMs at ~125 GB for multi-image MathVista contexts (the explicit
+        # Q*K^T attention scores tensor); SDPA chunks attention computation
+        # memory-efficiently and produces identical layer output for our purposes.
         model = AutoModelForImageTextToText.from_pretrained(
             hf_id,
             dtype=torch.bfloat16,
-            attn_implementation="eager",
+            attn_implementation="sdpa",
             device_map="cuda",
             trust_remote_code=True,
         )
@@ -373,7 +383,7 @@ def main() -> None:
             "n_sample_instances": len(samples),
             "max_new_tokens": max_new_tokens,
             "timestamp": timestamp,
-            "attn_implementation": "eager",
+            "attn_implementation": "sdpa",
         }
         manifest_path.write_text(json.dumps(manifest, indent=2) + "\n")
 
