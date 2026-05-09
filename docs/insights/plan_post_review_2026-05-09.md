@@ -47,12 +47,27 @@
 
 ---
 
-### P0-2 · Eigenvalue spectrum of `D[:, L, :]` — per-layer integration check ✅ shipped 2026-05-09 (graceful-degradation outcome)
+### P0-2 · Eigenvalue spectrum of `D[:, L, :]` — per-layer integration check ✅ shipped 2026-05-09 (spectrum graceful-degradation + H-A multi-layer-redundancy WEAK-confirmed → block-coding sharpening)
 
-**Status.** Both pre-registered acceptance criteria FAIL. Outcome corresponds to plan's "(a only / b only / neither) graceful degradation" branch. Full evidence + paper-update implications at [`docs/insights/P0-2-eigenvalue-spectrum-evidence.md`](P0-2-eigenvalue-spectrum-evidence.md). Headlines:
+**Status.** Both pre-registered spectrum criteria FAIL — but follow-up H-A test surfaces a *sharper* mechanism. Full evidence + paper-update implications at [`docs/insights/P0-2-eigenvalue-spectrum-evidence.md`](P0-2-eigenvalue-spectrum-evidence.md). Headlines:
+
+**Spectrum (criteria (a), (b)) — both FAIL:**
 - (a) Rank-8 elbow at L=26: `sv_7/sv_8 = 1.019` (threshold 1.5 — FAIL); `EV@K8 = 0.213` (threshold 0.70 — FAIL). No localized K=8 gap at any of 28 layers.
-- (b) Effective rank monotonic decrease L=10 → final: **INVERTED** — Shannon `eff_rank` *increases* L=10 (1399) → L=26 (1713, +22 %); only drops at L=27 (LM-head compression). Participation ratio and stable rank confirm the direction.
-- L=26 is the **maximum-dispersion** site, not a low-rank integration site. New spectrally-grounded prediction: single-direction interventions (CAA K=1, ITI) cannot capture all anchor variance — empirical follow-on is P1-4.
+- (b) Effective rank monotonic decrease L=10 → final: **INVERTED** — Shannon `eff_rank` *increases* L=10 (1399) → L=26 (1713, +22 %); only drops at L=27 (LM-head compression).
+- L=26 is the maximum-dispersion site, not a low-rank integration site.
+
+**H-A multi-layer-redundancy test — WEAK partial confirmation only:**
+- 3 of 11 early layers above pre-registered threshold (`sub_align_inc > 0.30`): L=22 (0.413), L=24 (0.394), L=25 (0.494). Pre-registered: ≥4 = CONFIRMED, ≥2 = WEAK, ≤1 = FALSIFIED — landed at WEAK.
+- Non-tautological `EV_frac_V_K(L) = ‖V_K V_K^T D[:, L, :]‖_F² / ‖D[:, L, :]‖_F²` shows sharp L=20→L=22 transition (9.5× → 30.5× isotropic random baseline 0.0022) rising to 95.2× at L=26 (= EV@K8 ≈ 0.21, NOT 1.0).
+- Caveats locked in: `sub_align_cum` is tautological at L=peak by construction; "v_0 consensus + v_1..v_7 distributed" interpretation has no direct measurement support and is dropped; anchor-specificity vs generic late-residual rank growth is NOT established without `(d − b)` baseline.
+
+**Paper-prose update P0-2-prose is BLOCKED on:**
+- **P0-2-control** (~30 min CPU - 1 H200-hour): non-anchor `(d − b)` baseline rank trajectory + EV_frac_V_K. Without this we cannot distinguish "anchor integration localized to L=22-26" from "any late-developed feature shows late-layer alignment."
+- **P0-2-followup** (~6 H200-hour): cross-layer mitigation at L=22/24/25. Qualitative prediction "partial recovery scaling with alignment" (NOT specific quantitative ratio — earlier "~58/79/87 %" was derived from a tautological measure and is dropped).
+
+If either follow-up fails in the predicted direction, P0-2-prose reverts to graceful-degradation framing only ("K=8 explains ~21 % of L=26 anchor variance and yet achieves free-lunch") with NO late-cluster claim.
+
+**Net status:** P0-2 is empirically shipped, paper-prose update is gated on P0-2-control + P0-2-followup. Tier-shift candidacy of P0-2 is contingent on both landing positive; the headline tier-shifter remains P0-1 (γ-β bridge). Until follow-ups land, do NOT propagate "late-cluster localization" or "block-coding" framing to paper text.
 
 **Original spec preserved below for audit.**
 
