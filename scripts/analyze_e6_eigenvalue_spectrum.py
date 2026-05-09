@@ -218,16 +218,20 @@ def _make_figures(
     S_peak = full_svs[peak_layer]
     n_show = min(top_svs, S_peak.shape[0])
     xs = list(range(1, n_show + 1))
-    fig, ax = plt.subplots(figsize=(8.0, 4.5))
+    fig, ax = plt.subplots(figsize=(9.0, 5.0))
     ax.semilogy(xs, S_peak[:n_show].numpy(), marker="o", markersize=3.5, lw=1.0)
     ax.axvline(K_probe, ls="--", color="crimson", lw=1.0,
-               label=f"K = {K_probe} (chosen E6 cell)")
+               label=f"K = {K_probe} (chosen E6 cell — em-deal-breaker selected, NOT spectrum elbow)")
     ax.set_xlabel("Singular value index k")
     ax.set_ylabel("Singular value σ_k(D[:, L=%d, :])" % peak_layer)
-    ax.set_title(f"Spectrum of (a − m) calibration matrix at L={peak_layer}\n"
-                 f"PlotQA + InfoVQA pooled, n={counts['total']} wrong-base")
+    sv_ratio = float(S_peak[K_probe-1] / S_peak[K_probe])
+    ax.set_title(
+        f"Spectrum of (a − m) calibration matrix at L={peak_layer}\n"
+        f"PlotQA + InfoVQA pooled, n={counts['total']} wrong-base; "
+        f"sv_{K_probe-1}/sv_{K_probe} = {sv_ratio:.3f} (no rank-{K_probe} elbow)"
+    )
     ax.grid(True, which="both", alpha=0.3)
-    ax.legend()
+    ax.legend(loc="upper right", fontsize=8)
     fig.tight_layout()
     p1 = fig_out / f"P0-2_L{peak_layer}_spectrum.png"
     fig.savefig(p1, dpi=150)

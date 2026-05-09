@@ -68,7 +68,7 @@ This does **not** invalidate L=26 as the chosen E6 hook site; it does require th
 
 1. **L=26 is integration-complete-but-pre-final**: late enough for anchor information to have been routed in from attention pathways into the residual stream (consistent with §5.2 multi-layer-redundancy attention-ablation null), but pre-final so logit-head compression hasn't happened yet (L=27 spectrum re-compacts).
 
-2. **High residual-stream effective rank at L=26 → single-direction interventions cannot capture all anchor variance.** This is the spectrally grounded prediction for §6.5 Table 7: CAA at K=1 (rank-1) and ITI at attention-head must under-perform full K=8 subspace projection by a margin proportional to `(eff_rank_K8_explained - eff_rank_K1_explained)`. The data turns "single-direction baselines fail" from a Note to a *predicted* outcome of the residual stream's high-rank anchor encoding.
+2. **High residual-stream effective rank at L=26 is consistent with single-direction interventions under-performing K=8.** The paper's K=8 cell already captures only ~21 % of total (a − m) Frobenius variance and yet achieves free-lunch — this is itself evidence that **explained variance fraction ≠ causal sufficiency**. The spectrum therefore does *not* prove that K=1 cannot work; it predicts that K=1 will under-perform K=8 by a margin we can only measure empirically. P1-4 (CAA at K=1 + ITI at attention-head) is the empirical test. Soft prediction for §6.5 Table 7: CAA K=1 fails free-lunch on ≥ 1 / 5 datasets, consistent with the §6.5 structural-reduction Note. Strong claim ("cannot capture all anchor variance") is **not** supported by this spectrum alone.
 
 3. **K=8 captures only 21% of L=26 anchor variance.** The remaining 79% is distributed across ranks 9..2,757. This is consistent with the §6.2.3 "free-lunch" finding (Δem(a) ≥ 0): the K=8 projection removes a small but well-chosen slice of anchor variance without disturbing the bulk of the residual stream.
 
@@ -117,9 +117,15 @@ The 7 protect-list items in `references/roadmap.md` Phase 5 sprint-ordering are 
 | (a) | rank-8 elbow at L=26 (sv_7/sv_8 ≥ 1.5 OR EV@K8 ≥ 0.70) | **FAIL** (1.019, 0.213) | "Insight 2 stays empirical" |
 | (b) | eff_rank monotonic decrease L=10 → final | **FAIL — INVERTED** (1399 → 1713, +22%) | "framework framing softened to 'consistent with' rather than 'verified by'" |
 
-Plan §P0-2 explicit graceful-degradation language: *"(a only / b only / neither) graceful degradation: Insight 2 stays empirical; per-layer figure becomes transparency item; framework framing softened to 'consistent with' rather than 'verified by.'"* This evidence doc + §6.4 / §5.2 / §1.5 prose updates implement exactly that branch.
+Plan §P0-2 explicit graceful-degradation language: *"(a only / b only / neither) graceful degradation: Insight 2 stays empirical; per-layer figure becomes transparency item; framework framing softened to 'consistent with' rather than 'verified by.'"* This evidence doc implements that branch. The corresponding §6.4 / §5.2 / §1.5 prose updates in `docs/paper/emnlp_draft_ko.md` are **queued as a P0-2 follow-on** — the paper still over-claims "spectrum-predicted dimensionality" / "compact low-dim subspace at late layers" until that pass lands.
 
 The figures (`docs/figures/P0-2_L26_spectrum.png`, `docs/figures/P0-2_per_layer_rank_trajectory.png`) are the transparency items — they ship as appendix figures (proposed: §A.5.1 spectrum + §A.5.2 trajectory) so the spectrum is honestly disclosed even though the original prediction did not land.
+
+## Open questions / queued follow-ons
+
+1. **Anchor-specificity control (queued P0-2-control).** The (b) finding — Shannon `eff_rank` increases L=10 → L=26 — is reported on the (a − m) anchor-difference matrix only. Without a non-anchor baseline (e.g., (d − b) neutral-image-difference at the same N samples and same layers, or a random pair contrast on calibration set residuals), we cannot strongly distinguish "L=26 is the **anchor-information** maximum-dispersion site" from "L=26 is the residual-stream maximum-dispersion site for any contrast" (generic transformer behavior — early layers haven't filled the residual stream with computation yet). The doc therefore stops at "the (a − m) residuals are encoded at high effective rank at L=26" and does **not** make the stronger anchor-specific claim. Cheap to run (~30 min CPU on existing D_all.pt files if neutral-condition residuals are extractable, or ~1 H200-hour to extract h(d) − h(b) per sample). Tracking as a follow-up before the §5.2 / §6.6 paper rewrite.
+
+2. **Paper prose update (queued P0-2-prose).** §6.4 Insight 2 / §5.2 Insight 4 / §6.6 reconciliation paragraph / §1.5 (4a) restated chain — none of these are yet edited in `docs/paper/emnlp_draft_ko.md`. The evidence doc + roadmap document the required edits; the actual prose pass is the next P0-2 work item. Should land before the next /paper-review-loop run so reviewers see the updated framing.
 
 ---
 
