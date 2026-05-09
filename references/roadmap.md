@@ -61,6 +61,17 @@ Paper 516 → 604 lines net (+88).
 - **Final tier verdict (3-way convergent):** Solid Findings, top of band.
   Borderline / weak-accept Main contingent on §8.4 item 1 (γ-β
   residual-stream bridge experiment) landing positive in next revision.
+  **2026-05-09 update:** P0-2 H-A test ran but is WEAK partial confirmation
+  only (3 of 11 early layers above threshold; non-tautological
+  `EV_frac_V_K` shows sharp L=20→22 transition). The "late-cluster
+  block-coding" interpretation is *consistent with* the alignment data
+  geometrically but not yet a behavioral mechanism claim. P0-2-prose
+  update is blocked on (i) P0-2-control anchor-specificity baseline +
+  (ii) P0-2-followup cross-layer mitigation at L=22/24/25 — both
+  required to convert measurement geometry into a defensible mechanism
+  claim. Tier-shift candidacy of P0-2 is contingent on both landing in
+  the predicted direction. The headline tier-shifter remains P0-1 (γ-β
+  bridge); P0-2 with follow-ups, IF positive, would compound.
 - **Highest-leverage next action:** P0-1 — γ-β Thinking-mode trace
   amplitude on K=8 subspace at L=26 (cheap form ~2 H100-day; clean
   form +~4 H100-day). Bar-raiser explicitly named this as the
@@ -81,19 +92,30 @@ Paper 516 → 604 lines net (+88).
   `.claude/agents/paper-reviser.md`, `.claude/commands/paper-review-loop.md`)
   and 11 review/response/summary files at `docs/paper/reviews/*.md`
   committed for reproducibility (selective `.gitignore` overrides).
-- **P0-2 spectrum landed 2026-05-09 — graceful-degradation outcome.**
-  Pre-registered acceptance criteria both FAIL: (a) no rank-8 elbow at L=26
-  (sv_7/sv_8 = 1.019 < 1.5; EV@K8 = 0.213 < 0.70); (b) Shannon effective
-  rank *increases* L=10 → L=26 (1399 → 1713, +22 %), the OPPOSITE direction
-  of the predicted compact-low-dim signature. L=26 is the **maximum-dispersion**
-  site, not a low-rank integration site. Doc:
-  [`docs/insights/P0-2-eigenvalue-spectrum-evidence.md`](../docs/insights/P0-2-eigenvalue-spectrum-evidence.md);
-  data: `docs/insights/_data/p0_2_per_layer_spectrum.{csv,md}`. Paper §6.4
-  Insight 2 stays empirical (em-deal-breaker selected, NOT spectrum-predicted);
-  §5.2 / §6.6 routing-vs-integration framing softens to "consistent with
-  high-rank residual encoding" — the **new spectrally-grounded prediction**
-  is that single-direction interventions (CAA K=1, ITI) cannot capture all
-  anchor variance, which P1-4 will test empirically.
+- **P0-2 spectrum + H-A multi-layer-redundancy test landed 2026-05-09.**
+  Pre-registered spectrum criteria (a) and (b) both FAIL (no rank-8 elbow;
+  Shannon eff_rank *increases* L=10 → L=26 — the OPPOSITE direction of
+  predicted compact-low-dim signature). **H-A test = WEAK partial
+  confirmation only** (3 of 11 early layers above threshold; pre-registered
+  ≥4 = CONFIRMED, ≥2 = WEAK, ≤1 = FALSIFIED). Non-tautological measure
+  `EV_frac_V_K(L) = ‖V_K V_K^T D[:, L, :]‖_F² / ‖D[:, L, :]‖_F²` shows a
+  sharp transition L=20 → L=22 (9.5× → 30.5× isotropic random baseline)
+  rising to 95.2× at L=26 (= EV@K8 ≈ 0.21, NOT 1.0). Earlier layers
+  (L=0..18) are at 1.2-5.8× random — close to noise floor.
+  Doc: [`docs/insights/P0-2-eigenvalue-spectrum-evidence.md`](../docs/insights/P0-2-eigenvalue-spectrum-evidence.md).
+  **Paper-prose update P0-2-prose is BLOCKED on two follow-ups landing:**
+  (i) **P0-2-control** (~30 min CPU - 1 H200-hour): non-anchor `(d − b)`
+  baseline rank trajectory + EV_frac_V_K, to test anchor-specificity of the
+  L=22-26 alignment cluster. (ii) **P0-2-followup** (~6 H200-hour):
+  cross-layer mitigation at L=22/24/25 to test whether the alignment
+  cluster predicts behavioral mitigation effect (qualitative: partial
+  recovery scaling with alignment). If either fails to land in the
+  predicted direction, the late-cluster interpretation collapses and the
+  paper-prose update reverts to the graceful-degradation framing only.
+  Until both land, paper prose should NOT claim "anchor integration
+  localizes to L=22-26" or "block-coding within late cluster" — the only
+  safe claim is "K=8 explains ~21 % of L=26 anchor variance and yet
+  achieves free-lunch."
 
 ### 3.0a Phase 1 P0 v3 final state (2026-05-04)
 
@@ -442,8 +464,9 @@ contingent on P0-1 bridge experiment.
 |---|---|---|---|---|---|
 | **P0** | P0-1 | γ-β residual-stream bridge experiment (cheap form) — project Qwen3-VL-Thinking trace residuals onto V_K[L=26]; test amplitude growth predicts ×12.7 correct-base df ratio | §4.6 + §6.2 + §8.4 item 1 | ~2 H100-day | **Tier-shifter** (bar-raiser signature ask). Single highest-leverage move. |
 | ~~**P0**~~ | P0-2 | ~~Eigenvalue spectrum of `D[:, L=26, :]` rank-8 elbow check~~ | §6.4 + new figure | ~~~4 H100-hour~~ → ~1 CPU-hour shipped | ✅ shipped 2026-05-09 — **both acceptance criteria FAIL (graceful-degradation branch)**: (a) no rank-8 elbow at L=26 (sv_7/sv_8 = 1.019); (b) Shannon eff_rank *increases* L=10 → L=26 (INVERTED). Soft prediction (consistent with, not proof): single-direction interventions under-perform K=8 → P1-4 (CAA K=1 / ITI) is the empirical test. Doc: `docs/insights/P0-2-eigenvalue-spectrum-evidence.md`. |
-| **P0** | P0-2-control | Anchor-specificity control: per-layer rank trajectory on a non-anchor contrast (e.g. `(d − b)` neutral-image-difference at the same N samples + same layers) to defend against "this is just standard residual-stream rank growth" | §6.6 figure footnote + new doc section | ~30 min CPU if d-residuals on disk; ~1 H200-hour if fresh extraction | ☐ queued — without this, the (b) inversion finding cannot be claimed anchor-specific. Must land before §5.2 / §6.6 paper rewrite. |
-| **P0** | P0-2-prose | §6.4 Insight 2 / §5.2 Insight 4 / §6.6 reconciliation / §1.5 (4a) prose update per `docs/insights/P0-2-eigenvalue-spectrum-evidence.md` | `docs/paper/emnlp_draft_ko.md` (gitignored) | ~1 day prose | ☐ queued — required before next /paper-review-loop run so reviewers see updated framing |
+| **P0** | P0-2-control | Anchor-specificity control: per-layer rank trajectory + `EV_frac_V_K` on a non-anchor contrast (e.g. `(d − b)` neutral-image-difference at the same N samples + same layers) to defend against "this is just standard residual-stream rank growth" | §6.6 figure footnote + new doc section | ~30 min CPU if d-residuals on disk; ~1 H200-hour if fresh extraction | ☐ **BLOCKER for P0-2-prose** — without this we cannot distinguish "anchor integration localized to L=22-26" from "any late-developed feature shows late-layer alignment." |
+| **P0** | P0-2-followup | Cross-layer mitigation test: run E6 hook at single-layer L ∈ {22, 24, 25}, qualitative prediction = partial free-lunch recovery scaling with alignment (NOT specific quantitative ratio — earlier "~58/79/87 %" was derived from a tautological measure and is dropped). | §6.6 + §6.5 | ~6 H200-hour (3 × ~2h × 5 datasets) | ☐ **BLOCKER for P0-2-prose** — strongest empirical test of late-cluster interpretation; converts measurement geometry into behavioral mechanism claim. |
+| **P0** | P0-2-prose | §6.4 Insight 2 / §5.2 Insight 4 / §6.6 reconciliation / §1.5 (4a) prose update | `docs/paper/emnlp_draft_ko.md` (gitignored) | ~1 day prose | ☐ **BLOCKED on P0-2-control + P0-2-followup**. If either fails, prose stays at graceful-degradation framing only ("K=8 explains ~21 % of L=26 anchor variance and yet achieves free-lunch") and does NOT claim late-cluster localization. |
 | **P1** | P1-3 | Paired-bootstrap CI on §6.2.3 Table 6 (B=10,000) | `scripts/build_e6_stage4_summary.py` extension | ~1 day | Closes R4 MAJ-4. |
 | **P1** | P1-4 | CAA at K=1 + ITI at attention-head — actual Table 7 rows | §6.5 + new evidence doc | ~3 H200-day | Closes R4 MAJ-5 (structural Note → empirical). |
 | **P1** | P1-5 | Random-K=8 baseline for §6.3 (Alt-1 falsification) | §6.3 Insight 1.5 | ~2 H100-day | Closes R4 CRIT-3. |
@@ -538,6 +561,62 @@ contingent on P0-1 bridge experiment.
   `predictions.jsonl` only.
 
 ## 10. Changelog
+
+- **2026-05-09 (P0-2 H-A test — WEAK partial confirmation; decisive
+  follow-ups blocked).** Follow-up to the P0-2 graceful-degradation outcome
+  above. `scripts/analyze_e6_multilayer_redundancy.py` measures per-layer
+  subspace alignment of anchor writes with V_K[L=26] (K=8) using two
+  non-tautological measures (`sub_align_inc` on incremental ΔD top-1
+  direction, and `EV_frac_V_K` on cumulative D Frobenius fraction
+  through V_K) and one tautological-at-L=peak diagnostic
+  (`sub_align_cum`). Pre-registered: ≥ 4 of 11 early layers with
+  `sub_align_inc > 0.30` → CONFIRMED; ≥ 2 → WEAK; ≤ 1 → FALSIFIED.
+  - **Result: WEAK partial confirmation.** 3 of 11 early layers above
+    threshold (L=22: 0.413; L=24: 0.394; L=25: 0.494). L=0..20 are below
+    threshold (sub_align_inc ranges 0.04-0.18; `EV_frac_V_K` 1.2-9.5×
+    isotropic-random baseline 0.0022).
+  - **Non-tautological `EV_frac_V_K` shows sharp L=20→22 transition:**
+    9.5× random isotropic at L=20 → 30.5× at L=22 → 60.4× L=24 → 72.7×
+    L=25 → 95.2× L=26 (= EV@K8 ≈ 0.21, NOT 1.0; non-trivial relative to
+    isotropic random but the relevant comparison is non-anchor baseline,
+    not isotropic). L=27 drops to 38.5× (LM-head logit-projection
+    compression).
+  - **Caveats locked in (advisor flag):**
+    (i) `sub_align_cum` is tautological at L=peak by construction — the
+    cumulative trajectory 0.577 → 0.790 → 0.870 → 1.000 is NOT independent
+    confirmation of "anchor signal building up." Use only
+    non-tautological measures (`sub_align_inc`, `EV_frac_V_K`).
+    (ii) "v_0 consensus + v_1..v_7 distributed" interpretation has no
+    direct measurement support — v_0 dominates by definition (top
+    singular vector); v_1..v_7's lack of specific-layer alignment is
+    equally consistent with noise/generic-residual structure as with
+    "distributed contributions." Dropped.
+    (iii) Anchor-specificity is NOT yet established — `EV_frac_V_K`
+    rising 30-95× isotropic random over L=22..26 is non-trivial relative
+    to isotropic random but the deciding test is `(d − b)` non-anchor
+    baseline (P0-2-control).
+  - **Paper-prose update P0-2-prose is BLOCKED on two follow-ups:**
+    (i) **P0-2-control** (~30 min CPU - 1 H200-hour): non-anchor `(d − b)`
+    baseline at same N + same layers. Required to establish anchor-
+    specificity of L=22-26 alignment cluster.
+    (ii) **P0-2-followup** (~6 H200-hour): cross-layer mitigation at
+    L=22/24/25 — qualitative prediction "partial recovery scaling with
+    alignment" (NOT specific quantitative ratio; earlier "~58/79/87 %"
+    derived from tautological measure and dropped).
+    If either fails to land in the predicted direction, P0-2-prose
+    reverts to the graceful-degradation framing only ("K=8 explains
+    ~21 % of L=26 anchor variance and yet achieves free-lunch") and does
+    NOT claim late-cluster localization or block-coding.
+  - **Files.** `scripts/analyze_e6_multilayer_redundancy.py` (analyzer
+    with `EV_frac_V_K` non-tautological measure);
+    `docs/insights/_data/p0_2_HA_subspace_alignment.csv` (per-layer data,
+    gitignored — adds `ev_frac_VK` + `ev_frac_excess` columns);
+    `docs/insights/_data/p0_2_HA_verdict.json` (verdict, gitignored);
+    `docs/figures/P0-2_HA_subspace_alignment.png` (Figure 3 — two-panel:
+    sub_align trajectory + non-tautological EV_frac_V_K log-scale);
+    `docs/figures/P0-2_HA_per_vk_heatmap.png` (Figure 4);
+    `docs/insights/P0-2-eigenvalue-spectrum-evidence.md` H-A section
+    with explicit caveats + paper-prose blocker statement.
 
 - **2026-05-09 (P0-2 spectrum — graceful-degradation outcome).**
   `scripts/analyze_e6_eigenvalue_spectrum.py` + per-layer thin SVD on
