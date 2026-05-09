@@ -48,7 +48,39 @@ Predictions are written `pred_b / pred_a / pred_m / pred_d`; ground truth is
 | **H6** | Cross-modal failures decouple into two orthogonal axes — `anchor-pull` vs. `multi-image distraction` | `adopt_rate(a)` and `acc_drop_d_vs_b` perfectly correlated → H6 fails | ✅ Suggested by E2 pilot (InternVL3 = high acc_drop / low adopt; LLaVA-1.5 = low acc_drop / high adopt; ConvLLaVA = both). Confirmed at full E4 Phase 2 scale |
 | **H7** ⚙ | `direction_follow_rate` is monotonic with `pred_b`-token logit / probability — i.e. uncertainty modulates anchor pull on a **continuous** confidence scale, of which wrong/correct (H2) is a coarse projection | `direction_follow_rate` flat across confidence quartiles | ✅ Confirmed for non-reasoning panel — `L1-confidence-modulation-evidence.md` reports `entropy_top_k` Q4 − Q1 mean df = +0.152 on E5b/E5c/E5e, 23/35 anchor cells fully monotone. **Boundary case**: H7 monotonicity *collapses* under reasoning mode (`E5e-mathvista-reasoning-evidence.md` §3.1) and is panel-side compressed on InternVL3-8b (`E7-plotqa-infovqa-evidence.md` §4) — both deserve §6 prose paragraph distinguishing "uncertainty-modulated graded pull" from "reasoning-induced graded pull". |
 
-## 3. Status snapshot — where we are (2026-05-04 — Phase 1 P0 v3 complete)
+## 3. Status snapshot — where we are (2026-05-09 — 5-round paper review loop complete)
+
+### 3.0b Post-review state (2026-05-09 — Solid Findings, top of band; Main contingent on bridge experiment)
+
+5-round iterative review-revise loop on `docs/paper/emnlp_draft_ko.md`
+shipped via PR-equivalent merge into master (commit `86fb66a`,
+phase2 branch tip `8ffdc2d`). Methodology / writing / novelty /
+adversarial / bar-raiser personas + author-reviser between rounds.
+Paper 516 → 604 lines net (+88).
+
+- **Final tier verdict (3-way convergent):** Solid Findings, top of band.
+  Borderline / weak-accept Main contingent on §8.4 item 1 (γ-β
+  residual-stream bridge experiment) landing positive in next revision.
+- **Highest-leverage next action:** P0-1 — γ-β Thinking-mode trace
+  amplitude on K=8 subspace at L=26 (cheap form ~2 H100-day; clean
+  form +~4 H100-day). Bar-raiser explicitly named this as the
+  experiment that would tip Findings → Main.
+- **Sharpest 5-year-citable finding loop converged on:** §5.2 → §6.4
+  predict-then-verify chain ("multi-layer redundancy predicts
+  single-direction mitigation failure cross-dataset"); now framed
+  as the paper's *이론적* contribution at 4 callsites (abstract /
+  §1.3 / §1.5 (4a) / §8.1).
+- **17 DEFER items** consolidated in
+  [`docs/insights/plan_post_review_2026-05-09.md`](../docs/insights/plan_post_review_2026-05-09.md)
+  with priority + estimate + dependency + acceptance criteria.
+  P0 (2 items) for tier-shift; P1 (4 items) for adversarial-defense
+  rigor; P2 (1 item) for cross-architecture verification; P3
+  (3 items) for camera-ready hardening; P4 (7 items) for future
+  submissions.
+- **Review trail tracked.** Pipeline (`.claude/agents/paper-reviewer-*.md`,
+  `.claude/agents/paper-reviser.md`, `.claude/commands/paper-review-loop.md`)
+  and 11 review/response/summary files at `docs/paper/reviews/*.md`
+  committed for reproducibility (selective `.gitignore` overrides).
 
 ### 3.0a Phase 1 P0 v3 final state (2026-05-04)
 
@@ -385,6 +417,36 @@ landed (commit `c556fb6`). Phase E E1d 4/4 landed (commits `7a27750` +
 | **P3** | Image-vs-text anchor (F2) follow-up paper | §6.6 | future |
 | **P3** | InternVL3 + Qwen2.5-VL E1-patch non-square (appendix only) | §6.5 §7 | 1–2 days/model implementation if pursued |
 
+### Phase 5 — paper review-driven hardening (NEW 2026-05-09, post 5-round loop)
+
+Source: 5-round review loop (`docs/paper/reviews/_final_summary.md`)
++ post-review plan
+([`docs/insights/plan_post_review_2026-05-09.md`](../docs/insights/plan_post_review_2026-05-09.md)).
+Paper currently *Solid Findings, top of band*; tier-shift to Main
+contingent on P0-1 bridge experiment.
+
+| Pri | ID | Task | Where | Estimate | Tier impact |
+|---|---|---|---|---|---|
+| **P0** | P0-1 | γ-β residual-stream bridge experiment (cheap form) — project Qwen3-VL-Thinking trace residuals onto V_K[L=26]; test amplitude growth predicts ×12.7 correct-base df ratio | §4.6 + §6.2 + §8.4 item 1 | ~2 H100-day | **Tier-shifter** (bar-raiser signature ask). Single highest-leverage move. |
+| **P0** | P0-2 | Eigenvalue spectrum of `D[:, L=26, :]` rank-8 elbow check | §6.4 + new figure | ~4 H100-hour | Theoretical contribution upgrade if elbow clean. |
+| **P1** | P1-3 | Paired-bootstrap CI on §6.2.3 Table 6 (B=10,000) | `scripts/build_e6_stage4_summary.py` extension | ~1 day | Closes R4 MAJ-4. |
+| **P1** | P1-4 | CAA at K=1 + ITI at attention-head — actual Table 7 rows | §6.5 + new evidence doc | ~3 H200-day | Closes R4 MAJ-5 (structural Note → empirical). |
+| **P1** | P1-5 | Random-K=8 baseline for §6.3 (Alt-1 falsification) | §6.3 Insight 1.5 | ~2 H100-day | Closes R4 CRIT-3. |
+| **P1** | P1-6 | §A.5 27-cell pilot grid 4-metric heatmap aggregation | §A.5 + new canonical CSV | ~1 day | Closes R4 CRIT-2 (cherry-pick concern). |
+| **P2** | P2-7 | E6 cross-architecture replication on Qwen2.5-VL-7B (different encoder archetype) | §6.6 + §1.4 framing | ~10 H200-day | Partial close of R4 CRIT-1 (N=1 → N=2). |
+| **P3** | P3-8 | Paraphrase robustness (5 prompts × 5 datasets) | §A.X + §8.2 | ~3 H200-day | Defuses single-prompt critique. |
+| **P3** | P3-9 | Closed-source defuse (~500 sample on GPT-4o or Gemini 2.5) | §3.6 + §4.* | ~1-2 day + ~$15 API | Defuses open-only critique. |
+| **P3** | P3-10 | Encoder-family promotion to top-line contribution (camera-ready prose) | §1 + §1.5 + §5 | ~half-day | Camera-ready polish. |
+
+**Recommended sprint ordering** (per plan §"Recommended execution sequence"):
+
+- **Week 1 (Findings hardening):** P0-1 cheap + P1-3 + P1-6 + P1-5 in parallel.
+- **Week 2 (Main shift):** P0-2 + P1-4 + start P2-7.
+- **Week 3 (Main consolidation):** Finish P2-7. If P0-1 cheap was positive, run clean form.
+- **Camera-ready:** P3-8 + P3-9 + P3-10.
+
+**Don't-touch protect-list (R5 bar-raiser):** (a − m) calibration contrast, single-model 6-callsite hedge, §6.2.3 reframing, Δem(non-anchored) ≥ 0 clause, §1.5 (1) hedge stack, §5.3 dataset-dependent peak self-disclosure, §4.7 InternVL3 boundary case.
+
 **Recently landed (struck from queue 2026-04-29):**
 
 - ~~gemma3-27b-it on E5c VQAv2 + TallyQA~~ ✅ (2026-04-29 — VQAv2 full n=12,000 ran in ~95 min on GPU 1; TallyQA at `max_samples=300` ran in ~28 min. Both re-aggregated to C-form via `reaggregate_paired_adoption.py --apply`; `docs/insights/_data/E5c_per_cell.csv` rebuilt by `analyze_e5c_distance.py --models llava-next-interleaved-7b qwen2.5-vl-7b-instruct gemma3-27b-it`. VQAv2 wrong-base S1 `a−m` = +5.69 pp adopt / +5.99 pp df — second-largest panel cell, behind llava. TallyQA wrong-base S1 `a−m` = +2.05 pp adopt / df-tie. Closes the only remaining paper-blocking P0)
@@ -461,6 +523,73 @@ landed (commit `c556fb6`). Phase E E1d 4/4 landed (commits `7a27750` +
   `predictions.jsonl` only.
 
 ## 10. Changelog
+
+- **2026-05-09 (5-round paper review loop + post-review plan +
+  selective gitignore overrides for tracked review trail).**
+  Multi-agent review-revise pipeline shipped end-to-end on
+  `docs/paper/emnlp_draft_ko.md`. Methodology / writing / novelty /
+  adversarial / bar-raiser personas + author-reviser between
+  rounds. Paper 516 → 604 lines net (+88).
+  - **Pipeline infrastructure** (commit `8ffdc2d`):
+    `.claude/agents/paper-reviewer-{methodology,writing,novelty,aggressive,bar-raiser}.md`
+    + `paper-reviser.md`; `.claude/commands/paper-review-loop.md`.
+    Each reviewer enforces "no vague critique" + canonical-CSV
+    verification + § + verbatim + suggested-fix bar; reviser uses
+    EDIT / PARTIAL EDIT / REBUT / DISAGREE / DEFER classification.
+    `.gitignore` selective overrides allow `.claude/agents/paper-*`
+    and `.claude/commands/paper-review-loop.md` and
+    `docs/paper/reviews/*.md` to be tracked while keeping rest of
+    `.claude/` and `docs/paper/` local.
+  - **Round-by-round** (review + response files at `docs/paper/reviews/round{1..5}_*.md`):
+    - **R1 methodology** — 8 must-fix incl 4 CRIT data errors
+      (Table 5 E4 swap, Table 3 TallyQA gemma3-27b values, ActAdd
+      +57 % untraceable, abstract 5×7=85 arithmetic). All headline
+      numbers (E6 Table 6, E8 Table 8, γ-β ratios, L1 51/85)
+      verified clean against canonical `_data/`.
+    - **R2 writing** — 11 must-fix; 6 forced Korean coinages
+      stripped (이분법 / 주력 / 발화 / 회귀); abstract "입증" →
+      "강하게 뒷받침"; Figure 5 caption / 4.4 Insight 2 contradiction
+      fixed.
+    - **R3 novelty** — VLMBias factual correction (visual objects,
+      not class labels); §2 *Activation steering and concept erasure*
+      paragraph added (CAA / ITI / LEACE); strict-free-lunch 4-clause
+      formal definition + Chand et al. 2025 No-Free-Lunch precedent;
+      4 references added.
+    - **R4 aggressive** — CRIT-1 N=1 model on E6 chain hedged across
+      6 callsites as case study; §A.4 FLUX seed=1729 surfaced
+      (3-round defer closed); §A.5 27-cell pilot grid label;
+      §7 Bonferroni-6 robustness; 4 items honestly DEFERred with
+      GPU-hour estimates.
+    - **R5 bar-raiser** — predict-then-verify chain (§5.2 → §6.4)
+      sharpened as theoretical contribution at 4 callsites; new
+      §8.4 후속 작업 with bridge experiment as lead item.
+  - **Final tier verdict (3-way convergent):** Solid Findings, top
+    of band. Borderline / weak-accept Main contingent on §8.4 item 1
+    bridge experiment (γ-β residual-stream amplitude on K=8 subspace,
+    cheap ~2 H100-day / clean ~1 H200-week).
+  - **5-year-citable finding:** §5.2 → §6.4 predict-then-verify
+    chain ("multi-layer redundancy predicts single-direction
+    mitigation failure cross-dataset"), framed as paper's
+    *이론적* contribution.
+  - **Post-review plan**
+    [`docs/insights/plan_post_review_2026-05-09.md`](../docs/insights/plan_post_review_2026-05-09.md):
+    17 DEFER items consolidated into Phase 5 priority queue
+    (P0 × 2 tier-shift, P1 × 4 rigor, P2 × 1 cross-arch, P3 × 3
+    camera-ready, P4 × 7 future). Priority + cost + dependency +
+    acceptance criteria per item. Recommended 3-week execution
+    sequence ending in P0-1 bridge experiment + paper update.
+  - **Bar-raiser don't-touch protect-list (7 items):** (a − m)
+    contrast / 6-callsite hedge / §6.2.3 reframing / Δem(b) clause /
+    §1.5 (1) hedge stack / §5.3 self-disclosure / §4.7 boundary
+    case. Phase 5 work must respect.
+  - **Note on dispatch:** custom `paper-reviewer-*` and
+    `paper-reviser` agents were dispatched as `general-purpose`
+    subagents reading the persona file content (workaround during
+    initial registration race). After pod restart they register
+    properly via `.claude/agents/`. Future runs of
+    `/paper-review-loop` should invoke them via `subagent_type`
+    directly. Review quality and audit trail are intact; output
+    files substantive (16-50 KB per review).
 
 - **2026-05-08 ~21:30 (Phase 4 P1 paper polish — cross-section
   consistency pass + venue-tag verification).**  Phase 4 P1 batch
