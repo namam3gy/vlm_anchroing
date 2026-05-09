@@ -37,6 +37,39 @@ CircularEval (4329 raw rows / ~4 permutations). MME and AMBER
 accuracies are *per-question YORN accuracy* (not the official MME
 pair-based score or AMBER per-category averages); see Caveat #5 below.
 
+**MME per-category breakdown (paper-relevant subset focus):** The MME
+panel contains 14 categories; the **Count subset (n=60) is the in-domain
+analogue of our number-anchor failure mode** (Y/N about numerical counts
+on natural images, no irrelevant anchor image). Per-category McNemar:
+
+| MME category | n | baseline | +mit | Δ pp | 95% CI |
+|---|---:|---:|---:|---:|---|
+| **count** | 60 | 85.00 | 85.00 | **+0.00** | **[+0.00, +0.00]** |
+| existence | 60 | 100.00 | 100.00 | +0.00 | [+0.00, +0.00] |
+| color | 60 | 90.00 | 93.33 | +3.33 | [-1.29, +7.95] |
+| position | 60 | 81.67 | 83.33 | +1.67 | [-1.60, +4.93] |
+| OCR | 40 | 65.00 | 65.00 | +0.00 | [-6.93, +6.93] |
+| numerical_calculation | 40 | 60.00 | 62.50 | +2.50 | [-2.40, +7.40] |
+| code_reasoning | 40 | 62.50 | 60.00 | -2.50 | [-7.40, +2.40] |
+| text_translation | 40 | 65.00 | 70.00 | +5.00 | [-4.80, +14.80] |
+| commonsense_reasoning | 140 | 80.00 | 78.57 | -1.43 | [-4.23, +1.37] |
+| celebrity | 340 | 83.82 | 82.06 | -1.76 | [-4.21, +0.68] |
+| posters | 294 | 87.41 | 87.07 | -0.34 | [-1.83, +1.15] |
+| artwork | 400 | 80.25 | 80.25 | +0.00 | [-1.70, +1.70] |
+| landmark | 400 | 90.00 | 90.75 | +0.75 | [-0.55, +2.05] |
+| scene | 400 | 89.00 | 88.50 | -0.50 | [-1.19, +0.19] |
+
+**The Count subset Δ is exactly zero — every one of the 60 paired
+predictions matches between baseline and +mit.** Existence (the
+related Y/N-on-objects subset) is likewise Δ = 0.00 pp at ceiling
+(100 %). This is direct evidence that the mitigation acts on
+*cross-modal anchor pull*, not on counting capability itself: when no
+irrelevant anchor image is present, the L=26 K=8 hook leaves the
+model's numerical Y/N judgments unchanged. (Wide CIs on the small
+subsets reflect n; the zero-pair-difference Count result is exact, not
+a no-rejection.) Together with the eight benchmark-level Δs above,
+this is the cleanest in-domain analogue test the panel provides.
+
 The strict free-lunch claim of §7.4.5 (Δdf ≤ 0, Δem(a) ≥ 0,
 Δem(b) ≥ 0 within the anchoring family) extends to general capability:
 no per-benchmark threshold breach, macro positive.
