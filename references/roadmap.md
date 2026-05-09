@@ -58,6 +58,17 @@ phase2 branch tip `8ffdc2d`). Methodology / writing / novelty /
 adversarial / bar-raiser personas + author-reviser between rounds.
 Paper 516 → 604 lines net (+88).
 
+**P1 close-outs (2026-05-10, branch `worktree-paper+p1-defense-r4`):**
+P1-3 paired-bootstrap CI on §6.2.3 Table 6 (B = 10,000) and P1-6 §A.5
+27-cell pilot grid 4-metric heatmap aggregation both shipped — closing
+R4 MAJ-4, R4 MAJ-6 (Bonferroni-20), and R4 CRIT-2 (cherry-pick concern).
+Δem(b) emerges as the paper's multiplicity-robust headline (5/5
+sign-clean under both 95 % and Bonferroni-20 corrected CIs); Δdf(a) is
+sample-size-bound to PlotQA n=2,306 as the only CI-strong cell. 27-cell
+heatmap shows the em-deal-breaker rule was non-binding (no cell rejected)
+and the chosen cell ranks first by combined |Δdf(a)| under the same ex
+ante rule, addressing reviewer cherry-pick concerns.
+
 - **Final tier verdict (3-way convergent):** Solid Findings, top of band.
   Borderline / weak-accept Main contingent on §8.4 item 1 (γ-β
   residual-stream bridge experiment) landing positive in next revision.
@@ -429,10 +440,10 @@ contingent on P0-1 bridge experiment.
 |---|---|---|---|---|---|
 | **P0** | P0-1 | γ-β residual-stream bridge experiment (cheap form) — project Qwen3-VL-Thinking trace residuals onto V_K[L=26]; test amplitude growth predicts ×12.7 correct-base df ratio | §4.6 + §6.2 + §8.4 item 1 | ~2 H100-day | **Tier-shifter** (bar-raiser signature ask). Single highest-leverage move. |
 | **P0** | P0-2 | Eigenvalue spectrum of `D[:, L=26, :]` rank-8 elbow check | §6.4 + new figure | ~4 H100-hour | Theoretical contribution upgrade if elbow clean. |
-| **P1** | P1-3 | Paired-bootstrap CI on §6.2.3 Table 6 (B=10,000) | `scripts/build_e6_stage4_summary.py` extension | ~1 day | Closes R4 MAJ-4. |
+| ~~**P1**~~ | ~~P1-3~~ | ~~Paired-bootstrap CI on §6.2.3 Table 6 (B=10,000)~~ | ~~`scripts/build_e6_stage4_summary.py` extension~~ | ✅ landed 2026-05-10 (branch `worktree-paper+p1-defense-r4`) | Closes R4 MAJ-4 + R4 MAJ-6 (Bonferroni-20). New script `scripts/build_e6_stage4_bootstrap_ci.py`; canonical CSV/MD `docs/insights/_data/stage4_final_per_dataset_ci.{csv,md}` + raw draws `_data/stage4_final_bootstrap_draws.npz`; insight `docs/insights/E6-stage4-paired-bootstrap-ci.md`. Δem(b) sign-clean 5/5 under Bonferroni-20; Δdf(a) sign-clean 1/5 (PlotQA only); InfoVQA Δdf 95 % CI [−4.7, +3.4] confirms inconclusive fence with paper's prior paired-Wilson estimate (~10 % within actual half-width 0.0406). |
 | **P1** | P1-4 | CAA at K=1 + ITI at attention-head — actual Table 7 rows | §6.5 + new evidence doc | ~3 H200-day | Closes R4 MAJ-5 (structural Note → empirical). |
 | **P1** | P1-5 | Random-K=8 baseline for §6.3 (Alt-1 falsification) | §6.3 Insight 1.5 | ~2 H100-day | Closes R4 CRIT-3. |
-| **P1** | P1-6 | §A.5 27-cell pilot grid 4-metric heatmap aggregation | §A.5 + new canonical CSV | ~1 day | Closes R4 CRIT-2 (cherry-pick concern). |
+| ~~**P1**~~ | ~~P1-6~~ | ~~§A.5 27-cell pilot grid 4-metric heatmap aggregation~~ | ~~§A.5 + new canonical CSV~~ | ✅ landed 2026-05-10 (branch `worktree-paper+p1-defense-r4`) | Closes R4 CRIT-2 (cherry-pick concern). New script `scripts/aggregate_e6_pilot_grid.py`; canonical CSV `docs/insights/_data/E6_pilot_grid_27cells.csv` + `_selection_replay.md`; figures `docs/figures/E6_pilot_grid_{plotqa,infographicvqa}_heatmap.png`; insight `docs/insights/E6-pilot-grid-aggregation.md`. Em-deal-breaker rule non-binding on the grid (no cell rejected); chosen cell #17 ranks first by combined `|Δdf(a)|` under the same ex ante rule. |
 | **P2** | P2-7 | E6 cross-architecture replication on Qwen2.5-VL-7B (different encoder archetype) | §6.6 + §1.4 framing | ~10 H200-day | Partial close of R4 CRIT-1 (N=1 → N=2). |
 | **P3** | P3-8 | Paraphrase robustness (5 prompts × 5 datasets) | §A.X + §8.2 | ~3 H200-day | Defuses single-prompt critique. |
 | **P3** | P3-9 | Closed-source defuse (~500 sample on GPT-4o or Gemini 2.5) | §3.6 + §4.* | ~1-2 day + ~$15 API | Defuses open-only critique. |
@@ -440,7 +451,7 @@ contingent on P0-1 bridge experiment.
 
 **Recommended sprint ordering** (per plan §"Recommended execution sequence"):
 
-- **Week 1 (Findings hardening):** P0-1 cheap + P1-3 + P1-6 + P1-5 in parallel.
+- **Week 1 (Findings hardening):** ~~P1-3~~ ✅ + ~~P1-6~~ ✅ + P0-1 cheap + P1-5 in parallel. (P1-3 + P1-6 landed 2026-05-10.)
 - **Week 2 (Main shift):** P0-2 + P1-4 + start P2-7.
 - **Week 3 (Main consolidation):** Finish P2-7. If P0-1 cheap was positive, run clean form.
 - **Camera-ready:** P3-8 + P3-9 + P3-10.
@@ -523,6 +534,58 @@ contingent on P0-1 bridge experiment.
   `predictions.jsonl` only.
 
 ## 10. Changelog
+
+- **2026-05-10 (P1-3 paired-bootstrap CI + P1-6 27-cell pilot grid
+  aggregation — Phase 5 adversarial-defense rigor batch 1).** Branch
+  `worktree-paper+p1-defense-r4`. Two R4 follow-ups closed in parallel
+  on the existing OneVision Main canonical runs (no new GPU compute).
+  - **P1-3 (R4 MAJ-4 + MAJ-6 close).** Paired-bootstrap CI for §6.2.3
+    Table 6 with B = 10,000 (sid-paired resampling, per-arm denominators
+    recomputed each bootstrap so adopt's `pb ≠ anchor` and df's
+    `pa ≠ pb` clauses shift correctly per arm). 95 % equal-tail
+    percentile + Bonferroni-20 corrected (99.75 %, family = 5 datasets ×
+    4 metrics). New script `scripts/build_e6_stage4_bootstrap_ci.py`;
+    canonical artefacts `docs/insights/_data/stage4_final_per_dataset_ci.{csv,md}`
+    + raw draws `_data/stage4_final_bootstrap_draws.npz` (20 arrays,
+    B = 10,000 each); insight cousin
+    `docs/insights/E6-stage4-paired-bootstrap-ci.md`. Sign-clean count:
+    Δadopt(a) 2/5 at 95 %, Δdf(a) **1/5 (PlotQA n=2,306 [−6.9, −3.4])**,
+    Δem(a) 3/5 at 95 % / 2/5 under Bonferroni, **Δem(b) 5/5 sign-clean
+    at both 95 % and Bonferroni-20**. **InfoVQA Δdf 95 % CI = [−4.7, +3.4]**
+    — `inconclusive fence` confirmed with real CI numbers (paper's earlier
+    paired-Wilson half-width estimate ~±0.04 to ~±0.06 was within ~10 %
+    of the actual half-width 0.0406; sanity gate passed before
+    committing). Paper edits: §6.2.3 Table 6 + reframing paragraph
+    rewritten with CI numbers; abstract Δdf qualifier rewritten with
+    PlotQA cell + Δem(b) Bonferroni-robust call-out; §8.2 P1-3 deferred
+    bullet struck; §8.4 item 5 narrowed to CAA·ITI only; English
+    sister-section `docs/paper/sections/07_mechanism_mitigation.md`
+    Table 6 + Three properties paragraphs synchronised.
+  - **P1-6 (R4 CRIT-2 close).** 27-cell pilot grid (L ∈ {25,26,27} ×
+    K ∈ {2,4,8} × α ∈ {0.5,1.0,2.0}) on PlotQA + InfoVQA n=250 calibration
+    pilots aggregated into a 4-metric heatmap (Δadopt(a) / Δdf(a) /
+    Δem(a) / Δem(b)) per calibration dataset. New script
+    `scripts/aggregate_e6_pilot_grid.py`; canonical CSV
+    `docs/insights/_data/E6_pilot_grid_27cells.csv`; selection-rule
+    replay markdown `_data/E6_pilot_grid_27cells_selection_replay.md`;
+    figures `docs/figures/E6_pilot_grid_{plotqa,infographicvqa}_heatmap.png`
+    (4 metrics × 3 layers × K-α heatmap each, chosen cell starred);
+    insight `docs/insights/E6-pilot-grid-aggregation.md`. **Em-deal-breaker
+    rule (Δem(a) ≤ −6 pp on either calib) is non-binding on the grid**
+    — no cell rejected (PlotQA min Δem(a) = −1.2 pp on cell #19, InfoVQA
+    min = +0.4 pp on cell #1). Chosen cell #17 (L=26, K=8, α=1.0) ranks
+    first by combined |Δdf(a)| (mean −4.4 pp; #2 #8 at −3.2 pp; 1.2 pp
+    margin) — direct response to reviewer cherry-pick concerns. Paper
+    edits: §A.5 stub replaced with full 4-metric aggregation table +
+    top-5 ranking + heatmap figure pointers + binding-clause analysis;
+    §6.2.2 prose updated with §A.5 cross-link; §8.2 P1-6 deferred bullet
+    struck; English sister-section §6.2.2 cross-link added.
+  - **No GPU compute consumed** — both tasks ran on existing
+    `outputs/e6_steering/llava-onevision-qwen2-7b-ov/` predictions
+    (chosen-cell sweeps + pilot grid jsonls; canonical OneVision Main
+    artefacts unchanged). Reproducible notebook
+    `notebooks/E6_phase5_p1_3_p1_6_demo.ipynb`. Total work ≈ 2 h
+    end-to-end (script + run + paper integration + roadmap).
 
 - **2026-05-09 ~21:40 (5-round paper review loop + post-review plan +
   selective gitignore overrides for tracked review trail).**
