@@ -148,5 +148,87 @@ class ProjectionArithmeticTest(unittest.TestCase):
         self.assertTrue((amps >= 0).all(), "amplitude must be non-negative")
 
 
+def _import_aggregator():
+    """Import build_gamma_beta_bridge_summary regardless of pytest rootdir.
+
+    Mirrors the sys.path shim in ProjectionArithmeticTest.test_per_token_amplitude_shape
+    so the suite stays runnable from the project root or from inside tests/.
+    """
+    import sys
+    SCRIPTS_ROOT = PROJECT_ROOT / "scripts"
+    if str(SCRIPTS_ROOT) not in sys.path:
+        sys.path.insert(0, str(SCRIPTS_ROOT))
+    import build_gamma_beta_bridge_summary as _mod
+    return _mod
+
+
+class PairedBootstrapTest(unittest.TestCase):
+
+    def test_known_positive_mean_excludes_zero(self):
+        """When all Δ are positive with low noise, CI lower bound > 0."""
+        import numpy as np
+        agg = _import_aggregator()
+        rng = np.random.default_rng(42)
+        deltas = rng.normal(loc=2.0, scale=0.5, size=100)
+        lo, hi = agg.paired_bootstrap_ci(deltas, B=1000, alpha=0.05, seed=0)
+        self.assertGreater(lo, 0)
+        self.assertGreater(hi, lo)
+
+    def test_zero_centered_includes_zero(self):
+        """When Δ are zero-centered, CI includes zero."""
+        import numpy as np
+        agg = _import_aggregator()
+        rng = np.random.default_rng(43)
+        deltas = rng.normal(loc=0.0, scale=1.0, size=100)
+        lo, hi = agg.paired_bootstrap_ci(deltas, B=1000, alpha=0.05, seed=0)
+        self.assertLess(lo, 0)
+        self.assertGreater(hi, 0)
+
+    def test_empty_array_returns_nan(self):
+        import numpy as np
+        agg = _import_aggregator()
+        lo, hi = agg.paired_bootstrap_ci(np.array([]), B=1000)
+        self.assertTrue(np.isnan(lo))
+        self.assertTrue(np.isnan(hi))
+
+
+class SubGroupFilterTest(unittest.TestCase):
+
+    def test_correct_base_filter(self):
+        agg = _import_aggregator()
+        rows = [
+            {"sample_instance_id": "a", "base_correct": True, "amp": 1.0},
+            {"sample_instance_id": "b", "base_correct": False, "amp": 2.0},
+            {"sample_instance_id": "c", "base_correct": True, "amp": 3.0},
+        ]
+        self.assertEqual(
+            [r["sample_instance_id"] for r in agg.filter_by_base_correctness(rows, "correct")],
+            ["a", "c"],
+        )
+        self.assertEqual(
+            [r["sample_instance_id"] for r in agg.filter_by_base_correctness(rows, "wrong")],
+            ["b"],
+        )
+        self.assertEqual(len(agg.filter_by_base_correctness(rows, "all")), 3)
+
+    def test_unknown_mode_raises(self):
+        agg = _import_aggregator()
+        with self.assertRaises(ValueError):
+            agg.filter_by_base_correctness([], "bogus")
+
+    def test_missing_base_correct_excluded_from_correct_and_wrong(self):
+        """Rows where base_correct is None (sid not in γ-α preds) should not appear
+        in correct OR wrong sub-groups, but DO appear in all."""
+        agg = _import_aggregator()
+        rows = [
+            {"sample_instance_id": "x", "base_correct": True},
+            {"sample_instance_id": "y", "base_correct": None},
+            {"sample_instance_id": "z", "base_correct": False},
+        ]
+        self.assertEqual(len(agg.filter_by_base_correctness(rows, "correct")), 1)
+        self.assertEqual(len(agg.filter_by_base_correctness(rows, "wrong")), 1)
+        self.assertEqual(len(agg.filter_by_base_correctness(rows, "all")), 3)
+
+
 if __name__ == "__main__":
     unittest.main()
