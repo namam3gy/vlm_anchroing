@@ -535,6 +535,8 @@ contingent on P0-1 bridge experiment.
 
 ## 10. Changelog
 
+- **2026-05-10 (P4-12 OneVision E1d analyzer fix closed).** `scripts/analyze_causal_ablation.py` 의 두 stratification 버그가 수정되어 OneVision Main Phase E (5 dataset × n=200 stratified) 결과가 §5.2 / §5.3 / §E.2로 통합. **Headline:** single-layer ablation 5/5 null on OneVision (max |Δdf| = 1.5 pp on InfoVQA, 모든 95 % CI overlap 0) — 6-mech panel의 6/6 null과 일관, multi-layer redundancy claim의 *확장 검증*. Upper-half ablation은 6-mech panel의 균일 −4 ~ −10.5 pp significant와 달리 OneVision에서는 5/5 null at n=200 (point estimates ∈ [−3.9, +0.4] pp) — §5.3 dataset-dependent peak (Plot/Tally L=27 vs Info/VQAv2 L=14)와 일관 heterogeneity, §6.2 subspace-projection 도구 선택의 *layer-uniform attention re-weighting 한계*라는 mechanism-level 동기 보강. 버그 두 건: (i) `_build_triplets`의 base/anchor join에 dataset key 누락 (commit `a7e391c`); (ii) per-run dataset detection 부재 (commit `de1f94e`). 문서 통합: `docs/insights/E1d-causal-evidence.md` 2026-05-10 update block, paper Abstract / §1.3 / §5.2 / §5.3 / §8.2 / §E.2, `docs/insights/plan_post_review_2026-05-09.md` P4-12 mark closed, `docs/paper/reviews/_final_summary.md` item 9 mark closed. PR: `paper/p4-12-onevision-e1d-analyzer-fix` (#16).
+
 - **2026-05-10 (P1-3 paired-bootstrap CI + P1-6 27-cell pilot grid
   aggregation — Phase 5 adversarial-defense rigor batch 1).** Branch
   `worktree-paper+p1-defense-r4`. Two R4 follow-ups closed in parallel

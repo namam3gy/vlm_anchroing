@@ -48,9 +48,16 @@ via `scripts/analyze_cross_dataset_peaks.py`. Key finding: OneVision peak
 layer is **dataset-dependent** (L=27 on PlotQA/TallyQA, L=14 on InfoVQA/VQAv2)
 — see §0.7.
 
-**Phase E E1d causal ablation** (OneVision × 4 datasets, 4/4, commits
-`7a27750` + `2d11876` recovery): per-mode direction-follow reduction
-table at `outputs/causal_ablation/_summary/per_model_per_mode.csv`.
+**Phase E E1d causal ablation** (OneVision × 5 datasets, 5/5, commits
+`7a27750` + `2d11876` recovery + `a7e391c` + `de1f94e` analyzer fix
+2026-05-10 / P4-12 closed): per-mode direction-follow reduction table
+at `outputs/causal_ablation/_summary/per_model_per_mode.csv`. Headline:
+single-layer `ablate_peak` 5/5 null on OneVision (max |Δdf| = 1.5 pp,
+모든 95 % CI overlap 0) — multi-layer redundancy claim의 *확장 검증*.
+Upper-half ablation은 6-mech panel의 균일 −4 ~ −10.5 pp significant와
+달리 OneVision에서는 5/5 null at n=200 (point estimates ∈ [−3.9, +0.4]
+pp), §5.3 dataset-dependent peak와 일관 heterogeneity로 §6.2
+subspace-projection 도구 선택 보강.
 
 For full operational status see `references/roadmap.md §3.0a + §10`.
 
@@ -149,7 +156,7 @@ All 5 datasets evaluated under the same canonical setup: temperature=0, top_p=1.
 | §7.1–7.3 mechanism (E1-patch + Phase D) | **5-model perfect-square panel** (gemma4-e4b, llava-1.5-7b, convllava-7b, fastvlm-7b, internvl3-8b) + OneVision via AnyRes bbox routing | TallyQA + PlotQA + InfoVQA + VQAv2 (4) | b + a + m + d (4) | 200 stratified per dataset | 24 | **✅ shipped** (Phase D, commit `c556fb6`) |
 | §7.4 E4 attention re-weighting | 3-model mid-stack cluster (llava-1.5, convllava, internvl3) | 1 dataset | sweep + validation | 200 / full | 3 | ✅ pre-restructure; OneVision Main extension deferred (AnyRes encoder ≠ mid-stack archetype) |
 | §7.4.5 E6 Subspace mitigation | OneVision Main | all 5 | chosen cell L=26 K=8 α=1.0 + baseline | n=5000 wrong-base subset (per-dataset eligible cap applies) | 5 | **✅ shipped** (Phase B, commit `9f9dfa0`); em(b) +9.2pp recovery — paper task #38 |
-| §7 E1d causal ablation (OneVision) | OneVision Main only | TallyQA + ChartQA + MathVista + InfoVQA (4) | sweep × 6 modes (baseline / ablate_peak / window / lower-half / upper-half / all) | 200 stratified | 4 | **✅ shipped** (Phase E, commits `7a27750` + `2d11876` recovery) |
+| §7 E1d causal ablation (OneVision) | OneVision Main only | TallyQA + ChartQA + MathVista + InfoVQA + PlotQA (5) | sweep × 6 modes (baseline / ablate_peak / window / lower-half / upper-half / all) | 200 stratified | 5 | **✅ shipped** (Phase E, commits `7a27750` + `2d11876` recovery + `a7e391c` + `de1f94e` analyzer fix 2026-05-10) |
 | §5 γ-β reasoning | qwen3-vl-8b instruct vs thinking | MathVista | b/a/m/d (4) | full testmini subset | 2 | ✅ shipped (×1.6 adopt, ×2.9 df amplification) |
 | Appendix (legacy 7-model) | 7 models | VQAv2 only | b/a/d (3) | full | 7 | ✅ historical |
 
