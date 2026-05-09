@@ -110,17 +110,18 @@ Per-(model, dataset) peak attention layer at answer step (`docs/insights/_data/c
 
 Other panel models show stable peak (gemma4-e4b L=5 across all 4 datasets — most consistent). llava-1.5-7b stable except PlotQA. fastvlm + convllava show small dataset variation.
 
-### A.5 Phase E E1d causal ablation OneVision × 4 datasets (commit `7a27750` + `2d11876`)
+### A.5 Phase E E1d causal ablation OneVision × 5 datasets (commits `7a27750` + `2d11876` + `a7e391c` + `de1f94e` analyzer fix landed 2026-05-10, P4-12 closed)
 
-Per-mode direction-follow rate at OneVision Main (`outputs/causal_ablation/_summary/per_model_per_mode.csv`):
+Per-mode direction-follow rate at OneVision Main, n=200 stratified per dataset, B=2,000 bootstrap CI (`outputs/causal_ablation/_summary/per_model_per_mode.csv`):
 
-| Mode | TallyQA | InfoVQA | ChartQA | MathVista |
-|---|---:|---:|---:|---:|
-| baseline | 0.000 | 0.000 | 0.000 | 0.000 |
-| ablate_peak (L=27) | 0.000 | 0.000 | 0.000 | 0.000 |
-| ablate_upper_half | 0.000 | 0.000 | 0.000 | 0.000 |
+| Mode | TallyQA | InfoVQA | ChartQA | MathVista | PlotQA |
+|---|---:|---:|---:|---:|---:|
+| baseline | 0.130 | 0.167 | 0.105 | 0.171 | 0.243 |
+| Δ ablate_peak (pp) | −0.5 | +1.5 | 0.0 | 0.0 | −0.6 |
+| Δ ablate_upper_half | −2.5 | +0.4 | −0.5 | −2.6 | −3.9 |
+| Δ ablate_all | −4.0 | +0.8 | +0.6 | −4.5 | −5.1 |
 
-Note: OneVision baseline df is computed from intervention pipeline differently than from baseline run — the analyzer's stratification logic doesn't fit OneVision's susceptibility CSV well. The other panel models (5 mech) show clean **−4 to −10pp upper-half ablation** effects. Refining OneVision E1d aggregation is a Phase 3 follow-up. Raw predictions are present and correct in `outputs/causal_ablation/llava-onevision-qwen2-7b-ov/<run>/predictions.jsonl`.
+**Reading.** Single-layer ablation 5/5 null on OneVision (95 % CI overlap 0; max |Δdf| = 1.5 pp on InfoVQA peak) — multi-layer redundancy claim (6-mech panel 6/6 null)의 OneVision 위 *확장 검증*. Upper-half ablation은 6-mech panel의 균일 −4 ~ −10.5 pp significant와 달리 OneVision에서는 5/5 null at n=200 (point estimates ∈ [−3.9, +0.4] pp; PlotQA −3.9 pp [−9.4, +1.9]가 가장 가깝지만 0 포함) — §5.3 OneVision dataset-dependent peak (Plot/Tally L=27 vs Info/VQAv2 L=14)와 일관 heterogeneity, §6.2 subspace-projection 도구 선택 보강. 자세한 표 + 95 % CI + Lower-half BACKFIRE는 paper Appendix §E.2 또는 `docs/insights/E1d-causal-evidence.md` 참조.
 
 ---
 
