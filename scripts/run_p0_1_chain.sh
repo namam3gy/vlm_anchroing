@@ -2,7 +2,7 @@
 # P0-1 phase B + C chain runner.
 #
 # Steps (sequential, abort on first failure):
-#   wait_B1: wait until B1 PlotQA inference (already running) completes
+#   wait_B1: wait until B1 PlotQA inference (already running) writes summary.json
 #   B2:      Qwen3-VL-Instruct InfoVQA calibration inference
 #   B3a:     calibrate-subspace plotqa  (consumes B1 preds)
 #   B3b:     calibrate-subspace infovqa (consumes B2 preds)
@@ -10,6 +10,11 @@
 #   C2-smoke: GPU smoke run of bridge inference script (n=5)
 #   C3:      full Instruct bridge inference
 #   C4:      full Thinking bridge inference (long)
+#
+# IMPORTANT: run_experiment.py appends config_path.stem as a subdir under
+# output_root, so actual paths look like
+#   outputs/p0_1_calibration_qwen3vl/p0_1_calibration_qwen3vl_plotqa/qwen3-vl-8b-instruct/<ts>/
+# The chain handles this layout for both PlotQA and InfoVQA configs.
 #
 # Run: nohup bash scripts/run_p0_1_chain.sh > outputs/p0_1_chain.log 2>&1 &
 
@@ -19,6 +24,8 @@ cd /mnt/ddn/prod-runs/thyun.park/src/vlm_anchroing/.claude/worktrees/phase5+p0-1
 
 LOGS=outputs/p0_1_calibration_qwen3vl/_logs
 E6_LOGS=outputs/e6_steering/qwen3-vl-8b-instruct
+PLOTQA_BASE=outputs/p0_1_calibration_qwen3vl/p0_1_calibration_qwen3vl_plotqa/qwen3-vl-8b-instruct
+INFOVQA_BASE=outputs/p0_1_calibration_qwen3vl/p0_1_calibration_qwen3vl_infovqa/qwen3-vl-8b-instruct
 mkdir -p "$LOGS" "$E6_LOGS"
 
 ts() { date +'%Y-%m-%d %H:%M:%S'; }
@@ -26,29 +33,27 @@ ts() { date +'%Y-%m-%d %H:%M:%S'; }
 echo "[$(ts)] === P0-1 chain started ==="
 
 # ---------------------------------------------------------------------------
-# wait_B1 — block until B1 PlotQA summary.json exists
+# wait_B1 — block until B1 PlotQA summary.json exists with full-run size
+# (smoke runs would have ~5-20 records; we filter on predictions.jsonl line count
+# >= 1000 to be sure we're picking the n=5000 full run, not a stray smoke.)
 # ---------------------------------------------------------------------------
 PLOTQA_RUN_DIR=""
-echo "[$(ts)] === wait_B1: polling for PlotQA summary.json ==="
+echo "[$(ts)] === wait_B1: polling for $PLOTQA_BASE/<ts>/summary.json (full run only) ==="
 while true; do
-    # PlotQA was launched first; pick the OLDEST run dir under qwen3-vl-8b-instruct/
-    # that has summary.json (PlotQA's tag).
-    candidates=$(ls -dtr outputs/p0_1_calibration_qwen3vl/qwen3-vl-8b-instruct/*/ 2>/dev/null || true)
-    for d in $candidates; do
+    for d in $(ls -dt "$PLOTQA_BASE"/*/ 2>/dev/null || true); do
         if [ -f "${d}summary.json" ] && [ -f "${d}predictions.jsonl" ]; then
-            PLOTQA_RUN_DIR="$d"
-            break
+            n=$(wc -l < "${d}predictions.jsonl")
+            if [ "$n" -ge 1000 ]; then
+                PLOTQA_RUN_DIR="$d"
+                break 2
+            fi
         fi
     done
-    if [ -n "$PLOTQA_RUN_DIR" ]; then
-        echo "[$(ts)] B1 detected at: $PLOTQA_RUN_DIR"
-        break
-    fi
     sleep 60
 done
 
 PLOTQA_PRED="${PLOTQA_RUN_DIR}predictions.jsonl"
-echo "[$(ts)] B1 PlotQA predictions: $PLOTQA_PRED"
+echo "[$(ts)] B1 detected — PlotQA predictions: $PLOTQA_PRED"
 
 # ---------------------------------------------------------------------------
 # B2: InfoVQA Qwen3-VL-Instruct inference
@@ -60,16 +65,20 @@ uv run python scripts/run_experiment.py \
     > "$LOGS/infovqa.log" 2>&1
 echo "[$(ts)] B2 done"
 
-# Identify InfoVQA run dir (latest one that isn't B1's)
+# Identify InfoVQA run dir (most recent under InfoVQA base)
 INFOVQA_RUN_DIR=""
-for d in $(ls -dt outputs/p0_1_calibration_qwen3vl/qwen3-vl-8b-instruct/*/); do
-    if [ "$d" != "$PLOTQA_RUN_DIR" ] && [ -f "${d}predictions.jsonl" ]; then
-        INFOVQA_RUN_DIR="$d"
-        break
+for d in $(ls -dt "$INFOVQA_BASE"/*/ 2>/dev/null || true); do
+    if [ -f "${d}predictions.jsonl" ] && [ -f "${d}summary.json" ]; then
+        n=$(wc -l < "${d}predictions.jsonl")
+        if [ "$n" -ge 100 ]; then
+            INFOVQA_RUN_DIR="$d"
+            break
+        fi
     fi
 done
 if [ -z "$INFOVQA_RUN_DIR" ]; then
-    echo "[$(ts)] FATAL: cannot find InfoVQA run dir distinct from $PLOTQA_RUN_DIR"
+    echo "[$(ts)] FATAL: cannot find InfoVQA run dir under $INFOVQA_BASE"
+    ls -la "$INFOVQA_BASE"/ 2>&1 || true
     exit 2
 fi
 INFOVQA_PRED="${INFOVQA_RUN_DIR}predictions.jsonl"
