@@ -81,6 +81,19 @@ Paper 516 → 604 lines net (+88).
   `.claude/agents/paper-reviser.md`, `.claude/commands/paper-review-loop.md`)
   and 11 review/response/summary files at `docs/paper/reviews/*.md`
   committed for reproducibility (selective `.gitignore` overrides).
+- **P0-2 spectrum landed 2026-05-09 — graceful-degradation outcome.**
+  Pre-registered acceptance criteria both FAIL: (a) no rank-8 elbow at L=26
+  (sv_7/sv_8 = 1.019 < 1.5; EV@K8 = 0.213 < 0.70); (b) Shannon effective
+  rank *increases* L=10 → L=26 (1399 → 1713, +22 %), the OPPOSITE direction
+  of the predicted compact-low-dim signature. L=26 is the **maximum-dispersion**
+  site, not a low-rank integration site. Doc:
+  [`docs/insights/P0-2-eigenvalue-spectrum-evidence.md`](../docs/insights/P0-2-eigenvalue-spectrum-evidence.md);
+  data: `docs/insights/_data/p0_2_per_layer_spectrum.{csv,md}`. Paper §6.4
+  Insight 2 stays empirical (em-deal-breaker selected, NOT spectrum-predicted);
+  §5.2 / §6.6 routing-vs-integration framing softens to "consistent with
+  high-rank residual encoding" — the **new spectrally-grounded prediction**
+  is that single-direction interventions (CAA K=1, ITI) cannot capture all
+  anchor variance, which P1-4 will test empirically.
 
 ### 3.0a Phase 1 P0 v3 final state (2026-05-04)
 
@@ -428,7 +441,7 @@ contingent on P0-1 bridge experiment.
 | Pri | ID | Task | Where | Estimate | Tier impact |
 |---|---|---|---|---|---|
 | **P0** | P0-1 | γ-β residual-stream bridge experiment (cheap form) — project Qwen3-VL-Thinking trace residuals onto V_K[L=26]; test amplitude growth predicts ×12.7 correct-base df ratio | §4.6 + §6.2 + §8.4 item 1 | ~2 H100-day | **Tier-shifter** (bar-raiser signature ask). Single highest-leverage move. |
-| **P0** | P0-2 | Eigenvalue spectrum of `D[:, L=26, :]` rank-8 elbow check | §6.4 + new figure | ~4 H100-hour | Theoretical contribution upgrade if elbow clean. |
+| ~~**P0**~~ | P0-2 | ~~Eigenvalue spectrum of `D[:, L=26, :]` rank-8 elbow check~~ | §6.4 + new figure | ~~~4 H100-hour~~ → ~1 CPU-hour shipped | ✅ shipped 2026-05-09 — **both acceptance criteria FAIL (graceful-degradation branch)**: (a) no rank-8 elbow at L=26 (sv_7/sv_8 = 1.019); (b) Shannon eff_rank *increases* L=10 → L=26 (INVERTED). New spectrally-grounded prediction: single-direction interventions cannot capture high-rank anchor variance → P1-4 (CAA K=1 / ITI) is the empirical follow-on. Doc: `docs/insights/P0-2-eigenvalue-spectrum-evidence.md`. |
 | **P1** | P1-3 | Paired-bootstrap CI on §6.2.3 Table 6 (B=10,000) | `scripts/build_e6_stage4_summary.py` extension | ~1 day | Closes R4 MAJ-4. |
 | **P1** | P1-4 | CAA at K=1 + ITI at attention-head — actual Table 7 rows | §6.5 + new evidence doc | ~3 H200-day | Closes R4 MAJ-5 (structural Note → empirical). |
 | **P1** | P1-5 | Random-K=8 baseline for §6.3 (Alt-1 falsification) | §6.3 Insight 1.5 | ~2 H100-day | Closes R4 CRIT-3. |
@@ -523,6 +536,55 @@ contingent on P0-1 bridge experiment.
   `predictions.jsonl` only.
 
 ## 10. Changelog
+
+- **2026-05-09 (P0-2 spectrum — graceful-degradation outcome).**
+  `scripts/analyze_e6_eigenvalue_spectrum.py` + per-layer thin SVD on
+  pooled (a − m) D_wrong from PlotQA + InfoVQA E6 calibration
+  (n_total = 2,757 wrong-base records; CPU-only; ~60 s).
+  - **Pre-registered acceptance criteria.** (a) Rank-K elbow at L=26:
+    `sv_7/sv_8 ≥ 1.5` OR `EV@K8 ≥ 0.70`. (b) Shannon effective rank
+    monotonically decreasing L=10 → final.
+  - **Both criteria FAIL.** (a): `sv_7/sv_8 = 1.019` (no localized rank-8
+    gap; same magnitude across all 28 layers); `EV@K8 = 0.213` at L=26
+    (top-8 captures only ~21 % of total anchor variance). (b): Shannon
+    `eff_rank` *increases* monotonically L=10 → L=26 (1399 → 1713,
+    +22 %), then drops at L=27 where the LM head compresses for logit
+    projection. All three scale-invariant rank measures (Shannon eff_rank,
+    participation ratio, stable rank) agree on direction.
+  - **Interpretation.** L=26 is the **maximum-dispersion** site for anchor
+    variance, not a low-rank integration site. K=8 is selected by the
+    em-deal-breaker rule on the §A.5 27-cell pilot grid (Δdf, Δem(a),
+    Δem(b) Pareto), **not** by a spectrum-predicted optimum. The chosen
+    cell removes a small slice of anchor variance precisely because the
+    residual stream encodes anchor information at high effective rank —
+    the free-lunch property is consistent with high-rank residual
+    encoding, not with a low-rank elbow theory.
+  - **Paper updates required.** §6.4 Insight 2 ("K=8 sweet spot") stays
+    empirical (must NOT be promoted to "spectrum-predicted dimensionality").
+    §5.2 Insight 4 + §6.6 routing-vs-integration framework softens to
+    "consistent with high-rank residual encoding": L=26 is
+    integration-complete-but-pre-final but the integration accumulates as
+    a **high-rank manifold**, not a low-dim direction. §1.5 (4a)
+    predict-then-verify chain restated: multi-layer redundancy in
+    attention pathway (§5.2 ablation null) + high-rank residual encoding
+    at L=26 (P0-2) ⇒ single-direction interventions cannot suppress
+    anchor variance ⇒ K=8 subspace is the smallest effective intervention
+    rank that achieves free-lunch (§6.2.3 + §A.5). Strictly weaker than
+    the original framing but still load-bearing — predicts P1-4 (CAA K=1
+    / ITI head-level) under-performs full K=8.
+  - **Don't-touch protect-list (R5 bar-raiser, 7 items)** unaffected —
+    (a − m) contrast / 6-callsite hedge / §6.2.3 reframing / Δem(b)
+    clause / §1.5 (1) hedge stack / §5.3 self-disclosure / §4.7 InternVL3
+    boundary case all stay as-is.
+  - **Files.** `docs/insights/P0-2-eigenvalue-spectrum-evidence.md`
+    (evidence + paper-update implications); `docs/insights/_data/p0_2_per_layer_spectrum.{csv,md}`
+    (canonical per-layer table); `docs/insights/_data/p0_2_acceptance_verdict.json`
+    (formal pass/fail); `docs/insights/_data/p0_2_full_svs_top.pt`
+    (top-50 σ_k per layer for figure reuse); `docs/figures/P0-2_L26_spectrum.png`
+    (Figure 1, transparency item — proposed §A.5.1); `docs/figures/P0-2_per_layer_rank_trajectory.png`
+    (Figure 2, transparency item — proposed §A.5.2);
+    `notebooks/P0-2_eigenvalue_spectrum.ipynb` (top-to-bottom reproducer);
+    `scripts/analyze_e6_eigenvalue_spectrum.py` (analyzer).
 
 - **2026-05-09 ~21:40 (5-round paper review loop + post-review plan +
   selective gitignore overrides for tracked review trail).**
