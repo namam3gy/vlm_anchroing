@@ -131,8 +131,8 @@ If both land positive, the paper's *이론적* contribution graduates from "we f
 - §6.5 Note replaced with empirical rows.
 
 **Acceptance criteria.**
-- CAA K=1 fails strict free-lunch on 5/5 (predicted by §5.2 multi-layer redundancy + §6.4 cos≈0.47-0.62 non-collinearity) → §5.2 → §6.4 predict-then-verify chain *empirically* validated.
-- ITI fails strict free-lunch on at least 1/5 datasets → consistent with multi-layer redundancy applied to attention pathway.
+- CAA K=1 fails free-lunch on 5/5 (predicted by §5.2 multi-layer redundancy + §6.4 cos≈0.47-0.62 non-collinearity) → §5.2 → §6.4 predict-then-verify chain *empirically* validated.
+- ITI fails free-lunch on at least 1/5 datasets → consistent with multi-layer redundancy applied to attention pathway.
 
 **Owner.** thyun.park.
 
@@ -208,7 +208,7 @@ If both land positive, the paper's *이론적* contribution graduates from "we f
 - Bar-raiser signature ask sub-route (γ-β cross-architecture) opened.
 
 **Acceptance criteria.**
-- (Qwen2.5-VL E6 chosen cell clears 4/5 datasets strict free-lunch) Cross-arch generalization confirmed; CRIT-1 partial close.
+- (Qwen2.5-VL E6 chosen cell clears 4/5 datasets free-lunch) Cross-arch generalization confirmed; CRIT-1 partial close.
 - (Qwen2.5-VL chosen cell different (L*, K, α)) Per-archetype calibration interpretation; recipe still transferable.
 - (Qwen2.5-VL E6 fails) Single-arch limit confirmed; paper retitled as "case study" or expanded discussion section.
 

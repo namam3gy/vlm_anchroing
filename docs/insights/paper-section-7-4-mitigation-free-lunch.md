@@ -1,14 +1,14 @@
 # §7.4 — Mitigation: a "free-lunch" attention re-weighting
 
 > **2026-05-04 update — paper §7.4.5 rewrite landed (task #38 done).**
-> The em(a) +3.9 pp benefit + em(b) +8.8 pp recovery strict free-lunch
+> The em(a) +3.9 pp benefit + em(b) +8.8 pp recovery free-lunch
 > finding from `docs/insights/headline-numbers.md §A.3` is now the paper
 > §7.4.5 headline. The subsection covers Method, Calibration (PlotQA +
 > InfoVQA pooled n = 5,000, full gt range), Cross-dataset evaluation
 > (paired-sids Δ table on 5 datasets), the "Why em rises on the
 > non-anchored arm too" mechanistic note, the K-rank ablation, the
 > negative-results comparison, and the position-in-§7 framing. §7.5
-> free-lunch criterion section updated to reflect strict free-lunch
+> free-lunch criterion section updated to reflect free-lunch
 > (em rises on BOTH a-arm and b-arm). §7.6 §7 summary updated with new
 > (L = 26, K = 8) hyperparameter triple and the b-arm gain framing.
 > The §7.4 E4 attention re-weighting prose below remains valid for the

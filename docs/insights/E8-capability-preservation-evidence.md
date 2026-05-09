@@ -28,7 +28,7 @@ macro Δ +0.41pp.
 MMBench-DEV-EN n=1164 is the unique-question count under VLMEvalKit's
 CircularEval (4329 raw rows / ~4 permutations).
 
-The strict free-lunch claim of §7.4.5 (Δdf ≤ 0, Δem(a) ≥ 0,
+The free-lunch claim of §7.4.5 (Δdf ≤ 0, Δem(a) ≥ 0,
 Δem(b) ≥ 0 within the anchoring family) extends to general capability:
 no per-benchmark threshold breach, macro positive. **HallusionBench
 shows a statistically significant positive Δ (+2.21pp, 95% CI excludes 0)**

@@ -39,7 +39,7 @@ informativeness).
 5 datasets (paired wrong-base sids, generator
 `scripts/build_e6_stage4_summary.py`): avg Δdf(a) = -2.9pp, Δadopt = -2.0pp,
 **Δem(a) = +3.9pp benefit, Δem(b) = +8.8pp recovery** — both arms improve, i.e.
-strict free-lunch on the wrong-base subset. See §0.7. (Earlier "-2.4pp em(a) cost"
+free-lunch on the wrong-base subset. See §0.7. (Earlier "-2.4pp em(a) cost"
 framing in this and other docs was a hand-copy error; corrected 2026-05-04.)
 
 **Phase D §7.1-7.3 attention** (5 panel × 4 datasets + OneVision × 4 datasets,
@@ -90,7 +90,7 @@ Three motivating features carry the §1 lead:
 | 6 | Confidence-modulated anchoring (logit-based) | `direction_follow_rate` is monotonic with answer-token logit / probability; the wrong/correct binary in §A1 is a coarse projection of the same effect | per-token logit + L1–L5 evidence chain | **✅ shipped** — `entropy_top_k` selected; Q4 − Q1 mean df = +0.152 (C-form); 23/35 anchor cells fully monotone |
 | 7.1–7.3 | Attention mechanism (analysis) | **Anchor pull mechanism is digit-pixel-patch attention concentration**, not full anchor-image attention. E1-patch on **5-model perfect-square panel** (gemma4-e4b, llava-1.5-7b, convllava-7b, fastvlm-7b, **internvl3-8b**) shows digit/anchor attention ratio +24–40 pp above fair share at peak layer. **Cross-dataset finding (new, 2026-05-04)**: OneVision Main peak layer is dataset-dependent (L=27 PlotQA/TallyQA, L=14 InfoVQA/VQAv2). | E1-patch + Phase D 24/24 cross-dataset matrix + cross_dataset_peaks.csv | **✅ shipped** — `analyze_cross_dataset_peaks.py` output landed 2026-05-04 |
 | 7.4 | E4 attention re-weighting mitigation | mid-stack-cluster attention re-weighting at chosen `s*` reduces df 5.8–17.7 % rel with `exact_match` rising — archetype-conditional behaviour | E4 Phase 1 + Phase 2 + Main extension | Phase 3 partial — Main(llava-onevision) E4 deferred (AnyRes encoder ≠ mid-stack cluster) |
-| 7.4.5 | E6 deployable mitigation | **Subspace L=26 K=8 α=1.0 (chosen 2026-05-03)** calibrated on PlotQA+InfoVQA pooled n5k generalises across 5 datasets at full gt range, no per-dataset tuning, no anchor labels at inference. Avg Δdf = -2.9pp, **Δem(a) = +3.9pp benefit, Δem(b) = +8.8pp recovery** on wrong-base sids — strict free-lunch. | E6 (Main model, 5-dataset full-range eval, commit `9f9dfa0`; Δ-table generator `scripts/build_e6_stage4_summary.py`) | **✅ shipped** — chosen cell + Stage 4-final eval done; em(a)/em(b) free-lunch finding pending §7.4 paper update (#38) |
+| 7.4.5 | E6 deployable mitigation | **Subspace L=26 K=8 α=1.0 (chosen 2026-05-03)** calibrated on PlotQA+InfoVQA pooled n5k generalises across 5 datasets at full gt range, no per-dataset tuning, no anchor labels at inference. Avg Δdf = -2.9pp, **Δem(a) = +3.9pp benefit, Δem(b) = +8.8pp recovery** on wrong-base sids — free-lunch. | E6 (Main model, 5-dataset full-range eval, commit `9f9dfa0`; Δ-table generator `scripts/build_e6_stage4_summary.py`) | **✅ shipped** — chosen cell + Stage 4-final eval done; em(a)/em(b) free-lunch finding pending §7.4 paper update (#38) |
 | 8 | Future work | LLM/VLM architectural diff (preferred); image-vs-text anchor; reasoning-mode VLMs at scale | scoped only | future |
 
 ### §0.3 Canonical metrics (M2)
@@ -184,7 +184,7 @@ All 5 datasets evaluated under the same canonical setup: temperature=0, top_p=1.
   selected **L=26 K=8 α=1.0** at full gt range. Stage 4-final eval on 5
   datasets shipped 2026-05-03 (commit `9f9dfa0`). Headline (paired wrong-base,
   generator `scripts/build_e6_stage4_summary.py`): avg Δdf -2.9pp,
-  **Δem(a) +3.9pp benefit + Δem(b) +8.8pp recovery** — strict free-lunch on
+  **Δem(a) +3.9pp benefit + Δem(b) +8.8pp recovery** — free-lunch on
   wrong-base subset (#38 §7.4 paper update; earlier "-2.4pp em(a) cost"
   framing was a hand-copy error, retracted 2026-05-04).
 - **InternVL3-8b + Qwen2.5-VL-7b in §7 mechanism panel** (2026-05-02
@@ -237,7 +237,7 @@ Chosen cell **L=26 K=8 α=1.0** (subspace projection, calibration on PlotQA+Info
 | MathVista | 170 | -0.0153 | -0.0412 | **+0.0294** | **+0.0941** |
 | **mean** |   | **-0.0202** | **-0.0286** | **+0.0387** | **+0.0883** |
 
-Verdict: df reduction works (avg -2.9pp). em(a) **+3.9pp benefit** *and* em(b) **+8.8pp recovery** — both arms improve on wrong-base subset, i.e. **strict free-lunch**. Paper §7.4 needs re-framing to surface this dual benefit (paper task #38). Earlier "-2.4pp em(a) cost" framing was a hand-copy error; corrected 2026-05-04 from generator output.
+Verdict: df reduction works (avg -2.9pp). em(a) **+3.9pp benefit** *and* em(b) **+8.8pp recovery** — both arms improve on wrong-base subset, i.e. **free-lunch**. Paper §7.4 needs re-framing to surface this dual benefit (paper task #38). Earlier "-2.4pp em(a) cost" framing was a hand-copy error; corrected 2026-05-04 from generator output.
 
 #### §7.1-7.3 Cross-dataset peak layer matrix (Phase D)
 

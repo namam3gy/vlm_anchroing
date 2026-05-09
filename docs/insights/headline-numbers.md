@@ -73,7 +73,7 @@ PlotQA (0.226) ≈ MathVista (0.241) > InfoVQA (0.227) > ChartQA (0.204) ≫ Tal
 | MathVista | 170 | -0.0153 | -0.0412 | **+0.0294** | **+0.0941** |
 | **mean** |   | **-0.0202** | **-0.0286** | **+0.0387** | **+0.0883** |
 
-**Verdict**: df reduction works (avg -2.9pp). em(a) **+3.9pp** *and* em(b) **+8.8pp** — both arms improve on the wrong-base subset where mitigation fires. This is a **strict free-lunch**: anchor pull goes down, exact-match goes up on both anchored and non-anchored arms. Earlier "em(a) -2.4pp cost" framing in this section was a hand-copy error and is retracted (corrected 2026-05-04 from `scripts/build_e6_stage4_summary.py`). Paper §7.4 needs re-framing to surface the em(b) +8.8pp recovery as the headline alongside df reduction (task #38).
+**Verdict**: df reduction works (avg -2.9pp). em(a) **+3.9pp** *and* em(b) **+8.8pp** — both arms improve on the wrong-base subset where mitigation fires. This is a **free-lunch**: anchor pull goes down, exact-match goes up on both anchored and non-anchored arms. Earlier "em(a) -2.4pp cost" framing in this section was a hand-copy error and is retracted (corrected 2026-05-04 from `scripts/build_e6_stage4_summary.py`). Paper §7.4 needs re-framing to surface the em(b) +8.8pp recovery as the headline alongside df reduction (task #38).
 
 ### A.4 §7.1-7.3 Cross-dataset peak layer (Phase D, commit `c556fb6`)
 

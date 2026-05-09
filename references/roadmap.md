@@ -89,7 +89,7 @@ for the full commit chain. Headlines:
 
 - **Branch + master pushed** to origin (`phase1/p0-baseline-recalibration`).
 - **6-model × 5-dataset main matrix** at `docs/insights/_data/main_panel_5dataset_summary.md`. Models: llava-onevision-7b (Main), qwen2.5-vl-7b, internvl3-8b, gemma3-4b, qwen2.5-vl-32b, gemma3-27b. Last cell internvl3-8b/TallyQA rerun in flight (~07:00 ETA).
-- **Stage 4-final mitigation** (Phase B, commit `9f9dfa0`): cell L=26 K=8 α=1.0 ships. **Strict free-lunch**: avg Δdf = -2.9pp, **Δem(a) = +3.9pp benefit, Δem(b) = +8.8pp recovery** on wrong-base sids — paired-sids generator `scripts/build_e6_stage4_summary.py` → `docs/insights/_data/stage4_final_per_dataset.csv`. Earlier "em(a) -2.4pp cost" framing was a hand-copy error, corrected 2026-05-04 → paper §7.4 task #38.
+- **Stage 4-final mitigation** (Phase B, commit `9f9dfa0`): cell L=26 K=8 α=1.0 ships. **Free-lunch**: avg Δdf = -2.9pp, **Δem(a) = +3.9pp benefit, Δem(b) = +8.8pp recovery** on wrong-base sids — paired-sids generator `scripts/build_e6_stage4_summary.py` → `docs/insights/_data/stage4_final_per_dataset.csv`. Earlier "em(a) -2.4pp cost" framing was a hand-copy error, corrected 2026-05-04 → paper §7.4 task #38.
 - **Phase D §7.1-7.3** (commit `c556fb6`): 24/24 cells on disk. New finding via `scripts/analyze_cross_dataset_peaks.py` — OneVision peak layer is **dataset-dependent** (L=27 on Plot/Tally, L=14 on Info/VQAv2).
 - **Phase E E1d causal ablation** (commit `2d11876`): OneVision × {Tally, Info, Chart, Math} 4/4. ChartQA + MathVista re-ran with per-dataset susceptibility CSVs after PlotQA-CSV-reuse bug.
 - **llava-next-interleaved-7b dropped** from main panel (commit `0e7998e`) — low native resolution, not informative for chart/figure datasets.
@@ -348,7 +348,7 @@ gt range (no [0,8] restriction).
 |---|---|---|
 | **E6 (historical) — Tally-only N=5000 calibration, gt ∈ [0,8] eval** | Subspace L31_K04_α=1.0 clears 4-dataset selection rule. df −46% to −56% on TallyQA/ChartQA/VQAv2/MathVista; em +0.9 to +3.3 pp. Caveat: gt ∈ [0,8] restriction made result look like partial solution. | ✅ landed 2026-05-01 — historical baseline (superseded) |
 | **E6 Phase 1 — Pilot grid + recalibration on PlotQA + InfoVQA pooled, full gt range, 5-dataset** | New calibration target: PlotQA+InfoVQA pooled n5k. **27-cell pilot grid** (L∈{25,26,27} × K∈{2,4,8} × α∈{0.5,1.0,2.0}) on OneVision Main. Aggregator `scripts/analyze_e6_pilot_cells.py` with em-drop dealbreaker rule + wrong-base baseline filter. | ✅ shipped 2026-05-03 — chosen cell **L=26 K=8 α=1.0** |
-| **E6 Stage 4-final eval (chosen cell × 5 datasets)** | Apply L=26 K=8 α=1.0 to OneVision on 5-dataset full gt range, n=5000 wrong-base subset per dataset. Compare baseline vs mitigation arm directly (same predictions.jsonl, two cells). Δ-table generator: `scripts/build_e6_stage4_summary.py`. | ✅ shipped 2026-05-03 (commit `9f9dfa0`). Paired wrong-base avg Δdf=-2.9pp, **Δem(a)=+3.9pp benefit, Δem(b)=+8.8pp recovery → strict free-lunch** (paper task #38; earlier "-2.4pp em(a) cost" framing was a hand-copy error, retracted 2026-05-04). |
+| **E6 Stage 4-final eval (chosen cell × 5 datasets)** | Apply L=26 K=8 α=1.0 to OneVision on 5-dataset full gt range, n=5000 wrong-base subset per dataset. Compare baseline vs mitigation arm directly (same predictions.jsonl, two cells). Δ-table generator: `scripts/build_e6_stage4_summary.py`. | ✅ shipped 2026-05-03 (commit `9f9dfa0`). Paired wrong-base avg Δdf=-2.9pp, **Δem(a)=+3.9pp benefit, Δem(b)=+8.8pp recovery → free-lunch** (paper task #38; earlier "-2.4pp em(a) cost" framing was a hand-copy error, retracted 2026-05-04). |
 | **E6 Pilot validation (2026-05-01, llava n=200, historical)** | Existing Tally-calibrated subspace tested on PlotQA + InfoVQA pilots: PlotQA gt∈[1,8] Δdf −60%, em +3.85pp; InfoVQA gt∈[1,8] Δdf −24%, em +1.09pp. | ✅ historical |
 
 ### 6.6 §8 — Future work (scope only)
@@ -411,7 +411,7 @@ landed (commit `c556fb6`). Phase E E1d 4/4 landed (commits `7a27750` +
 | **P0 (NEW, 2026-05-08)** | E8 Mitigation capability-preservation regression test on OneVision Main | §7.4.5 | ✅ shipped — verdict: STRICT_FREE_LUNCH (6 benchmarks, macro Δ +0.41pp; HallusionBench Δ=+2.21pp CI excludes 0; POPE Δ=−0.06pp CI=[−0.21,+0.09]) |
 | **P1 (NEW, 2026-05-08)** | E8 follow-up: add MME (counting hallucination, "Count" subset directly tests number-anchor failure mode) + AMBER (multi-dim hallucination, contamination-clean Nov 2023) to capability panel — both VLMEvalKit YORN-supported, no LLM judge, no code change needed | §7.4.5 | ~/LMUData curl-k for MME.tsv + AMBER.tsv; ~1.5–2h GPU on H200; merge into 6→8 row table |
 | **P1 (NEW, 2026-05-08)** | E8 follow-up: MMMU-DEV-VAL with LLM-judge (multi-discipline reasoning, ~$1-2 GPT-4o-mini cost) | §7.4.5 | deferred until paper §7.4.5 prose locked; reviewer pre-check value justifies cost at that point |
-| **P1** | §7.4.5 paper prose update (Tally-cal headline → PlotQA+InfoVQA-cal headline at full gt range) | `docs/paper/sections/07_*.md` | ✅ shipped 2026-05-08 — §7.4.5 + §7.5 + §7.6 + Capability Preservation subsections cohesive on L26_K8_α=1.0, 5-dataset paired-sids deltas, strict free-lunch, 6-bench E8 macro Δ +0.41 pp |
+| **P1** | §7.4.5 paper prose update (Tally-cal headline → PlotQA+InfoVQA-cal headline at full gt range) | `docs/paper/sections/07_*.md` | ✅ shipped 2026-05-08 — §7.4.5 + §7.5 + §7.6 + Capability Preservation subsections cohesive on L26_K8_α=1.0, 5-dataset paired-sids deltas, free-lunch, 6-bench E8 macro Δ +0.41 pp |
 | **P1** | §3 / §5 / §6 paper prose update for 5-dataset matrix | `docs/paper/sections/0[3-6]_*.md` | ✅ shipped 2026-05-04 batch 1 (§3.6 / §4 / §5 / §6 5-dataset rewrites); cross-section drift to §1 / §8 closed 2026-05-08 (this changelog entry) |
 | **P1** | Citation verification — every 2026 arXiv ID in `references/project.md` and §2 paper draft must resolve to a real paper | §9 caveat | ✅ shipped 2026-05-08 — 9/9 arXiv IDs verified, 3 venue tags resolved (NAACL 2025 ✅, HCAIR ICLR 2026 ✅, EMNLP Findings ❌ for CIVET); audit doc closed |
 | **P3** | Image-vs-text anchor (F2) follow-up paper | §6.6 | future |
@@ -672,7 +672,7 @@ contingent on P0-1 bridge experiment.
   - **Result: STRICT_FREE_LUNCH on full sweep (~1.5h H200, no LLM-judge).**
     Macro Δ = +0.50pp; per-bench Δ ∈ [-0.80, +2.21]; HallusionBench
     Δ=+2.21pp 95% CI=[+1.14, +3.28] **excludes zero — statistically
-    significant positive**. §7.4.5 strict free-lunch claim (originally
+    significant positive**. §7.4.5 free-lunch claim (originally
     Δdf ≤ 0 ∧ Δem(a) ≥ 0 ∧ Δem(b) ≥ 0 within anchoring family) extends
     to general VLM capability.
   - Pipeline cross-check vs lmms-lab model card published numbers:
