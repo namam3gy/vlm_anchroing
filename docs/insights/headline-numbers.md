@@ -11,7 +11,10 @@
 > if numbers drift.
 
 All numbers use the canonical M2 metrics from `roadmap.md §4` with the
-`direction_follow_rate` numerator in **C-form**: `(pa-pb)·(anchor-pb) > 0`.
+`direction_follow_rate` numerator `(pa-pb)·(anchor-pb) > 0 AND pa != pb`.
+("C-form" was the internal label during the 18-variant metric audit; the
+metric is just *the* direction-follow definition. Audit details in
+`M2-metric-definition-evidence.md` + `C-form-migration-report.md`.)
 
 ---
 
@@ -19,7 +22,7 @@ All numbers use the canonical M2 metrics from `roadmap.md §4` with the
 
 Source: `docs/insights/_data/main_panel_5dataset_summary.md` (gitignored;
 regenerable via `scripts/build_e5e_e7_5dataset_summary.py`). All cells at
-4-cond (b/a-S1/m-S1/d), wrong-base C-form df.
+4-cond (b/a-S1/m-S1/d), wrong-base direction-follow.
 
 ### A.1 Per-dataset highlights
 
@@ -70,7 +73,25 @@ PlotQA (0.226) ≈ MathVista (0.241) > InfoVQA (0.227) > ChartQA (0.204) ≫ Tal
 | MathVista | 170 | -0.0153 | -0.0412 | **+0.0294** | **+0.0941** |
 | **mean** |   | **-0.0202** | **-0.0286** | **+0.0387** | **+0.0883** |
 
-**Verdict**: df reduction works (avg -2.9pp). em(a) **+3.9pp** *and* em(b) **+8.8pp** — both arms improve on the wrong-base subset where mitigation fires. This is a **strict free-lunch**: anchor pull goes down, exact-match goes up on both anchored and non-anchored arms. Earlier "em(a) -2.4pp cost" framing in this section was a hand-copy error and is retracted (corrected 2026-05-04 from `scripts/build_e6_stage4_summary.py`). Paper §7.4 needs re-framing to surface the em(b) +8.8pp recovery as the headline alongside df reduction (task #38).
+**Verdict**: df reduction works (avg -2.9pp). em(a) **+3.9pp** *and* em(b) **+8.8pp** — both arms improve on the wrong-base subset where mitigation fires. This is a **free-lunch**: anchor pull goes down, exact-match goes up on both anchored and non-anchored arms. Earlier "em(a) -2.4pp cost" framing in this section was a hand-copy error and is retracted (corrected 2026-05-04 from `scripts/build_e6_stage4_summary.py`). Paper §7.4 needs re-framing to surface the em(b) +8.8pp recovery as the headline alongside df reduction (task #38).
+
+### A.3b Capability preservation regression (E8, 8-bench, 2026-05-09)
+
+Same chosen cell L=26 K=8 α=1.0 evaluated on 8 held-out general-VLM benchmarks at inference (no anchor labels, greedy decoding, no LLM-judge). Source: `docs/insights/_data/capability_eval_per_benchmark_v8.{csv,md}` (gitignored, regenerable via `scripts/aggregate_capability_eval.py merge ...`).
+
+| Benchmark | n | baseline | +mit | Δ pp | 95% CI |
+|---|---:|---:|---:|---:|---|
+| RealWorldQA | 765 | 69.80 | 71.11 | +1.31 | [-0.27, +2.89] |
+| OCRBench | 1000 | 63.40 | 62.60 | -0.80 | [-1.68, +0.08] |
+| **HallusionBench** | 951 | 47.84 | 50.05 | **+2.21** | **[+1.14, +3.28]** |
+| MMStar | 1500 | 61.67 | 61.80 | +0.13 | [-0.77, +1.04] |
+| MMBench-DEV-EN | 1164 | 82.04 | 81.70 | -0.34 | [-0.82, +0.13] |
+| POPE | 5127 | 92.16 | 92.10 | -0.06 | [-0.21, +0.09] |
+| MME | 2374 | 84.50 | 84.37 | -0.13 | [-0.76, +0.51] |
+| **AMBER** | 14216 | 87.15 | 87.34 | **+0.19** | **[+0.05, +0.33]** |
+| **Macro** |   |   |   | **+0.31** |   |
+
+**Verdict**: `STRICT_FREE_LUNCH` extends to general capability across n_total = 27,097. All 8 per-benchmark Δ within ±1.0 pp band. **Two of three hallucination axes — HallusionBench and AMBER (n=14,216) — show CI-clean positive Δ**; POPE pins the third to zero. **MME Count subset (n=60), the in-domain analogue of the number-anchor failure mode, shows Δ = 0.00 pp exact** (60/60 paired predictions match) — direct evidence the mitigation acts on cross-modal anchor pull, not counting capability itself. Contamination-resistant floor rises from n=1,500 (MMStar alone) to n=18,090 (MMStar + MME + AMBER). Insight doc: `docs/insights/E8-capability-preservation-evidence.md`. Experiment writeup: `docs/experiments/E8-capability-preservation.md`.
 
 ### A.4 §7.1-7.3 Cross-dataset peak layer (Phase D, commit `c556fb6`)
 
@@ -115,7 +136,7 @@ columns moved.
 
 ## Standard-prompt VQAv2 number subset, 17,730 samples / model
 
-| Model | acc(b) | acc(d) | acc(a) | adopt(a) | direction_follow(a) C-form |
+| Model | acc(b) | acc(d) | acc(a) | adopt(a) | direction_follow(a) |
 |---|---:|---:|---:|---:|---:|
 | gemma4-e4b | 0.553 | 0.505 | 0.541 | **0.066** | **0.274** |
 | llava-interleave-7b | 0.619 | 0.577 | 0.576 | **0.053** | **0.172** |
@@ -181,11 +202,11 @@ resolves on adopt; qwen2.5-vl serves as the negative control).
 
 ## E5e S1-only 4-condition full — 3-model panel × ChartQA + TallyQA
 
-All-base, S1 anchor / masked, C-form (numbers cross-checked against
+All-base, S1 anchor / masked (numbers cross-checked against
 `outputs/experiment_e5e_*_full/<model>/<ts>/summary.json` and
 `docs/insights/_data/experiment_e5e_*_per_cell.csv` 2026-04-29):
 
-| dataset | model | acc(b) | acc(a) | adopt(a) | adopt(m) | df(a) C-form | df(m) C-form |
+| dataset | model | acc(b) | acc(a) | adopt(a) | adopt(m) | df(a) | df(m) |
 |---|---|---:|---:|---:|---:|---:|---:|
 | ChartQA | gemma3-27b-it | 0.217 | 0.218 | **0.037** | 0.022 | **0.096** | 0.079 |
 | ChartQA | llava-interleave-7b | 0.113 | 0.110 | **0.028** | 0.009 | **0.152** | 0.115 |
@@ -197,16 +218,16 @@ All-base, S1 anchor / masked, C-form (numbers cross-checked against
 TallyQA × gemma3-27b-it cell landed 2026-04-29 (inference completed
 2026-04-28 23:28; C-form re-aggregation 2026-04-29 via
 `reaggregate_paired_adoption.py`). Wrong-base S1 cell from the per-cell
-CSV: `adopt(a) = 0.059`, `df(a) C-form = 0.152`, `adopt(m) = 0.034`,
+CSV: `adopt(a) = 0.059`, `df(a) = 0.152`, `adopt(m) = 0.034`,
 `df(m) = 0.133` — matching the panel-leading TallyQA pattern (graded
 tilt with anchor > masked, S1 distance window).
 
 ## Mechanistic / mitigation summary
 
-E1d upper-half ablation: **−4.0 to −10.5 pp** `direction_follow` (C-form)
+E1d upper-half ablation: **−4.0 to −10.5 pp** `direction_follow`
 on 6/6 models; fluency-clean on 4/6 (mid-stack cluster + Qwen).
 
-E4 Phase 2 full mid-stack-cluster (C-form): `direction_follow_rate`
+E4 Phase 2 full mid-stack-cluster: `direction_follow_rate`
 reduction LLaVA-1.5 **−14.6 %** rel, ConvLLaVA **−9.6 %**, InternVL3
 **−5.8 %**; `exact_match` rises +0.49 to +1.30 pp; `accuracy_vqa(b)`
 invariant — anchor-condition specific.

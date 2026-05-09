@@ -4,6 +4,8 @@
 
 **Goal.** Tier-shift from *Solid Findings (top of band)* to *weak-accept Main*. Per the convergent verdict from R4 author / R5 bar-raiser / R5 author, the single highest-leverage move is the **γ-β residual-stream bridge experiment** (P0 / 항목 1 below). Items P1-P3 are Main-acceptance hardening; P4 is camera-ready hygiene; P5+ is future submissions.
 
+**Update (2026-05-09 post-merge):** A user-driven review pass identified a separate paper-narrative gap — the §5.2 single-layer attention ablation null and the §6 single-layer L=26 subspace projection appeared to *contradict* unless the paper explicitly framed *attention as routing pathway* and *residual stream as integration site*. The paper now ships the **routing vs integration framework** (§5.2 Insight 4 + §6.6 reconciliation paragraph) which (i) reconciles single-layer null with single-layer projection success, (ii) justifies *late layer* selection (L=26 as integration-complete-but-pre-final), (iii) justifies *projection* tool over ablation. This framework is the paper's *이론적* contribution and is now propagated across abstract / §1.3 / §1.5 (4a) / §8.1 callsites. **P0-2 per-layer spectrum sweep is the framework's directly falsifiable empirical anchor** — see updated P0-2 below.
+
 **Compute envelope.** Reasonable budget: ~2 H100-week + ~4 H200-week if all P0-P2 land. Clean Main path = P0 + P1 (2 items). Maximum hardening = P0 through P3 inclusive.
 
 ---
@@ -45,26 +47,33 @@
 
 ---
 
-### P0-2 · Eigenvalue spectrum of `D[:, L=26, :]`
+### P0-2 · Eigenvalue spectrum of `D[:, L, :]` — per-layer integration check
 
-**What.** Compute and plot the singular value spectrum of the (a − m) calibration difference matrix at L=26 (PlotQA + InfoVQA pooled N=5,000). Identify rank-8 elbow (or rank-K elbow at any K).
+**What.** Compute and plot the singular value spectrum of the (a − m) calibration difference matrix at L=26 (PlotQA + InfoVQA pooled N=5,000) AND at a sweep of layers `L ∈ {10, 14, 18, 22, 26, 28}`. Identify (i) rank-K elbow at L=26, and (ii) whether anchor variance becomes *more concentrated* (lower effective rank, sharper elbow) at later layers.
 
-**Why.** Currently §6.4 K=8 sweet spot is presented as empirical pilot-grid result. If the spectrum has a clear rank-8 elbow, the choice converts from "grid-search artifact" to "data-property prediction" — a substantial theoretical contribution upgrade. Bar-raiser axis 5 (theoretical contribution) currently weakest.
+**Why.** Two claims to test together:
+1. **K=8 is data-predicted, not grid-search artifact** (single-layer rank-8 elbow at L=26). Bar-raiser axis 5 (theoretical contribution) currently weakest.
+2. **Late residual stream is the integration site** (per §5.2 Insight 4 + §6.6 routing-vs-integration framework). Empirical signature: anchor variance redistributes from broad rank at early layers (signal still distributed across attention routing) to compact low-dim subspace at late layers (signal integrated into residual). This is the framework's *direct falsifiable prediction*; per-layer spectrum is the cheapest test.
 
-**How.** Re-load V_L Σ_L from existing E6 calibration (`docs/insights/_data/...`); plot Σ_L spectrum, log-scale + relative-decay overlay; report eigengap at rank-8.
+If both land positive, the paper's *이론적* contribution graduates from "we framed the mechanism" to "we predicted and verified the mechanism's empirical signature."
 
-**Estimate.** ~4 H100-hour (mostly plotting + analysis; the SVD already exists from E6 pilot grid).
+**How.** Re-load V_L Σ_L from existing E6 calibration (`docs/insights/_data/...`); plot Σ_L spectrum per layer, log-scale + relative-decay overlay; report eigengap at rank-8 per layer + effective rank trajectory across L.
+
+**Estimate.** ~4 H100-hour (single-layer L=26) + ~2 H100-hour additional for the per-layer sweep (mostly plotting + the SVDs already exist from E6 pilot grid + can be re-extracted from L≠26 with one extra pass on calibration set).
 
 **Deliverable.**
-- New Figure (paper main body, §6.4) — SVD spectrum at L=26 with rank-8 elbow annotated.
+- New Figure 1 (paper main body, §6.4) — SVD spectrum at L=26 with rank-8 elbow annotated.
+- New Figure 2 (paper main body, §5.2 OR §6.4) — per-layer effective rank trajectory; integration claim's empirical signature.
 - New paragraph in §6.4 Insight 2 (currently "K=8 sweet spot") elevating from empirical to spectrum-predicted.
-- Update §1.5 (4a) framing if elbow lands clean.
+- Per-layer evidence cited in §5.2 Insight 4 (routing-vs-integration framework's empirical anchor).
+- Update §1.5 (4a) framing if both lands clean — predict-then-verify chain anchored on per-layer spectrum.
 
 **Acceptance criteria.**
-- (clean elbow at rank-8) Insight 2 promoted from "trade-off sweet spot" to "spectrum-predicted dimensionality." Citable theoretical contribution.
-- (no clean elbow / continuous decay) Insight 2 stays empirical; spectrum becomes Figure with caveat — neutral signal but full transparency.
+- (a) **Clean elbow at rank-8 on L=26**: Insight 2 promoted from "trade-off sweet spot" to "spectrum-predicted dimensionality." Citable theoretical contribution.
+- (b) **Effective rank decreases monotonically across L=10→28** (or at least drops sharply at the L=20-26 transition): integration framework empirically confirmed; §5.2 Insight 4 cited from data not just hypothesis.
+- (a only / b only / neither) graceful degradation: Insight 2 stays empirical; per-layer figure becomes transparency item; framework framing softened to "consistent with" rather than "verified by."
 
-**Risk.** Spectrum may not have clean elbow (continuous decay common in real data). If so, P0-2 becomes a *transparency item* not a tier-shift.
+**Risk.** Per-layer spectrum may show continuous decay (common in real residual streams). If integration is more gradual than predicted, §5.2 Insight 4 framing softens but doesn't break — routing-vs-integration is still defensible at categorical level (residual ≠ attention pathway), just without empirical sharpness.
 
 **Owner.** thyun.park.
 
@@ -122,8 +131,8 @@
 - §6.5 Note replaced with empirical rows.
 
 **Acceptance criteria.**
-- CAA K=1 fails strict free-lunch on 5/5 (predicted by §5.2 multi-layer redundancy + §6.4 cos≈0.47-0.62 non-collinearity) → §5.2 → §6.4 predict-then-verify chain *empirically* validated.
-- ITI fails strict free-lunch on at least 1/5 datasets → consistent with multi-layer redundancy applied to attention pathway.
+- CAA K=1 fails free-lunch on 5/5 (predicted by §5.2 multi-layer redundancy + §6.4 cos≈0.47-0.62 non-collinearity) → §5.2 → §6.4 predict-then-verify chain *empirically* validated.
+- ITI fails free-lunch on at least 1/5 datasets → consistent with multi-layer redundancy applied to attention pathway.
 
 **Owner.** thyun.park.
 
@@ -199,7 +208,7 @@
 - Bar-raiser signature ask sub-route (γ-β cross-architecture) opened.
 
 **Acceptance criteria.**
-- (Qwen2.5-VL E6 chosen cell clears 4/5 datasets strict free-lunch) Cross-arch generalization confirmed; CRIT-1 partial close.
+- (Qwen2.5-VL E6 chosen cell clears 4/5 datasets free-lunch) Cross-arch generalization confirmed; CRIT-1 partial close.
 - (Qwen2.5-VL chosen cell different (L*, K, α)) Per-archetype calibration interpretation; recipe still transferable.
 - (Qwen2.5-VL E6 fails) Single-arch limit confirmed; paper retitled as "case study" or expanded discussion section.
 
@@ -266,6 +275,52 @@
 **Owner.** thyun.park.
 
 **Dependency.** Hold for camera-ready (after Findings vs Main decision lands).
+
+---
+
+### P3-11 · VQAv2 single-dataset depth panel — Main backfill + cross-panel consistency
+
+**Decision context (2026-05-09 user pass).** VQAv2 drop vs keep 결정에서 *keep*으로 reposition: VQAv2가 main matrix의 *cross-dataset breadth*와 *상보적인 single-dataset depth* axis (n=17,730 per model, paper 내 최대 n) 를 운반하며, "legacy panel" framing은 의도적 *single-dataset depth panel*로 격상. Tables 2 + 3에 Main model (OneVision) 부재는 reader confusion + cross-panel inconsistency를 만들므로 backfill 필수.
+
+**What.** 두 tier로 분할:
+
+**Tier 1 (필수, ~1.5 H200-day):**
+1. **OneVision × VQAv2 (b/a/d) full panel** — 17,730 base × 3 cond, ~30-45 min H200. 결과 → Table 2 8-model panel 완성.
+2. **OneVision × VQAv2 E5c (b/a/m/d × S1)** — ~17k base × 4 cond, ~30 min H200. 결과 → Table 3 VQAv2 OneVision 행.
+3. **OneVision × TallyQA E5c (b/a/m/d × S1)** — stratified ~5k base × 4 cond, ~30 min H200. 결과 → Table 3 TallyQA OneVision 행.
+
+**Tier 2 (cross-panel consistency, ~3 H200-day, 선택):**
+Main matrix 6 model 중 VQAv2 panel에 부재한 3 model을 VQAv2에 추가하여 *11-model panel* 구성:
+4. Gemma3-4b × VQAv2 (b/a/d) — ~30 min H200
+5. InternVL3-8b × VQAv2 (b/a/d) — ~30 min H200
+6. Qwen2.5-VL-32B × VQAv2 (b/a/d) — ~1-2 h H200
+
+→ VQAv2 panel이 legacy 7 + OneVision + main matrix 3 = **11-model breadth × n=17,730 depth**로 paper 내 *최대 single-dataset comprehensive panel*이 됨; main matrix와의 *모델 overlap* 완성으로 cross-panel 정합 의문 제거.
+
+**Tier 3 (Out of scope — *do not run*):** VQAv2 strengthen-prompt / VQAv2 4-cond (b/a/m/d) 확장 등은 §A 부록의 caveat에 이미 처리되었고, 정성적 신규 발견 추가 없음.
+
+**Why.** (i) Main model이 §4.1 / §4.2 첫 노출 panel에서 *행으로* 등장 — reader가 §4 처음부터 OneVision Main 추적 가능; (ii) E5c VQAv2 wrong-base S1 (a − m) gap +6.1 pp (llava-interleave) 는 paper의 *가장 clean한 digit-pixel causality* 측정 (S1 absolute cutoff, scene-level confound 직접 falsify) 인데 Main model 측정 부재 — §F.3 chart-stack 4 dataset cover하지만 VQAv2 absolute cutoff 측정의 *깊이*가 다름; (iii) "VQAv2 안 썼나" reviewer 의문 사전 차단 — VQA의 정전 benchmark 부재는 reviewer comfort 손상; (iv) 11-model panel은 *legacy + main matrix overlap* 으로 cross-panel 정합 강화 (gemma4-31b / qwen3-vl-30b 같은 legacy-only model의 narrative 연결 부족 약점 부분 close).
+
+**Paper-side reframe (병행).** §4.1 (Korean main + 영문 §5.1) 의 "legacy 7-model VQAv2 panel" → "**VQAv2 single-dataset depth panel** (n=17,730 per model, Tier 1 후 8-model / Tier 2 후 11-model)" 로 *의도적 selection*임을 명시. 한 줄 정당화 추가: "VQAv2는 본 논문 panel 내 *최대 single-dataset n*을 운반하며, main matrix의 5-dataset breadth와 *상보적인 single-dataset depth* axis로 사용; Phase-A H2 binary projection / (a − m) digit-pixel gap / L1 quartile gradient의 *replication depth*가 가장 높은 panel."
+
+**How.** 기존 driver `scripts/run_experiment.py` + 기존 stimulus inventory (a, m, d) + 기존 E5c config 재활용. 새 코드 0줄.
+
+**Estimate.** Tier 1 ~1.5 H200-day; Tier 2 추가 ~3 H200-day; 합 ~4.5 H200-day if both. Tier 1만으로도 Tables 2 + 3 OneVision gap 완전 close; Tier 2는 cross-panel polish.
+
+**Deliverable.**
+- Tier 1: `outputs/experiment_vqav2_onevision/<ts>/`, `outputs/experiment_e5c_vqa_onevision/<ts>/`, `outputs/experiment_e5c_tally_onevision/<ts>/`. Tables 2 + 3 OneVision 행으로 placeholder *(plan)* 닫음.
+- Tier 2: `outputs/experiment_vqav2_<gemma3_4b|internvl3_8b|qwen2.5vl_32b>/<ts>/`. Table 2를 8-model → 11-model panel로 확장.
+- §4.1 prose reframe — "legacy" 표현 삭제, "single-dataset depth panel" framing.
+
+**Acceptance criteria.**
+- Tier 1: (a) OneVision × VQAv2 `df(a)` ∈ [0.10, 0.18] 범위 (main matrix susceptibility 4위 ranking에서 추론, Gemma3-27b 0.167 ~ Qwen3-VL-30b 0.170 사이 예상). (b) OneVision × VQAv2/TallyQA wrong-base S1 (a − m) gap > 0 (§F.3의 chart-stack +0.7 ~ +6.6 pp prior). (c) Tables 2 + 3 placeholder *(plan)* numeric 값으로 대체.
+- Tier 2: 추가 3 model이 panel에 합리적 위치 (예: gemma3-4b가 main matrix에서 가장 susceptible — VQAv2에서도 상위 expected).
+
+**Owner.** thyun.park.
+
+**Dependency.** None. 기존 driver / stimulus / config.
+
+**Priority.** Tier 1은 P3 sprint 시작 시 *가장 우선* 실행 — 기존 driver에 새 코드 없고 paper-readability 직접 영향. Tier 2는 Tier 1 완료 후 *최종 polish* 시 결정.
 
 ---
 

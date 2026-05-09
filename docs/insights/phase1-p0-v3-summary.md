@@ -72,7 +72,33 @@ Stage 4-final eval on 5 datasets (n=5000 wrong-base subset per dataset, paired-s
 - avg **Δ em(a) = +0.039** (em on anchor arm IMPROVES — every dataset positive)
 - avg **Δ em(b) = +0.088** (recovery on wrong-base sids without anchor present)
 
-This is a **strict free-lunch on the wrong-base subset**: anchor pull goes down, exact-match goes up on both arms. Earlier "Δ em(a) = -0.024 cost" framing was a hand-copy error from prior aggregation (corrected 2026-05-04 from generator output). Paper §7.4.5 prose update task #38.
+This is a **free-lunch on the wrong-base subset**: anchor pull goes down, exact-match goes up on both arms. Earlier "Δ em(a) = -0.024 cost" framing was a hand-copy error from prior aggregation (corrected 2026-05-04 from generator output). Paper §7.4.5 prose update task #38.
+
+### Capability preservation (E8, 8-bench, 2026-05-09)
+
+**Verdict**: `STRICT_FREE_LUNCH` extends from the anchoring task family
+to general VLM capability across **8 held-out benchmarks** at the same
+chosen cell L=26 K=8 α=1.0 (no anchor labels, no weight updates,
+greedy decoding only).
+
+- **Macro Δ = +0.31 pp** across MMBench-DEV-EN, OCRBench, RealWorldQA,
+  MMStar, HallusionBench, POPE, MME, AMBER (n_total = 27,097 effective,
+  no LLM-judge, ~4 h 36 min H200 sequential, $0).
+- All 8 per-benchmark Δ within the pre-registered ±1.0 pp band.
+- **Two of three hallucination axes show CI-clean positive Δ**:
+  HallusionBench Δ = +2.21 pp [+1.14, +3.28] and AMBER Δ = +0.19 pp on
+  n = 14,216 [+0.05, +0.33]; POPE pins the third to zero (Δ = -0.06 pp,
+  [-0.21, +0.09]).
+- **MME Count subset (n = 60), the in-domain analogue of the
+  number-anchor failure mode, shows Δ = 0.00 pp exact** — every paired
+  prediction matches between baseline and +mit. Direct evidence the
+  mitigation acts on cross-modal anchor pull, not counting capability
+  itself.
+- Contamination-resistant floor of the panel: n = 1,500 (MMStar alone)
+  → n = 18,090 (MMStar + MME + AMBER).
+
+Insight doc: `docs/insights/E8-capability-preservation-evidence.md`.
+Experiment writeup: `docs/experiments/E8-capability-preservation.md`.
 
 ## What did NOT land in this push
 
