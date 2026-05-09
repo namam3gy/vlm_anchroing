@@ -4,6 +4,8 @@
 
 **Goal.** Tier-shift from *Solid Findings (top of band)* to *weak-accept Main*. Per the convergent verdict from R4 author / R5 bar-raiser / R5 author, the single highest-leverage move is the **γ-β residual-stream bridge experiment** (P0 / 항목 1 below). Items P1-P3 are Main-acceptance hardening; P4 is camera-ready hygiene; P5+ is future submissions.
 
+**Update (2026-05-09 post-merge):** A user-driven review pass identified a separate paper-narrative gap — the §5.2 single-layer attention ablation null and the §6 single-layer L=26 subspace projection appeared to *contradict* unless the paper explicitly framed *attention as routing pathway* and *residual stream as integration site*. The paper now ships the **routing vs integration framework** (§5.2 Insight 4 + §6.6 reconciliation paragraph) which (i) reconciles single-layer null with single-layer projection success, (ii) justifies *late layer* selection (L=26 as integration-complete-but-pre-final), (iii) justifies *projection* tool over ablation. This framework is the paper's *이론적* contribution and is now propagated across abstract / §1.3 / §1.5 (4a) / §8.1 callsites. **P0-2 per-layer spectrum sweep is the framework's directly falsifiable empirical anchor** — see updated P0-2 below.
+
 **Compute envelope.** Reasonable budget: ~2 H100-week + ~4 H200-week if all P0-P2 land. Clean Main path = P0 + P1 (2 items). Maximum hardening = P0 through P3 inclusive.
 
 ---
@@ -45,26 +47,33 @@
 
 ---
 
-### P0-2 · Eigenvalue spectrum of `D[:, L=26, :]`
+### P0-2 · Eigenvalue spectrum of `D[:, L, :]` — per-layer integration check
 
-**What.** Compute and plot the singular value spectrum of the (a − m) calibration difference matrix at L=26 (PlotQA + InfoVQA pooled N=5,000). Identify rank-8 elbow (or rank-K elbow at any K).
+**What.** Compute and plot the singular value spectrum of the (a − m) calibration difference matrix at L=26 (PlotQA + InfoVQA pooled N=5,000) AND at a sweep of layers `L ∈ {10, 14, 18, 22, 26, 28}`. Identify (i) rank-K elbow at L=26, and (ii) whether anchor variance becomes *more concentrated* (lower effective rank, sharper elbow) at later layers.
 
-**Why.** Currently §6.4 K=8 sweet spot is presented as empirical pilot-grid result. If the spectrum has a clear rank-8 elbow, the choice converts from "grid-search artifact" to "data-property prediction" — a substantial theoretical contribution upgrade. Bar-raiser axis 5 (theoretical contribution) currently weakest.
+**Why.** Two claims to test together:
+1. **K=8 is data-predicted, not grid-search artifact** (single-layer rank-8 elbow at L=26). Bar-raiser axis 5 (theoretical contribution) currently weakest.
+2. **Late residual stream is the integration site** (per §5.2 Insight 4 + §6.6 routing-vs-integration framework). Empirical signature: anchor variance redistributes from broad rank at early layers (signal still distributed across attention routing) to compact low-dim subspace at late layers (signal integrated into residual). This is the framework's *direct falsifiable prediction*; per-layer spectrum is the cheapest test.
 
-**How.** Re-load V_L Σ_L from existing E6 calibration (`docs/insights/_data/...`); plot Σ_L spectrum, log-scale + relative-decay overlay; report eigengap at rank-8.
+If both land positive, the paper's *이론적* contribution graduates from "we framed the mechanism" to "we predicted and verified the mechanism's empirical signature."
 
-**Estimate.** ~4 H100-hour (mostly plotting + analysis; the SVD already exists from E6 pilot grid).
+**How.** Re-load V_L Σ_L from existing E6 calibration (`docs/insights/_data/...`); plot Σ_L spectrum per layer, log-scale + relative-decay overlay; report eigengap at rank-8 per layer + effective rank trajectory across L.
+
+**Estimate.** ~4 H100-hour (single-layer L=26) + ~2 H100-hour additional for the per-layer sweep (mostly plotting + the SVDs already exist from E6 pilot grid + can be re-extracted from L≠26 with one extra pass on calibration set).
 
 **Deliverable.**
-- New Figure (paper main body, §6.4) — SVD spectrum at L=26 with rank-8 elbow annotated.
+- New Figure 1 (paper main body, §6.4) — SVD spectrum at L=26 with rank-8 elbow annotated.
+- New Figure 2 (paper main body, §5.2 OR §6.4) — per-layer effective rank trajectory; integration claim's empirical signature.
 - New paragraph in §6.4 Insight 2 (currently "K=8 sweet spot") elevating from empirical to spectrum-predicted.
-- Update §1.5 (4a) framing if elbow lands clean.
+- Per-layer evidence cited in §5.2 Insight 4 (routing-vs-integration framework's empirical anchor).
+- Update §1.5 (4a) framing if both lands clean — predict-then-verify chain anchored on per-layer spectrum.
 
 **Acceptance criteria.**
-- (clean elbow at rank-8) Insight 2 promoted from "trade-off sweet spot" to "spectrum-predicted dimensionality." Citable theoretical contribution.
-- (no clean elbow / continuous decay) Insight 2 stays empirical; spectrum becomes Figure with caveat — neutral signal but full transparency.
+- (a) **Clean elbow at rank-8 on L=26**: Insight 2 promoted from "trade-off sweet spot" to "spectrum-predicted dimensionality." Citable theoretical contribution.
+- (b) **Effective rank decreases monotonically across L=10→28** (or at least drops sharply at the L=20-26 transition): integration framework empirically confirmed; §5.2 Insight 4 cited from data not just hypothesis.
+- (a only / b only / neither) graceful degradation: Insight 2 stays empirical; per-layer figure becomes transparency item; framework framing softened to "consistent with" rather than "verified by."
 
-**Risk.** Spectrum may not have clean elbow (continuous decay common in real data). If so, P0-2 becomes a *transparency item* not a tier-shift.
+**Risk.** Per-layer spectrum may show continuous decay (common in real residual streams). If integration is more gradual than predicted, §5.2 Insight 4 framing softens but doesn't break — routing-vs-integration is still defensible at categorical level (residual ≠ attention pathway), just without empirical sharpness.
 
 **Owner.** thyun.park.
 

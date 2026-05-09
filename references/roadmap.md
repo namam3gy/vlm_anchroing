@@ -165,7 +165,7 @@ in-flight · ☐ not started.
 |---|---|---|---|
 | E1 attention-mass | gemma4-e4b, qwen2.5-vl-7b, llava-1.5-7b, internvl3-8b, convllava-7b, fastvlm-7b | 200 stratified | ✅ |
 | E1b per-layer localisation | same 6 | 200 | ✅ — 4 archetypes (SigLIP-Gemma early, mid-stack cluster CLIP-ViT/InternViT/ConvNeXt, Qwen-ViT late, FastVLM late text-stealing) |
-| E1d causal ablation | same 6 | 200 | ✅ — single-layer null on 6/6; upper-half multi-layer **−4.0 to −10.5 pp** (C-form) on 6/6 |
+| E1d causal ablation | same 6 | 200 | ✅ — single-layer null on 6/6; upper-half multi-layer **−4.0 to −10.5 pp** Δdf on 6/6 |
 | E1-patch (digit-pixel attention) | gemma4-e4b, llava-1.5-7b, convllava-7b, fastvlm-7b (4 perfect-square archetypes, n=400 each) | analysis + 2026-04-29 extension extraction | ✅ — peak digit/anchor 0.468–0.631 (+24 to +40 pp above fair share) on every panel model |
 | **Phase D cross-dataset E1** (5 panel × 4 datasets + OneVision × 4 datasets, 2026-05-03) | gemma4-e4b, llava-1.5-7b, convllava-7b, fastvlm-7b, internvl3-8b + OneVision | 200 stratified per (model, dataset) | ✅ 24/24 cells, commit `c556fb6`. Cross-dataset peak layer comparison via `scripts/analyze_cross_dataset_peaks.py` |
 | **Phase E E1d cross-dataset** (OneVision × 4 datasets, 2026-05-03 + chart/math recovery 2026-05-04) | OneVision Main only | 200 stratified per dataset, 6 modes | ✅ 4/4 cells, commits `7a27750` + `2d11876`. Per-(model, mode) summary at `outputs/causal_ablation/_summary/per_model_per_mode.csv` |
@@ -174,7 +174,7 @@ in-flight · ☐ not started.
 | E4 generalisation to other archetypes | gemma4-e4b, qwen2.5-vl-7b, fastvlm-7b | TBD | ☐ P3 |
 | **E6 Subspace mitigation** (Phase B Stage 4-final, 2026-05-03) | OneVision Main | n=5000 wrong-base × 5 datasets | ✅ chosen L=26 K=8 α=1.0; commit `9f9dfa0`. Stage 4-final eval table at `docs/insights/_data/main_panel_5dataset_summary.md` |
 
-### 3.3 Headline numbers (C-form re-aggregation, 2026-04-28)
+### 3.3 Headline numbers (post-2026-04-28 re-aggregation)
 
 Full tables (standard-prompt 7-model panel, E5b distance sweep,
 E5c digit-pixel causality 2/3 models, E5e ChartQA+TallyQA 3-model,
@@ -182,7 +182,7 @@ E1d / E4 mechanism summary) live in
 [`docs/insights/headline-numbers.md`](../docs/insights/headline-numbers.md).
 Quick orientation:
 
-- **VQAv2 main panel:** `adopt(a)` 0.021–0.066, `df(a) C-form`
+- **VQAv2 main panel:** `adopt(a)` 0.021–0.066, `df(a)`
   0.085–0.274 across 7 models — graded pull, not categorical.
 - **E5b distance:** sharp S1 peak (0.134 / 0.098 wrong-base
   VQAv2 / TallyQA), floor by S5 — plausibility-windowed.
@@ -199,7 +199,7 @@ Quick orientation:
   llava and qwen on TallyQA susceptibility.
 - **E5e ChartQA + TallyQA:** 3-model panel, all `a > m`.
 - **E4 mitigation:** LLaVA-1.5 / ConvLLaVA / InternVL3 mid-stack-cluster
-  Phase 2 C-form `df` reduction −14.6 % / −9.6 % / −5.8 % rel; em ↑;
+  Phase 2 `df` reduction −14.6 % / −9.6 % / −5.8 % rel; em ↑;
   acc(b) invariant.
 
 Numbers re-aggregate from raw `predictions.jsonl` via
