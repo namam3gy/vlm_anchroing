@@ -24,7 +24,14 @@ inputs/
 outputs/
 
 # Claude Code local settings
-.claude/
+.claude/*
+# ...except the paper review pipeline (agents + slash command tracked for reproducibility)
+!.claude/agents/
+!.claude/commands/
+.claude/agents/*
+!.claude/agents/paper-*.md
+.claude/commands/*
+!.claude/commands/paper-review-loop.md
 
 # PowerPoint decks — keep local only, regenerable from scripts/build_paper_pptx.js
 *.pptx
@@ -41,7 +48,11 @@ logs/
 # or user-managed outside the repo. Markdown summaries elsewhere stay
 # tracked.
 docs/insights/_data/
-docs/paper/
+docs/paper/*
+# ...except the iterative review trail (audit-traceable)
+!docs/paper/reviews/
+docs/paper/reviews/*
+!docs/paper/reviews/*.md
 docs/ppt/
 docs/superpowers/plans/
 docs/CHANGELOG.md
