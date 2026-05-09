@@ -48,7 +48,39 @@ Predictions are written `pred_b / pred_a / pred_m / pred_d`; ground truth is
 | **H6** | Cross-modal failures decouple into two orthogonal axes — `anchor-pull` vs. `multi-image distraction` | `adopt_rate(a)` and `acc_drop_d_vs_b` perfectly correlated → H6 fails | ✅ Suggested by E2 pilot (InternVL3 = high acc_drop / low adopt; LLaVA-1.5 = low acc_drop / high adopt; ConvLLaVA = both). Confirmed at full E4 Phase 2 scale |
 | **H7** ⚙ | `direction_follow_rate` is monotonic with `pred_b`-token logit / probability — i.e. uncertainty modulates anchor pull on a **continuous** confidence scale, of which wrong/correct (H2) is a coarse projection | `direction_follow_rate` flat across confidence quartiles | ✅ Confirmed for non-reasoning panel — `L1-confidence-modulation-evidence.md` reports `entropy_top_k` Q4 − Q1 mean df = +0.152 on E5b/E5c/E5e, 23/35 anchor cells fully monotone. **Boundary case**: H7 monotonicity *collapses* under reasoning mode (`E5e-mathvista-reasoning-evidence.md` §3.1) and is panel-side compressed on InternVL3-8b (`E7-plotqa-infovqa-evidence.md` §4) — both deserve §6 prose paragraph distinguishing "uncertainty-modulated graded pull" from "reasoning-induced graded pull". |
 
-## 3. Status snapshot — where we are (2026-05-04 — Phase 1 P0 v3 complete)
+## 3. Status snapshot — where we are (2026-05-09 — 5-round paper review loop complete)
+
+### 3.0b Post-review state (2026-05-09 — Solid Findings, top of band; Main contingent on bridge experiment)
+
+5-round iterative review-revise loop on `docs/paper/emnlp_draft_ko.md`
+shipped via PR-equivalent merge into master (commit `86fb66a`,
+phase2 branch tip `8ffdc2d`). Methodology / writing / novelty /
+adversarial / bar-raiser personas + author-reviser between rounds.
+Paper 516 → 604 lines net (+88).
+
+- **Final tier verdict (3-way convergent):** Solid Findings, top of band.
+  Borderline / weak-accept Main contingent on §8.4 item 1 (γ-β
+  residual-stream bridge experiment) landing positive in next revision.
+- **Highest-leverage next action:** P0-1 — γ-β Thinking-mode trace
+  amplitude on K=8 subspace at L=26 (cheap form ~2 H100-day; clean
+  form +~4 H100-day). Bar-raiser explicitly named this as the
+  experiment that would tip Findings → Main.
+- **Sharpest 5-year-citable finding loop converged on:** §5.2 → §6.4
+  predict-then-verify chain ("multi-layer redundancy predicts
+  single-direction mitigation failure cross-dataset"); now framed
+  as the paper's *이론적* contribution at 4 callsites (abstract /
+  §1.3 / §1.5 (4a) / §8.1).
+- **17 DEFER items** consolidated in
+  [`docs/insights/plan_post_review_2026-05-09.md`](../docs/insights/plan_post_review_2026-05-09.md)
+  with priority + estimate + dependency + acceptance criteria.
+  P0 (2 items) for tier-shift; P1 (4 items) for adversarial-defense
+  rigor; P2 (1 item) for cross-architecture verification; P3
+  (3 items) for camera-ready hardening; P4 (7 items) for future
+  submissions.
+- **Review trail tracked.** Pipeline (`.claude/agents/paper-reviewer-*.md`,
+  `.claude/agents/paper-reviser.md`, `.claude/commands/paper-review-loop.md`)
+  and 11 review/response/summary files at `docs/paper/reviews/*.md`
+  committed for reproducibility (selective `.gitignore` overrides).
 
 ### 3.0a Phase 1 P0 v3 final state (2026-05-04)
 
@@ -57,7 +89,7 @@ for the full commit chain. Headlines:
 
 - **Branch + master pushed** to origin (`phase1/p0-baseline-recalibration`).
 - **6-model × 5-dataset main matrix** at `docs/insights/_data/main_panel_5dataset_summary.md`. Models: llava-onevision-7b (Main), qwen2.5-vl-7b, internvl3-8b, gemma3-4b, qwen2.5-vl-32b, gemma3-27b. Last cell internvl3-8b/TallyQA rerun in flight (~07:00 ETA).
-- **Stage 4-final mitigation** (Phase B, commit `9f9dfa0`): cell L=26 K=8 α=1.0 ships. **Strict free-lunch**: avg Δdf = -2.9pp, **Δem(a) = +3.9pp benefit, Δem(b) = +8.8pp recovery** on wrong-base sids — paired-sids generator `scripts/build_e6_stage4_summary.py` → `docs/insights/_data/stage4_final_per_dataset.csv`. Earlier "em(a) -2.4pp cost" framing was a hand-copy error, corrected 2026-05-04 → paper §7.4 task #38.
+- **Stage 4-final mitigation** (Phase B, commit `9f9dfa0`): cell L=26 K=8 α=1.0 ships. **Free-lunch**: avg Δdf = -2.9pp, **Δem(a) = +3.9pp benefit, Δem(b) = +8.8pp recovery** on wrong-base sids — paired-sids generator `scripts/build_e6_stage4_summary.py` → `docs/insights/_data/stage4_final_per_dataset.csv`. Earlier "em(a) -2.4pp cost" framing was a hand-copy error, corrected 2026-05-04 → paper §7.4 task #38.
 - **Phase D §7.1-7.3** (commit `c556fb6`): 24/24 cells on disk. New finding via `scripts/analyze_cross_dataset_peaks.py` — OneVision peak layer is **dataset-dependent** (L=27 on Plot/Tally, L=14 on Info/VQAv2).
 - **Phase E E1d causal ablation** (commit `2d11876`): OneVision × {Tally, Info, Chart, Math} 4/4. ChartQA + MathVista re-ran with per-dataset susceptibility CSVs after PlotQA-CSV-reuse bug.
 - **llava-next-interleaved-7b dropped** from main panel (commit `0e7998e`) — low native resolution, not informative for chart/figure datasets.
@@ -133,7 +165,7 @@ in-flight · ☐ not started.
 |---|---|---|---|
 | E1 attention-mass | gemma4-e4b, qwen2.5-vl-7b, llava-1.5-7b, internvl3-8b, convllava-7b, fastvlm-7b | 200 stratified | ✅ |
 | E1b per-layer localisation | same 6 | 200 | ✅ — 4 archetypes (SigLIP-Gemma early, mid-stack cluster CLIP-ViT/InternViT/ConvNeXt, Qwen-ViT late, FastVLM late text-stealing) |
-| E1d causal ablation | same 6 | 200 | ✅ — single-layer null on 6/6; upper-half multi-layer **−4.0 to −10.5 pp** (C-form) on 6/6 |
+| E1d causal ablation | same 6 | 200 | ✅ — single-layer null on 6/6; upper-half multi-layer **−4.0 to −10.5 pp** Δdf on 6/6 |
 | E1-patch (digit-pixel attention) | gemma4-e4b, llava-1.5-7b, convllava-7b, fastvlm-7b (4 perfect-square archetypes, n=400 each) | analysis + 2026-04-29 extension extraction | ✅ — peak digit/anchor 0.468–0.631 (+24 to +40 pp above fair share) on every panel model |
 | **Phase D cross-dataset E1** (5 panel × 4 datasets + OneVision × 4 datasets, 2026-05-03) | gemma4-e4b, llava-1.5-7b, convllava-7b, fastvlm-7b, internvl3-8b + OneVision | 200 stratified per (model, dataset) | ✅ 24/24 cells, commit `c556fb6`. Cross-dataset peak layer comparison via `scripts/analyze_cross_dataset_peaks.py` |
 | **Phase E E1d cross-dataset** (OneVision × 4 datasets, 2026-05-03 + chart/math recovery 2026-05-04) | OneVision Main only | 200 stratified per dataset, 6 modes | ✅ 4/4 cells, commits `7a27750` + `2d11876`. Per-(model, mode) summary at `outputs/causal_ablation/_summary/per_model_per_mode.csv` |
@@ -142,7 +174,7 @@ in-flight · ☐ not started.
 | E4 generalisation to other archetypes | gemma4-e4b, qwen2.5-vl-7b, fastvlm-7b | TBD | ☐ P3 |
 | **E6 Subspace mitigation** (Phase B Stage 4-final, 2026-05-03) | OneVision Main | n=5000 wrong-base × 5 datasets | ✅ chosen L=26 K=8 α=1.0; commit `9f9dfa0`. Stage 4-final eval table at `docs/insights/_data/main_panel_5dataset_summary.md` |
 
-### 3.3 Headline numbers (C-form re-aggregation, 2026-04-28)
+### 3.3 Headline numbers (post-2026-04-28 re-aggregation)
 
 Full tables (standard-prompt 7-model panel, E5b distance sweep,
 E5c digit-pixel causality 2/3 models, E5e ChartQA+TallyQA 3-model,
@@ -150,7 +182,7 @@ E1d / E4 mechanism summary) live in
 [`docs/insights/headline-numbers.md`](../docs/insights/headline-numbers.md).
 Quick orientation:
 
-- **VQAv2 main panel:** `adopt(a)` 0.021–0.066, `df(a) C-form`
+- **VQAv2 main panel:** `adopt(a)` 0.021–0.066, `df(a)`
   0.085–0.274 across 7 models — graded pull, not categorical.
 - **E5b distance:** sharp S1 peak (0.134 / 0.098 wrong-base
   VQAv2 / TallyQA), floor by S5 — plausibility-windowed.
@@ -167,7 +199,7 @@ Quick orientation:
   llava and qwen on TallyQA susceptibility.
 - **E5e ChartQA + TallyQA:** 3-model panel, all `a > m`.
 - **E4 mitigation:** LLaVA-1.5 / ConvLLaVA / InternVL3 mid-stack-cluster
-  Phase 2 C-form `df` reduction −14.6 % / −9.6 % / −5.8 % rel; em ↑;
+  Phase 2 `df` reduction −14.6 % / −9.6 % / −5.8 % rel; em ↑;
   acc(b) invariant.
 
 Numbers re-aggregate from raw `predictions.jsonl` via
@@ -316,7 +348,7 @@ gt range (no [0,8] restriction).
 |---|---|---|
 | **E6 (historical) — Tally-only N=5000 calibration, gt ∈ [0,8] eval** | Subspace L31_K04_α=1.0 clears 4-dataset selection rule. df −46% to −56% on TallyQA/ChartQA/VQAv2/MathVista; em +0.9 to +3.3 pp. Caveat: gt ∈ [0,8] restriction made result look like partial solution. | ✅ landed 2026-05-01 — historical baseline (superseded) |
 | **E6 Phase 1 — Pilot grid + recalibration on PlotQA + InfoVQA pooled, full gt range, 5-dataset** | New calibration target: PlotQA+InfoVQA pooled n5k. **27-cell pilot grid** (L∈{25,26,27} × K∈{2,4,8} × α∈{0.5,1.0,2.0}) on OneVision Main. Aggregator `scripts/analyze_e6_pilot_cells.py` with em-drop dealbreaker rule + wrong-base baseline filter. | ✅ shipped 2026-05-03 — chosen cell **L=26 K=8 α=1.0** |
-| **E6 Stage 4-final eval (chosen cell × 5 datasets)** | Apply L=26 K=8 α=1.0 to OneVision on 5-dataset full gt range, n=5000 wrong-base subset per dataset. Compare baseline vs mitigation arm directly (same predictions.jsonl, two cells). Δ-table generator: `scripts/build_e6_stage4_summary.py`. | ✅ shipped 2026-05-03 (commit `9f9dfa0`). Paired wrong-base avg Δdf=-2.9pp, **Δem(a)=+3.9pp benefit, Δem(b)=+8.8pp recovery → strict free-lunch** (paper task #38; earlier "-2.4pp em(a) cost" framing was a hand-copy error, retracted 2026-05-04). |
+| **E6 Stage 4-final eval (chosen cell × 5 datasets)** | Apply L=26 K=8 α=1.0 to OneVision on 5-dataset full gt range, n=5000 wrong-base subset per dataset. Compare baseline vs mitigation arm directly (same predictions.jsonl, two cells). Δ-table generator: `scripts/build_e6_stage4_summary.py`. | ✅ shipped 2026-05-03 (commit `9f9dfa0`). Paired wrong-base avg Δdf=-2.9pp, **Δem(a)=+3.9pp benefit, Δem(b)=+8.8pp recovery → free-lunch** (paper task #38; earlier "-2.4pp em(a) cost" framing was a hand-copy error, retracted 2026-05-04). |
 | **E6 Pilot validation (2026-05-01, llava n=200, historical)** | Existing Tally-calibrated subspace tested on PlotQA + InfoVQA pilots: PlotQA gt∈[1,8] Δdf −60%, em +3.85pp; InfoVQA gt∈[1,8] Δdf −24%, em +1.09pp. | ✅ historical |
 
 ### 6.6 §8 — Future work (scope only)
@@ -376,14 +408,44 @@ landed (commit `c556fb6`). Phase E E1d 4/4 landed (commits `7a27750` +
 
 | Pri | Task | Where | Estimate |
 |---|---|---|---|
-| **P0 (NEW, 2026-05-08)** | E8 Mitigation capability-preservation regression test on OneVision Main | §7.4.5 | ✅ shipped — verdict: STRICT_FREE_LUNCH (6 benchmarks, macro Δ +0.41pp; HallusionBench Δ=+2.21pp CI excludes 0; POPE Δ=−0.06pp CI=[−0.21,+0.09]) |
-| **P1 (NEW, 2026-05-08)** | E8 follow-up: add MME (counting hallucination, "Count" subset directly tests number-anchor failure mode) + AMBER (multi-dim hallucination, contamination-clean Nov 2023) to capability panel — both VLMEvalKit YORN-supported, no LLM judge, no code change needed | §7.4.5 | ~/LMUData curl-k for MME.tsv + AMBER.tsv; ~1.5–2h GPU on H200; merge into 6→8 row table |
+| **P0 (NEW, 2026-05-08)** | E8 Mitigation capability-preservation regression test on OneVision Main | §7.4.5 | ✅ shipped — verdict: STRICT_FREE_LUNCH. **Extended 2026-05-09 to 8 benchmarks** (MME + AMBER follow-up): n_total = 27,097; macro Δ = +0.31 pp; HallusionBench +2.21 pp [+1.14, +3.28], **AMBER +0.19 pp [+0.05, +0.33]** (second hallu axis with CI excluding zero), POPE −0.06 pp [−0.21, +0.09], MME −0.13 pp [−0.76, +0.51] |
+| ~~**P1 (2026-05-08)**~~ | ~~E8 follow-up: add MME + AMBER to capability panel~~ | §7.4.5 | ✅ shipped 2026-05-09 (folded into the P0 row above); driver gained `evaluate()`-rating-tolerance + aggregator merge subcommand (commit `31621f1`) |
 | **P1 (NEW, 2026-05-08)** | E8 follow-up: MMMU-DEV-VAL with LLM-judge (multi-discipline reasoning, ~$1-2 GPT-4o-mini cost) | §7.4.5 | deferred until paper §7.4.5 prose locked; reviewer pre-check value justifies cost at that point |
-| **P1** | §7.4.5 paper prose update (Tally-cal headline → PlotQA+InfoVQA-cal headline at full gt range) | `docs/paper/sections/07_*.md` | ✅ shipped 2026-05-08 — §7.4.5 + §7.5 + §7.6 + Capability Preservation subsections cohesive on L26_K8_α=1.0, 5-dataset paired-sids deltas, strict free-lunch, 6-bench E8 macro Δ +0.41 pp |
+| **P1** | §7.4.5 paper prose update (Tally-cal headline → PlotQA+InfoVQA-cal headline at full gt range) | `docs/paper/sections/07_*.md` | ✅ shipped 2026-05-08 — §7.4.5 + §7.5 + §7.6 + Capability Preservation subsections cohesive on L26_K8_α=1.0, 5-dataset paired-sids deltas, free-lunch, 6-bench E8 macro Δ +0.41 pp |
 | **P1** | §3 / §5 / §6 paper prose update for 5-dataset matrix | `docs/paper/sections/0[3-6]_*.md` | ✅ shipped 2026-05-04 batch 1 (§3.6 / §4 / §5 / §6 5-dataset rewrites); cross-section drift to §1 / §8 closed 2026-05-08 (this changelog entry) |
 | **P1** | Citation verification — every 2026 arXiv ID in `references/project.md` and §2 paper draft must resolve to a real paper | §9 caveat | ✅ shipped 2026-05-08 — 9/9 arXiv IDs verified, 3 venue tags resolved (NAACL 2025 ✅, HCAIR ICLR 2026 ✅, EMNLP Findings ❌ for CIVET); audit doc closed |
 | **P3** | Image-vs-text anchor (F2) follow-up paper | §6.6 | future |
 | **P3** | InternVL3 + Qwen2.5-VL E1-patch non-square (appendix only) | §6.5 §7 | 1–2 days/model implementation if pursued |
+
+### Phase 5 — paper review-driven hardening (NEW 2026-05-09, post 5-round loop)
+
+Source: 5-round review loop (`docs/paper/reviews/_final_summary.md`)
++ post-review plan
+([`docs/insights/plan_post_review_2026-05-09.md`](../docs/insights/plan_post_review_2026-05-09.md)).
+Paper currently *Solid Findings, top of band*; tier-shift to Main
+contingent on P0-1 bridge experiment.
+
+| Pri | ID | Task | Where | Estimate | Tier impact |
+|---|---|---|---|---|---|
+| **P0** | P0-1 | γ-β residual-stream bridge experiment (cheap form) — project Qwen3-VL-Thinking trace residuals onto V_K[L=26]; test amplitude growth predicts ×12.7 correct-base df ratio | §4.6 + §6.2 + §8.4 item 1 | ~2 H100-day | **Tier-shifter** (bar-raiser signature ask). Single highest-leverage move. |
+| **P0** | P0-2 | Eigenvalue spectrum of `D[:, L=26, :]` rank-8 elbow check | §6.4 + new figure | ~4 H100-hour | Theoretical contribution upgrade if elbow clean. |
+| **P1** | P1-3 | Paired-bootstrap CI on §6.2.3 Table 6 (B=10,000) | `scripts/build_e6_stage4_summary.py` extension | ~1 day | Closes R4 MAJ-4. |
+| **P1** | P1-4 | CAA at K=1 + ITI at attention-head — actual Table 7 rows | §6.5 + new evidence doc | ~3 H200-day | Closes R4 MAJ-5 (structural Note → empirical). |
+| **P1** | P1-5 | Random-K=8 baseline for §6.3 (Alt-1 falsification) | §6.3 Insight 1.5 | ~2 H100-day | Closes R4 CRIT-3. |
+| **P1** | P1-6 | §A.5 27-cell pilot grid 4-metric heatmap aggregation | §A.5 + new canonical CSV | ~1 day | Closes R4 CRIT-2 (cherry-pick concern). |
+| **P2** | P2-7 | E6 cross-architecture replication on Qwen2.5-VL-7B (different encoder archetype) | §6.6 + §1.4 framing | ~10 H200-day | Partial close of R4 CRIT-1 (N=1 → N=2). |
+| **P3** | P3-8 | Paraphrase robustness (5 prompts × 5 datasets) | §A.X + §8.2 | ~3 H200-day | Defuses single-prompt critique. |
+| **P3** | P3-9 | Closed-source defuse (~500 sample on GPT-4o or Gemini 2.5) | §3.6 + §4.* | ~1-2 day + ~$15 API | Defuses open-only critique. |
+| **P3** | P3-10 | Encoder-family promotion to top-line contribution (camera-ready prose) | §1 + §1.5 + §5 | ~half-day | Camera-ready polish. |
+
+**Recommended sprint ordering** (per plan §"Recommended execution sequence"):
+
+- **Week 1 (Findings hardening):** P0-1 cheap + P1-3 + P1-6 + P1-5 in parallel.
+- **Week 2 (Main shift):** P0-2 + P1-4 + start P2-7.
+- **Week 3 (Main consolidation):** Finish P2-7. If P0-1 cheap was positive, run clean form.
+- **Camera-ready:** P3-8 + P3-9 + P3-10.
+
+**Don't-touch protect-list (R5 bar-raiser):** (a − m) calibration contrast, single-model 6-callsite hedge, §6.2.3 reframing, Δem(non-anchored) ≥ 0 clause, §1.5 (1) hedge stack, §5.3 dataset-dependent peak self-disclosure, §4.7 InternVL3 boundary case.
 
 **Recently landed (struck from queue 2026-04-29):**
 
@@ -462,11 +524,78 @@ landed (commit `c556fb6`). Phase E E1d 4/4 landed (commits `7a27750` +
 
 ## 10. Changelog
 
+- **2026-05-09 ~21:40 (5-round paper review loop + post-review plan +
+  selective gitignore overrides for tracked review trail).**
+  Multi-agent review-revise pipeline shipped end-to-end on
+  `docs/paper/emnlp_draft_ko.md`. Methodology / writing / novelty /
+  adversarial / bar-raiser personas + author-reviser between
+  rounds. Paper 516 → 604 lines net (+88).
+  - **Pipeline infrastructure** (commit `8ffdc2d`):
+    `.claude/agents/paper-reviewer-{methodology,writing,novelty,aggressive,bar-raiser}.md`
+    + `paper-reviser.md`; `.claude/commands/paper-review-loop.md`.
+    Each reviewer enforces "no vague critique" + canonical-CSV
+    verification + § + verbatim + suggested-fix bar; reviser uses
+    EDIT / PARTIAL EDIT / REBUT / DISAGREE / DEFER classification.
+    `.gitignore` selective overrides allow `.claude/agents/paper-*`
+    and `.claude/commands/paper-review-loop.md` and
+    `docs/paper/reviews/*.md` to be tracked while keeping rest of
+    `.claude/` and `docs/paper/` local.
+  - **Round-by-round** (review + response files at `docs/paper/reviews/round{1..5}_*.md`):
+    - **R1 methodology** — 8 must-fix incl 4 CRIT data errors
+      (Table 5 E4 swap, Table 3 TallyQA gemma3-27b values, ActAdd
+      +57 % untraceable, abstract 5×7=85 arithmetic). All headline
+      numbers (E6 Table 6, E8 Table 8, γ-β ratios, L1 51/85)
+      verified clean against canonical `_data/`.
+    - **R2 writing** — 11 must-fix; 6 forced Korean coinages
+      stripped (이분법 / 주력 / 발화 / 회귀); abstract "입증" →
+      "강하게 뒷받침"; Figure 5 caption / 4.4 Insight 2 contradiction
+      fixed.
+    - **R3 novelty** — VLMBias factual correction (visual objects,
+      not class labels); §2 *Activation steering and concept erasure*
+      paragraph added (CAA / ITI / LEACE); strict-free-lunch 4-clause
+      formal definition + Chand et al. 2025 No-Free-Lunch precedent;
+      4 references added.
+    - **R4 aggressive** — CRIT-1 N=1 model on E6 chain hedged across
+      6 callsites as case study; §A.4 FLUX seed=1729 surfaced
+      (3-round defer closed); §A.5 27-cell pilot grid label;
+      §7 Bonferroni-6 robustness; 4 items honestly DEFERred with
+      GPU-hour estimates.
+    - **R5 bar-raiser** — predict-then-verify chain (§5.2 → §6.4)
+      sharpened as theoretical contribution at 4 callsites; new
+      §8.4 후속 작업 with bridge experiment as lead item.
+  - **Final tier verdict (3-way convergent):** Solid Findings, top
+    of band. Borderline / weak-accept Main contingent on §8.4 item 1
+    bridge experiment (γ-β residual-stream amplitude on K=8 subspace,
+    cheap ~2 H100-day / clean ~1 H200-week).
+  - **5-year-citable finding:** §5.2 → §6.4 predict-then-verify
+    chain ("multi-layer redundancy predicts single-direction
+    mitigation failure cross-dataset"), framed as paper's
+    *이론적* contribution.
+  - **Post-review plan**
+    [`docs/insights/plan_post_review_2026-05-09.md`](../docs/insights/plan_post_review_2026-05-09.md):
+    17 DEFER items consolidated into Phase 5 priority queue
+    (P0 × 2 tier-shift, P1 × 4 rigor, P2 × 1 cross-arch, P3 × 3
+    camera-ready, P4 × 7 future). Priority + cost + dependency +
+    acceptance criteria per item. Recommended 3-week execution
+    sequence ending in P0-1 bridge experiment + paper update.
+  - **Bar-raiser don't-touch protect-list (7 items):** (a − m)
+    contrast / 6-callsite hedge / §6.2.3 reframing / Δem(b) clause /
+    §1.5 (1) hedge stack / §5.3 self-disclosure / §4.7 boundary
+    case. Phase 5 work must respect.
+  - **Note on dispatch:** custom `paper-reviewer-*` and
+    `paper-reviser` agents were dispatched as `general-purpose`
+    subagents reading the persona file content (workaround during
+    initial registration race). After pod restart they register
+    properly via `.claude/agents/`. Future runs of
+    `/paper-review-loop` should invoke them via `subagent_type`
+    directly. Review quality and audit trail are intact; output
+    files substantive (16-50 KB per review).
+
 - **2026-05-09 ~20:35 (E8 follow-up — MME + AMBER added, 8-bench panel).**
   Phase 4 P1 follow-up shipped on isolated worktree branch
-  `worktree-phase4-mme-amber`. Two new held-out benchmarks added to
-  the capability eval at the same chosen cell (L = 26, K = 8, α = 1.0)
-  on OneVision-7b Main:
+  `worktree-phase4-mme-amber` (PR #14). Two new held-out benchmarks
+  added to the capability eval at the same chosen cell
+  (L = 26, K = 8, α = 1.0) on OneVision-7b Main:
   - **MME** (n = 2,374, 14 categories incl. the Count subset that
     directly exercises the number-anchor failure mode) —
     Δ = −0.13 pp, 95 % CI = [−0.76, +0.51], essentially neutral.
@@ -480,6 +609,12 @@ landed (commit `c556fb6`). Phase E E1d 4/4 landed (commits `7a27750` +
     breaching any threshold). Verdict: **STRICT_FREE_LUNCH** preserved.
     Contamination-resistant floor of the panel rises from n = 1,500
     (MMStar alone) to n = 18,090 (MMStar + MME + AMBER).
+  - **MME per-category breakdown**: Count subset (n = 60), the in-domain
+    analogue of the number-anchor failure mode, shows **Δ = 0.00 pp
+    exact** — every paired prediction matches between baseline and
+    +mit. Existence (n = 60) likewise Δ = 0.00 pp at ceiling. Direct
+    evidence the mitigation acts on cross-modal anchor pull, not
+    counting capability itself.
   - **Driver hardening (commit `31621f1`)**: `dataset.evaluate()`
     wrapped in try/except so VLMEvalKit's `MME_rating` /
     `AMBER_rating` helpers (which raise on broken pair structure /
@@ -497,11 +632,11 @@ landed (commit `c556fb6`). Phase E E1d 4/4 landed (commits `7a27750` +
   - Files committed: `scripts/run_capability_eval.py`,
     `scripts/aggregate_capability_eval.py`,
     `tests/test_capability_eval.py`,
-    `configs/capability_eval_mme_amber.yaml`. Insight doc and
-    paper-section edits (`docs/insights/E8-capability-preservation-evidence.md`,
-    `docs/paper/sections/{01,04,07,08}_*.md`) are local-only per
-    existing convention. Wall time: 2 h 8 min on a single H200,
-    sequential, $0 (no LLM-judge).
+    `configs/capability_eval_mme_amber.yaml`,
+    `docs/insights/E8-capability-preservation-evidence.md`,
+    `docs/insights/{phase1-p0-v3-summary,headline-numbers}.md`,
+    `docs/experiments/E8-capability-preservation.md` (new). Wall
+    time: 2 h 8 min on a single H200, sequential, $0 (no LLM-judge).
 
 - **2026-05-08 ~21:30 (Phase 4 P1 paper polish — cross-section
   consistency pass + venue-tag verification).**  Phase 4 P1 batch
@@ -584,7 +719,7 @@ landed (commit `c556fb6`). Phase E E1d 4/4 landed (commits `7a27750` +
   - **Result: STRICT_FREE_LUNCH on full sweep (~1.5h H200, no LLM-judge).**
     Macro Δ = +0.50pp; per-bench Δ ∈ [-0.80, +2.21]; HallusionBench
     Δ=+2.21pp 95% CI=[+1.14, +3.28] **excludes zero — statistically
-    significant positive**. §7.4.5 strict free-lunch claim (originally
+    significant positive**. §7.4.5 free-lunch claim (originally
     Δdf ≤ 0 ∧ Δem(a) ≥ 0 ∧ Δem(b) ≥ 0 within anchoring family) extends
     to general VLM capability.
   - Pipeline cross-check vs lmms-lab model card published numbers:

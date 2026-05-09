@@ -70,7 +70,7 @@ subsets reflect n; the zero-pair-difference Count result is exact, not
 a no-rejection.) Together with the eight benchmark-level Δs above,
 this is the cleanest in-domain analogue test the panel provides.
 
-The strict free-lunch claim of §7.4.5 (Δdf ≤ 0, Δem(a) ≥ 0,
+The free-lunch claim of §7.4.5 (Δdf ≤ 0, Δem(a) ≥ 0,
 Δem(b) ≥ 0 within the anchoring family) extends to general capability:
 no per-benchmark threshold breach, macro positive.
 

@@ -157,7 +157,7 @@ This is the same un-mitigated baseline pattern that **§7.4.5 E6 Subspace
 mitigation** turns into a recovery story (Stage 4-final eval shows
 **Δem(a) +3.9 pp** on the calibrated cell vs the un-calibrated
 baseline; see `paper-section-7-4-mitigation-free-lunch.md` and
-`phase1-p0-v3-summary.md` for the strict free-lunch numbers). The E7
+`phase1-p0-v3-summary.md` for the free-lunch numbers). The E7
 panel adds the side-evidence that the un-mitigated baseline is *already*
 accuracy-positive on PlotQA — recovery isn't fighting an em-loss but
 amplifying an em-gain.
@@ -218,4 +218,4 @@ high-susc models have larger digit-pixel-specific contribution.
   different mechanism for the same surface symptom.
 - `docs/insights/paper-section-7-4-mitigation-free-lunch.md` — §7.4.5
   E6 Subspace mitigation that turns the PlotQA accuracy-positive
-  baseline into a strict free-lunch story.
+  baseline into a free-lunch story.

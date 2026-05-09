@@ -72,7 +72,7 @@ Stage 4-final eval on 5 datasets (n=5000 wrong-base subset per dataset, paired-s
 - avg **Δ em(a) = +0.039** (em on anchor arm IMPROVES — every dataset positive)
 - avg **Δ em(b) = +0.088** (recovery on wrong-base sids without anchor present)
 
-This is a **strict free-lunch on the wrong-base subset**: anchor pull goes down, exact-match goes up on both arms. Earlier "Δ em(a) = -0.024 cost" framing was a hand-copy error from prior aggregation (corrected 2026-05-04 from generator output). Paper §7.4.5 prose update task #38.
+This is a **free-lunch on the wrong-base subset**: anchor pull goes down, exact-match goes up on both arms. Earlier "Δ em(a) = -0.024 cost" framing was a hand-copy error from prior aggregation (corrected 2026-05-04 from generator output). Paper §7.4.5 prose update task #38.
 
 ### Capability preservation (E8, 8-bench, 2026-05-09)
 
