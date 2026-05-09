@@ -60,20 +60,35 @@ PlotQA (0.226) ≈ MathVista (0.241) > InfoVQA (0.227) > ChartQA (0.204) ≫ Tal
 
 → Chart/figure datasets pull ~2× harder than counting (TallyQA). Text-heavy plot/math contexts amplify anchor effect.
 
-### A.3 Mitigation chosen cell (Phase B Stage 4-final, commit `9f9dfa0`)
+### A.3 Mitigation chosen cell (Phase B Stage 4-final, commit `9f9dfa0`; CI added 2026-05-10)
 
-**Subspace projection L=26 K=8 α=1.0**, calibrated on PlotQA+InfoVQA pooled n5k. Evaluated on n=5000 wrong-base subset per dataset. Paired-sids comparison (sids parseable on b+a in baseline AND mitigation arms). Source: `docs/insights/_data/stage4_final_per_dataset.{csv,md}` (gitignored, regenerable via `scripts/build_e6_stage4_summary.py`).
+**Subspace projection L=26 K=8 α=1.0**, calibrated on PlotQA+InfoVQA pooled n5k. Evaluated on n=5000 wrong-base subset per dataset. Paired-sids comparison (sids parseable on b+a in baseline AND mitigation arms). Sources:
+- Point estimates: `docs/insights/_data/stage4_final_per_dataset.{csv,md}` (regenerable via `scripts/build_e6_stage4_summary.py`).
+- **Paired-bootstrap 95 % CI + Bonferroni-20 corrected (99.75 %) CI** (B = 10,000): `docs/insights/_data/stage4_final_per_dataset_ci.{csv,md}` + raw draws `_data/stage4_final_bootstrap_draws.npz` (regenerable via `scripts/build_e6_stage4_bootstrap_ci.py`). Sid-paired resampling; per-arm `(num, den)` recomputed each bootstrap so adopt's `pb ≠ anchor` denominator and df's `pa ≠ pb` clause shift correctly per arm.
 
-| Dataset | n_paired | Δ adopt(a) | Δ df(a) | Δ em(a) | **Δ em(b)** |
+| Dataset | n_paired | Δ adopt(a) [95 % CI, pp] | Δ df(a) [95 % CI, pp] | Δ em(a) [95 % CI, pp] | **Δ em(b) [95 % CI, pp]** |
 |---|---:|---:|---:|---:|---:|
-| TallyQA | 4978 | -0.0057 | -0.0034 | **+0.0657** | **+0.1382** |
-| PlotQA | 2306 | -0.0562 | -0.0516 | **+0.0243** | **+0.0473** |
-| InfoVQA | 443 | +0.0095 | -0.0068 | **+0.0339** | **+0.0903** |
-| ChartQA | 224 | -0.0333 | -0.0402 | **+0.0402** | **+0.0714** |
-| MathVista | 170 | -0.0153 | -0.0412 | **+0.0294** | **+0.0941** |
-| **mean** |   | **-0.0202** | **-0.0286** | **+0.0387** | **+0.0883** |
+| TallyQA | 4,978 | −0.6 [−1.1, +0.0] | −0.3 [−1.3, +0.6] | **+6.6 [+5.6, +7.5]** | **+13.8 [+12.9, +14.8]** |
+| PlotQA | 2,306 | **−5.6 [−6.8, −4.4]** | **−5.2 [−6.9, −3.4]** | **+2.4 [+1.5, +3.4]** | **+4.7 [+3.8, +5.7]** |
+| InfoVQA | 443 | +0.9 [−0.5, +2.5] | −0.7 [−4.7, +3.4] | **+3.4 [+0.5, +6.3]** | **+9.0 [+6.3, +11.7]** |
+| ChartQA | 224 | **−3.3 [−6.0, −1.0]** | −4.0 [−9.8, +1.8] | **+4.0 [+0.0, +8.0]** | **+7.1 [+3.6, +10.7]** |
+| MathVista | 170 | −1.5 [−6.9, +3.7] | −4.1 [−11.8, +3.5] | +2.9 [−2.4, +8.2] | **+9.4 [+4.7, +14.7]** |
+| **mean** |   | **−2.0** | **−2.9** | **+3.9** | **+8.8** |
 
-**Verdict**: df reduction works (avg -2.9pp). em(a) **+3.9pp** *and* em(b) **+8.8pp** — both arms improve on the wrong-base subset where mitigation fires. This is a **free-lunch**: anchor pull goes down, exact-match goes up on both anchored and non-anchored arms. Earlier "em(a) -2.4pp cost" framing in this section was a hand-copy error and is retracted (corrected 2026-05-04 from `scripts/build_e6_stage4_summary.py`). Paper §7.4 needs re-framing to surface the em(b) +8.8pp recovery as the headline alongside df reduction (task #38).
+Bold = 95 % CI excludes 0 in headline direction (Δadopt/Δdf negative, Δem positive).
+
+**Sign-clean count (CI excludes 0 in metric's headline direction):**
+
+| Metric | 95 % CI | Bonferroni-20 corrected (99.75 %) CI |
+|---|:---:|:---:|
+| Δ adopt(a) (− direction) | 2 / 5 | 2 / 5 |
+| Δ df(a) (− direction) | 1 / 5 (PlotQA only) | 1 / 5 (PlotQA only) |
+| Δ em(a) (+ direction) | 3 / 5 | 2 / 5 (PlotQA, TallyQA) |
+| **Δ em(b)** (+ direction) | **5 / 5** | **5 / 5** |
+
+**Verdict (CI-augmented)**: df reduction works on point estimates (avg −2.9 pp), but only **PlotQA n=2,306** Δdf clears 95 % CI excludes 0; small-n cells (ChartQA n=224, MathVista n=170) have point-estimate magnitudes consistent with PlotQA but CI individually-inconclusive; **InfoVQA Δdf=−0.7 pp on n=443** has 95 % CI [−4.7, +3.4] — `inconclusive fence` confirmed with real CI numbers (sanity gate: half-width 0.0406 lands inside the paper's prior paired-Wilson estimate ~0.04–0.06). em(a) **+3.9 pp** *and* em(b) **+8.8 pp** — both arms improve on the wrong-base subset; **em(b) is the multiplicity-robust headline (5/5 sign-clean under both 95 % AND Bonferroni-20 corrected CIs)** — anchor pull drops *and* exact-match rises on both arms, with the non-anchored-arm em recovery being the paper's strongest single signal. Strict free-lunch on the wrong-base subset. Earlier "em(a) −2.4 pp cost" framing in this section was a hand-copy error and is retracted (corrected 2026-05-04 from `scripts/build_e6_stage4_summary.py`). Paper §6.2.3 / §7.4.5 reframed 2026-05-10 (P1-3) to lead with the b-arm Bonferroni-robust headline alongside the PlotQA-strong Δdf cell.
+
+**Pilot-grid context (2026-05-10, P1-6).** The (L=26, K=8, α=1.0) chosen cell is selected from a 27-cell pilot grid (L ∈ {25,26,27} × K ∈ {2,4,8} × α ∈ {0.5,1.0,2.0}) under the ex ante rule "reject Δem(a) ≤ −6 pp on either calibration dataset, then rank by combined |Δdf(a)|". On the actual pilot data the deal-breaker rule is **non-binding** (0 / 27 cells rejected) and the chosen cell ranks **first by combined |Δdf(a)|** with a 1.2 pp margin over runner-up — same ex ante rule on same pilot data does not select a different cell. Full 4-metric × 2-calibration heatmap: `docs/figures/E6_pilot_grid_{plotqa,infographicvqa}_heatmap.png`; canonical CSV `docs/insights/_data/E6_pilot_grid_27cells.csv`; insight cousin `docs/insights/E6-pilot-grid-aggregation.md`.
 
 ### A.3b Capability preservation regression (E8, 8-bench, 2026-05-09)
 
