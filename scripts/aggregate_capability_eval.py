@@ -157,6 +157,36 @@ def finalize(partial_csv: Path, partial_md: Path,
     return v
 
 
+def merge_finals(input_csvs: list[Path], output_csv: Path,
+                 output_md: Path) -> str:
+    """Combine multiple final CSVs into a single panel + recompute verdict.
+
+    Used when MME+AMBER (or other follow-up benchmarks) are run separately
+    after the original sweep and need to be folded into the headline panel
+    without re-running the existing benchmarks. Later inputs override earlier
+    inputs on duplicate benchmark names (so a re-run can supersede).
+    """
+    out_rows: dict[str, BenchRow] = {}
+    for csv_path in input_csvs:
+        for row in _read_rows(csv_path):
+            out_rows[row.name] = row
+    rows = list(out_rows.values())
+    deltas = {r.name: r.delta for r in rows if r.status == "OK"}
+    if not deltas:
+        v = "DEGRADED:no_complete_rows"
+    else:
+        macro = sum(deltas.values()) / len(deltas)
+        v = verdict(deltas, macro)
+    write_partial(rows, output_csv, output_md)
+    with output_md.open("a") as f:
+        if deltas:
+            f.write(f"\n**Macro Δ:** {sum(deltas.values())/len(deltas)*100:+.2f}pp")
+        else:
+            f.write("\n**Macro Δ:** N/A")
+        f.write(f"\n\n**Verdict:** `{v}`\n")
+    return v
+
+
 def _read_rows(csv_path: Path) -> list[BenchRow]:
     rows = []
     with csv_path.open() as f:
@@ -186,6 +216,15 @@ def _cli_finalize(args):
     return 0 if v == "STRICT_FREE_LUNCH" else 1
 
 
+def _cli_merge(args):
+    v = merge_finals(
+        [Path(p) for p in args.input],
+        Path(args.output_csv), Path(args.output_md),
+    )
+    print(f"Verdict: {v}")
+    return 0 if v == "STRICT_FREE_LUNCH" else 1
+
+
 def main():
     p = argparse.ArgumentParser()
     sub = p.add_subparsers(dest="cmd", required=True)
@@ -195,6 +234,15 @@ def main():
     fin.add_argument("--final-csv", required=True)
     fin.add_argument("--final-md", required=True)
     fin.set_defaults(func=_cli_finalize)
+
+    mrg = sub.add_parser("merge",
+        help="Merge multiple final CSVs into a single panel + recompute verdict.")
+    mrg.add_argument("--input", action="append", required=True,
+                     help="Path to a final CSV; pass once per file (>=1).")
+    mrg.add_argument("--output-csv", required=True)
+    mrg.add_argument("--output-md", required=True)
+    mrg.set_defaults(func=_cli_merge)
+
     args = p.parse_args()
     raise SystemExit(args.func(args))
 

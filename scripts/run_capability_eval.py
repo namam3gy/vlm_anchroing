@@ -119,7 +119,19 @@ def _run_one_variant_bench(variant: str, bench_name: str, cfg: dict,
 
         # Score the predictions; extract scalar accuracy + per-question correctness.
         # evaluate() writes side-files we later read for per-question correctness.
-        dataset.evaluate(str(preds_path))
+        # Some VLMEvalKit benchmark-rating helpers (MME pair-based
+        # acc/acc_plus, AMBER category averaging) compute aggregate stats
+        # AFTER writing the per-question side-file. A failure there (e.g.
+        # MME pair indexing on a sub-sample with broken pair structure)
+        # does NOT invalidate the per-question scores we actually consume.
+        # Proceed; _extract_acc_and_correct raises FileNotFoundError if the
+        # expected side-file is genuinely absent.
+        try:
+            dataset.evaluate(str(preds_path))
+        except Exception as e:
+            _log(progress_log,
+                 f"  evaluate() raised {type(e).__name__} after side-file write; "
+                 f"continuing to read per-question side-file: {e}")
         acc, correct = _extract_acc_and_correct(dataset, preds_path)
         _log(progress_log,
              f"END   {variant} × {bench_name}  n={len(correct)}  acc={acc*100:.2f}")

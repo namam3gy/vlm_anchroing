@@ -1,0 +1,25 @@
+# E8 follow-up — MME + AMBER on the same chosen cell L=26 K=8 α=1.0.
+# Runs only the two new benchmarks; the resulting final CSV will be merged
+# into the original 6-row panel with `aggregate_capability_eval.py merge`.
+#
+# Fast-first ordering: MME 2374 → AMBER 14216.
+
+subspace_path: outputs/e6_steering/llava-onevision-qwen2-7b-ov/_subspace/subspace_plotqa_infovqa_pooled_n5k_K16.pt
+
+cell:
+  layer: 26
+  K: 8
+  alpha: 1.0
+
+benchmarks:
+  - MME           # 2374, accuracy (Y/N) — count subset directly tests number-anchor failure mode
+  - AMBER         # 14216, accuracy (Y/N) — multi-dim hallucination, contamination-clean Nov 2023
+
+# vlmeval LLaVA_OneVision_HF constructor kwargs.
+vlm_kwargs:
+  model_path: llava-hf/llava-onevision-qwen2-7b-ov-hf
+
+output_root: outputs/capability_eval_mme_amber
+
+partial_csv: docs/insights/_data/capability_eval_mme_amber_partial.csv
+final_csv: docs/insights/_data/capability_eval_mme_amber_per_benchmark.csv
