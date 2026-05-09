@@ -278,6 +278,36 @@ If both land positive, the paper's *이론적* contribution graduates from "we f
 
 ---
 
+### P3-11 · OneVision Main model backfill on legacy panels (Tables 2 + 3)
+
+**What.** OneVision Main이 §4.1 Table 2 (legacy 7-model VQAv2 panel) 와 §4.2 Table 3 (E5c digit-pixel 3-model panel × VQAv2 + TallyQA) 에서 부재. 두 panel 모두 Phase-1 이전 reference이므로 OneVision 미실행은 *historical artefact*이지만, Main model이 본문 핵심 표에서 *행으로* 등장하지 않는 것은 reader confusion (§4.3 Table 4에서 등장하더라도 §4.1 / §4.2 첫 노출에서 행 부재). 두 backfill로 close:
+1. **OneVision × VQAv2 (b/a/d) full panel** — 17,730 base × 3 cond, ~30-45 min H200. 결과를 Table 2 추가 행으로.
+2. **OneVision × VQAv2 + TallyQA E5c (b/a/m/d × S1)** — VQAv2 ~17k base, TallyQA stratified ~5k base. 각 ~30 min H200. 결과를 Table 3 추가 행으로.
+
+**Why.** (i) Main model을 legacy 표에서도 *행으로 등장*시켜 reader가 §4 처음부터 OneVision Main을 추적 가능; (ii) E5c digit-pixel test는 §6.2.1의 (a − m) calibration 설계 정당화 (paired-inpaint causal isolation) 의 가장 cleanest 행동 측 검증인데, Main model에서 직접 측정된 적이 없음 (§F.3은 5-strata × chart-stack 4 dataset, 본 paper의 핵심 stimulus inventory인 VQAv2 / TallyQA는 누락); (iii) bar-raiser의 §1.5 (5) "single-model case study" hedge가 현재 본문 §4 multi-model panel에는 적용되지 않지만, *legacy panel에 Main이 빠져 있으므로* main-model coverage gap이 다른 형태로 노출됨.
+
+**How.** 기존 driver `scripts/run_experiment.py` + 기존 stimulus inventory (a, m, d) + 기존 E5c config 재활용. 새 코드 0줄.
+
+**Estimate.** ~1-1.5 H200-day (3 dataset × OneVision × ~30-45 min/cell).
+
+**Deliverable.**
+- `outputs/experiment_vqav2_onevision/<ts>/` — Table 2 추가 행 데이터.
+- `outputs/experiment_e5c_vqa_onevision/<ts>/` + `outputs/experiment_e5c_tally_onevision/<ts>/` — Table 3 VQAv2/TallyQA OneVision (a, m) cell 데이터.
+- Table 2 + Table 3에 OneVision 행 추가; placeholder *(plan)* 항목 닫음.
+
+**Acceptance criteria.**
+- (a) OneVision × VQAv2 `df(a)` 가 Table 2 panel 내에서 합리적 위치 — 예측: Phase-1 main matrix에서의 OneVision susceptibility ranking (susceptibility 4위 / 6 model) 으로 추론하면 0.10-0.18 범위 (Gemma3-27b 0.167 ~ Qwen3-VL-30b 0.170 사이). 실측이 이 예측과 1 σ 안.
+- (b) OneVision × VQAv2/TallyQA wrong-base S1 (a − m) gap > 0 (digit-pixel causal). §F.3의 chart-stack 4 dataset에서 (a − m) ∈ {+0.7, +1.4, +6.2, +6.6} pp, 따라서 VQAv2/TallyQA 도 양 예상.
+- (c) Table 2 / Table 3 placeholder `(plan)` 표시가 numeric 값으로 대체됨.
+
+**Owner.** thyun.park.
+
+**Dependency.** None (existing driver + stimulus + config).
+
+**Source priority.** Plan §C.1 (P3-11) 로 register; P0 / P1 보다 낮은 우선순위 (paper의 *load-bearing claim*은 §4.3 main matrix + §4.4 L1 + §4.2 (a − m) gap 이며 legacy panel은 reference) 이지만 *paper readability*에 직접 영향 — 정책에 따라 P3 sprint 시작 시 가장 cheap한 항목으로 우선 실행.
+
+---
+
 ## P4 — Future submissions (out-of-scope for current paper)
 
 ### P4-11 · Bonferroni-20 correction on Table 6 paired-test family
