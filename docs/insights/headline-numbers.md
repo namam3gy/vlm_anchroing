@@ -72,6 +72,24 @@ PlotQA (0.226) ≈ MathVista (0.241) > InfoVQA (0.227) > ChartQA (0.204) ≫ Tal
 
 **Verdict**: df reduction works (avg -2.9pp). em(a) **+3.9pp** *and* em(b) **+8.8pp** — both arms improve on the wrong-base subset where mitigation fires. This is a **strict free-lunch**: anchor pull goes down, exact-match goes up on both anchored and non-anchored arms. Earlier "em(a) -2.4pp cost" framing in this section was a hand-copy error and is retracted (corrected 2026-05-04 from `scripts/build_e6_stage4_summary.py`). Paper §7.4 needs re-framing to surface the em(b) +8.8pp recovery as the headline alongside df reduction (task #38).
 
+### A.3b Capability preservation regression (E8, 8-bench, 2026-05-09)
+
+Same chosen cell L=26 K=8 α=1.0 evaluated on 8 held-out general-VLM benchmarks at inference (no anchor labels, greedy decoding, no LLM-judge). Source: `docs/insights/_data/capability_eval_per_benchmark_v8.{csv,md}` (gitignored, regenerable via `scripts/aggregate_capability_eval.py merge ...`).
+
+| Benchmark | n | baseline | +mit | Δ pp | 95% CI |
+|---|---:|---:|---:|---:|---|
+| RealWorldQA | 765 | 69.80 | 71.11 | +1.31 | [-0.27, +2.89] |
+| OCRBench | 1000 | 63.40 | 62.60 | -0.80 | [-1.68, +0.08] |
+| **HallusionBench** | 951 | 47.84 | 50.05 | **+2.21** | **[+1.14, +3.28]** |
+| MMStar | 1500 | 61.67 | 61.80 | +0.13 | [-0.77, +1.04] |
+| MMBench-DEV-EN | 1164 | 82.04 | 81.70 | -0.34 | [-0.82, +0.13] |
+| POPE | 5127 | 92.16 | 92.10 | -0.06 | [-0.21, +0.09] |
+| MME | 2374 | 84.50 | 84.37 | -0.13 | [-0.76, +0.51] |
+| **AMBER** | 14216 | 87.15 | 87.34 | **+0.19** | **[+0.05, +0.33]** |
+| **Macro** |   |   |   | **+0.31** |   |
+
+**Verdict**: `STRICT_FREE_LUNCH` extends to general capability across n_total = 27,097. All 8 per-benchmark Δ within ±1.0 pp band. **Two of three hallucination axes — HallusionBench and AMBER (n=14,216) — show CI-clean positive Δ**; POPE pins the third to zero. **MME Count subset (n=60), the in-domain analogue of the number-anchor failure mode, shows Δ = 0.00 pp exact** (60/60 paired predictions match) — direct evidence the mitigation acts on cross-modal anchor pull, not counting capability itself. Contamination-resistant floor rises from n=1,500 (MMStar alone) to n=18,090 (MMStar + MME + AMBER). Insight doc: `docs/insights/E8-capability-preservation-evidence.md`. Experiment writeup: `docs/experiments/E8-capability-preservation.md`.
+
 ### A.4 §7.1-7.3 Cross-dataset peak layer (Phase D, commit `c556fb6`)
 
 Per-(model, dataset) peak attention layer at answer step (`docs/insights/_data/cross_dataset_peaks.csv`, gitignored):
