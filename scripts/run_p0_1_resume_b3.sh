@@ -40,6 +40,7 @@ uv run python scripts/e6_steering_vector.py \
     --model qwen3-vl-8b-instruct \
     --hf-model Qwen/Qwen3-VL-8B-Instruct \
     --e5c-run-dir "$PLOTQA_RUN_DIR" \
+    --predictions-path "$PLOTQA_PRED" \
     --config configs/p0_1_calibration_qwen3vl_plotqa.yaml \
     --dataset-tag plotqa \
     --max-calibrate-pairs 5000 \
@@ -55,6 +56,7 @@ uv run python scripts/e6_steering_vector.py \
     --model qwen3-vl-8b-instruct \
     --hf-model Qwen/Qwen3-VL-8B-Instruct \
     --e5c-run-dir "$INFOVQA_RUN_DIR" \
+    --predictions-path "$INFOVQA_PRED" \
     --config configs/p0_1_calibration_qwen3vl_infovqa.yaml \
     --dataset-tag infovqa \
     --max-calibrate-pairs 5000 \
