@@ -27,33 +27,37 @@ if [ ! -f "$INFOVQA_PRED" ]; then
     exit 1
 fi
 
+# Compute run_dir parents (e5c-run-dir = parent of predictions.jsonl)
+PLOTQA_RUN_DIR=$(dirname "$PLOTQA_PRED")
+INFOVQA_RUN_DIR=$(dirname "$INFOVQA_PRED")
+
 # ---------------------------------------------------------------------------
-# B3a: calibrate-subspace plotqa
+# B3a: calibrate-subspace plotqa  (single-GPU direct invocation)
 # ---------------------------------------------------------------------------
 echo "[$(ts)] === B3a: calibrate-subspace plotqa ==="
-uv run python scripts/run_calibrate_subspace_sharded.py \
-    --config configs/p0_1_calibration_qwen3vl_plotqa.yaml \
+uv run python scripts/e6_steering_vector.py \
+    --phase calibrate-subspace \
     --model qwen3-vl-8b-instruct \
     --hf-model Qwen/Qwen3-VL-8B-Instruct \
-    --predictions-path "$PLOTQA_PRED" \
+    --e5c-run-dir "$PLOTQA_RUN_DIR" \
+    --config configs/p0_1_calibration_qwen3vl_plotqa.yaml \
     --dataset-tag plotqa \
     --max-calibrate-pairs 5000 \
-    --gpus 0 \
     > "$E6_LOGS/_calibrate_plotqa.log" 2>&1
 echo "[$(ts)] B3a done"
 
 # ---------------------------------------------------------------------------
-# B3b: calibrate-subspace infovqa
+# B3b: calibrate-subspace infovqa  (single-GPU direct invocation)
 # ---------------------------------------------------------------------------
 echo "[$(ts)] === B3b: calibrate-subspace infovqa ==="
-uv run python scripts/run_calibrate_subspace_sharded.py \
-    --config configs/p0_1_calibration_qwen3vl_infovqa.yaml \
+uv run python scripts/e6_steering_vector.py \
+    --phase calibrate-subspace \
     --model qwen3-vl-8b-instruct \
     --hf-model Qwen/Qwen3-VL-8B-Instruct \
-    --predictions-path "$INFOVQA_PRED" \
+    --e5c-run-dir "$INFOVQA_RUN_DIR" \
+    --config configs/p0_1_calibration_qwen3vl_infovqa.yaml \
     --dataset-tag infovqa \
     --max-calibrate-pairs 5000 \
-    --gpus 0 \
     > "$E6_LOGS/_calibrate_infovqa.log" 2>&1
 echo "[$(ts)] B3b done"
 
