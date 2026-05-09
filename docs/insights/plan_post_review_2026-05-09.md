@@ -278,33 +278,49 @@ If both land positive, the paper's *이론적* contribution graduates from "we f
 
 ---
 
-### P3-11 · OneVision Main model backfill on legacy panels (Tables 2 + 3)
+### P3-11 · VQAv2 single-dataset depth panel — Main backfill + cross-panel consistency
 
-**What.** OneVision Main이 §4.1 Table 2 (legacy 7-model VQAv2 panel) 와 §4.2 Table 3 (E5c digit-pixel 3-model panel × VQAv2 + TallyQA) 에서 부재. 두 panel 모두 Phase-1 이전 reference이므로 OneVision 미실행은 *historical artefact*이지만, Main model이 본문 핵심 표에서 *행으로* 등장하지 않는 것은 reader confusion (§4.3 Table 4에서 등장하더라도 §4.1 / §4.2 첫 노출에서 행 부재). 두 backfill로 close:
-1. **OneVision × VQAv2 (b/a/d) full panel** — 17,730 base × 3 cond, ~30-45 min H200. 결과를 Table 2 추가 행으로.
-2. **OneVision × VQAv2 + TallyQA E5c (b/a/m/d × S1)** — VQAv2 ~17k base, TallyQA stratified ~5k base. 각 ~30 min H200. 결과를 Table 3 추가 행으로.
+**Decision context (2026-05-09 user pass).** VQAv2 drop vs keep 결정에서 *keep*으로 reposition: VQAv2가 main matrix의 *cross-dataset breadth*와 *상보적인 single-dataset depth* axis (n=17,730 per model, paper 내 최대 n) 를 운반하며, "legacy panel" framing은 의도적 *single-dataset depth panel*로 격상. Tables 2 + 3에 Main model (OneVision) 부재는 reader confusion + cross-panel inconsistency를 만들므로 backfill 필수.
 
-**Why.** (i) Main model을 legacy 표에서도 *행으로 등장*시켜 reader가 §4 처음부터 OneVision Main을 추적 가능; (ii) E5c digit-pixel test는 §6.2.1의 (a − m) calibration 설계 정당화 (paired-inpaint causal isolation) 의 가장 cleanest 행동 측 검증인데, Main model에서 직접 측정된 적이 없음 (§F.3은 5-strata × chart-stack 4 dataset, 본 paper의 핵심 stimulus inventory인 VQAv2 / TallyQA는 누락); (iii) bar-raiser의 §1.5 (5) "single-model case study" hedge가 현재 본문 §4 multi-model panel에는 적용되지 않지만, *legacy panel에 Main이 빠져 있으므로* main-model coverage gap이 다른 형태로 노출됨.
+**What.** 두 tier로 분할:
+
+**Tier 1 (필수, ~1.5 H200-day):**
+1. **OneVision × VQAv2 (b/a/d) full panel** — 17,730 base × 3 cond, ~30-45 min H200. 결과 → Table 2 8-model panel 완성.
+2. **OneVision × VQAv2 E5c (b/a/m/d × S1)** — ~17k base × 4 cond, ~30 min H200. 결과 → Table 3 VQAv2 OneVision 행.
+3. **OneVision × TallyQA E5c (b/a/m/d × S1)** — stratified ~5k base × 4 cond, ~30 min H200. 결과 → Table 3 TallyQA OneVision 행.
+
+**Tier 2 (cross-panel consistency, ~3 H200-day, 선택):**
+Main matrix 6 model 중 VQAv2 panel에 부재한 3 model을 VQAv2에 추가하여 *11-model panel* 구성:
+4. Gemma3-4b × VQAv2 (b/a/d) — ~30 min H200
+5. InternVL3-8b × VQAv2 (b/a/d) — ~30 min H200
+6. Qwen2.5-VL-32B × VQAv2 (b/a/d) — ~1-2 h H200
+
+→ VQAv2 panel이 legacy 7 + OneVision + main matrix 3 = **11-model breadth × n=17,730 depth**로 paper 내 *최대 single-dataset comprehensive panel*이 됨; main matrix와의 *모델 overlap* 완성으로 cross-panel 정합 의문 제거.
+
+**Tier 3 (Out of scope — *do not run*):** VQAv2 strengthen-prompt / VQAv2 4-cond (b/a/m/d) 확장 등은 §A 부록의 caveat에 이미 처리되었고, 정성적 신규 발견 추가 없음.
+
+**Why.** (i) Main model이 §4.1 / §4.2 첫 노출 panel에서 *행으로* 등장 — reader가 §4 처음부터 OneVision Main 추적 가능; (ii) E5c VQAv2 wrong-base S1 (a − m) gap +6.1 pp (llava-interleave) 는 paper의 *가장 clean한 digit-pixel causality* 측정 (S1 absolute cutoff, scene-level confound 직접 falsify) 인데 Main model 측정 부재 — §F.3 chart-stack 4 dataset cover하지만 VQAv2 absolute cutoff 측정의 *깊이*가 다름; (iii) "VQAv2 안 썼나" reviewer 의문 사전 차단 — VQA의 정전 benchmark 부재는 reviewer comfort 손상; (iv) 11-model panel은 *legacy + main matrix overlap* 으로 cross-panel 정합 강화 (gemma4-31b / qwen3-vl-30b 같은 legacy-only model의 narrative 연결 부족 약점 부분 close).
+
+**Paper-side reframe (병행).** §4.1 (Korean main + 영문 §5.1) 의 "legacy 7-model VQAv2 panel" → "**VQAv2 single-dataset depth panel** (n=17,730 per model, Tier 1 후 8-model / Tier 2 후 11-model)" 로 *의도적 selection*임을 명시. 한 줄 정당화 추가: "VQAv2는 본 논문 panel 내 *최대 single-dataset n*을 운반하며, main matrix의 5-dataset breadth와 *상보적인 single-dataset depth* axis로 사용; Phase-A H2 binary projection / (a − m) digit-pixel gap / L1 quartile gradient의 *replication depth*가 가장 높은 panel."
 
 **How.** 기존 driver `scripts/run_experiment.py` + 기존 stimulus inventory (a, m, d) + 기존 E5c config 재활용. 새 코드 0줄.
 
-**Estimate.** ~1-1.5 H200-day (3 dataset × OneVision × ~30-45 min/cell).
+**Estimate.** Tier 1 ~1.5 H200-day; Tier 2 추가 ~3 H200-day; 합 ~4.5 H200-day if both. Tier 1만으로도 Tables 2 + 3 OneVision gap 완전 close; Tier 2는 cross-panel polish.
 
 **Deliverable.**
-- `outputs/experiment_vqav2_onevision/<ts>/` — Table 2 추가 행 데이터.
-- `outputs/experiment_e5c_vqa_onevision/<ts>/` + `outputs/experiment_e5c_tally_onevision/<ts>/` — Table 3 VQAv2/TallyQA OneVision (a, m) cell 데이터.
-- Table 2 + Table 3에 OneVision 행 추가; placeholder *(plan)* 항목 닫음.
+- Tier 1: `outputs/experiment_vqav2_onevision/<ts>/`, `outputs/experiment_e5c_vqa_onevision/<ts>/`, `outputs/experiment_e5c_tally_onevision/<ts>/`. Tables 2 + 3 OneVision 행으로 placeholder *(plan)* 닫음.
+- Tier 2: `outputs/experiment_vqav2_<gemma3_4b|internvl3_8b|qwen2.5vl_32b>/<ts>/`. Table 2를 8-model → 11-model panel로 확장.
+- §4.1 prose reframe — "legacy" 표현 삭제, "single-dataset depth panel" framing.
 
 **Acceptance criteria.**
-- (a) OneVision × VQAv2 `df(a)` 가 Table 2 panel 내에서 합리적 위치 — 예측: Phase-1 main matrix에서의 OneVision susceptibility ranking (susceptibility 4위 / 6 model) 으로 추론하면 0.10-0.18 범위 (Gemma3-27b 0.167 ~ Qwen3-VL-30b 0.170 사이). 실측이 이 예측과 1 σ 안.
-- (b) OneVision × VQAv2/TallyQA wrong-base S1 (a − m) gap > 0 (digit-pixel causal). §F.3의 chart-stack 4 dataset에서 (a − m) ∈ {+0.7, +1.4, +6.2, +6.6} pp, 따라서 VQAv2/TallyQA 도 양 예상.
-- (c) Table 2 / Table 3 placeholder `(plan)` 표시가 numeric 값으로 대체됨.
+- Tier 1: (a) OneVision × VQAv2 `df(a)` ∈ [0.10, 0.18] 범위 (main matrix susceptibility 4위 ranking에서 추론, Gemma3-27b 0.167 ~ Qwen3-VL-30b 0.170 사이 예상). (b) OneVision × VQAv2/TallyQA wrong-base S1 (a − m) gap > 0 (§F.3의 chart-stack +0.7 ~ +6.6 pp prior). (c) Tables 2 + 3 placeholder *(plan)* numeric 값으로 대체.
+- Tier 2: 추가 3 model이 panel에 합리적 위치 (예: gemma3-4b가 main matrix에서 가장 susceptible — VQAv2에서도 상위 expected).
 
 **Owner.** thyun.park.
 
-**Dependency.** None (existing driver + stimulus + config).
+**Dependency.** None. 기존 driver / stimulus / config.
 
-**Source priority.** Plan §C.1 (P3-11) 로 register; P0 / P1 보다 낮은 우선순위 (paper의 *load-bearing claim*은 §4.3 main matrix + §4.4 L1 + §4.2 (a − m) gap 이며 legacy panel은 reference) 이지만 *paper readability*에 직접 영향 — 정책에 따라 P3 sprint 시작 시 가장 cheap한 항목으로 우선 실행.
+**Priority.** Tier 1은 P3 sprint 시작 시 *가장 우선* 실행 — 기존 driver에 새 코드 없고 paper-readability 직접 영향. Tier 2는 Tier 1 완료 후 *최종 polish* 시 결정.
 
 ---
 
