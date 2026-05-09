@@ -47,7 +47,16 @@
 
 ---
 
-### P0-2 · Eigenvalue spectrum of `D[:, L, :]` — per-layer integration check
+### P0-2 · Eigenvalue spectrum of `D[:, L, :]` — per-layer integration check ✅ shipped 2026-05-09 (graceful-degradation outcome)
+
+**Status.** Both pre-registered acceptance criteria FAIL. Outcome corresponds to plan's "(a only / b only / neither) graceful degradation" branch. Full evidence + paper-update implications at [`docs/insights/P0-2-eigenvalue-spectrum-evidence.md`](P0-2-eigenvalue-spectrum-evidence.md). Headlines:
+- (a) Rank-8 elbow at L=26: `sv_7/sv_8 = 1.019` (threshold 1.5 — FAIL); `EV@K8 = 0.213` (threshold 0.70 — FAIL). No localized K=8 gap at any of 28 layers.
+- (b) Effective rank monotonic decrease L=10 → final: **INVERTED** — Shannon `eff_rank` *increases* L=10 (1399) → L=26 (1713, +22 %); only drops at L=27 (LM-head compression). Participation ratio and stable rank confirm the direction.
+- L=26 is the **maximum-dispersion** site, not a low-rank integration site. New spectrally-grounded prediction: single-direction interventions (CAA K=1, ITI) cannot capture all anchor variance — empirical follow-on is P1-4.
+
+**Original spec preserved below for audit.**
+
+
 
 **What.** Compute and plot the singular value spectrum of the (a − m) calibration difference matrix at L=26 (PlotQA + InfoVQA pooled N=5,000) AND at a sweep of layers `L ∈ {10, 14, 18, 22, 26, 28}`. Identify (i) rank-K elbow at L=26, and (ii) whether anchor variance becomes *more concentrated* (lower effective rank, sharper elbow) at later layers.
 
