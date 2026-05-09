@@ -1,5 +1,26 @@
 # §7.4 — Mitigation: a "free-lunch" attention re-weighting
 
+> **2026-05-10 update — Phase 5 P1-3 + P1-6 R4 follow-ups landed.**
+> Paired-bootstrap CI (B = 10,000, sid-paired resampling, per-arm
+> denominator/numerator recomputed each bootstrap) added to Table 6 in
+> `docs/paper/emnlp_draft_ko.md` §6.2.3 + sister-section
+> `docs/paper/sections/07_mechanism_mitigation.md`. **Headline reframed
+> Δdf-led → Δem(b)-led** — Δem(b) is the only metric whose 5/5 sign-clean
+> status survives Bonferroni-20 corrected (99.75 %, family = 5 × 4 = 20)
+> CIs; Δdf(a) is sample-size-bound to PlotQA n=2,306 as the only
+> 95 % CI-strong cell (point-estimate sign consistent on 5/5 but small-n
+> CIs individually-inconclusive on 4/5; InfoVQA Δdf 95 % CI [−4.7, +3.4]
+> confirms the inconclusive fence with real CI numbers — sanity gate:
+> half-width 0.0406 ∈ paper's prior paired-Wilson estimate ~0.04–0.06).
+> 27-cell pilot grid 4-metric heatmap aggregation (P1-6) surfaced in
+> §A.5; em-deal-breaker rule **non-binding** on the grid (0/27 rejected);
+> chosen cell #17 ranks 1st by combined |Δdf(a)| under the same ex ante
+> rule with 1.2 pp margin — direct response to cherry-pick concern.
+> Closes R4 MAJ-4 + R4 MAJ-6 + R4 CRIT-2. Generators:
+> `scripts/build_e6_stage4_bootstrap_ci.py` + `scripts/aggregate_e6_pilot_grid.py`.
+> Insight cousins: `docs/insights/E6-stage4-paired-bootstrap-ci.md` +
+> `docs/insights/E6-pilot-grid-aggregation.md`.
+>
 > **2026-05-04 update — paper §7.4.5 rewrite landed (task #38 done).**
 > The em(a) +3.9 pp benefit + em(b) +8.8 pp recovery free-lunch
 > finding from `docs/insights/headline-numbers.md §A.3` is now the paper
