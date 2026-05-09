@@ -1,0 +1,43 @@
+seed: 42
+output_root: outputs/p0_1_calibration_qwen3vl
+
+# P0-1 Phase B calibration: Qwen3-VL-Instruct on PlotQA test V1 numeric subset.
+# Produces predictions.jsonl that scripts/e6_steering_vector.py --phase calibrate-subspace
+# consumes to extract per-pair (a-S1, m-S1) residual diffs at all LM layers,
+# then builds the V_K[L=33] (a-m) wrong-base D-matrix anchor subspace.
+
+vqa_dataset:
+  local_path: inputs/plotqa_test
+  answer_range: 10000
+  max_samples: 5000
+  samples_per_answer: 1000
+  require_single_numeric_gt: true
+
+inputs:
+  irrelevant_number_dir: inputs/irrelevant_number
+  irrelevant_number_masked_dir: inputs/irrelevant_number_masked
+  irrelevant_neutral_dir: inputs/irrelevant_neutral
+  anchor_sampling: stratified
+  stratified_extras: ["masked", "neutral"]
+  anchor_distance_scheme: relative_s1   # b/a-S1/m-S1/d only — |a − GT| ≤ max(1, 0.10·GT)
+
+models:
+  - name: qwen3-vl-8b-instruct
+    hf_model: Qwen/Qwen3-VL-8B-Instruct
+
+sampling:
+  temperature: 0.0
+  top_p: 1.0
+  max_new_tokens: 16
+
+prompt:
+  system: |
+    You are a visual question answering system.
+    Return valid JSON only in the form {"result": <number>}.
+    Use a numeric JSON value for <number>, not a string.
+    Do not output any other keys, words, explanation, or markdown.
+    If uncertain, still output the single most likely number in that JSON format.
+  user_template: |
+    Answer the question using the provided image(s).
+    Return JSON only in the form {"result": <number>}.
+    Question: {question}
