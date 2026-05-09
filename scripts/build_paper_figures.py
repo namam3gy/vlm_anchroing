@@ -99,16 +99,28 @@ def fig_M2_variant_comparison() -> Path:
 
 
 def fig_L1_confidence_quartile() -> Path:
-    """Line chart: per-quartile adopt/df trend on the canonical entropy proxy."""
-    df = pd.read_csv(DATA_DIR / "L1_confidence_quartile_long.csv")
-    sub = df[
-        (df["proxy"] == "entropy_top_k")
-        & (df["cond_class"] == "a")
-        & (df["stratum"].isin(["S0", "S1"]))
-    ]
+    """Line chart: per-quartile adopt/df trend on the worked-example cell.
 
-    by_q_adopt = sub.groupby("quartile")["adopt_rate"].mean().reindex(["Q1", "Q2", "Q3", "Q4"])
-    by_q_df = sub.groupby("quartile")["direction_follow_rate"].mean().reindex(["Q1", "Q2", "Q3", "Q4"])
+    Plots the canonical worked example used in paper §6.2 / emnlp_draft_ko
+    Figure 5 caption: E5c VQAv2 S1 anchor arm × LLaVA-Interleave-7b ×
+    cross_entropy. Same row as the §6.2 table, so the figure and table tell
+    the same story. Source CSV row regenerated 2026-05-04 against
+    L1_confidence_quartile_long.csv.
+    """
+    df = pd.read_csv(DATA_DIR / "L1_confidence_quartile_long.csv")
+    cell = df[
+        (df["experiment"] == "experiment_e5c_vqa")
+        & (df["dataset"] == "VQAv2")
+        & (df["model"] == "llava-next-interleaved-7b")
+        & (df["cond_class"] == "a")
+        & (df["stratum"] == "S1")
+        & (df["proxy"] == "cross_entropy")
+    ].set_index("quartile")
+    if cell.empty:
+        raise RuntimeError("worked-example row missing from L1_confidence_quartile_long.csv")
+
+    by_q_adopt = cell["adopt_rate"].reindex(["Q1", "Q2", "Q3", "Q4"])
+    by_q_df = cell["direction_follow_rate"].reindex(["Q1", "Q2", "Q3", "Q4"])
 
     fig, ax = plt.subplots(figsize=(10, 5.5), dpi=150)
     x = np.arange(4)
@@ -117,8 +129,8 @@ def fig_L1_confidence_quartile() -> Path:
     ax.plot(x, by_q_df.values, "--s", color=ACCENT_GOLD, lw=3, ms=10,
             label="direction_follow_rate (M2)")
     for i, (a, d) in enumerate(zip(by_q_adopt.values, by_q_df.values)):
-        ax.text(i, a + 0.005, f"{a:.3f}", ha="center", fontsize=10, color=NAVY)
-        ax.text(i, d + 0.005, f"{d:.3f}", ha="center", fontsize=10, color=ACCENT_GOLD)
+        ax.text(i, a + 0.008, f"{a:.3f}", ha="center", fontsize=10, color=NAVY)
+        ax.text(i, d + 0.008, f"{d:.3f}", ha="center", fontsize=10, color=ACCENT_GOLD)
 
     ax.set_xticks(x)
     ax.set_xticklabels([
@@ -127,12 +139,12 @@ def fig_L1_confidence_quartile() -> Path:
         "Q3",
         "Q4\n(least confident)",
     ])
-    ax.set_ylabel("rate (mean over signal-bearing cells)")
-    ax.set_title("L1 — Confidence-modulated anchoring (entropy_top_k proxy, S0/S1)\n"
-                 "Less confident base → more anchor pull (graded)")
+    ax.set_ylabel("rate (M2, E5c VQAv2 S1 worked example)")
+    ax.set_title("L1 — Confidence-modulated anchoring (cross_entropy proxy)\n"
+                 "Less confident base → more anchor pull (graded gradient, not threshold)")
     ax.legend(loc="upper left", frameon=False)
     ax.grid(axis="y", linestyle=":", alpha=0.4)
-    ax.set_ylim(0, max(by_q_adopt.max(), by_q_df.max()) * 1.4)
+    ax.set_ylim(0, max(by_q_adopt.max(), by_q_df.max()) * 1.35)
     fig.tight_layout()
     out = FIG_DIR / "paper_L1_confidence_quartile.png"
     fig.savefig(out, bbox_inches="tight")

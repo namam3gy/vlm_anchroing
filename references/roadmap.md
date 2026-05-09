@@ -404,7 +404,7 @@ landed (commit `c556fb6`). Phase E E1d 4/4 landed (commits `7a27750` +
 |---|---|---|---|
 | **P1** | E5b/c (5-stratum + digit-mask) on PlotQA + InfoVQA × 3-model panel | §6.3 §5 | ~10h wall |
 | **P1** | E5b/c on ChartQA + MathVista × 3-model panel (currently absent) | §6.3 §5 | ~10h wall |
-| **P1** | §6 confidence-modulated reaggregation across new 5-dataset matrix | §6.4 | reaggregation only |
+| ~~**P1**~~ | ~~§6 confidence-modulated reaggregation across new 5-dataset matrix~~ | ~~§6.4~~ | ✅ landed 2026-05-10 (branch `paper/p4-13-section6-reaggregation`) — L1_*.csv was already on the 5-dataset × 7-model panel; this pass closes the figure + paper-prose drift left over. Fixes: (i) `paper_L1_confidence_quartile.png` regen against `cross_entropy` proxy (was filtering on the renamed/absent `entropy_top_k`); (ii) §6.2 worked-example table in `docs/paper/sections/06_confidence.md` (Q2/Q3/Q4 numbers + "wrong-base S1" mislabel — the CSV cell is all-base by quartile); (iii) §6.3 adopt/df gradient inline numbers on the same cell; (iv) emnlp_draft_ko §4.4 Insight 2 same gradient + made the worked-example cell explicit; (v) L1 evidence doc historical banner pointing readers to §2.E for canonical 5-dataset numbers. Verified γ-β ×12.7 (§6.5) + InternVL3 reversal table (§6.6) + headline +0.156 cross_entropy / 51 of 85 log_prob_sum (§6.4) all already match canonical CSV. |
 
 ### Phase 3 — mechanism-Main alignment (E1-patch / E4 / Main)
 
@@ -534,6 +534,39 @@ contingent on P0-1 bridge experiment.
   `predictions.jsonl` only.
 
 ## 10. Changelog
+
+- **2026-05-10 (§6 confidence reaggregation drift fix — P4-13).** Branch
+  `paper/p4-13-section6-reaggregation`. The L1_confidence_quartile_long.csv
+  + L1_proxy_*.csv canonical artefacts already covered the 5-dataset ×
+  7-model main matrix from the 2026-05-04 reaggregation; this pass
+  closes the figure + paper-prose drift that survived. (1) Audit trail
+  built against canonical CSV: γ-β ×12.7 (§6.5), InternVL3 reversal
+  table (§6.6), headline +0.156 cross_entropy / 51 of 85 log_prob_sum
+  monotone cells (§6.4) all match — no edits needed. (2) Drift fixes:
+  (a) `scripts/build_paper_figures.py:fig_L1_confidence_quartile`
+  filtered on the renamed/absent `entropy_top_k` proxy → switched to
+  paper-default `cross_entropy`, reduced to the worked-example single
+  cell so the figure and §6.2 table tell the same story; figure
+  regenerated. (b) `docs/paper/sections/06_confidence.md` §6.2 worked
+  example: Q2/Q3/Q4 numbers were stale (Q2 df 0.062 → 0.044, Q3 df
+  0.158 → 0.137, Q3 adopt 0.137 → 0.159, Q3 em_b 0.42 → 0.488, Q4
+  em_b 0.34 → 0.284) and the "wrong-base S1" framing was a mislabel
+  — the L1_* CSV cell is all-base by confidence quartile. Fixed both,
+  added an in-paper CSV-row pointer for traceability. (c) §6.3
+  inline gradient updated to match. (d) `docs/paper/emnlp_draft_ko.md`
+  §4.4 Insight 2 same gradient updated + made the worked-example cell
+  explicit instead of leaving bare numbers. (e) L1 evidence doc gets
+  a §0 historical banner pointing readers to §2.E for canonical
+  5-dataset numbers (per advisor: defer the §0–§2.4 single-model
+  rewrite to a separate doc-rewrite branch — this PR scope is
+  paper-table truth-from-CSV). **Paper file edits (b)/(c)/(d) are
+  local-only — `docs/paper/*` is gitignored, so this changelog
+  entry is the recovery record if the local working copy is lost.
+  The CSV-row pointer added to §6.2 (`experiment_e5c_vqa,VQAv2,
+  llava-next-interleaved-7b,a,S1,cross_entropy`) is the verification
+  anchor — re-applying the fix is a single grep against
+  `_data/L1_confidence_quartile_long.csv`.** PR opened against
+  master.
 
 - **2026-05-10 (P4-12 OneVision E1d analyzer fix closed).** `scripts/analyze_causal_ablation.py` 의 두 stratification 버그가 수정되어 OneVision Main Phase E (5 dataset × n=200 stratified) 결과가 §5.2 / §5.3 / §E.2로 통합. **Headline:** single-layer ablation 5/5 null on OneVision (max |Δdf| = 1.5 pp on InfoVQA, 모든 95 % CI overlap 0) — 6-mech panel의 6/6 null과 일관, multi-layer redundancy claim의 *확장 검증*. Upper-half ablation은 6-mech panel의 균일 −4 ~ −10.5 pp significant와 달리 OneVision에서는 5/5 null at n=200 (point estimates ∈ [−3.9, +0.4] pp) — §5.3 dataset-dependent peak (Plot/Tally L=27 vs Info/VQAv2 L=14)와 일관 heterogeneity, §6.2 subspace-projection 도구 선택의 *layer-uniform attention re-weighting 한계*라는 mechanism-level 동기 보강. 버그 두 건: (i) `_build_triplets`의 base/anchor join에 dataset key 누락 (commit `a7e391c`); (ii) per-run dataset detection 부재 (commit `de1f94e`). 문서 통합: `docs/insights/E1d-causal-evidence.md` 2026-05-10 update block, paper Abstract / §1.3 / §5.2 / §5.3 / §8.2 / §E.2, `docs/insights/plan_post_review_2026-05-09.md` P4-12 mark closed, `docs/paper/reviews/_final_summary.md` item 9 mark closed. PR: `paper/p4-12-onevision-e1d-analyzer-fix` (#16).
 

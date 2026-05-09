@@ -33,6 +33,16 @@
 
 ## §0. Intuition — what this analysis measures, in plain terms
 
+> **Reading guide (2026-05-10).** §0–§2.4 are retained as historical
+> small-panel context: numbers and proxy names (`entropy_top_k`,
+> `softmax_top1_prob`) reflect the pre-2026-04-29 single-model E5b/E5c
+> aggregation. The **canonical 5-dataset × 7-model panel** numbers are
+> in §2.E and are the basis for paper §6 prose + figure
+> (`docs/figures/paper_L1_confidence_quartile.png`, regenerated
+> 2026-05-10 against `_data/L1_confidence_quartile_long.csv` under
+> the paper-default `cross_entropy` proxy). Where §0–§2.4 disagrees
+> with §2.E or the paper, §2.E + paper win.
+
 > **Question:** When a VLM gives an answer to a question, does the certainty
 > of *that base answer* predict how much the answer would shift if we showed
 > an irrelevant anchor image alongside?
