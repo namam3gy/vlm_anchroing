@@ -170,7 +170,7 @@ Early window: `L ∈ {1, 5, 10, 12, 14, 16, 18, 20, 22, 24, 25}` (11 layers).
 
 **Does say** (defended by both non-tautological measures):
 
-1. The non-tautological `EV_frac_V_K` shows a **sharp transition between L=20 and L=22** (9.5× → 30.5× isotropic random baseline) and a continued rise through L=25 (72.7×) before L=26's local maximum (95.2×). Earlier layers (L=0..18) sit between 1.2× and 5.8× random — close to noise floor. This *is* consistent with anchor-related variance becoming alignable to V_K specifically within a 4-5 layer window approaching L=26.
+1. The non-tautological `EV_frac_V_K` shows a **sharp transition between L=20 and L=22** (9.5× → 30.5× isotropic random baseline) and a continued rise through L=25 (72.7×) before L=26's local maximum (95.2×). Earlier layers (L=0..18) sit between 1.2× and 5.8× random — close to noise floor. This *is* consistent with V_K-alignable variance emerging within a 4-5 layer window approaching L=26. (Whether this emerging variance is anchor-specific or reflects generic late-residual rank growth is gated on P0-2-control — see below.)
 
 2. `sub_align_inc` agrees on the same window (L=22, L=24, L=25 above 0.30; L=20 at 0.184, L=18 and earlier near sqrt-baseline ~0.04-0.10).
 

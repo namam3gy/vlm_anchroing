@@ -96,26 +96,30 @@ Paper 516 → 604 lines net (+88).
   Pre-registered spectrum criteria (a) and (b) both FAIL (no rank-8 elbow;
   Shannon eff_rank *increases* L=10 → L=26 — the OPPOSITE direction of
   predicted compact-low-dim signature). **H-A test = WEAK partial
-  confirmation only** (3 of 11 early layers above threshold; pre-registered
-  ≥4 = CONFIRMED, ≥2 = WEAK, ≤1 = FALSIFIED). Non-tautological measure
+  confirmation only** (3 of 11 early layers above threshold;
+  pre-registered ≥4 = CONFIRMED, ≥2 = WEAK, ≤1 = FALSIFIED): L=22, L=24,
+  L=25 above threshold 0.30; L=0..20 below. Non-tautological measure
   `EV_frac_V_K(L) = ‖V_K V_K^T D[:, L, :]‖_F² / ‖D[:, L, :]‖_F²` shows a
   sharp transition L=20 → L=22 (9.5× → 30.5× isotropic random baseline)
-  rising to 95.2× at L=26 (= EV@K8 ≈ 0.21, NOT 1.0). Earlier layers
-  (L=0..18) are at 1.2-5.8× random — close to noise floor.
+  rising to 95.2× at L=26 (= EV@K8 ≈ 0.21, NOT 1.0). Whether this
+  represents anchor-specific localization or generic late-residual rank
+  growth is **gated on P0-2-control** (non-anchor `(d − b)` baseline at
+  same N + same layers).
   Doc: [`docs/insights/P0-2-eigenvalue-spectrum-evidence.md`](../docs/insights/P0-2-eigenvalue-spectrum-evidence.md).
   **Paper-prose update P0-2-prose is BLOCKED on two follow-ups landing:**
-  (i) **P0-2-control** (~30 min CPU - 1 H200-hour): non-anchor `(d − b)`
-  baseline rank trajectory + EV_frac_V_K, to test anchor-specificity of the
-  L=22-26 alignment cluster. (ii) **P0-2-followup** (~6 H200-hour):
-  cross-layer mitigation at L=22/24/25 to test whether the alignment
-  cluster predicts behavioral mitigation effect (qualitative: partial
-  recovery scaling with alignment). If either fails to land in the
-  predicted direction, the late-cluster interpretation collapses and the
-  paper-prose update reverts to the graceful-degradation framing only.
-  Until both land, paper prose should NOT claim "anchor integration
-  localizes to L=22-26" or "block-coding within late cluster" — the only
-  safe claim is "K=8 explains ~21 % of L=26 anchor variance and yet
-  achieves free-lunch."
+  (i) **P0-2-control** (~1 H200-hour fresh extraction, since existing
+  `D_wrong.pt` / `D_all.pt` store `(a − m)` residuals only — neither has
+  `(d − b)`): non-anchor baseline rank trajectory + `EV_frac_V_K`, to
+  test anchor-specificity of the L=22-26 alignment cluster. (ii)
+  **P0-2-followup** (~6 H200-hour): cross-layer mitigation at L=22/24/25
+  to test whether the alignment cluster predicts behavioral mitigation
+  effect (qualitative: partial recovery scaling with alignment). If
+  either fails to land in the predicted direction, the late-cluster
+  interpretation collapses and the paper-prose update reverts to the
+  graceful-degradation framing only. Until both land, paper prose should
+  NOT claim "anchor integration localizes to L=22-26" or "block-coding
+  within late cluster" — the only safe claim is "K=8 explains ~21 % of
+  L=26 anchor variance and yet achieves free-lunch."
 
 ### 3.0a Phase 1 P0 v3 final state (2026-05-04)
 
