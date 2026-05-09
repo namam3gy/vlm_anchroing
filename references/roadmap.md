@@ -462,6 +462,47 @@ landed (commit `c556fb6`). Phase E E1d 4/4 landed (commits `7a27750` +
 
 ## 10. Changelog
 
+- **2026-05-09 ~20:35 (E8 follow-up — MME + AMBER added, 8-bench panel).**
+  Phase 4 P1 follow-up shipped on isolated worktree branch
+  `worktree-phase4-mme-amber`. Two new held-out benchmarks added to
+  the capability eval at the same chosen cell (L = 26, K = 8, α = 1.0)
+  on OneVision-7b Main:
+  - **MME** (n = 2,374, 14 categories incl. the Count subset that
+    directly exercises the number-anchor failure mode) —
+    Δ = −0.13 pp, 95 % CI = [−0.76, +0.51], essentially neutral.
+  - **AMBER** (n = 14,216, contamination-clean Nov 2023 multi-dim
+    hallucination — largest sample on the panel) —
+    **Δ = +0.19 pp, 95 % CI = [+0.05, +0.33], CI excludes zero.**
+    Second hallucination axis after HallusionBench to land a
+    statistically significant positive Δ.
+  - **8-bench merged final**: macro Δ = +0.31 pp (was +0.41 on
+    6-bench; AMBER's tight CI on n = 14,216 pulls macro down without
+    breaching any threshold). Verdict: **STRICT_FREE_LUNCH** preserved.
+    Contamination-resistant floor of the panel rises from n = 1,500
+    (MMStar alone) to n = 18,090 (MMStar + MME + AMBER).
+  - **Driver hardening (commit `31621f1`)**: `dataset.evaluate()`
+    wrapped in try/except so VLMEvalKit's `MME_rating` /
+    `AMBER_rating` helpers (which raise on broken pair structure /
+    aggregate-stat edge-cases AFTER writing the per-question
+    `_auxmatch.xlsx`) no longer block per-question score extraction.
+    Caught at smoke time when MME pair-rating raised IndexError on
+    the random 50-q sub-sample.
+  - **Aggregator gained `merge` subcommand** so the 6-row final
+    survives the 8-row extension without re-running the original
+    benchmarks (later inputs override earlier on duplicates;
+    +3 unit tests; 15 passing total).
+  - **Memory `feedback_vlmevalkit_quirks.md` extended to 5 quirks**
+    (post-side-file rating helpers raising; MME absolute-score
+    reporting caveat).
+  - Files committed: `scripts/run_capability_eval.py`,
+    `scripts/aggregate_capability_eval.py`,
+    `tests/test_capability_eval.py`,
+    `configs/capability_eval_mme_amber.yaml`. Insight doc and
+    paper-section edits (`docs/insights/E8-capability-preservation-evidence.md`,
+    `docs/paper/sections/{01,04,07,08}_*.md`) are local-only per
+    existing convention. Wall time: 2 h 8 min on a single H200,
+    sequential, $0 (no LLM-judge).
+
 - **2026-05-08 ~21:30 (Phase 4 P1 paper polish — cross-section
   consistency pass + venue-tag verification).**  Phase 4 P1 batch
   shipped (paper polish, write phase).
