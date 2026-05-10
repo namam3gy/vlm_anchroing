@@ -34,7 +34,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 E4_ROOT = PROJECT_ROOT / "outputs" / "e4_mitigation"
 SUMMARY_DIR = E4_ROOT / "_summary"
 
-PANEL_MODELS = ["llava-1.5-7b", "convllava-7b", "internvl3-8b"]
+PANEL_MODELS = ["llava-1.5-7b", "convllava-7b"]
 
 
 sys.path.insert(0, str(PROJECT_ROOT / "src"))
@@ -64,8 +64,8 @@ def _to_int(x, rescue_text: str | None = None):
     """Robust integer parse.
 
     Tries: strict int(x). On failure, falls back to extract_first_number on the
-    raw decoded text (`rescue_text`) — recovers InternVL3-style prose-leak cases
-    where the driver's parsed_number landed on a non-numeric word ("based" etc).
+    raw decoded text (`rescue_text`) — recovers prose-leak cases where the
+    driver's parsed_number landed on a non-numeric word ("based" etc).
     Returns None if neither path produces an integer."""
     try:
         return int(str(x).strip())
@@ -86,7 +86,7 @@ def _build_triplets(df: pd.DataFrame) -> pd.DataFrame:
     with target_plus_irrelevant_number under that strength.
 
     Carries the raw `decoded` text alongside `parsed_number` on both sides so
-    `_to_int` can rescue prose-leak cases (e.g. InternVL3 emits "based on…",
+    `_to_int` can rescue prose-leak cases (e.g. model emits "based on…",
     parser lands on "based", rescue extracts the number from the raw text).
     Also carries the M2 / C-form flags written by
     `reaggregate_paired_adoption.py` so `_metrics` can switch to canonical
@@ -141,10 +141,10 @@ def _metrics(triplets: pd.DataFrame) -> dict:
         em_num    = #(num_pred == gt) / #(num_pred & gt parseable)
         mean_dist = mean(|num_pred − anchor|) over numeric-anchor subset
 
-    The InternVL3 prose-leak rescue (`_to_int(rescue_text=decoded)`) is
-    retained for `em_num` where it materially affects coverage; for the
-    M2 anchoring metrics we accept whatever the canonical evaluator
-    populated, mirroring the §3.3 / §5 main-panel handling (no rescue).
+    The prose-leak rescue (`_to_int(rescue_text=decoded)`) is retained for
+    `em_num` where it materially affects coverage; for the M2 anchoring
+    metrics we accept whatever the canonical evaluator populated, mirroring
+    the §3.3 / §5 main-panel handling (no rescue).
     """
     if triplets.empty:
         return {"n": 0, "df_num": np.nan, "adopt_num": np.nan, "em_num": np.nan,
@@ -170,7 +170,7 @@ def _metrics(triplets: pd.DataFrame) -> dict:
     )
 
     # exact-match keeps the rescue path — em is computed against gt and
-    # benefits most from prose-leak recovery on InternVL3.
+    # benefits most from prose-leak recovery on prose-prone models.
     num = _to_int_series(triplets["num_pred"], triplets.get("num_decoded"))
     gt = _to_int_series(triplets["ground_truth"])
     em_valid = num.notna() & gt.notna()

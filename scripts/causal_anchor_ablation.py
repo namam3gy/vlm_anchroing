@@ -22,7 +22,7 @@ Usage:
         --peak-layer 16 --max-samples 10 --modes baseline,ablate_peak
 
 Model-specific peak layers (from docs/experiments/E1b-per-layer-localisation.md):
-  gemma4-e4b: 5 / qwen2.5-vl-7b: 22 / llava-1.5-7b: 16 / internvl3-8b: 14
+  gemma4-e4b: 5 / qwen2.5-vl-7b: 22 / llava-1.5-7b: 16
   convllava-7b: 16 / fastvlm-7b: 22
 """
 

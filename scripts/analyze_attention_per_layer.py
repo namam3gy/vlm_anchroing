@@ -43,7 +43,6 @@ CANONICAL_RUNS: dict[str, str] = {
     "gemma4-e4b": "20260424-115147",
     "qwen2.5-vl-7b-instruct": "20260424-120026",
     "llava-1.5-7b": "20260424-121139",
-    "internvl3-8b": "20260424-121334",
     "convllava-7b": "20260424-134840",
     "fastvlm-7b": "20260424-135205",
     # OneVision (Phase 1 P0 v3 Main; AnyRes; populated post-run).

@@ -23,7 +23,7 @@ multi-tile / multi-scale spans are skipped).
 Output: per-record JSONL under outputs/attention_analysis/<model>/<run>/.
 
 Dispatches on HF model id:
-  - HFAttentionRunner-compatible models (Gemma-SigLIP, Qwen-VL, LLaVA-1.5, InternVL3,
+  - HFAttentionRunner-compatible models (Gemma-SigLIP, Qwen-VL, LLaVA-1.5,
     LLaVA-Interleave): scan input_ids for the processor's image-token id.
   - ConvLLaVA: inputs_embeds path — image spans tracked during splice.
   - FastVLM: input_ids with -200 markers expanded internally — spans back-computed from
@@ -344,7 +344,7 @@ def _parse_args() -> argparse.Namespace:
                              "Produced by scripts/compute_anchor_digit_bboxes.py. "
                              "When supplied, per-step record gains image_anchor_digit + "
                              "image_anchor_background fields. Models whose anchor span isn't "
-                             "a perfect-square grid (e.g. multi-tile InternVL3, FastVLM -200) "
+                             "a perfect-square grid (e.g. FastVLM -200) "
                              "transparently skip the new fields.")
     return parser.parse_args()
 

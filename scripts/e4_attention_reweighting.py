@@ -58,15 +58,11 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 SWEEP_STRENGTHS: list[float] = [0.0, -0.5, -1.0, -2.0, -3.0, -5.0, -1e4]
 
 # Per-model max_new_tokens override. The default `--max-new-tokens 8` is enough
-# for the JSON-strict `{"result": <number>}` template on most models, but
-# InternVL3 frequently emits free-form prose ("Based on the image…") and is
-# truncated before reaching any digit; ~30 % of records become non-numeric. A
-# value of 32 lets the prose finish into a digit token without materially
-# slowing the run. Selection is by case-insensitive substring match on
-# `args.model`.
-PER_MODEL_MAX_NEW_TOKENS: dict[str, int] = {
-    "internvl3": 32,
-}
+# for the JSON-strict `{"result": <number>}` template on most models. Models
+# that frequently emit free-form prose can be added here so the prose finishes
+# into a digit token without materially slowing the run. Selection is by
+# case-insensitive substring match on `args.model`.
+PER_MODEL_MAX_NEW_TOKENS: dict[str, int] = {}
 
 
 def _resolve_max_new_tokens(args: argparse.Namespace) -> int:
@@ -263,7 +259,7 @@ def main() -> None:
                 # strength loop. Saves ~6 redundant `_resolve_anchor_span`
                 # calls per condition (Phase 1) and ~1 per condition (Phase 2);
                 # the call invokes processor + tokenizer + image preprocessing,
-                # which is non-trivial for InternVL3 / FastVLM.
+                # which is non-trivial for FastVLM.
                 try:
                     cached_anchor_span = _resolve_anchor_span(runner, cond, image_token_id)
                 except Exception:

@@ -2,7 +2,7 @@
 
 Pulls the §4.1 Table 2 analog (acc(b), adopt(a), df(a), em(a)) and the §4.1
 Insight-1 wrong-correct gap from existing predictions.jsonl on the three
-candidate replacement datasets (PlotQA, TallyQA, InfographicVQA), 7-model
+candidate replacement datasets (PlotQA, TallyQA, InfographicVQA), 6-model
 panel where available.
 
 All-base S1 anchor arm. C-form direction-follow.
@@ -27,7 +27,6 @@ JOBS = [
 MODELS = [
     "gemma3-4b-it",
     "gemma3-27b-it",
-    "internvl3-8b",
     "llava-next-interleaved-7b",
     "llava-onevision-qwen2-7b-ov",
     "qwen2.5-vl-7b-instruct",

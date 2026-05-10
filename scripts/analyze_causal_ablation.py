@@ -38,7 +38,6 @@ SUMMARY_DIR = ABL_ROOT / "_summary"
 
 PANEL_MODELS = [
     "gemma4-e4b",
-    "internvl3-8b",
     "llava-1.5-7b",
     "convllava-7b",
     "qwen2.5-vl-7b-instruct",
