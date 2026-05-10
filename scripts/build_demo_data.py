@@ -400,13 +400,21 @@ def _resolve_neutral_image(inputs_root: Path) -> Path:
 
 def build_site_artifacts(
     *,
-    chosen: list[str],
-    by_model: dict[str, dict[str, dict]],
+    chosen: list,
+    by_model_by_stratum: dict[str, dict[str, dict[str, dict]]],
     inputs_root: Path,
     site_root: Path,
-    anchor_stratum: str,
     max_image_px: int,
+    default_stratum: str = "S1",
 ) -> dict:
+    """Write site/data/demo.json + site/assets/img/.
+
+    ``chosen`` accepts a mix of bare ``sid`` strings (which use
+    ``default_stratum``) and ``(sid, stratum)`` tuples (which use the
+    given stratum). Each stratum referenced must be present as a key in
+    ``by_model_by_stratum``. Per-sample stratum lets the demo mix
+    close-anchor S1 samples with far-anchor S3/S5 samples in one demo.
+    """
     data_dir = site_root / "data"
     img_root = site_root / "assets" / "img"
     if img_root.exists():
@@ -415,7 +423,9 @@ def build_site_artifacts(
     data_dir.mkdir(parents=True, exist_ok=True)
 
     samples_out: list[dict] = []
-    for sid in chosen:
+    for entry in chosen:
+        sid, stratum = (entry, default_stratum) if isinstance(entry, str) else entry
+        by_model = by_model_by_stratum[stratum]
         ref = by_model[next(iter(MAIN_PANEL))][sid]
         meta = ref["meta"]
         anchor_value = meta["anchor"]
@@ -443,6 +453,7 @@ def build_site_artifacts(
             "question": meta["question"],
             "gt": meta["gt"],
             "anchor": anchor_value,
+            "anchor_stratum": stratum,
             "images": image_paths,
             "predictions": predictions,
         })
@@ -452,7 +463,6 @@ def build_site_artifacts(
             {"id": mid, "label": MAIN_PANEL_LABELS[mid]} for mid in MAIN_PANEL
         ],
         "samples": samples_out,
-        "anchor_stratum": anchor_stratum,
     }
     (data_dir / "demo.json").write_text(json.dumps(demo, indent=2))
     return demo
@@ -469,41 +479,86 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p.add_argument("--max-image-px", type=int, default=1280,
                    help="Long-edge pixel cap for copied images. Source PNGs "
                         "stay PNG (lossless); source JPEGs save as JPEG q92.")
+    p.add_argument("--force-sample-ids", default="",
+                   help="Comma-separated sample_instance_ids to use verbatim, "
+                        "bypassing scoring + the round-robin picker. IDs are "
+                        "still required to pass eligibility (full b/a/m/d × "
+                        "every main-panel model + anchor != gt + ≥1 mover + "
+                        "≥1 full 4-arm trajectory). Samples appear in "
+                        "demo.json in the order given.")
     return p.parse_args(argv)
+
+
+def _parse_force_pairs(spec: str, default_stratum: str) -> list[tuple[str, str]]:
+    """Parse "ID1,ID2@S5,ID3@S3" into [(ID1, default), (ID2, S5), (ID3, S3)]."""
+    pairs: list[tuple[str, str]] = []
+    for part in spec.split(","):
+        part = part.strip()
+        if not part:
+            continue
+        if "@" in part:
+            sid, stratum = part.split("@", 1)
+            pairs.append((sid.strip(), stratum.strip()))
+        else:
+            pairs.append((part, default_stratum))
+    return pairs
 
 
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     print(f"build_demo_data: outputs={args.outputs_root} site={args.site_root}", file=sys.stderr)
 
-    by_model = load_predictions(
-        outputs_root=args.outputs_root, anchor_stratum=args.anchor_stratum,
+    forced_pairs = _parse_force_pairs(args.force_sample_ids, args.anchor_stratum)
+    strata_needed = (
+        {st for _, st in forced_pairs} if forced_pairs else {args.anchor_stratum}
     )
-    eligible = eligible_samples(by_model)
-    if not eligible:
-        print("ERROR: no samples eligible across the full main panel.", file=sys.stderr)
-        print("Check coverage with `find outputs -name predictions.csv`.", file=sys.stderr)
-        return 1
+    by_model_by_stratum: dict[str, dict[str, dict[str, dict]]] = {}
+    for stratum in strata_needed:
+        by_model_by_stratum[stratum] = load_predictions(
+            outputs_root=args.outputs_root, anchor_stratum=stratum,
+        )
 
-    scored = {
-        sid: (
-            by_model[next(iter(MAIN_PANEL))][sid]["meta"]["dataset"],
-            score_sample(by_model, sid),
-        )
-        for sid in eligible
-    }
-    chosen = pick_samples(scored, args.num_samples)
-    if len(chosen) < args.num_samples:
-        print(
-            f"WARN: only {len(chosen)} samples eligible; spec requires "
-            f"{args.num_samples}. Proceeding with the smaller set.",
-            file=sys.stderr,
-        )
+    if forced_pairs:
+        chosen: list = []  # entries are (sid, stratum) tuples
+        for sid, stratum in forced_pairs:
+            elig = set(eligible_samples(by_model_by_stratum[stratum]))
+            if sid in elig:
+                chosen.append((sid, stratum))
+            else:
+                print(
+                    f"WARN: forced sample id {sid!r} (stratum {stratum}) is "
+                    f"not eligible; skipping.",
+                    file=sys.stderr,
+                )
+        if not chosen:
+            print("ERROR: no forced sample ids passed eligibility.", file=sys.stderr)
+            return 1
+    else:
+        by_model = by_model_by_stratum[args.anchor_stratum]
+        eligible = eligible_samples(by_model)
+        if not eligible:
+            print("ERROR: no samples eligible across the full main panel.", file=sys.stderr)
+            print("Check coverage with `find outputs -name predictions.csv`.", file=sys.stderr)
+            return 1
+        scored = {
+            sid: (
+                by_model[next(iter(MAIN_PANEL))][sid]["meta"]["dataset"],
+                score_sample(by_model, sid),
+            )
+            for sid in eligible
+        }
+        chosen = pick_samples(scored, args.num_samples)
+        if len(chosen) < args.num_samples:
+            print(
+                f"WARN: only {len(chosen)} samples eligible; spec requires "
+                f"{args.num_samples}. Proceeding with the smaller set.",
+                file=sys.stderr,
+            )
 
     demo = build_site_artifacts(
-        chosen=chosen, by_model=by_model,
+        chosen=chosen, by_model_by_stratum=by_model_by_stratum,
         inputs_root=args.inputs_root, site_root=args.site_root,
-        anchor_stratum=args.anchor_stratum, max_image_px=args.max_image_px,
+        max_image_px=args.max_image_px, default_stratum=args.anchor_stratum,
     )
     print(
         f"OK: {len(demo['samples'])} samples × {len(demo['models'])} models written to "
@@ -511,7 +566,12 @@ def main(argv: list[str] | None = None) -> int:
         file=sys.stderr,
     )
     for s in demo["samples"]:
-        print(f"  - {s['id']} [{s['dataset']}] anchor={s['anchor']} gt={s['gt']}", file=sys.stderr)
+        delta = abs(s['gt'] - s['anchor']) if s['gt'] is not None and s['anchor'] is not None else "?"
+        print(
+            f"  - {s['id']} [{s['dataset']}] {s.get('anchor_stratum','?')} "
+            f"gt={s['gt']} anchor={s['anchor']} Δ={delta}",
+            file=sys.stderr,
+        )
     return 0
 
 

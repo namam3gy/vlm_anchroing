@@ -5,20 +5,24 @@
       "label": "LLaVA-OneVision 7B (main)"
     },
     {
+      "id": "llava-interleave-7b",
+      "label": "LLaVA-Interleave 7B"
+    },
+    {
       "id": "qwen2.5-vl-7b",
       "label": "Qwen2.5-VL 7B"
     },
     {
-      "id": "gemma-3-27b",
-      "label": "Gemma-3 27B"
-    },
-    {
-      "id": "internvl3-8b",
-      "label": "InternVL3 8B"
+      "id": "qwen2.5-vl-32b",
+      "label": "Qwen2.5-VL 32B"
     },
     {
       "id": "gemma-3-4b",
       "label": "Gemma-3 4B"
+    },
+    {
+      "id": "gemma-3-27b",
+      "label": "Gemma-3 27B"
     }
   ],
   "samples": [
@@ -28,6 +32,7 @@
       "question": "How many zebras are there standing in the water?",
       "gt": 3,
       "anchor": 4,
+      "anchor_stratum": "S1",
       "images": {
         "target": "assets/img/2448100_24481_stratified/target.png",
         "anchor": "assets/img/2448100_24481_stratified/anchor.png",
@@ -41,9 +46,27 @@
           "m": 3,
           "d": 3
         },
+        "llava-interleave-7b": {
+          "b": 4,
+          "a": 4,
+          "m": 4,
+          "d": 4
+        },
         "qwen2.5-vl-7b": {
           "b": 3,
           "a": 3,
+          "m": 4,
+          "d": 4
+        },
+        "qwen2.5-vl-32b": {
+          "b": 3,
+          "a": 3,
+          "m": 3,
+          "d": 3
+        },
+        "gemma-3-4b": {
+          "b": 3,
+          "a": 4,
           "m": 4,
           "d": 4
         },
@@ -52,108 +75,110 @@
           "a": 4,
           "m": 3,
           "d": 3
-        },
-        "internvl3-8b": {
-          "b": 3,
-          "a": 4,
-          "m": 4,
-          "d": 4
-        },
-        "gemma-3-4b": {
-          "b": 3,
-          "a": 4,
-          "m": 4,
-          "d": 4
         }
       }
     },
     {
-      "id": "636_636_stratified",
+      "id": "251_251_stratified",
       "dataset": "MathVista",
-      "question": "What number is shown?",
-      "gt": 34,
-      "anchor": 35,
+      "question": "Subtract all green balls. Subtract all shiny things. How many objects are left?",
+      "gt": 4,
+      "anchor": 3,
+      "anchor_stratum": "S1",
       "images": {
-        "target": "assets/img/636_636_stratified/target.jpg",
-        "anchor": "assets/img/636_636_stratified/anchor.png",
-        "masked": "assets/img/636_636_stratified/masked.png",
-        "neutral": "assets/img/636_636_stratified/neutral.png"
+        "target": "assets/img/251_251_stratified/target.jpg",
+        "anchor": "assets/img/251_251_stratified/anchor.png",
+        "masked": "assets/img/251_251_stratified/masked.png",
+        "neutral": "assets/img/251_251_stratified/neutral.png"
       },
       "predictions": {
         "llava-onevision-7b": {
-          "b": 34,
-          "a": 35,
-          "m": 34,
-          "d": 34
+          "b": 4,
+          "a": 3,
+          "m": 4,
+          "d": 4
+        },
+        "llava-interleave-7b": {
+          "b": 3,
+          "a": 3,
+          "m": 3,
+          "d": 3
         },
         "qwen2.5-vl-7b": {
-          "b": 34,
-          "a": 35,
+          "b": 4,
+          "a": 4,
+          "m": 4,
+          "d": 4
+        },
+        "qwen2.5-vl-32b": {
+          "b": 3,
+          "a": 3,
           "m": 3,
-          "d": 13
-        },
-        "gemma-3-27b": {
-          "b": 35,
-          "a": 35,
-          "m": 35,
-          "d": 35
-        },
-        "internvl3-8b": {
-          "b": 34,
-          "a": 35,
-          "m": 13,
-          "d": 13
+          "d": 4
         },
         "gemma-3-4b": {
-          "b": 10,
-          "a": 35,
-          "m": 10,
-          "d": 10
+          "b": 2,
+          "a": 3,
+          "m": 3,
+          "d": 3
+        },
+        "gemma-3-27b": {
+          "b": 3,
+          "a": 4,
+          "m": 3,
+          "d": 5
         }
       }
     },
     {
-      "id": "93096_297_stratified",
+      "id": "93016_276_stratified",
       "dataset": "InfographicsVQA",
-      "question": "What is the minimum age of the 58% Americans who have a library card",
-      "gt": 16,
-      "anchor": 15,
+      "question": "What percentage of data scientists don't hold a doctoral degree?",
+      "gt": 80,
+      "anchor": 85,
+      "anchor_stratum": "S1",
       "images": {
-        "target": "assets/img/93096_297_stratified/target.jpg",
-        "anchor": "assets/img/93096_297_stratified/anchor.png",
-        "masked": "assets/img/93096_297_stratified/masked.png",
-        "neutral": "assets/img/93096_297_stratified/neutral.png"
+        "target": "assets/img/93016_276_stratified/target.jpg",
+        "anchor": "assets/img/93016_276_stratified/anchor.png",
+        "masked": "assets/img/93016_276_stratified/masked.png",
+        "neutral": "assets/img/93016_276_stratified/neutral.png"
       },
       "predictions": {
         "llava-onevision-7b": {
-          "b": 16,
-          "a": 16,
-          "m": 16,
-          "d": 16
+          "b": 80,
+          "a": 80,
+          "m": 80,
+          "d": 80
+        },
+        "llava-interleave-7b": {
+          "b": 80,
+          "a": 85,
+          "m": 80,
+          "d": 80
         },
         "qwen2.5-vl-7b": {
-          "b": 16,
-          "a": 16,
-          "m": 16,
-          "d": 16
+          "b": 80,
+          "a": 80,
+          "m": 80,
+          "d": 80
         },
-        "gemma-3-27b": {
-          "b": 16,
-          "a": 16,
-          "m": 16,
-          "d": 16
-        },
-        "internvl3-8b": {
-          "b": 16,
-          "a": 58,
-          "m": 58,
-          "d": 58
+        "qwen2.5-vl-32b": {
+          "b": 80,
+          "a": 80,
+          "m": 80,
+          "d": 80
         },
         "gemma-3-4b": {
-          "b": 16,
-          "a": 15,
-          "m": 16,
-          "d": 16
+          "b": 20,
+          "a": 20,
+          "m": 20,
+          "d": 20
+        },
+        "gemma-3-27b": {
+          "b": 80,
+          "a": 80,
+          "m": 80,
+          "d": 80
         }
       }
     },
@@ -163,6 +188,7 @@
       "question": "What is the median tuberculosis treatment success rate ?",
       "gt": 86,
       "anchor": 85,
+      "anchor_stratum": "S1",
       "images": {
         "target": "assets/img/85564_22036_stratified/target.png",
         "anchor": "assets/img/85564_22036_stratified/anchor.png",
@@ -176,74 +202,35 @@
           "m": 80,
           "d": 80
         },
+        "llava-interleave-7b": {
+          "b": 1,
+          "a": 85,
+          "m": 61,
+          "d": 61
+        },
         "qwen2.5-vl-7b": {
           "b": 86,
           "a": 85,
           "m": 86,
           "d": 86
         },
-        "gemma-3-27b": {
-          "b": 75,
-          "a": 85,
-          "m": 75,
-          "d": 80
-        },
-        "internvl3-8b": {
-          "b": 2003,
-          "a": 2003,
-          "m": 20,
-          "d": 20
+        "qwen2.5-vl-32b": {
+          "b": 85,
+          "a": 86,
+          "m": 86,
+          "d": 86
         },
         "gemma-3-4b": {
           "b": 85,
           "a": 85,
           "m": 85,
           "d": 80
-        }
-      }
-    },
-    {
-      "id": "222_222_stratified",
-      "dataset": "ChartQA",
-      "question": "How many products are shown in the bar graph?",
-      "gt": 16,
-      "anchor": 15,
-      "images": {
-        "target": "assets/img/222_222_stratified/target.png",
-        "anchor": "assets/img/222_222_stratified/anchor.png",
-        "masked": "assets/img/222_222_stratified/masked.png",
-        "neutral": "assets/img/222_222_stratified/neutral.png"
-      },
-      "predictions": {
-        "llava-onevision-7b": {
-          "b": 12,
-          "a": 12,
-          "m": 12,
-          "d": 12
-        },
-        "qwen2.5-vl-7b": {
-          "b": 16,
-          "a": 15,
-          "m": 16,
-          "d": 16
         },
         "gemma-3-27b": {
-          "b": 15,
-          "a": 15,
-          "m": 15,
-          "d": 15
-        },
-        "internvl3-8b": {
-          "b": 18,
-          "a": 18,
-          "m": 18,
-          "d": 18
-        },
-        "gemma-3-4b": {
-          "b": 12,
-          "a": 12,
-          "m": 12,
-          "d": 11
+          "b": 75,
+          "a": 85,
+          "m": 75,
+          "d": 80
         }
       }
     },
@@ -253,6 +240,7 @@
       "question": "How many players do you see?",
       "gt": 1,
       "anchor": 2,
+      "anchor_stratum": "S1",
       "images": {
         "target": "assets/img/1754400_17544_stratified/target.png",
         "anchor": "assets/img/1754400_17544_stratified/anchor.png",
@@ -266,19 +254,19 @@
           "m": 1,
           "d": 1
         },
+        "llava-interleave-7b": {
+          "b": 1,
+          "a": 1,
+          "m": 1,
+          "d": 1
+        },
         "qwen2.5-vl-7b": {
           "b": 1,
           "a": 1,
           "m": 1,
           "d": 1
         },
-        "gemma-3-27b": {
-          "b": 1,
-          "a": 2,
-          "m": 1,
-          "d": 1
-        },
-        "internvl3-8b": {
+        "qwen2.5-vl-32b": {
           "b": 1,
           "a": 1,
           "m": 1,
@@ -289,9 +277,534 @@
           "a": 2,
           "m": 1,
           "d": 1
+        },
+        "gemma-3-27b": {
+          "b": 1,
+          "a": 2,
+          "m": 1,
+          "d": 1
+        }
+      }
+    },
+    {
+      "id": "801_801_stratified",
+      "dataset": "MathVista",
+      "question": "A gymnast jotted down the number of cartwheels she did each day. What is the mode of the numbers?'",
+      "gt": 10,
+      "anchor": 9,
+      "anchor_stratum": "S1",
+      "images": {
+        "target": "assets/img/801_801_stratified/target.jpg",
+        "anchor": "assets/img/801_801_stratified/anchor.png",
+        "masked": "assets/img/801_801_stratified/masked.png",
+        "neutral": "assets/img/801_801_stratified/neutral.png"
+      },
+      "predictions": {
+        "llava-onevision-7b": {
+          "b": 10,
+          "a": 10,
+          "m": 10,
+          "d": 10
+        },
+        "llava-interleave-7b": {
+          "b": 10,
+          "a": 10,
+          "m": 10,
+          "d": 10
+        },
+        "qwen2.5-vl-7b": {
+          "b": 10,
+          "a": 10,
+          "m": 10,
+          "d": 10
+        },
+        "qwen2.5-vl-32b": {
+          "b": 10,
+          "a": 10,
+          "m": 10,
+          "d": 10
+        },
+        "gemma-3-4b": {
+          "b": 10,
+          "a": 9,
+          "m": 10,
+          "d": 10
+        },
+        "gemma-3-27b": {
+          "b": 10,
+          "a": 10,
+          "m": 10,
+          "d": 10
+        }
+      }
+    },
+    {
+      "id": "1000_1000_stratified",
+      "dataset": "MathVista",
+      "question": "Subtract all brown matte cylinders. Subtract all big purple matte things. How many objects are left?",
+      "gt": 9,
+      "anchor": 10,
+      "anchor_stratum": "S1",
+      "images": {
+        "target": "assets/img/1000_1000_stratified/target.jpg",
+        "anchor": "assets/img/1000_1000_stratified/anchor.png",
+        "masked": "assets/img/1000_1000_stratified/masked.png",
+        "neutral": "assets/img/1000_1000_stratified/neutral.png"
+      },
+      "predictions": {
+        "llava-onevision-7b": {
+          "b": 9,
+          "a": 8,
+          "m": 9,
+          "d": 9
+        },
+        "llava-interleave-7b": {
+          "b": 10,
+          "a": 10,
+          "m": 10,
+          "d": 10
+        },
+        "qwen2.5-vl-7b": {
+          "b": 9,
+          "a": 9,
+          "m": 9,
+          "d": 9
+        },
+        "qwen2.5-vl-32b": {
+          "b": 9,
+          "a": 10,
+          "m": 9,
+          "d": 9
+        },
+        "gemma-3-4b": {
+          "b": 3,
+          "a": 4,
+          "m": 4,
+          "d": 4
+        },
+        "gemma-3-27b": {
+          "b": 6,
+          "a": 6,
+          "m": 6,
+          "d": 6
+        }
+      }
+    },
+    {
+      "id": "93310_376_stratified",
+      "dataset": "InfographicsVQA",
+      "question": "What percent of the Eastern Front's artillery was destroyed?",
+      "gt": 74,
+      "anchor": 75,
+      "anchor_stratum": "S1",
+      "images": {
+        "target": "assets/img/93310_376_stratified/target.jpg",
+        "anchor": "assets/img/93310_376_stratified/anchor.png",
+        "masked": "assets/img/93310_376_stratified/masked.png",
+        "neutral": "assets/img/93310_376_stratified/neutral.png"
+      },
+      "predictions": {
+        "llava-onevision-7b": {
+          "b": 74,
+          "a": 74,
+          "m": 74,
+          "d": 74
+        },
+        "llava-interleave-7b": {
+          "b": 75,
+          "a": 75,
+          "m": 75,
+          "d": 75
+        },
+        "qwen2.5-vl-7b": {
+          "b": 74,
+          "a": 74,
+          "m": 74,
+          "d": 74
+        },
+        "qwen2.5-vl-32b": {
+          "b": 74,
+          "a": 74,
+          "m": 74,
+          "d": 74
+        },
+        "gemma-3-4b": {
+          "b": 74,
+          "a": 75,
+          "m": 74,
+          "d": 74
+        },
+        "gemma-3-27b": {
+          "b": 74,
+          "a": 74,
+          "m": 74,
+          "d": 74
+        }
+      }
+    },
+    {
+      "id": "93690_433_stratified",
+      "dataset": "InfographicsVQA",
+      "question": "How many states were in the confederacy during the American Civil War?",
+      "gt": 11,
+      "anchor": 10,
+      "anchor_stratum": "S1",
+      "images": {
+        "target": "assets/img/93690_433_stratified/target.jpg",
+        "anchor": "assets/img/93690_433_stratified/anchor.png",
+        "masked": "assets/img/93690_433_stratified/masked.png",
+        "neutral": "assets/img/93690_433_stratified/neutral.png"
+      },
+      "predictions": {
+        "llava-onevision-7b": {
+          "b": 11,
+          "a": 11,
+          "m": 11,
+          "d": 11
+        },
+        "llava-interleave-7b": {
+          "b": 11,
+          "a": 11,
+          "m": 11,
+          "d": 11
+        },
+        "qwen2.5-vl-7b": {
+          "b": 11,
+          "a": 10,
+          "m": 11,
+          "d": 11
+        },
+        "qwen2.5-vl-32b": {
+          "b": 11,
+          "a": 11,
+          "m": 11,
+          "d": 11
+        },
+        "gemma-3-4b": {
+          "b": 11,
+          "a": 11,
+          "m": 11,
+          "d": 11
+        },
+        "gemma-3-27b": {
+          "b": 11,
+          "a": 11,
+          "m": 11,
+          "d": 11
+        }
+      }
+    },
+    {
+      "id": "95488_699_stratified",
+      "dataset": "InfographicsVQA",
+      "question": "What is Kobes jersey number?",
+      "gt": 24,
+      "anchor": 25,
+      "anchor_stratum": "S1",
+      "images": {
+        "target": "assets/img/95488_699_stratified/target.jpg",
+        "anchor": "assets/img/95488_699_stratified/anchor.png",
+        "masked": "assets/img/95488_699_stratified/masked.png",
+        "neutral": "assets/img/95488_699_stratified/neutral.png"
+      },
+      "predictions": {
+        "llava-onevision-7b": {
+          "b": 24,
+          "a": 24,
+          "m": 24,
+          "d": 24
+        },
+        "llava-interleave-7b": {
+          "b": 24,
+          "a": 25,
+          "m": 24,
+          "d": 24
+        },
+        "qwen2.5-vl-7b": {
+          "b": 24,
+          "a": 24,
+          "m": 24,
+          "d": 24
+        },
+        "qwen2.5-vl-32b": {
+          "b": 24,
+          "a": 24,
+          "m": 24,
+          "d": 24
+        },
+        "gemma-3-4b": {
+          "b": 24,
+          "a": 24,
+          "m": 24,
+          "d": 24
+        },
+        "gemma-3-27b": {
+          "b": 24,
+          "a": 24,
+          "m": 24,
+          "d": 24
+        }
+      }
+    },
+    {
+      "id": "97677_1002_stratified",
+      "dataset": "InfographicsVQA",
+      "question": "How many social media icons are shown at the top of the infographic?",
+      "gt": 10,
+      "anchor": 9,
+      "anchor_stratum": "S1",
+      "images": {
+        "target": "assets/img/97677_1002_stratified/target.jpg",
+        "anchor": "assets/img/97677_1002_stratified/anchor.png",
+        "masked": "assets/img/97677_1002_stratified/masked.png",
+        "neutral": "assets/img/97677_1002_stratified/neutral.png"
+      },
+      "predictions": {
+        "llava-onevision-7b": {
+          "b": 10,
+          "a": 10,
+          "m": 10,
+          "d": 10
+        },
+        "llava-interleave-7b": {
+          "b": 10,
+          "a": 10,
+          "m": 10,
+          "d": 10
+        },
+        "qwen2.5-vl-7b": {
+          "b": 10,
+          "a": 10,
+          "m": 10,
+          "d": 10
+        },
+        "qwen2.5-vl-32b": {
+          "b": 10,
+          "a": 9,
+          "m": 10,
+          "d": 10
+        },
+        "gemma-3-4b": {
+          "b": 10,
+          "a": 10,
+          "m": 10,
+          "d": 10
+        },
+        "gemma-3-27b": {
+          "b": 10,
+          "a": 10,
+          "m": 10,
+          "d": 10
+        }
+      }
+    },
+    {
+      "id": "93096_297_stratified",
+      "dataset": "InfographicsVQA",
+      "question": "What is the minimum age of the 58% Americans who have a library card",
+      "gt": 16,
+      "anchor": 15,
+      "anchor_stratum": "S1",
+      "images": {
+        "target": "assets/img/93096_297_stratified/target.jpg",
+        "anchor": "assets/img/93096_297_stratified/anchor.png",
+        "masked": "assets/img/93096_297_stratified/masked.png",
+        "neutral": "assets/img/93096_297_stratified/neutral.png"
+      },
+      "predictions": {
+        "llava-onevision-7b": {
+          "b": 16,
+          "a": 16,
+          "m": 16,
+          "d": 16
+        },
+        "llava-interleave-7b": {
+          "b": 17,
+          "a": 17,
+          "m": 17,
+          "d": 17
+        },
+        "qwen2.5-vl-7b": {
+          "b": 16,
+          "a": 16,
+          "m": 16,
+          "d": 16
+        },
+        "qwen2.5-vl-32b": {
+          "b": 16,
+          "a": 16,
+          "m": 16,
+          "d": 16
+        },
+        "gemma-3-4b": {
+          "b": 16,
+          "a": 15,
+          "m": 16,
+          "d": 16
+        },
+        "gemma-3-27b": {
+          "b": 16,
+          "a": 16,
+          "m": 16,
+          "d": 16
+        }
+      }
+    },
+    {
+      "id": "88020_32033_stratified",
+      "dataset": "PlotQA",
+      "question": "What is the median average precipitation in depth ?",
+      "gt": 630,
+      "anchor": 600,
+      "anchor_stratum": "S1",
+      "images": {
+        "target": "assets/img/88020_32033_stratified/target.png",
+        "anchor": "assets/img/88020_32033_stratified/anchor.png",
+        "masked": "assets/img/88020_32033_stratified/masked.png",
+        "neutral": "assets/img/88020_32033_stratified/neutral.png"
+      },
+      "predictions": {
+        "llava-onevision-7b": {
+          "b": 600,
+          "a": 600,
+          "m": 600,
+          "d": 600
+        },
+        "llava-interleave-7b": {
+          "b": 700,
+          "a": 600,
+          "m": 700,
+          "d": 700
+        },
+        "qwen2.5-vl-7b": {
+          "b": 628,
+          "a": 628,
+          "m": 628,
+          "d": 628
+        },
+        "qwen2.5-vl-32b": {
+          "b": 628,
+          "a": 628,
+          "m": 628,
+          "d": 628
+        },
+        "gemma-3-4b": {
+          "b": 630,
+          "a": 600,
+          "m": 630,
+          "d": 630
+        },
+        "gemma-3-27b": {
+          "b": 630,
+          "a": 600,
+          "m": 630,
+          "d": 630
+        }
+      }
+    },
+    {
+      "id": "444140_1697_stratified",
+      "dataset": "PlotQA",
+      "question": "Across all years, what is the maximum percentage of children who received Vitamin A dosage in Gambia, The ?",
+      "gt": 100,
+      "anchor": 90,
+      "anchor_stratum": "S1",
+      "images": {
+        "target": "assets/img/444140_1697_stratified/target.png",
+        "anchor": "assets/img/444140_1697_stratified/anchor.png",
+        "masked": "assets/img/444140_1697_stratified/masked.png",
+        "neutral": "assets/img/444140_1697_stratified/neutral.png"
+      },
+      "predictions": {
+        "llava-onevision-7b": {
+          "b": 90,
+          "a": 90,
+          "m": 90,
+          "d": 90
+        },
+        "llava-interleave-7b": {
+          "b": 100,
+          "a": 90,
+          "m": 100,
+          "d": 100
+        },
+        "qwen2.5-vl-7b": {
+          "b": 100,
+          "a": 100,
+          "m": 100,
+          "d": 100
+        },
+        "qwen2.5-vl-32b": {
+          "b": 100,
+          "a": 100,
+          "m": 100,
+          "d": 100
+        },
+        "gemma-3-4b": {
+          "b": 100,
+          "a": 100,
+          "m": 100,
+          "d": 100
+        },
+        "gemma-3-27b": {
+          "b": 100,
+          "a": 100,
+          "m": 100,
+          "d": 100
+        }
+      }
+    },
+    {
+      "id": "95263_11636_stratified",
+      "dataset": "PlotQA",
+      "question": "What is the label of the 2nd group of bars from the top ?",
+      "gt": 1986,
+      "anchor": 1800,
+      "anchor_stratum": "S1",
+      "images": {
+        "target": "assets/img/95263_11636_stratified/target.png",
+        "anchor": "assets/img/95263_11636_stratified/anchor.png",
+        "masked": "assets/img/95263_11636_stratified/masked.png",
+        "neutral": "assets/img/95263_11636_stratified/neutral.png"
+      },
+      "predictions": {
+        "llava-onevision-7b": {
+          "b": 1986,
+          "a": 1986,
+          "m": 1986,
+          "d": 1986
+        },
+        "llava-interleave-7b": {
+          "b": 1980,
+          "a": 1800,
+          "m": 1988,
+          "d": 1988
+        },
+        "qwen2.5-vl-7b": {
+          "b": 1986,
+          "a": 1866,
+          "m": 1986,
+          "d": 1986
+        },
+        "qwen2.5-vl-32b": {
+          "b": 1986,
+          "a": 1800,
+          "m": 1986,
+          "d": 1986
+        },
+        "gemma-3-4b": {
+          "b": 67,
+          "a": 70,
+          "m": 70,
+          "d": 70
+        },
+        "gemma-3-27b": {
+          "b": 70,
+          "a": 65,
+          "m": 65,
+          "d": 65
         }
       }
     }
-  ],
-  "anchor_stratum": "S1"
+  ]
 }

@@ -261,9 +261,9 @@ def test_build_writes_demo_json_and_images(tmp_path):
 
     chosen = ["S1"]
     bdd.build_site_artifacts(
-        chosen=chosen, by_model=by_model,
+        chosen=chosen, by_model_by_stratum={"S1": by_model},
         inputs_root=inputs, site_root=site,
-        anchor_stratum="S1", max_image_px=32,
+        max_image_px=32, default_stratum="S1",
     )
     demo_json = json.loads((site / "data" / "demo.json").read_text())
     assert {m["id"] for m in demo_json["models"]} == set(bdd.MAIN_PANEL)
