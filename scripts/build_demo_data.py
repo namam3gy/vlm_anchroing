@@ -162,8 +162,10 @@ def load_predictions(
                         "dataset": _infer_dataset(str(row.get("input_image_paths", ""))),
                         "target_image_path": _first_path(row.get("input_image_paths", "")),
                     }
-                if code == "a" and sample.get("meta", {}).get("anchor") is None:
+                elif code == "a" and sample["meta"].get("anchor") is None and "question" in sample["meta"]:
                     sample["meta"]["anchor"] = _to_int(row.get("anchor_value"))
+            if "b" not in sample or "question" not in sample["meta"]:
+                continue
             by_model[display_id][str(sid)] = sample
     return dict(by_model)
 

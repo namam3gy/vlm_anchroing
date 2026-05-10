@@ -92,3 +92,45 @@ def test_load_predictions_skips_before_c_form(tmp_path):
     forbidden.write_text("model\nignored\n")
     by_model = bdd.load_predictions(outputs_root=tmp_path / "outputs", anchor_stratum="S1")
     assert by_model == {}
+
+
+def test_load_predictions_drops_samples_missing_b(tmp_path):
+    """Samples that lack the b (target_only) condition are dropped entirely."""
+    root = tmp_path / "outputs"
+    base_row = {
+        "model": "llava-onevision-qwen2-7b-ov", "sample_instance_id": "",
+        "sample_instance_index": "0", "question_id": "", "image_id": "",
+        "question": "How many?", "question_type": "free_form",
+        "condition": "", "irrelevant_type": "", "irrelevant_image": "",
+        "ground_truth": "4", "answers": "['4']", "backend": "huggingface",
+        "raw_prediction": "", "prediction": "", "answer_token_id": "",
+        "answer_token_text": "", "answer_token_logit": "",
+        "answer_token_probability": "", "token_info": "", "anchor_value": "5",
+        "anchor_stratum_id": "", "anchor_stratum_range": "",
+        "standard_vqa_accuracy": "1", "exact_match": "1",
+        "anchor_adopted": "0", "anchor_direction_followed": "0",
+        "numeric_distance_to_anchor": "1",
+        "input_image_paths": "['/abs/inputs/vqav2_number_val/images/x.jpg']",
+        "anchor_direction_followed_moved": "0",
+        "pred_b_equal_anchor": "0", "pred_diff_from_base": "0",
+    }
+    # S1 has b/a/m/d (full); S2 has only a/m/d (missing b)
+    rows = []
+    for sid, conds in (
+        ("S1", [("target_only", "4"), ("target_plus_irrelevant_number_S1", "5"),
+                ("target_plus_irrelevant_number_masked_S1", "4"),
+                ("target_plus_irrelevant_neutral", "4")]),
+        ("S2", [("target_plus_irrelevant_number_S1", "5"),
+                ("target_plus_irrelevant_number_masked_S1", "4"),
+                ("target_plus_irrelevant_neutral", "4")]),
+    ):
+        for cond, pred in conds:
+            rows.append({**base_row, "sample_instance_id": sid,
+                         "condition": cond, "prediction": pred})
+    run_dir = root / "experiment_x" / "llava-onevision-qwen2-7b-ov" / "20260510-000000"
+    _write_csv(run_dir / "predictions.csv", rows)
+
+    by_model = bdd.load_predictions(outputs_root=root, anchor_stratum="S1")
+    samples = by_model["llava-onevision-7b"]
+    assert "S1" in samples
+    assert "S2" not in samples  # dropped — no b condition
