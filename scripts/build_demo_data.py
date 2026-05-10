@@ -261,18 +261,19 @@ def score_sample(by_model: dict[str, dict[str, dict]], sample_id: str) -> float:
 
     The textbook 4-arm signature is
 
-        b == gt   AND   a == anchor   AND   m == gt   AND   d == gt
+        b == gt   AND   a == anchor (with b != anchor)   AND
+        m == gt   AND   d == gt
 
-    — the model is base-correct, gets pulled to the digit anchor on the
-    a-arm, recovers when the digit pixels are masked (m), and recovers
-    again under the neutral 2-image distractor (d). Both controls firing
-    is what isolates the digit pixel as the causal feature. We weight
-    each model by how much of that 4-arm trajectory it shows:
+    Adopt is the canonical M2 form ``pa == anchor AND pb != anchor``
+    (see references/AGENTS.md): the model wasn't already producing the
+    anchor on baseline, so the a-arm move is genuinely toward the
+    anchor rather than a no-op. We weight each model by how much of
+    that 4-arm trajectory it shows:
 
     +15 per model with the full 4-arm signature (b/a/m/d all match)
     +10 per model with the 3-arm subset b/a/m (d may differ)
-     +4 per model with b == gt and a == anchor (no m recovery)
-     +2 per model that adopts the anchor on a (b may already be wrong)
+     +4 per model with b == gt and a-arm canonical adopt (no m recovery)
+     +2 per model that canonical-adopts on a (b may already be wrong)
      +2 per model that is base-correct (b == gt) — tiebreaker
      +5 if ≥2 models show the full 4-arm signature (demo-gold)
      +2 if ≥1 model shows the full 4-arm signature
@@ -288,18 +289,19 @@ def score_sample(by_model: dict[str, dict[str, dict]], sample_id: str) -> float:
         if gt is None or anchor is None:
             continue
         b_correct = s["b"] == gt
-        a_pulled = s["a"] == anchor
+        # Canonical adopt: pa == anchor AND pb != anchor
+        a_adopted = s["a"] == anchor and s["b"] != anchor
         m_recovers = s["m"] == gt
         d_recovers = s["d"] == gt
-        if b_correct and a_pulled and m_recovers and d_recovers:
+        if b_correct and a_adopted and m_recovers and d_recovers:
             score += 15
             full_4 += 1
-        elif b_correct and a_pulled and m_recovers:
+        elif b_correct and a_adopted and m_recovers:
             score += 10
             full_3 += 1
-        elif b_correct and a_pulled:
+        elif b_correct and a_adopted:
             score += 4
-        elif a_pulled:
+        elif a_adopted:
             score += 2
         if b_correct:
             score += 2

@@ -4,7 +4,12 @@
 }
 
 body { font-family: 'Inter', system-ui, sans-serif; }
-code, pre, .mono { font-family: 'JetBrains Mono', ui-monospace, monospace; }
+code, pre, .mono, .font-mono { font-family: 'JetBrains Mono', ui-monospace, monospace; }
+
+/* Colour-coded GT / anchor values shown next to the question — match the
+   semantics of the prediction-table cells (gt = green, anchor = amber). */
+.gt-value     { color: #15803d; }
+.anchor-value { color: var(--anchor-glyph); }
 
 /* Anchor-effect tag in the anchor-cond column. (adopt) is loud (amber),
    (df) is muted (neutral-500) since it's a partial pull. Both stay

@@ -71,20 +71,26 @@ function render() {
 
   const rows = state.data.models.map((m) => {
     const baselinePred = s.predictions[m.id]["b"];
+    const baselineAtAnchor = baselinePred === s.anchor;
     const cells = CONDITIONS.map((c) => {
       const pred = s.predictions[m.id][c];
       const isGt = pred === s.gt;
-      // Anchor cond column carries one of two effect tags:
-      //   (adopt) = pred_a == anchor — model literally outputs the anchor
-      //   (df)    = pred_a moved toward the anchor relative to b but
-      //             didn't fully adopt — the C-form direction-follow
-      //             condition (pa - pb)·(anchor - pb) > 0 AND pa != pb
+      // Anchor cond column carries one of two effect tags. Both follow
+      // the canonical M2 definitions (see references/AGENTS.md):
+      //   (adopt) = pa == anchor AND pb != anchor — the model wasn't
+      //             already producing the anchor on baseline, so the
+      //             a-arm move is genuinely toward the anchor
+      //   (df)    = (pa - pb)·(anchor - pb) > 0 AND pa != pb — moved
+      //             toward the anchor without fully adopting (the
+      //             C-form direction-follow condition; if pb already
+      //             equals the anchor, the dot-product is 0, so df is
+      //             also false there)
       // Other columns get no tag. Bold weight is reserved for adopt
       // (df is partial pull — colour alone is enough).
       let tag = "";
       let isAdopt = false;
       if (c === "a") {
-        if (pred === s.anchor) {
+        if (pred === s.anchor && !baselineAtAnchor) {
           tag = '<span class="pred-tag adopt">(adopt)</span>';
           isAdopt = true;
         } else if (
@@ -121,7 +127,11 @@ function render() {
     <div class="rounded-md border border-neutral-200 p-4 space-y-4">
       <div class="text-base md:text-lg leading-snug">
         <span class="font-semibold text-[var(--accent)]">Q:</span> ${escapeHtml(s.question)}
-        <span class="ml-3 text-sm text-neutral-500 whitespace-nowrap">GT = ${s.gt}, anchor = ${s.anchor}</span>
+      </div>
+      <div class="flex flex-wrap items-baseline gap-x-6 gap-y-1 text-base md:text-lg font-mono">
+        <span><span class="text-neutral-500 mr-1">GT</span><span class="font-bold gt-value">${s.gt}</span></span>
+        <span><span class="text-neutral-500 mr-1">anchor</span><span class="font-bold anchor-value">${s.anchor}</span></span>
+        <span class="text-sm text-neutral-500">|Δ| = ${Math.abs(s.gt - s.anchor)}</span>
       </div>
       <div class="grid ${showSecond ? "md:grid-cols-2" : "grid-cols-1"} gap-4">
         <figure>

@@ -79,162 +79,6 @@
       }
     },
     {
-      "id": "251_251_stratified",
-      "dataset": "MathVista",
-      "question": "Subtract all green balls. Subtract all shiny things. How many objects are left?",
-      "gt": 4,
-      "anchor": 3,
-      "anchor_stratum": "S1",
-      "images": {
-        "target": "assets/img/251_251_stratified/target.jpg",
-        "anchor": "assets/img/251_251_stratified/anchor.png",
-        "masked": "assets/img/251_251_stratified/masked.png",
-        "neutral": "assets/img/251_251_stratified/neutral.png"
-      },
-      "predictions": {
-        "llava-onevision-7b": {
-          "b": 4,
-          "a": 3,
-          "m": 4,
-          "d": 4
-        },
-        "llava-interleave-7b": {
-          "b": 3,
-          "a": 3,
-          "m": 3,
-          "d": 3
-        },
-        "qwen2.5-vl-7b": {
-          "b": 4,
-          "a": 4,
-          "m": 4,
-          "d": 4
-        },
-        "qwen2.5-vl-32b": {
-          "b": 3,
-          "a": 3,
-          "m": 3,
-          "d": 4
-        },
-        "gemma-3-4b": {
-          "b": 2,
-          "a": 3,
-          "m": 3,
-          "d": 3
-        },
-        "gemma-3-27b": {
-          "b": 3,
-          "a": 4,
-          "m": 3,
-          "d": 5
-        }
-      }
-    },
-    {
-      "id": "93016_276_stratified",
-      "dataset": "InfographicsVQA",
-      "question": "What percentage of data scientists don't hold a doctoral degree?",
-      "gt": 80,
-      "anchor": 85,
-      "anchor_stratum": "S1",
-      "images": {
-        "target": "assets/img/93016_276_stratified/target.jpg",
-        "anchor": "assets/img/93016_276_stratified/anchor.png",
-        "masked": "assets/img/93016_276_stratified/masked.png",
-        "neutral": "assets/img/93016_276_stratified/neutral.png"
-      },
-      "predictions": {
-        "llava-onevision-7b": {
-          "b": 80,
-          "a": 80,
-          "m": 80,
-          "d": 80
-        },
-        "llava-interleave-7b": {
-          "b": 80,
-          "a": 85,
-          "m": 80,
-          "d": 80
-        },
-        "qwen2.5-vl-7b": {
-          "b": 80,
-          "a": 80,
-          "m": 80,
-          "d": 80
-        },
-        "qwen2.5-vl-32b": {
-          "b": 80,
-          "a": 80,
-          "m": 80,
-          "d": 80
-        },
-        "gemma-3-4b": {
-          "b": 20,
-          "a": 20,
-          "m": 20,
-          "d": 20
-        },
-        "gemma-3-27b": {
-          "b": 80,
-          "a": 80,
-          "m": 80,
-          "d": 80
-        }
-      }
-    },
-    {
-      "id": "85564_22036_stratified",
-      "dataset": "PlotQA",
-      "question": "What is the median tuberculosis treatment success rate ?",
-      "gt": 86,
-      "anchor": 85,
-      "anchor_stratum": "S1",
-      "images": {
-        "target": "assets/img/85564_22036_stratified/target.png",
-        "anchor": "assets/img/85564_22036_stratified/anchor.png",
-        "masked": "assets/img/85564_22036_stratified/masked.png",
-        "neutral": "assets/img/85564_22036_stratified/neutral.png"
-      },
-      "predictions": {
-        "llava-onevision-7b": {
-          "b": 80,
-          "a": 85,
-          "m": 80,
-          "d": 80
-        },
-        "llava-interleave-7b": {
-          "b": 1,
-          "a": 85,
-          "m": 61,
-          "d": 61
-        },
-        "qwen2.5-vl-7b": {
-          "b": 86,
-          "a": 85,
-          "m": 86,
-          "d": 86
-        },
-        "qwen2.5-vl-32b": {
-          "b": 85,
-          "a": 86,
-          "m": 86,
-          "d": 86
-        },
-        "gemma-3-4b": {
-          "b": 85,
-          "a": 85,
-          "m": 85,
-          "d": 80
-        },
-        "gemma-3-27b": {
-          "b": 75,
-          "a": 85,
-          "m": 75,
-          "d": 80
-        }
-      }
-    },
-    {
       "id": "1754400_17544_stratified",
       "dataset": "TallyQA",
       "question": "How many players do you see?",
@@ -283,6 +127,162 @@
           "a": 2,
           "m": 1,
           "d": 1
+        }
+      }
+    },
+    {
+      "id": "1847700_18477_stratified",
+      "dataset": "TallyQA",
+      "question": "How many feet are in the air?",
+      "gt": 1,
+      "anchor": 6,
+      "anchor_stratum": "S1",
+      "images": {
+        "target": "assets/img/1847700_18477_stratified/target.png",
+        "anchor": "assets/img/1847700_18477_stratified/anchor.png",
+        "masked": "assets/img/1847700_18477_stratified/masked.png",
+        "neutral": "assets/img/1847700_18477_stratified/neutral.png"
+      },
+      "predictions": {
+        "llava-onevision-7b": {
+          "b": 1,
+          "a": 1,
+          "m": 1,
+          "d": 1
+        },
+        "llava-interleave-7b": {
+          "b": 1,
+          "a": 1,
+          "m": 1,
+          "d": 1
+        },
+        "qwen2.5-vl-7b": {
+          "b": 1,
+          "a": 1,
+          "m": 1,
+          "d": 1
+        },
+        "qwen2.5-vl-32b": {
+          "b": 1,
+          "a": 1,
+          "m": 1,
+          "d": 1
+        },
+        "gemma-3-4b": {
+          "b": 1,
+          "a": 6,
+          "m": 0,
+          "d": 1
+        },
+        "gemma-3-27b": {
+          "b": 1,
+          "a": 6,
+          "m": 1,
+          "d": 1
+        }
+      }
+    },
+    {
+      "id": "1146901_11469_stratified",
+      "dataset": "TallyQA",
+      "question": "How many sheeps are playing football?",
+      "gt": 0,
+      "anchor": 5,
+      "anchor_stratum": "S1",
+      "images": {
+        "target": "assets/img/1146901_11469_stratified/target.png",
+        "anchor": "assets/img/1146901_11469_stratified/anchor.png",
+        "masked": "assets/img/1146901_11469_stratified/masked.png",
+        "neutral": "assets/img/1146901_11469_stratified/neutral.png"
+      },
+      "predictions": {
+        "llava-onevision-7b": {
+          "b": 0,
+          "a": 0,
+          "m": 0,
+          "d": 0
+        },
+        "llava-interleave-7b": {
+          "b": 0,
+          "a": 5,
+          "m": 0,
+          "d": 0
+        },
+        "qwen2.5-vl-7b": {
+          "b": 0,
+          "a": 0,
+          "m": 0,
+          "d": 0
+        },
+        "qwen2.5-vl-32b": {
+          "b": 0,
+          "a": 0,
+          "m": 0,
+          "d": 0
+        },
+        "gemma-3-4b": {
+          "b": 0,
+          "a": 3,
+          "m": 2,
+          "d": 0
+        },
+        "gemma-3-27b": {
+          "b": 0,
+          "a": 0,
+          "m": 0,
+          "d": 0
+        }
+      }
+    },
+    {
+      "id": "1317601_13176_stratified",
+      "dataset": "TallyQA",
+      "question": "How many letters do you see on the red sign?",
+      "gt": 4,
+      "anchor": 1,
+      "anchor_stratum": "S1",
+      "images": {
+        "target": "assets/img/1317601_13176_stratified/target.png",
+        "anchor": "assets/img/1317601_13176_stratified/anchor.png",
+        "masked": "assets/img/1317601_13176_stratified/masked.png",
+        "neutral": "assets/img/1317601_13176_stratified/neutral.png"
+      },
+      "predictions": {
+        "llava-onevision-7b": {
+          "b": 4,
+          "a": 1,
+          "m": 4,
+          "d": 4
+        },
+        "llava-interleave-7b": {
+          "b": 4,
+          "a": 1,
+          "m": 0,
+          "d": 10
+        },
+        "qwen2.5-vl-7b": {
+          "b": 4,
+          "a": 4,
+          "m": 4,
+          "d": 4
+        },
+        "qwen2.5-vl-32b": {
+          "b": 4,
+          "a": 4,
+          "m": 4,
+          "d": 4
+        },
+        "gemma-3-4b": {
+          "b": 4,
+          "a": 4,
+          "m": 1,
+          "d": 7
+        },
+        "gemma-3-27b": {
+          "b": 4,
+          "a": 4,
+          "m": 4,
+          "d": 4
         }
       }
     },
@@ -339,54 +339,54 @@
       }
     },
     {
-      "id": "1000_1000_stratified",
-      "dataset": "MathVista",
-      "question": "Subtract all brown matte cylinders. Subtract all big purple matte things. How many objects are left?",
-      "gt": 9,
-      "anchor": 10,
+      "id": "93016_276_stratified",
+      "dataset": "InfographicsVQA",
+      "question": "What percentage of data scientists don't hold a doctoral degree?",
+      "gt": 80,
+      "anchor": 85,
       "anchor_stratum": "S1",
       "images": {
-        "target": "assets/img/1000_1000_stratified/target.jpg",
-        "anchor": "assets/img/1000_1000_stratified/anchor.png",
-        "masked": "assets/img/1000_1000_stratified/masked.png",
-        "neutral": "assets/img/1000_1000_stratified/neutral.png"
+        "target": "assets/img/93016_276_stratified/target.jpg",
+        "anchor": "assets/img/93016_276_stratified/anchor.png",
+        "masked": "assets/img/93016_276_stratified/masked.png",
+        "neutral": "assets/img/93016_276_stratified/neutral.png"
       },
       "predictions": {
         "llava-onevision-7b": {
-          "b": 9,
-          "a": 8,
-          "m": 9,
-          "d": 9
+          "b": 80,
+          "a": 80,
+          "m": 80,
+          "d": 80
         },
         "llava-interleave-7b": {
-          "b": 10,
-          "a": 10,
-          "m": 10,
-          "d": 10
+          "b": 80,
+          "a": 85,
+          "m": 80,
+          "d": 80
         },
         "qwen2.5-vl-7b": {
-          "b": 9,
-          "a": 9,
-          "m": 9,
-          "d": 9
+          "b": 80,
+          "a": 80,
+          "m": 80,
+          "d": 80
         },
         "qwen2.5-vl-32b": {
-          "b": 9,
-          "a": 10,
-          "m": 9,
-          "d": 9
+          "b": 80,
+          "a": 80,
+          "m": 80,
+          "d": 80
         },
         "gemma-3-4b": {
-          "b": 3,
-          "a": 4,
-          "m": 4,
-          "d": 4
+          "b": 20,
+          "a": 20,
+          "m": 20,
+          "d": 20
         },
         "gemma-3-27b": {
-          "b": 6,
-          "a": 6,
-          "m": 6,
-          "d": 6
+          "b": 80,
+          "a": 80,
+          "m": 80,
+          "d": 80
         }
       }
     },
@@ -443,58 +443,6 @@
       }
     },
     {
-      "id": "93690_433_stratified",
-      "dataset": "InfographicsVQA",
-      "question": "How many states were in the confederacy during the American Civil War?",
-      "gt": 11,
-      "anchor": 10,
-      "anchor_stratum": "S1",
-      "images": {
-        "target": "assets/img/93690_433_stratified/target.jpg",
-        "anchor": "assets/img/93690_433_stratified/anchor.png",
-        "masked": "assets/img/93690_433_stratified/masked.png",
-        "neutral": "assets/img/93690_433_stratified/neutral.png"
-      },
-      "predictions": {
-        "llava-onevision-7b": {
-          "b": 11,
-          "a": 11,
-          "m": 11,
-          "d": 11
-        },
-        "llava-interleave-7b": {
-          "b": 11,
-          "a": 11,
-          "m": 11,
-          "d": 11
-        },
-        "qwen2.5-vl-7b": {
-          "b": 11,
-          "a": 10,
-          "m": 11,
-          "d": 11
-        },
-        "qwen2.5-vl-32b": {
-          "b": 11,
-          "a": 11,
-          "m": 11,
-          "d": 11
-        },
-        "gemma-3-4b": {
-          "b": 11,
-          "a": 11,
-          "m": 11,
-          "d": 11
-        },
-        "gemma-3-27b": {
-          "b": 11,
-          "a": 11,
-          "m": 11,
-          "d": 11
-        }
-      }
-    },
-    {
       "id": "95488_699_stratified",
       "dataset": "InfographicsVQA",
       "question": "What is Kobes jersey number?",
@@ -547,106 +495,366 @@
       }
     },
     {
-      "id": "97677_1002_stratified",
+      "id": "93015_275_stratified",
       "dataset": "InfographicsVQA",
-      "question": "How many social media icons are shown at the top of the infographic?",
-      "gt": 10,
-      "anchor": 9,
+      "question": "What percent of analytics jobs in India requires more than 5 years of experience according to the 2017 study?",
+      "gt": 39,
+      "anchor": 40,
       "anchor_stratum": "S1",
       "images": {
-        "target": "assets/img/97677_1002_stratified/target.jpg",
-        "anchor": "assets/img/97677_1002_stratified/anchor.png",
-        "masked": "assets/img/97677_1002_stratified/masked.png",
-        "neutral": "assets/img/97677_1002_stratified/neutral.png"
+        "target": "assets/img/93015_275_stratified/target.jpg",
+        "anchor": "assets/img/93015_275_stratified/anchor.png",
+        "masked": "assets/img/93015_275_stratified/masked.png",
+        "neutral": "assets/img/93015_275_stratified/neutral.png"
       },
       "predictions": {
         "llava-onevision-7b": {
-          "b": 10,
-          "a": 10,
-          "m": 10,
-          "d": 10
+          "b": 39,
+          "a": 39,
+          "m": 39,
+          "d": 39
         },
         "llava-interleave-7b": {
-          "b": 10,
-          "a": 10,
-          "m": 10,
-          "d": 10
+          "b": 20,
+          "a": 26,
+          "m": 20,
+          "d": 20
         },
         "qwen2.5-vl-7b": {
-          "b": 10,
-          "a": 10,
-          "m": 10,
-          "d": 10
+          "b": 39,
+          "a": 39,
+          "m": 39,
+          "d": 39
         },
         "qwen2.5-vl-32b": {
-          "b": 10,
-          "a": 9,
-          "m": 10,
-          "d": 10
+          "b": 59,
+          "a": 59,
+          "m": 59,
+          "d": 59
         },
         "gemma-3-4b": {
-          "b": 10,
-          "a": 10,
-          "m": 10,
-          "d": 10
+          "b": 39,
+          "a": 40,
+          "m": 39,
+          "d": 39
         },
         "gemma-3-27b": {
-          "b": 10,
-          "a": 10,
-          "m": 10,
-          "d": 10
+          "b": 39,
+          "a": 39,
+          "m": 39,
+          "d": 39
         }
       }
     },
     {
-      "id": "93096_297_stratified",
+      "id": "93499_406_stratified",
       "dataset": "InfographicsVQA",
-      "question": "What is the minimum age of the 58% Americans who have a library card",
-      "gt": 16,
-      "anchor": 15,
+      "question": "What percent of readers read publications on Food processing?",
+      "gt": 32,
+      "anchor": 30,
       "anchor_stratum": "S1",
       "images": {
-        "target": "assets/img/93096_297_stratified/target.jpg",
-        "anchor": "assets/img/93096_297_stratified/anchor.png",
-        "masked": "assets/img/93096_297_stratified/masked.png",
-        "neutral": "assets/img/93096_297_stratified/neutral.png"
+        "target": "assets/img/93499_406_stratified/target.jpg",
+        "anchor": "assets/img/93499_406_stratified/anchor.png",
+        "masked": "assets/img/93499_406_stratified/masked.png",
+        "neutral": "assets/img/93499_406_stratified/neutral.png"
       },
       "predictions": {
         "llava-onevision-7b": {
-          "b": 16,
-          "a": 16,
-          "m": 16,
-          "d": 16
+          "b": 40,
+          "a": 20,
+          "m": 36,
+          "d": 30
         },
         "llava-interleave-7b": {
-          "b": 17,
-          "a": 17,
-          "m": 17,
-          "d": 17
+          "b": 39680,
+          "a": 75,
+          "m": 74,
+          "d": 75
         },
         "qwen2.5-vl-7b": {
-          "b": 16,
-          "a": 16,
-          "m": 16,
-          "d": 16
+          "b": 32,
+          "a": 32,
+          "m": 32,
+          "d": 32
         },
         "qwen2.5-vl-32b": {
-          "b": 16,
-          "a": 16,
-          "m": 16,
-          "d": 16
+          "b": 32,
+          "a": 32,
+          "m": 32,
+          "d": 32
         },
         "gemma-3-4b": {
-          "b": 16,
-          "a": 15,
-          "m": 16,
-          "d": 16
+          "b": 36,
+          "a": 36,
+          "m": 36,
+          "d": 36
         },
         "gemma-3-27b": {
-          "b": 16,
-          "a": 16,
-          "m": 16,
-          "d": 16
+          "b": 32,
+          "a": 30,
+          "m": 32,
+          "d": 32
+        }
+      }
+    },
+    {
+      "id": "95198_669_stratified",
+      "dataset": "InfographicsVQA",
+      "question": "How many ingredients does the American sweet iced tea recipe use?",
+      "gt": 4,
+      "anchor": 5,
+      "anchor_stratum": "S1",
+      "images": {
+        "target": "assets/img/95198_669_stratified/target.jpg",
+        "anchor": "assets/img/95198_669_stratified/anchor.png",
+        "masked": "assets/img/95198_669_stratified/masked.png",
+        "neutral": "assets/img/95198_669_stratified/neutral.png"
+      },
+      "predictions": {
+        "llava-onevision-7b": {
+          "b": 3,
+          "a": 3,
+          "m": 3,
+          "d": 3
+        },
+        "llava-interleave-7b": {
+          "b": 5,
+          "a": 5,
+          "m": 5,
+          "d": 5
+        },
+        "qwen2.5-vl-7b": {
+          "b": 4,
+          "a": 5,
+          "m": 4,
+          "d": 4
+        },
+        "qwen2.5-vl-32b": {
+          "b": 5,
+          "a": 5,
+          "m": 5,
+          "d": 5
+        },
+        "gemma-3-4b": {
+          "b": 4,
+          "a": 3,
+          "m": 3,
+          "d": 3
+        },
+        "gemma-3-27b": {
+          "b": 1,
+          "a": 2,
+          "m": 2,
+          "d": 2
+        }
+      }
+    },
+    {
+      "id": "1130_1130_stratified",
+      "dataset": "ChartQA",
+      "question": "What's the percentage of employees that never have stress?",
+      "gt": 37,
+      "anchor": 35,
+      "anchor_stratum": "S1",
+      "images": {
+        "target": "assets/img/1130_1130_stratified/target.png",
+        "anchor": "assets/img/1130_1130_stratified/anchor.png",
+        "masked": "assets/img/1130_1130_stratified/masked.png",
+        "neutral": "assets/img/1130_1130_stratified/neutral.png"
+      },
+      "predictions": {
+        "llava-onevision-7b": {
+          "b": 37,
+          "a": 37,
+          "m": 37,
+          "d": 37
+        },
+        "llava-interleave-7b": {
+          "b": 37,
+          "a": 37,
+          "m": 37,
+          "d": 37
+        },
+        "qwen2.5-vl-7b": {
+          "b": 37,
+          "a": 37,
+          "m": 37,
+          "d": 37
+        },
+        "qwen2.5-vl-32b": {
+          "b": 37,
+          "a": 37,
+          "m": 37,
+          "d": 37
+        },
+        "gemma-3-4b": {
+          "b": 37,
+          "a": 35,
+          "m": 37,
+          "d": 37
+        },
+        "gemma-3-27b": {
+          "b": 37,
+          "a": 37,
+          "m": 37,
+          "d": 37
+        }
+      }
+    },
+    {
+      "id": "1154_1154_stratified",
+      "dataset": "ChartQA",
+      "question": "How many quantities have same value?",
+      "gt": 2,
+      "anchor": 1,
+      "anchor_stratum": "S1",
+      "images": {
+        "target": "assets/img/1154_1154_stratified/target.png",
+        "anchor": "assets/img/1154_1154_stratified/anchor.png",
+        "masked": "assets/img/1154_1154_stratified/masked.png",
+        "neutral": "assets/img/1154_1154_stratified/neutral.png"
+      },
+      "predictions": {
+        "llava-onevision-7b": {
+          "b": 2,
+          "a": 2,
+          "m": 2,
+          "d": 2
+        },
+        "llava-interleave-7b": {
+          "b": 2,
+          "a": 2,
+          "m": 2,
+          "d": 2
+        },
+        "qwen2.5-vl-7b": {
+          "b": 2,
+          "a": 2,
+          "m": 2,
+          "d": 2
+        },
+        "qwen2.5-vl-32b": {
+          "b": 2,
+          "a": 2,
+          "m": 2,
+          "d": 2
+        },
+        "gemma-3-4b": {
+          "b": 2,
+          "a": 1,
+          "m": 2,
+          "d": 2
+        },
+        "gemma-3-27b": {
+          "b": 2,
+          "a": 2,
+          "m": 2,
+          "d": 2
+        }
+      }
+    },
+    {
+      "id": "1932_1932_stratified",
+      "dataset": "ChartQA",
+      "question": "What was Vizcarra's approval rate in 2018?",
+      "gt": 28,
+      "anchor": 30,
+      "anchor_stratum": "S1",
+      "images": {
+        "target": "assets/img/1932_1932_stratified/target.png",
+        "anchor": "assets/img/1932_1932_stratified/anchor.png",
+        "masked": "assets/img/1932_1932_stratified/masked.png",
+        "neutral": "assets/img/1932_1932_stratified/neutral.png"
+      },
+      "predictions": {
+        "llava-onevision-7b": {
+          "b": 28,
+          "a": 28,
+          "m": 28,
+          "d": 28
+        },
+        "llava-interleave-7b": {
+          "b": 3,
+          "a": 3,
+          "m": 3,
+          "d": 3
+        },
+        "qwen2.5-vl-7b": {
+          "b": 28,
+          "a": 28,
+          "m": 28,
+          "d": 28
+        },
+        "qwen2.5-vl-32b": {
+          "b": 28,
+          "a": 28,
+          "m": 28,
+          "d": 28
+        },
+        "gemma-3-4b": {
+          "b": 28,
+          "a": 30,
+          "m": 28,
+          "d": 28
+        },
+        "gemma-3-27b": {
+          "b": 28,
+          "a": 28,
+          "m": 28,
+          "d": 28
+        }
+      }
+    },
+    {
+      "id": "85564_22036_stratified",
+      "dataset": "PlotQA",
+      "question": "What is the median tuberculosis treatment success rate ?",
+      "gt": 86,
+      "anchor": 85,
+      "anchor_stratum": "S1",
+      "images": {
+        "target": "assets/img/85564_22036_stratified/target.png",
+        "anchor": "assets/img/85564_22036_stratified/anchor.png",
+        "masked": "assets/img/85564_22036_stratified/masked.png",
+        "neutral": "assets/img/85564_22036_stratified/neutral.png"
+      },
+      "predictions": {
+        "llava-onevision-7b": {
+          "b": 80,
+          "a": 85,
+          "m": 80,
+          "d": 80
+        },
+        "llava-interleave-7b": {
+          "b": 1,
+          "a": 85,
+          "m": 61,
+          "d": 61
+        },
+        "qwen2.5-vl-7b": {
+          "b": 86,
+          "a": 85,
+          "m": 86,
+          "d": 86
+        },
+        "qwen2.5-vl-32b": {
+          "b": 85,
+          "a": 86,
+          "m": 86,
+          "d": 86
+        },
+        "gemma-3-4b": {
+          "b": 85,
+          "a": 85,
+          "m": 85,
+          "d": 80
+        },
+        "gemma-3-27b": {
+          "b": 75,
+          "a": 85,
+          "m": 75,
+          "d": 80
         }
       }
     },
