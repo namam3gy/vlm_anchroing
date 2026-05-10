@@ -226,52 +226,72 @@ def eligible_samples(by_model: dict[str, dict[str, dict]]) -> list[str]:
 
 
 def score_sample(by_model: dict[str, dict[str, dict]], sample_id: str) -> float:
-    """Higher score = better demo candidate.
+    """Higher score = stronger anchoring signature.
 
-    +2 per model whose b-arm matches GT (criterion 1)
-    +3 per model whose a-arm equals the anchor value (criterion 2)
-    +2 per model whose m-arm equals GT (criterion 3, digit-pixel control fires)
-    +1 if at least 3 models adopt anchor on a (the headline pattern)
+    The textbook signature is ``b == gt`` → ``a == anchor`` → ``m == gt``:
+    the model is correct on its own, gets pulled to the digit anchor when
+    the second image is added, and recovers when the digit pixels are
+    masked. We weight each model's contribution by how much of that
+    trajectory it shows:
+
+    +10 per model with the full b→a→m signature
+     +4 per model with at least b == gt and a == anchor (no m recovery)
+     +2 per model that adopts the anchor on a (b may already be wrong)
+     +2 per model that is base-correct (b == gt) — tiebreaker
+     +1 if ≥3 models show the full signature (the headline-worthy pattern)
     """
     score = 0.0
-    pulled = 0
+    full_trajectory = 0
     for mid in MAIN_PANEL:
         s = by_model[mid][sample_id]
         gt = s["meta"]["gt"]
         anchor = s["meta"]["anchor"]
-        if gt is not None and s["b"] == gt:
+        if gt is None or anchor is None:
+            continue
+        b_correct = s["b"] == gt
+        a_pulled = s["a"] == anchor
+        m_recovers = s["m"] == gt
+        if b_correct and a_pulled and m_recovers:
+            score += 10
+            full_trajectory += 1
+        elif b_correct and a_pulled:
+            score += 4
+        elif a_pulled:
             score += 2
-        if anchor is not None and s["a"] == anchor:
-            score += 3
-            pulled += 1
-        if gt is not None and s["m"] == gt:
+        if b_correct:
             score += 2
-    if pulled >= 3:
+    if full_trajectory >= 3:
         score += 1
     return score
 
 
 def pick_samples(scored: dict[str, tuple[str, float]], n: int) -> list[str]:
-    """Greedy top-N picker that prefers dataset diversity.
+    """Round-robin top-N picker keyed on dataset, then score.
 
-    ``scored`` maps sample_id -> (dataset, score). Picks the highest-scoring
-    sample first; on each subsequent pick boosts samples whose dataset has
-    not been chosen yet. Ties are broken toward samples from unseen
-    datasets so the bonus reliably flips a tie even when its magnitude
-    only matches the gap exactly.
+    ``scored`` maps sample_id -> (dataset, score). While unseen datasets
+    are still represented in the remaining pool, only candidates from
+    those unseen datasets are eligible for the next pick (highest score
+    wins). Once every dataset has contributed at least one sample, the
+    picker falls back to highest score regardless of dataset.
+
+    A small score bonus is *not* used because the score range on real
+    data spans several dozen points, far larger than any reasonable
+    bonus, so a score-bonus rule reduces to "always pick the highest"
+    on real data.
     """
     if not scored:
         return []
     remaining = dict(scored)
+    all_datasets = {ds for ds, _ in scored.values()}
     chosen: list[str] = []
     chosen_datasets: set[str] = set()
     while remaining and len(chosen) < n:
-        def rank(item):
-            _, (ds, sc) = item
-            unseen = ds not in chosen_datasets
-            adjusted = sc + (0.5 if unseen else 0.0)
-            return (adjusted, unseen)
-        sid, (ds, _) = max(remaining.items(), key=rank)
+        unseen_datasets = all_datasets - chosen_datasets
+        if unseen_datasets:
+            pool = {sid: v for sid, v in remaining.items() if v[0] in unseen_datasets}
+        else:
+            pool = remaining
+        sid, (ds, _) = max(pool.items(), key=lambda item: item[1][1])
         chosen.append(sid)
         chosen_datasets.add(ds)
         remaining.pop(sid)

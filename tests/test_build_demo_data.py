@@ -175,6 +175,25 @@ def test_score_sample_rewards_correct_base_and_anchor_pull():
     assert score_a > 0
 
 
+def test_score_sample_prefers_full_trajectory_over_clean_base_only():
+    """A 'b correct, a pulled, m recovered' signature beats 'b correct everywhere'.
+
+    Without the trajectory weighting the picker loved samples where every
+    model was simply correct on every condition (no anchoring effect at
+    all) — useless for an anchoring demo.
+    """
+    by_model = {mid: {} for mid in bdd.MAIN_PANEL}
+    # FULL: every model walks b=4 → a=5 (anchor) → m=4 (recover) → d=4
+    for mid in bdd.MAIN_PANEL:
+        by_model[mid]["FULL"] = _make_sample(4, 5, 4, 4, gt=4, anchor=5)
+    # CLEAN: every model just stays at gt across all conditions (no anchor effect)
+    for mid in bdd.MAIN_PANEL:
+        by_model[mid]["CLEAN"] = _make_sample(4, 4, 4, 4, gt=4, anchor=5)
+    score_full = bdd.score_sample(by_model, "FULL")
+    score_clean = bdd.score_sample(by_model, "CLEAN")
+    assert score_full > score_clean
+
+
 import json
 
 from PIL import Image
