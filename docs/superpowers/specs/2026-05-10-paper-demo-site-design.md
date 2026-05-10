@@ -98,30 +98,32 @@ the full candidate ranking and exits non-zero rather than relaxing
 criteria silently. The spec author then either picks manually or
 revisits the panel composition.
 
-### 3.4 Main panel (5 models)
+### 3.4 Main panel (6 models)
 
-5-model subset of the paper's canonical 6-model main panel
-(`references/project.md §0.4`, finalized 2026-05-04). Selection
-prioritizes Main + size-and-family diversity; `qwen2.5-vl-32b-instruct`
-is dropped because the 27B Gemma already covers the large-model band.
+Demo-site panel deliberately differs from the paper's canonical main
+panel (`references/project.md §0.4`). Picks include `llava-next-interleaved-7b`
+(dropped from canonical 2026-05-04 due to chart-resolution issues but
+useful here as the original Main with strong cross-modal anchoring) and
+both Qwen2.5-VL sizes for an in-family scale contrast. Order is
+preserved end-to-end (build → demo.json → table column order):
 
-| Display label | HF id |
-|---|---|
-| LLaVA-OneVision 7B (main) | `llava-hf/llava-onevision-qwen2-7b-ov-hf` |
-| Qwen2.5-VL 7B | `Qwen/Qwen2.5-VL-7B-Instruct` |
-| Gemma-3 27B | `google/gemma-3-27b-it` |
-| InternVL3 8B | `OpenGVLab/InternVL3-8B` |
-| Gemma-3 4B | `google/gemma-3-4b-it` |
+| # | Display label | HF id |
+|---|---|---|
+| 1 | LLaVA-OneVision 7B (main) | `llava-hf/llava-onevision-qwen2-7b-ov-hf` |
+| 2 | LLaVA-Interleave 7B | `llava-hf/llava-interleave-qwen-7b-hf` |
+| 3 | Qwen2.5-VL 7B | `Qwen/Qwen2.5-VL-7B-Instruct` |
+| 4 | Qwen2.5-VL 32B | `Qwen/Qwen2.5-VL-32B-Instruct` |
+| 5 | Gemma-3 4B | `google/gemma-3-4b-it` |
+| 6 | Gemma-3 27B | `google/gemma-3-27b-it` |
 
-Per §3.3, only samples with full b/a/m/d predictions for all five models
+Per §3.3, only samples with full b/a/m/d predictions for all six models
 are eligible; the build script fails loudly if zero such samples exist
 in the supplied `outputs/` tree.
 
-Note: `llava-next-interleaved-7b` was dropped from the canonical main
-panel on 2026-05-04 (commit `0e7998e`) because its native resolution
-is insufficient for chart/figure datasets, and is not included here.
-`qwen3-vl-8b` is the §5 reasoning ablation, not a §3 main-panel
-model, and is also excluded.
+Note: `internvl3-8b` is in the canonical paper main panel but excluded
+here for demo legibility (the demo loses little from it; `qwen2.5-vl-32b`
+covers the larger-than-7B band). `qwen3-vl-8b` is the §5 reasoning
+ablation, not a §3 main-panel model, and is also excluded.
 
 ## 4. Data layer
 

@@ -16,20 +16,24 @@ from PIL import Image
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
-# Display id -> outputs/ subdirectory name
+# Display id -> outputs/ subdirectory name. Order is preserved end-to-end:
+# Python iteration order, demo.json "models" list order, and the table
+# column order all follow this dict's insertion order.
 MAIN_PANEL: dict[str, str] = {
-    "llava-onevision-7b":  "llava-onevision-qwen2-7b-ov",
-    "qwen2.5-vl-7b":       "qwen2.5-vl-7b-instruct",
-    "gemma-3-27b":         "gemma3-27b-it",
-    "internvl3-8b":        "internvl3-8b",
-    "gemma-3-4b":          "gemma3-4b-it",
+    "llava-onevision-7b":   "llava-onevision-qwen2-7b-ov",
+    "llava-interleave-7b":  "llava-next-interleaved-7b",
+    "qwen2.5-vl-7b":        "qwen2.5-vl-7b-instruct",
+    "qwen2.5-vl-32b":       "qwen2.5-vl-32b-instruct",
+    "gemma-3-4b":           "gemma3-4b-it",
+    "gemma-3-27b":          "gemma3-27b-it",
 }
 MAIN_PANEL_LABELS: dict[str, str] = {
-    "llava-onevision-7b":  "LLaVA-OneVision 7B (main)",
-    "qwen2.5-vl-7b":       "Qwen2.5-VL 7B",
-    "gemma-3-27b":         "Gemma-3 27B",
-    "internvl3-8b":        "InternVL3 8B",
-    "gemma-3-4b":          "Gemma-3 4B",
+    "llava-onevision-7b":   "LLaVA-OneVision 7B (main)",
+    "llava-interleave-7b":  "LLaVA-Interleave 7B",
+    "qwen2.5-vl-7b":        "Qwen2.5-VL 7B",
+    "qwen2.5-vl-32b":       "Qwen2.5-VL 32B",
+    "gemma-3-4b":           "Gemma-3 4B",
+    "gemma-3-27b":          "Gemma-3 27B",
 }
 FORBIDDEN_OUTPUT_SUBTREE = "before_C_form"
 

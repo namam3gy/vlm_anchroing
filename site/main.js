@@ -70,23 +70,37 @@ function render() {
   `).join("");
 
   const rows = state.data.models.map((m) => {
+    const baselinePred = s.predictions[m.id]["b"];
     const cells = CONDITIONS.map((c) => {
       const pred = s.predictions[m.id][c];
       const isGt = pred === s.gt;
-      // Anchor marker + bold weight only on the a column where the
-      // model actually adopts the anchor — b/m/d don't carry an anchor
-      // value so the glyph there is misleading; bold on gt-matching
-      // cells in any column would clash with the green/red colour
-      // semantics.
-      const isPulled = c === "a" && pred === s.anchor;
+      // Anchor cond column carries one of two effect tags:
+      //   (adopt) = pred_a == anchor — model literally outputs the anchor
+      //   (df)    = pred_a moved toward the anchor relative to b but
+      //             didn't fully adopt — the C-form direction-follow
+      //             condition (pa - pb)·(anchor - pb) > 0 AND pa != pb
+      // Other columns get no tag. Bold weight is reserved for adopt
+      // (df is partial pull — colour alone is enough).
+      let tag = "";
+      let isAdopt = false;
+      if (c === "a") {
+        if (pred === s.anchor) {
+          tag = '<span class="pred-tag adopt">(adopt)</span>';
+          isAdopt = true;
+        } else if (
+          pred !== baselinePred
+          && Math.sign(pred - baselinePred) === Math.sign(s.anchor - baselinePred)
+        ) {
+          tag = '<span class="pred-tag df">(df)</span>';
+        }
+      }
       const cls = [
         "pred-cell",
         isGt ? "gt" : "wrong",
         c === state.condition ? "cond-active" : "",
-        isPulled ? "pulled" : "",
+        isAdopt ? "pulled" : "",
       ].filter(Boolean).join(" ");
-      const mark = isPulled ? '<span class="anchor-mark">⚓</span>' : "";
-      return `<td class="${cls}">${pred}${mark}</td>`;
+      return `<td class="${cls}">${pred}${tag}</td>`;
     }).join("");
     return `<tr><td>${escapeHtml(m.label)}</td>${cells}</tr>`;
   }).join("");
