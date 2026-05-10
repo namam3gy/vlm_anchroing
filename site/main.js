@@ -55,6 +55,12 @@ function secondImageFor(sample, cond) {
 function render() {
   const root = document.getElementById("demo-app");
   const s = currentSample();
+  // Preserve page scroll + thumbnail-row horizontal scroll across the
+  // innerHTML rebuild — otherwise picking a sample bounces the viewport.
+  const pageScrollY = window.scrollY;
+  const pageScrollX = window.scrollX;
+  const oldThumbs = root.querySelector("[data-thumbs]");
+  const thumbsScrollLeft = oldThumbs ? oldThumbs.scrollLeft : 0;
 
   const thumbs = state.data.samples.map((sm) => `
     <button class="text-left shrink-0" data-sid="${escapeHtml(sm.id)}" type="button">
@@ -122,7 +128,7 @@ function render() {
   root.innerHTML = `
     <div>
       <div class="text-xs uppercase tracking-wider text-neutral-500 mb-2">Pick a sample</div>
-      <div class="flex gap-3 overflow-x-auto pb-2">${thumbs}</div>
+      <div class="flex gap-3 overflow-x-auto pb-2" data-thumbs>${thumbs}</div>
     </div>
     <div class="rounded-md border border-neutral-200 p-4 space-y-4">
       <div class="text-base md:text-lg leading-snug">
@@ -176,6 +182,12 @@ function render() {
       render();
     });
   });
+
+  // Restore both scroll positions after the layout settles. Doing it on
+  // the next frame avoids a double-paint flicker during the rebuild.
+  const newThumbs = root.querySelector("[data-thumbs]");
+  if (newThumbs) newThumbs.scrollLeft = thumbsScrollLeft;
+  requestAnimationFrame(() => window.scrollTo(pageScrollX, pageScrollY));
 }
 
 function escapeHtml(str) {
