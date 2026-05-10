@@ -5,6 +5,12 @@ const COND_LABEL = {
   m: "m · masked",
   d: "d · neutral",
 };
+const COND_HEADER = {
+  b: "base cond",
+  a: "anchor cond",
+  m: "mask cond",
+  d: "distractor cond",
+};
 
 const state = {
   data: null,
@@ -67,15 +73,19 @@ function render() {
     const cells = CONDITIONS.map((c) => {
       const pred = s.predictions[m.id][c];
       const isGt = pred === s.gt;
-      // Anchor marker only on the a column — b/m/d don't carry an
-      // anchor value so the glyph there is misleading.
-      const showAnchor = c === "a" && pred === s.anchor;
+      // Anchor marker + bold weight only on the a column where the
+      // model actually adopts the anchor — b/m/d don't carry an anchor
+      // value so the glyph there is misleading; bold on gt-matching
+      // cells in any column would clash with the green/red colour
+      // semantics.
+      const isPulled = c === "a" && pred === s.anchor;
       const cls = [
         "pred-cell",
         isGt ? "gt" : "wrong",
         c === state.condition ? "cond-active" : "",
+        isPulled ? "pulled" : "",
       ].filter(Boolean).join(" ");
-      const mark = showAnchor ? '<span class="anchor-mark">⚓</span>' : "";
+      const mark = isPulled ? '<span class="anchor-mark">⚓</span>' : "";
       return `<td class="${cls}">${pred}${mark}</td>`;
     }).join("");
     return `<tr><td>${escapeHtml(m.label)}</td>${cells}</tr>`;
@@ -120,7 +130,7 @@ function render() {
           <thead>
             <tr>
               <th>Model</th>
-              ${CONDITIONS.map((c) => `<th>${c}</th>`).join("")}
+              ${CONDITIONS.map((c) => `<th>${escapeHtml(COND_HEADER[c])}</th>`).join("")}
             </tr>
           </thead>
           <tbody>${rows}</tbody>
