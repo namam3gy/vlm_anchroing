@@ -1,0 +1,8 @@
+:root {
+  --accent: #1e40af;
+  --anchor-glyph: #d97706;
+}
+body { font-family: 'Inter', system-ui, sans-serif; }
+code, pre, .mono { font-family: 'JetBrains Mono', ui-monospace, monospace; }
+.anchor-mark { color: var(--anchor-glyph); margin-left: 0.25rem; }
+.cond-active { background-color: rgb(219 234 254); } /* tailwind blue-100 */
