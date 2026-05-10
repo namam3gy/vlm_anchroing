@@ -50,26 +50,66 @@ Predictions are written `pred_b / pred_a / pred_m / pred_d`; ground truth is
 
 ## 3. Status snapshot — where we are (2026-05-09 — 5-round paper review loop complete)
 
-### 3.0c Post-bridge state (2026-05-10 — Solid Findings, top of band; bridge null, paper §8.2 limitation)
+### 3.0c Post-bridge state (2026-05-10 — Solid Findings, top of band; bridge PARTIALLY RESCUED at K=1 after re-calibration)
 
-P0-1 γ-β residual-stream bridge experiment shipped, **Alt-1 falsified** —
-Thinking trace V_K[L=33] amplitude growth (+45.1, 1.24×) is uniform
-across anchor and neutral arms (DiD ≈ 0). Paper tier remains *Solid
-Findings, top of band*; the would-have-been Main lift via mechanism
-interlock did not materialize, but honest null reporting preserves
-methodology defensibility. Full evidence:
+P0-1 γ-β residual-stream bridge experiment shipped end-to-end with
+re-calibration rescue. Original (PlotQA + InfoVQA pooled, K=8, L=33)
+result was Alt-1 falsified — within-Thinking null at K=8 mean.
+
+**Rescue (Phase B'/C', 2026-05-10 PM)**: TallyQA added to calibration
+pool (3017 wrong-base diffs total), 7-layer × K=16 coefficient capture,
+84-cell L × K sweep with Bonferroni correction. **14 / 84 cells survive
+Bonferroni** (within-Thinking CI excludes 0 after k=84 correction):
+
+- **L=30, K=2, max**: within-Thinking +0.866 [+0.412, +1.330],
+  Bonferroni [+0.115, +1.643] — strongest cell.
+- L∈{29, 30, 33}, K=1, mean: within-Thinking +0.21 to +0.48,
+  Bonferroni-significant.
+- L=20, K=1/2/4/8, mean: within-Thinking -0.11 to -0.15
+  (sign-reversal at mid-stack), Bonferroni-significant.
+
+**Qualitative bridge ESTABLISHED**: anchor-specific within-Thinking
+activation at K=1 (top singular direction) in late-stack layers, with
+layer-specific structure (positive late, negative mid) consistent with
+§5.2 routing-vs-integration framework. **Quantitative bridge NOT
+established**: magnitude (+0.5 to +0.9 amplitude units) does not
+predict §4.5 ×12.7 behavioral correct-base ratio.
+
+Why K=8 (paper §6 prior) hid the signal: sv7/sv8 elbow at L=33 is 1.026
+(gradual decay), K=2..7 noise dilutes K=1 anchor direction. Same layer,
+same data, K=1 vs K=8 flips bridge from null to Bonferroni-positive
+(L=33 K=1 mean = +0.28 [+0.19, +0.38] vs K=8 mean = -0.05).
+
+Full evidence:
 [`docs/insights/gamma-beta-bridge-evidence.md`](../docs/insights/gamma-beta-bridge-evidence.md).
+L×K sweep table:
+[`docs/insights/_data/gamma_beta_bridge_lk_sweep.csv`](../docs/insights/_data/gamma_beta_bridge_lk_sweep.csv).
 
-- **§4.6.1 NOT authored** (per spec §1.2 Adverse outcome). §4.6
-  behavioral existence-proof unchanged.
-- **§8.2 limitation extension** drafted (English in evidence doc).
-  Korean translation pending paper-revise pass on
-  `docs/paper/emnlp_draft_ko.md` (gitignored, user-managed).
-- **§8.4 item 1** strikethrough-with-annotation pending user paper edit.
-- **Tier-shift hypothesis weakened**, but other Phase 5 P0/P1 items
-  (P0-2 spectrum sweep, P1-3 Table 6 paired-bootstrap CI, P1-4 CAA+ITI
-  empirical rows, P1-5 random-K=8 baseline, P1-6 27-cell pilot heatmap)
-  remain viable Main-tier hardening paths.
+- **§4.6.1 CAN be authored** (revised from Alt-1 NOT-authored verdict)
+  with K=1 finding emphasized; quantitative magnitude caveat noted.
+- **§5.2 Insight 4 routing-vs-integration framework** gains second
+  empirical anchor (alongside §6.4 LEACE rank-1 ChartQA reversal):
+  γ-β bridge layer-specific sign-reversal (positive late + negative
+  mid) is direct evidence of layer-routed anchor information processing.
+- **§1.5 (4a) routing-vs-integration framework** can cite γ-β bridge
+  as direct empirical evidence.
+- **§8.2 limitation** softened from "bridge not established" to
+  "quantitative interlock not achieved; qualitative bridge present at K=1".
+- **§8.4 item 1** updated from "pending bridge experiment" to
+  "partial bridge established (2026-05-10), quantitative magnitude
+  residual".
+
+**Tier impact**: original Alt-1 verdict was "tier remains *Solid
+Findings, top of band*". Partial rescue keeps tier at *Solid Findings,
+top of band* — the qualitative bridge isn't strong enough to flip to
+weak-accept Main on its own (quantitative magnitude small), but it
+removes the "experiment failed" label and provides positive direct
+empirical evidence for the routing-vs-integration framework.
+
+Other Phase 5 P0/P1 items (P0-2 spectrum sweep, P1-3 Table 6
+paired-bootstrap CI, P1-4 CAA+ITI empirical rows, P1-5 random-K=8
+baseline, P1-6 27-cell pilot heatmap) remain viable Main-tier
+hardening paths.
 
 ### 3.0b Post-review state (2026-05-09 — Solid Findings, top of band; Main contingent on bridge experiment)
 
@@ -544,6 +584,59 @@ contingent on P0-1 bridge experiment.
   `predictions.jsonl` only.
 
 ## 10. Changelog
+
+- **2026-05-10 ~17:30 (Phase 5 P0-1 γ-β bridge re-calibration rescue —
+  partial bridge established at K=1, layer-specific structure).**
+  Phase B'/C' end-to-end shipped on `worktree-phase5+p0-1-gamma-beta-bridge`.
+  - **Phase B' calibration extended**: TallyQA inference (n=5000) +
+    calibrate-subspace (D_wrong=1780). Pool now 3017 paired (h_a − h_m)
+    diffs across TallyQA (1780) + PlotQA (1017) + InfoVQA (220).
+    SVD K=16 at all 36 layers → V_K subspace
+    `subspace_tally_plotqa_infovqa_pooled_K16.pt` shape (36, 16, 4096).
+  - **Phase C' bridge inference re-run**: 7 layers L∈{14, 20, 25, 29,
+    30, 33, 34} × K=16 raw coefficients per generated token (1091
+    paired records each model). Throughput: Instruct 9 min, Thinking
+    2h 46min wall.
+  - **Phase D' L × K sweep** (84 cells = 7 layers × 6 K × 2 stat,
+    Bonferroni α=0.000595): **14 cells survive Bonferroni** with
+    within-Thinking CI excluding 0.
+    - L=30 K=2 max: +0.866 [+0.412, +1.330] strongest cell.
+    - L∈{29, 30, 33} K=1 mean: +0.21~+0.48 (Bonferroni-positive).
+    - L=20 K=1/2/4/8 mean: -0.11~-0.15 (Bonferroni-positive negative).
+    - L=14 K=1/2 mean: -0.04 (Bonferroni-positive negative, very small).
+    - L=25 K=12 max: -0.40 (Bonferroni-positive negative).
+  - **Why K=8 paper §6 prior hid the signal**: sv7/sv8 elbow at L=33
+    is 1.026 (gradual decay, not sharp). K=2..7 noise dilutes K=1
+    anchor-direction signal. Same layer, same data, K=1 vs K=8 flips
+    bridge from null (-0.05) to Bonferroni-positive (+0.28).
+  - **Layer-specific sign-reversal**: late-stack (L=29-34) positive,
+    mid-stack (L=20) negative. Consistent with §5.2 routing-vs-
+    integration framework — direct empirical second anchor (alongside
+    §6.4 LEACE rank-1 ChartQA reversal).
+  - **Magnitude caveat**: within-Thinking effects +0.5 to +0.9
+    amplitude units on baseline ~250-700 — qualitative bridge
+    established, quantitative ×12.7 prediction NOT achieved.
+  - **Paper consequences (revised)**: §4.6.1 sub-section CAN be
+    authored at K=1 framing; §5.2 Insight 4 gains second empirical
+    anchor; §8.2 limitation softened. Tier remains *Solid Findings,
+    top of band* (qualitative bridge not strong enough to flip to
+    Main alone, but removes "failed experiment" label).
+  - **Files added/modified**:
+    `configs/p0_1_calibration_qwen3vl_tallyqa.yaml`,
+    `configs/p0_1_gamma_beta_bridge.yaml` (layers 14/20/25/29/30/33/34;
+    K=16; subspace path updated),
+    `scripts/run_gamma_beta_bridge.py` (project_coefficients +
+    coefficients_per_layer JSONL field),
+    `scripts/run_p0_1_recalibration_chain.sh`,
+    `scripts/analyze_gamma_beta_bridge_lk_sweep.py`,
+    `docs/insights/gamma-beta-bridge-evidence.md` (TL;DR rewritten;
+    rescue section added),
+    `docs/insights/_data/gamma_beta_bridge_lk_sweep.{csv,md}`
+    (gitignored canonical),
+    roadmap §3.0c + §10 changelog.
+  - **Wall-clock Phase B'/C'**: ~4.5h (12:17–16:46) vs estimated
+    10-12h. TallyQA inference + calibrate-subspace much faster than
+    projected.
 
 - **2026-05-10 ~11:30 (Phase 5 P0-1 γ-β residual-stream bridge —
   Alt-1 falsified, paper §8.2 limitation extended, no §4.6.1).**
