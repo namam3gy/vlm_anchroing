@@ -2,6 +2,8 @@
 
 **Status:** Re-analysis of the E1 attention data (no new compute). Full writeup: `docs/experiments/E1b-per-layer-localisation.md`. Source data: `outputs/attention_analysis/{model}/{run}/per_step_attention.jsonl`. Aggregate tables: `outputs/attention_analysis/_per_layer/{per_layer_deltas,peak_layer_summary,peak_budget_decomposition}.csv`. Script: `scripts/analyze_attention_per_layer.py`. Reproducer: `notebooks/E1b_per_layer_localisation.ipynb`.
 
+> **Historical panel note:** This insight uses the original 6-model E1b panel ({gemma4-e4b, qwen2.5-vl-7b, llava-1.5-7b, internvl3-8b, convllava-7b, fastvlm-7b}). InternVL3-8b has since been removed from the project's main mechanism panel; the per-layer numbers reported here are preserved as the historical record of the 6-model run.
+
 ## The question
 
 E1 reported `attention_anchor(number) − attention_anchor(neutral)` **averaged across layers** and found a clean +0.004 to +0.007 signal at the answer-digit step (initially on 4 models, now extended to 6 with the inputs_embeds-path ConvLLaVA and FastVLM). The averaging obscured two things:

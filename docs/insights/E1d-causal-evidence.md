@@ -2,6 +2,8 @@
 
 **Status:** Causal follow-up to E1b across the 6-model panel. Source data: `outputs/causal_ablation/<model>/<run>/predictions.jsonl`. Aggregate tables: `outputs/causal_ablation/_summary/{per_model_per_mode.csv, by_stratum.csv}`. Full writeup: `docs/experiments/E1d-causal-ablation.md`.
 
+> **Historical panel note:** The "6/6 models" causal results below reflect the original 6-model E1b panel (incl. internvl3-8b). InternVL3-8b has since been removed from the project's main mechanism panel; the current panel is 5-model. Mid-stack-cluster `ablate_upper_half` results retain LLaVA-1.5 + ConvLLaVA in the live panel.
+
 > **2026-05-10 update — Phase E OneVision analyzer fix landed (P4-12 closed).**
 > The earlier "0.000 baseline df on all 4 datasets" symptom was traced to two issues, both fixed in `scripts/analyze_causal_ablation.py`: (i) `_build_triplets` was joining base/anchor on `sample_instance_id` only and so collapsed across datasets — fixed by adding `dataset` to the join key (commit `a7e391c`); (ii) the dataset key for each OneVision run dir was unknown to the analyzer — fixed by hardcoding the timestamp → dataset map for the canonical Phase E runs and adding a susceptibility-CSV qid-intersection auto-detect for re-runs (commit `de1f94e`). Per-dataset OneVision susceptibility CSVs (`docs/insights/_data/susceptibility_<ds>_onevision.csv`) are loaded for stratum lookup; the panel-wide `susceptibility_strata.csv` is used only for the legacy 6-mech-panel models.
 >
@@ -104,7 +106,7 @@ ConvLLaVA and LLaVA-1.5 share the E1b answer-step peak (L16), the same text-stea
 ## Implications for the experiment plan
 
 - **E4 intervention class — open question 1 closed.** Single-layer attention re-weighting (at the E1b peak or layer 0) is ruled out as a candidate. Upper-half re-weighting is the prototype.
-- **E4 architecture coverage.** The mid-stack cluster (LLaVA-1.5, ConvLLaVA, InternVL3) is the single highest-leverage prototype target — three encoders, one shared upper-half-clean response.
+- **E4 architecture coverage.** The mid-stack cluster (LLaVA-1.5, ConvLLaVA) is the single highest-leverage prototype target — two encoders, one shared upper-half-clean response. (Historical 6-model panel also included InternVL3/InternViT in this cluster.)
 - **A new open question: multi-layer combinatorial ablation.** Does the union of (anchor span ablated at peak) + (anchor span ablated at one complementary layer) recover an `ablate_all`-magnitude reduction at lower fluency cost? Cheap to run; informs E4 directly.
 - **Roadmap §6 E1 row:** open question "causal test" → **closed (null on single layer; layer-0 control confirms multi-layer redundancy across 6/6 models)**. Open new question: head-level sparsity. Open new question: multi-layer combinatorial ablation.
 

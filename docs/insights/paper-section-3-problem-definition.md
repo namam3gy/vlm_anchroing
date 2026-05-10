@@ -90,8 +90,8 @@ Generation uses greedy decoding (temperature 0.0, top-p 1.0,
 `max_new_tokens = 8`) so that all reported variation is between
 *conditions* on the same question, not between samples of the same
 condition. The 8-token cap matches the JSON template; we explicitly note
-in §9 that two models in the panel (`fastvlm-7b`, `internvl3-8b`) emit
-prose despite the instruction and benefit from the parser's prose-leak
+in §9 that one model in the panel (`fastvlm-7b`) emits
+prose despite the instruction and benefits from the parser's prose-leak
 fallback. Image order within a prompt is fixed (target first, second image
 second) and the same across all four conditions for a given sample-instance.
 

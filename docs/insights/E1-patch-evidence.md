@@ -2,7 +2,7 @@
 
 > **2026-05-04 update — Phase D shipped 24/24 cells on 5-panel × 4 datasets + OneVision × 4 datasets.**
 >
-> Mech panel finalised at **5 models**: gemma4-e4b, llava-1.5-7b, convllava-7b, fastvlm-7b, **internvl3-8b** (perfect-square 27×27 grid, added to mech panel 2026-05-04 — was previously appendix-only). OneVision Main added via AnyRes per-image bbox routing (lite_eager monkey-patch). llava-next-interleaved-7b is NOT in the mech panel (low resolution, 2026-05-04 user decision).
+> Mech panel finalised at **4 models**: gemma4-e4b, llava-1.5-7b, convllava-7b, fastvlm-7b (perfect-square panel post-InternVL3 removal; was previously 5 with internvl3-8b @ 27×27). OneVision Main added via AnyRes per-image bbox routing (lite_eager monkey-patch). llava-next-interleaved-7b is NOT in the mech panel (low resolution, 2026-05-04 user decision).
 >
 > **Cross-dataset finding (2026-05-04, new)**: OneVision peak attention layer is **dataset-dependent**: L=27 (last layer) on PlotQA + TallyQA, L=14 (mid-stack) on InfoVQA + VQAv2. See `docs/insights/headline-numbers.md §A.4` for the full per-(model, dataset) peak layer matrix. Cross-dataset comparison via `scripts/analyze_cross_dataset_peaks.py` (CSV at `docs/insights/_data/cross_dataset_peaks.csv`, gitignored).
 >
@@ -270,7 +270,7 @@ globally-concentrated exception).
 | ID | Action | Effort |
 |---|---|---|
 | **E1-patch-A** | Extend `configs/experiment.yaml` with `masked` extra; re-run extraction on the 4-model panel; add `a − m` digit-mass gap table | ~1h GPU/model + 4-cond config wiring |
-| **E1-patch-B** | Per-encoder bbox-to-token mapping for InternVL3-8b (multi-tile) and Qwen2.5-VL-7b (17×23 grid via `grid_thw`); re-run on those two; complete 6-model panel | ~1-2 days/model implementation + ~12 min/model GPU |
+| **E1-patch-B** | Per-encoder bbox-to-token mapping for Qwen2.5-VL-7b (17×23 grid via `grid_thw`); re-run; complete 5-model panel | ~1-2 days implementation + ~12 min GPU |
 | **E1-patch-C** | Step-0 vs answer-step comparison on the 4-model bbox dump | analysis only |
 | **E1-patch-D** | Re-run E1d (causal ablation) with bbox-enabled extraction; report ablation effect on `image_anchor_digit` specifically vs `image_anchor_background`. Tests whether the upper-half ablation in E1d kills digit attention or background attention. | ~0.5 day (compute + analysis) |
 

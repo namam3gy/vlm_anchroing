@@ -226,7 +226,7 @@ models and datasets.
    amplifies anchor pull (adopt ×1.6, df ×2.9) over instruct on the same
    panel. The amplification is graded, not categorical.
 2. **Cross-model expansion** to the mid-stack-cluster panel
-   (LLaVA-1.5 / ConvLLaVA / InternVL3) — connects γ-α to the §7
+   (LLaVA-1.5 / ConvLLaVA) — connects γ-α to the §7
    mitigation locus story.
 3. **Per-task-type breakdown**: MathVista has multiple task types
    (geometry / algebra / arithmetic / chart). Does the *magnitude* of the
