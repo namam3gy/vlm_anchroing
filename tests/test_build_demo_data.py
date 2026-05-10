@@ -173,3 +173,66 @@ def test_score_sample_rewards_correct_base_and_anchor_pull():
     score_b = bdd.score_sample(by_model, "B")
     assert score_a > score_b
     assert score_a > 0
+
+
+import json
+
+from PIL import Image
+
+
+def _write_image(path: Path, color: tuple[int, int, int], size=(64, 64)):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    Image.new("RGB", size, color).save(path)
+
+
+def test_pick_samples_prefers_dataset_diversity():
+    samples = {
+        "S1": ("VQAv2", 10.0),
+        "S2": ("VQAv2", 9.5),
+        "S3": ("ChartQA", 9.0),
+        "S4": ("ChartQA", 8.5),
+        "S5": ("PlotQA", 8.0),
+        "S6": ("MathVista", 7.5),
+        "S7": ("VQAv2", 7.0),
+    }
+    chosen = bdd.pick_samples(samples, n=4)
+    # Top-1 must be the highest scorer; subsequent picks should diversify.
+    assert chosen[0] == "S1"
+    chosen_datasets = {samples[sid][0] for sid in chosen}
+    assert len(chosen_datasets) >= 3
+
+
+def test_build_writes_demo_json_and_images(tmp_path):
+    site = tmp_path / "site"
+    inputs = tmp_path / "inputs"
+    target = inputs / "vqav2_number_val" / "images" / "x.jpg"
+    anchor = inputs / "irrelevant_number" / "5.png"
+    masked = inputs / "irrelevant_number_masked" / "5.png"
+    neutral = inputs / "irrelevant_neutral" / "0.png"
+    _write_image(target, (255, 0, 0))
+    _write_image(anchor, (0, 255, 0))
+    _write_image(masked, (0, 0, 255))
+    _write_image(neutral, (128, 128, 128))
+
+    by_model = {mid: {} for mid in bdd.MAIN_PANEL}
+    for mid in bdd.MAIN_PANEL:
+        by_model[mid]["S1"] = _make_sample(
+            4, 5, 4, 4, gt=4, anchor=5, dataset="VQAv2",
+            target=str(target),
+        )
+
+    chosen = ["S1"]
+    bdd.build_site_artifacts(
+        chosen=chosen, by_model=by_model,
+        inputs_root=inputs, site_root=site,
+        anchor_stratum="S1", max_image_px=32,
+    )
+    demo_json = json.loads((site / "data" / "demo.json").read_text())
+    assert {m["id"] for m in demo_json["models"]} == set(bdd.MAIN_PANEL)
+    s1 = demo_json["samples"][0]
+    assert s1["id"] == "S1"
+    assert s1["dataset"] == "VQAv2"
+    assert s1["predictions"]["llava-onevision-7b"] == {"b": 4, "a": 5, "m": 4, "d": 4}
+    for kind in ("target", "anchor", "masked", "neutral"):
+        rel = s1["images"][kind]
+        assert (site / rel).exists()

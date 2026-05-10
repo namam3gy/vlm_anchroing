@@ -2,13 +2,16 @@
 from __future__ import annotations
 
 import argparse
+import json
 import re
+import shutil
 import sys
 from collections import defaultdict
 from pathlib import Path
 from typing import Iterable
 
 import pandas as pd
+from PIL import Image
 
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -221,6 +224,130 @@ def score_sample(by_model: dict[str, dict[str, dict]], sample_id: str) -> float:
     return score
 
 
+def pick_samples(scored: dict[str, tuple[str, float]], n: int) -> list[str]:
+    """Greedy top-N picker that prefers dataset diversity.
+
+    ``scored`` maps sample_id -> (dataset, score). Picks the highest-scoring
+    sample first; on each subsequent pick boosts samples whose dataset has
+    not been chosen yet. Ties are broken toward samples from unseen
+    datasets so the bonus reliably flips a tie even when its magnitude
+    only matches the gap exactly.
+    """
+    if not scored:
+        return []
+    remaining = dict(scored)
+    chosen: list[str] = []
+    chosen_datasets: set[str] = set()
+    while remaining and len(chosen) < n:
+        def rank(item):
+            _, (ds, sc) = item
+            unseen = ds not in chosen_datasets
+            adjusted = sc + (0.5 if unseen else 0.0)
+            return (adjusted, unseen)
+        sid, (ds, _) = max(remaining.items(), key=rank)
+        chosen.append(sid)
+        chosen_datasets.add(ds)
+        remaining.pop(sid)
+    return chosen
+
+
+def _copy_resized(src: Path, dst: Path, max_edge: int) -> None:
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    with Image.open(src) as im:
+        im = im.convert("RGB")
+        w, h = im.size
+        long_edge = max(w, h)
+        if long_edge > max_edge:
+            scale = max_edge / long_edge
+            im = im.resize((int(w * scale), int(h * scale)), Image.LANCZOS)
+        im.save(dst, "JPEG", quality=85)
+
+
+def _resolve_anchor_image(inputs_root: Path, anchor_value: int) -> Path:
+    candidate = inputs_root / "irrelevant_number" / f"{anchor_value}.png"
+    if not candidate.exists():
+        raise FileNotFoundError(f"anchor image not found: {candidate}")
+    return candidate
+
+
+def _resolve_masked_image(inputs_root: Path, anchor_value: int) -> Path:
+    candidate = inputs_root / "irrelevant_number_masked" / f"{anchor_value}.png"
+    if not candidate.exists():
+        raise FileNotFoundError(f"masked image not found: {candidate}")
+    return candidate
+
+
+def _resolve_neutral_image(inputs_root: Path) -> Path:
+    folder = inputs_root / "irrelevant_neutral"
+    candidates = sorted(folder.glob("*.png"))
+    if not candidates:
+        raise FileNotFoundError(f"no neutral images under {folder}")
+    return candidates[0]
+
+
+def build_site_artifacts(
+    *,
+    chosen: list[str],
+    by_model: dict[str, dict[str, dict]],
+    inputs_root: Path,
+    site_root: Path,
+    anchor_stratum: str,
+    max_image_px: int,
+) -> dict:
+    data_dir = site_root / "data"
+    img_root = site_root / "assets" / "img"
+    if img_root.exists():
+        shutil.rmtree(img_root)
+    img_root.mkdir(parents=True)
+    data_dir.mkdir(parents=True, exist_ok=True)
+
+    samples_out: list[dict] = []
+    for sid in chosen:
+        ref = by_model[next(iter(MAIN_PANEL))][sid]
+        meta = ref["meta"]
+        anchor_value = meta["anchor"]
+        target_src = Path(meta["target_image_path"])
+        anchor_src = _resolve_anchor_image(inputs_root, anchor_value)
+        masked_src = _resolve_masked_image(inputs_root, anchor_value)
+        neutral_src = _resolve_neutral_image(inputs_root)
+
+        sample_img_dir = img_root / sid
+        for kind, src in (
+            ("target", target_src), ("anchor", anchor_src),
+            ("masked", masked_src), ("neutral", neutral_src),
+        ):
+            _copy_resized(src, sample_img_dir / f"{kind}.jpg", max_image_px)
+
+        predictions = {
+            mid: {c: by_model[mid][sid][c] for c in REQUIRED_CONDITIONS}
+            for mid in MAIN_PANEL
+        }
+        samples_out.append({
+            "id": sid,
+            "dataset": meta["dataset"],
+            "question": meta["question"],
+            "gt": meta["gt"],
+            "anchor": anchor_value,
+            "images": {
+                "target":  f"assets/img/{sid}/target.jpg",
+                "anchor":  f"assets/img/{sid}/anchor.jpg",
+                "masked":  f"assets/img/{sid}/masked.jpg",
+                "neutral": f"assets/img/{sid}/neutral.jpg",
+            },
+            "predictions": predictions,
+        })
+
+    demo = {
+        "models": [
+            {"id": mid, "label": MAIN_PANEL_LABELS[mid]} for mid in MAIN_PANEL
+        ],
+        "samples": samples_out,
+        "anchor_stratum": anchor_stratum,
+    }
+    (data_dir / "demo.json").write_text(json.dumps(demo, indent=2))
+    return demo
+
+
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--outputs-root", type=Path, default=PROJECT_ROOT / "outputs")
@@ -237,7 +364,43 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     print(f"build_demo_data: outputs={args.outputs_root} site={args.site_root}", file=sys.stderr)
-    # Pipeline implemented in subsequent tasks.
+
+    by_model = load_predictions(
+        outputs_root=args.outputs_root, anchor_stratum=args.anchor_stratum,
+    )
+    eligible = eligible_samples(by_model)
+    if not eligible:
+        print("ERROR: no samples eligible across the full main panel.", file=sys.stderr)
+        print("Check coverage with `find outputs -name predictions.csv`.", file=sys.stderr)
+        return 1
+
+    scored = {
+        sid: (
+            by_model[next(iter(MAIN_PANEL))][sid]["meta"]["dataset"],
+            score_sample(by_model, sid),
+        )
+        for sid in eligible
+    }
+    chosen = pick_samples(scored, args.num_samples)
+    if len(chosen) < args.num_samples:
+        print(
+            f"WARN: only {len(chosen)} samples eligible; spec requires "
+            f"{args.num_samples}. Proceeding with the smaller set.",
+            file=sys.stderr,
+        )
+
+    demo = build_site_artifacts(
+        chosen=chosen, by_model=by_model,
+        inputs_root=args.inputs_root, site_root=args.site_root,
+        anchor_stratum=args.anchor_stratum, max_image_px=args.max_image_px,
+    )
+    print(
+        f"OK: {len(demo['samples'])} samples × {len(demo['models'])} models written to "
+        f"{(args.site_root / 'data' / 'demo.json')}",
+        file=sys.stderr,
+    )
+    for s in demo["samples"]:
+        print(f"  - {s['id']} [{s['dataset']}] anchor={s['anchor']} gt={s['gt']}", file=sys.stderr)
     return 0
 
 
