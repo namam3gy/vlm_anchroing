@@ -4,8 +4,8 @@
 extended same day to 4-model perfect-square panel**. Results doc:
 `docs/insights/E1-patch-evidence.md` (4-model panel — gemma4-e4b /
 llava-1.5-7b / convllava-7b / fastvlm-7b; peak `digit/anchor` 0.468–0.631,
-+24 to +40 pp above fair share on every panel model). Two non-square
-archetypes (internvl3-8b multi-tile, qwen2.5-vl-7b 17×23 grid) and the
++24 to +40 pp above fair share on every panel model). The non-square
+qwen2.5-vl-7b 17×23 grid archetype and the
 masked-arm causal control are deferred to P3 in roadmap §6.5 — see the
 "E1-patch non-square archetypes" and "E1-patch masked-arm causal
 control" rows there. The body of this spec is preserved as the design
@@ -64,8 +64,6 @@ Bbox-to-token mapping per model:
 - Gemma3 / Gemma4 (SigLIP, 384×384 → variable): same.
 - ConvLLaVA (1536×1536 → 144 tokens after pooling): bbox-to-token differs
   from ViT. Skip if mapping is ill-defined.
-- InternVL3 (InternViT, 448×448 → 256 tokens + tile expansion):
-  bbox-to-token + tile span needs care.
 - FastVLM (FastViT, multi-scale + -200 marker expansion):
   bbox-to-token mapping unclear for multi-scale.
 

@@ -1,5 +1,7 @@
 # E1d — causal anchor-attention ablation across the 6-model panel
 
+> **InternVL3-8b removed from active panel 2026-05-10 — historical results below kept for audit.** The 6-model panel (Gemma / InternVL3 / LLaVA-1.5 / ConvLLaVA / Qwen2.5-VL / FastVLM) was the active mechanism panel at time of analysis; subsequent panels drop InternVL3.
+
 **Status:** Causal follow-up to `docs/experiments/E1b-per-layer-localisation.md`. Driver: `scripts/causal_anchor_ablation.py`. Analysis: `scripts/analyze_causal_ablation.py`. Raw outputs: `outputs/causal_ablation/<model>/<run>/predictions.jsonl`. Aggregate tables: `outputs/causal_ablation/_summary/{per_model_per_mode.csv, by_stratum.csv}`. Figures: `outputs/causal_ablation/_summary/{fig_direction_follow.png, fig_adoption.png}`.
 
 ## TL;DR — three findings
