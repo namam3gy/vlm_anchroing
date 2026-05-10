@@ -231,6 +231,23 @@ def eligible_samples(by_model: dict[str, dict[str, dict]]) -> list[str]:
         )
         if n_movers < 1:
             continue
+        # Require at least one model to walk the full 4-arm textbook signature
+        # b == gt → a == anchor → m == gt → d == gt. This is the only pattern
+        # where both controls (digit-pixel mask and neutral 2-image
+        # distractor) fire simultaneously, isolating the digit as the cause
+        # rather than 2-image distraction or anchor-image background. Without
+        # this filter the demo can show samples whose anchor effect is
+        # ambiguous between the three explanations.
+        n_full = sum(
+            1
+            for mid in MAIN_PANEL
+            if by_model[mid][sid]["b"] == gt
+            and by_model[mid][sid]["a"] == anchor
+            and by_model[mid][sid]["m"] == gt
+            and by_model[mid][sid]["d"] == gt
+        )
+        if n_full < 1:
+            continue
         eligible.append(sid)
     return eligible
 
@@ -238,20 +255,28 @@ def eligible_samples(by_model: dict[str, dict[str, dict]]) -> list[str]:
 def score_sample(by_model: dict[str, dict[str, dict]], sample_id: str) -> float:
     """Higher score = stronger anchoring signature.
 
-    The textbook signature is ``b == gt`` → ``a == anchor`` → ``m == gt``:
-    the model is correct on its own, gets pulled to the digit anchor when
-    the second image is added, and recovers when the digit pixels are
-    masked. We weight each model's contribution by how much of that
-    trajectory it shows:
+    The textbook 4-arm signature is
 
-    +10 per model with the full b→a→m signature
-     +4 per model with at least b == gt and a == anchor (no m recovery)
+        b == gt   AND   a == anchor   AND   m == gt   AND   d == gt
+
+    — the model is base-correct, gets pulled to the digit anchor on the
+    a-arm, recovers when the digit pixels are masked (m), and recovers
+    again under the neutral 2-image distractor (d). Both controls firing
+    is what isolates the digit pixel as the causal feature. We weight
+    each model by how much of that 4-arm trajectory it shows:
+
+    +15 per model with the full 4-arm signature (b/a/m/d all match)
+    +10 per model with the 3-arm subset b/a/m (d may differ)
+     +4 per model with b == gt and a == anchor (no m recovery)
      +2 per model that adopts the anchor on a (b may already be wrong)
      +2 per model that is base-correct (b == gt) — tiebreaker
-     +1 if ≥3 models show the full signature (the headline-worthy pattern)
+     +5 if ≥2 models show the full 4-arm signature (demo-gold)
+     +2 if ≥1 model shows the full 4-arm signature
+     +1 if ≥3 models show at least the 3-arm subset
     """
     score = 0.0
-    full_trajectory = 0
+    full_4 = 0
+    full_3 = 0
     for mid in MAIN_PANEL:
         s = by_model[mid][sample_id]
         gt = s["meta"]["gt"]
@@ -261,16 +286,24 @@ def score_sample(by_model: dict[str, dict[str, dict]], sample_id: str) -> float:
         b_correct = s["b"] == gt
         a_pulled = s["a"] == anchor
         m_recovers = s["m"] == gt
-        if b_correct and a_pulled and m_recovers:
+        d_recovers = s["d"] == gt
+        if b_correct and a_pulled and m_recovers and d_recovers:
+            score += 15
+            full_4 += 1
+        elif b_correct and a_pulled and m_recovers:
             score += 10
-            full_trajectory += 1
+            full_3 += 1
         elif b_correct and a_pulled:
             score += 4
         elif a_pulled:
             score += 2
         if b_correct:
             score += 2
-    if full_trajectory >= 3:
+    if full_4 >= 2:
+        score += 5
+    elif full_4 >= 1:
+        score += 2
+    elif full_3 >= 3:
         score += 1
     return score
 

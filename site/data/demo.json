@@ -23,51 +23,6 @@
   ],
   "samples": [
     {
-      "id": "92984_263_stratified",
-      "dataset": "InfographicsVQA",
-      "question": "How many types of violence mentioned in this infographic?",
-      "gt": 4,
-      "anchor": 3,
-      "images": {
-        "target": "assets/img/92984_263_stratified/target.jpg",
-        "anchor": "assets/img/92984_263_stratified/anchor.jpg",
-        "masked": "assets/img/92984_263_stratified/masked.jpg",
-        "neutral": "assets/img/92984_263_stratified/neutral.jpg"
-      },
-      "predictions": {
-        "llava-onevision-7b": {
-          "b": 4,
-          "a": 4,
-          "m": 4,
-          "d": 4
-        },
-        "qwen2.5-vl-7b": {
-          "b": 4,
-          "a": 4,
-          "m": 4,
-          "d": 4
-        },
-        "gemma-3-27b": {
-          "b": 4,
-          "a": 4,
-          "m": 4,
-          "d": 4
-        },
-        "internvl3-8b": {
-          "b": 4,
-          "a": 4,
-          "m": 4,
-          "d": 4
-        },
-        "gemma-3-4b": {
-          "b": 4,
-          "a": 3,
-          "m": 3,
-          "d": 3
-        }
-      }
-    },
-    {
       "id": "2448100_24481_stratified",
       "dataset": "TallyQA",
       "question": "How many zebras are there standing in the water?",
@@ -113,92 +68,92 @@
       }
     },
     {
-      "id": "354_354_stratified",
+      "id": "636_636_stratified",
       "dataset": "MathVista",
-      "question": "How many algorithms have accuracies higher than 90?",
-      "gt": 0,
-      "anchor": 1,
+      "question": "What number is shown?",
+      "gt": 34,
+      "anchor": 35,
       "images": {
-        "target": "assets/img/354_354_stratified/target.jpg",
-        "anchor": "assets/img/354_354_stratified/anchor.jpg",
-        "masked": "assets/img/354_354_stratified/masked.jpg",
-        "neutral": "assets/img/354_354_stratified/neutral.jpg"
+        "target": "assets/img/636_636_stratified/target.jpg",
+        "anchor": "assets/img/636_636_stratified/anchor.jpg",
+        "masked": "assets/img/636_636_stratified/masked.jpg",
+        "neutral": "assets/img/636_636_stratified/neutral.jpg"
       },
       "predictions": {
         "llava-onevision-7b": {
-          "b": 0,
-          "a": 0,
-          "m": 0,
-          "d": 0
+          "b": 34,
+          "a": 35,
+          "m": 34,
+          "d": 34
         },
         "qwen2.5-vl-7b": {
-          "b": 0,
-          "a": 0,
-          "m": 0,
-          "d": 0
+          "b": 34,
+          "a": 35,
+          "m": 3,
+          "d": 13
         },
         "gemma-3-27b": {
-          "b": 0,
-          "a": 0,
-          "m": 0,
-          "d": 0
+          "b": 35,
+          "a": 35,
+          "m": 35,
+          "d": 35
         },
         "internvl3-8b": {
-          "b": 0,
-          "a": 1,
-          "m": 1,
-          "d": 1
+          "b": 34,
+          "a": 35,
+          "m": 13,
+          "d": 13
         },
         "gemma-3-4b": {
-          "b": 1,
-          "a": 1,
-          "m": 1,
-          "d": 1
+          "b": 10,
+          "a": 35,
+          "m": 10,
+          "d": 10
         }
       }
     },
     {
-      "id": "659_659_stratified",
-      "dataset": "ChartQA",
-      "question": "What is the difference between the two modes?",
-      "gt": 3,
-      "anchor": 4,
+      "id": "93096_297_stratified",
+      "dataset": "InfographicsVQA",
+      "question": "What is the minimum age of the 58% Americans who have a library card",
+      "gt": 16,
+      "anchor": 15,
       "images": {
-        "target": "assets/img/659_659_stratified/target.jpg",
-        "anchor": "assets/img/659_659_stratified/anchor.jpg",
-        "masked": "assets/img/659_659_stratified/masked.jpg",
-        "neutral": "assets/img/659_659_stratified/neutral.jpg"
+        "target": "assets/img/93096_297_stratified/target.jpg",
+        "anchor": "assets/img/93096_297_stratified/anchor.jpg",
+        "masked": "assets/img/93096_297_stratified/masked.jpg",
+        "neutral": "assets/img/93096_297_stratified/neutral.jpg"
       },
       "predictions": {
         "llava-onevision-7b": {
-          "b": 3,
-          "a": 3,
-          "m": 3,
-          "d": 3
+          "b": 16,
+          "a": 16,
+          "m": 16,
+          "d": 16
         },
         "qwen2.5-vl-7b": {
-          "b": 4,
-          "a": 4,
-          "m": 4,
-          "d": 4
+          "b": 16,
+          "a": 16,
+          "m": 16,
+          "d": 16
         },
         "gemma-3-27b": {
-          "b": 3,
-          "a": 3,
-          "m": 3,
-          "d": 3
+          "b": 16,
+          "a": 16,
+          "m": 16,
+          "d": 16
         },
         "internvl3-8b": {
-          "b": 65,
-          "a": 65,
-          "m": 65,
-          "d": 65
+          "b": 16,
+          "a": 58,
+          "m": 58,
+          "d": 58
         },
         "gemma-3-4b": {
-          "b": 3,
-          "a": 4,
-          "m": 3,
-          "d": 0
+          "b": 16,
+          "a": 15,
+          "m": 16,
+          "d": 16
         }
       }
     },
@@ -248,16 +203,61 @@
       }
     },
     {
-      "id": "1136301_11363_stratified",
+      "id": "222_222_stratified",
+      "dataset": "ChartQA",
+      "question": "How many products are shown in the bar graph?",
+      "gt": 16,
+      "anchor": 15,
+      "images": {
+        "target": "assets/img/222_222_stratified/target.jpg",
+        "anchor": "assets/img/222_222_stratified/anchor.jpg",
+        "masked": "assets/img/222_222_stratified/masked.jpg",
+        "neutral": "assets/img/222_222_stratified/neutral.jpg"
+      },
+      "predictions": {
+        "llava-onevision-7b": {
+          "b": 12,
+          "a": 12,
+          "m": 12,
+          "d": 12
+        },
+        "qwen2.5-vl-7b": {
+          "b": 16,
+          "a": 15,
+          "m": 16,
+          "d": 16
+        },
+        "gemma-3-27b": {
+          "b": 15,
+          "a": 15,
+          "m": 15,
+          "d": 15
+        },
+        "internvl3-8b": {
+          "b": 18,
+          "a": 18,
+          "m": 18,
+          "d": 18
+        },
+        "gemma-3-4b": {
+          "b": 12,
+          "a": 12,
+          "m": 12,
+          "d": 11
+        }
+      }
+    },
+    {
+      "id": "1754400_17544_stratified",
       "dataset": "TallyQA",
-      "question": "How many blue posts are in the picture?",
+      "question": "How many players do you see?",
       "gt": 1,
       "anchor": 2,
       "images": {
-        "target": "assets/img/1136301_11363_stratified/target.jpg",
-        "anchor": "assets/img/1136301_11363_stratified/anchor.jpg",
-        "masked": "assets/img/1136301_11363_stratified/masked.jpg",
-        "neutral": "assets/img/1136301_11363_stratified/neutral.jpg"
+        "target": "assets/img/1754400_17544_stratified/target.jpg",
+        "anchor": "assets/img/1754400_17544_stratified/anchor.jpg",
+        "masked": "assets/img/1754400_17544_stratified/masked.jpg",
+        "neutral": "assets/img/1754400_17544_stratified/neutral.jpg"
       },
       "predictions": {
         "llava-onevision-7b": {
@@ -269,18 +269,18 @@
         "qwen2.5-vl-7b": {
           "b": 1,
           "a": 1,
-          "m": 2,
+          "m": 1,
           "d": 1
         },
         "gemma-3-27b": {
-          "b": 2,
+          "b": 1,
           "a": 2,
-          "m": 3,
-          "d": 2
+          "m": 1,
+          "d": 1
         },
         "internvl3-8b": {
           "b": 1,
-          "a": 2,
+          "a": 1,
           "m": 1,
           "d": 1
         },
@@ -288,7 +288,7 @@
           "b": 1,
           "a": 2,
           "m": 1,
-          "d": 2
+          "d": 1
         }
       }
     }

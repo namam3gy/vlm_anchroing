@@ -194,6 +194,25 @@ def test_score_sample_prefers_full_trajectory_over_clean_base_only():
     assert score_full > score_clean
 
 
+def test_score_sample_prefers_full_4_arm_over_3_arm():
+    """Full 4-arm trajectory (b/a/m/d all match) ranks above 3-arm (d differs).
+
+    The d-arm matching gt is the second control: it rules out 2-image
+    distraction. Picker should prefer samples where this control also
+    fires.
+    """
+    by_model = {mid: {} for mid in bdd.MAIN_PANEL}
+    # FOUR: b=gt, a=anchor, m=gt, d=gt — both controls fire
+    for mid in bdd.MAIN_PANEL:
+        by_model[mid]["FOUR"] = _make_sample(4, 5, 4, 4, gt=4, anchor=5)
+    # THREE: b=gt, a=anchor, m=gt, but d=anchor (distractor confounds)
+    for mid in bdd.MAIN_PANEL:
+        by_model[mid]["THREE"] = _make_sample(4, 5, 4, 5, gt=4, anchor=5)
+    score_four = bdd.score_sample(by_model, "FOUR")
+    score_three = bdd.score_sample(by_model, "THREE")
+    assert score_four > score_three
+
+
 import json
 
 from PIL import Image
@@ -276,11 +295,28 @@ def test_eligible_samples_drops_flat_no_anchor_pull():
     # FLAT: every model just stays at gt across all conditions, anchor != gt
     for mid in bdd.MAIN_PANEL:
         by_model[mid]["FLAT"] = _make_sample(4, 4, 4, 4, gt=4, anchor=5)
-    # PULLED: at least one model moves b → anchor on the a-arm
+    # FULL_4: every model walks the 4-arm textbook signature
     for mid in bdd.MAIN_PANEL:
-        by_model[mid]["PULLED"] = _make_sample(4, 5, 4, 4, gt=4, anchor=5)
+        by_model[mid]["FULL_4"] = _make_sample(4, 5, 4, 4, gt=4, anchor=5)
     eligible = bdd.eligible_samples(by_model)
-    assert eligible == ["PULLED"]
+    assert eligible == ["FULL_4"]
+
+
+def test_eligible_samples_requires_full_4_arm_trajectory_on_at_least_one_model():
+    """≥1 model must walk b=gt → a=anchor → m=gt → d=gt to isolate the digit cause."""
+    by_model = {mid: {} for mid in bdd.MAIN_PANEL}
+    # PARTIAL: every model is pulled to anchor on a, but d never recovers to gt
+    # (i.e. 2-image distraction confound is not ruled out)
+    for mid in bdd.MAIN_PANEL:
+        by_model[mid]["PARTIAL"] = _make_sample(4, 5, 4, 5, gt=4, anchor=5)
+    # M_FAIL: m never recovers (digit-pixel control doesn't fire)
+    for mid in bdd.MAIN_PANEL:
+        by_model[mid]["M_FAIL"] = _make_sample(4, 5, 5, 4, gt=4, anchor=5)
+    # FULL_4: at least one model has b=gt, a=anchor, m=gt, d=gt
+    for mid in bdd.MAIN_PANEL:
+        by_model[mid]["FULL_4"] = _make_sample(4, 5, 4, 4, gt=4, anchor=5)
+    eligible = bdd.eligible_samples(by_model)
+    assert eligible == ["FULL_4"]
 
 
 def test_first_path_handles_double_quoted_json_arrays():
