@@ -173,6 +173,36 @@ Direction we'd take if we extended:
   template-vs-weights as the driver.
 - Larger reasoning models (o3-style) on the same 4-condition stimuli.
 
+### §4.6.1 / §5.2 — mechanism bridge (P0-1, 2026-05-10)
+Phase 5 P0-1 attempted to interlock the γ-β behavioral amplification
+above with the §6 K=8 anchor subspace via Qwen3-VL self-calibration
+(see [`gamma-beta-bridge-evidence.md`](gamma-beta-bridge-evidence.md)
++ [`docs/experiments/P0_1-gamma-beta-bridge.md`](../experiments/P0_1-gamma-beta-bridge.md)).
+
+Outcome: **partial bridge at K=1, layer-specific structure**. The
+×12.7 correct-base df ratio above does *not* quantitatively predict
+the residual-amplitude effect (within-Thinking +0.5~+0.9 amplitude
+units on baseline ~250-700, magnitude small). But the *qualitative*
+bridge is empirically supported — 14 / 84 cells in the L × K sweep
+survive Bonferroni correction (k=84):
+
+- Late-stack L∈{29, 30, 33}, K=1 mean: within-Thinking +0.21~+0.48
+  (positive, anchor-specific Thinking activation)
+- Mid-stack L=20, K=1/2/4/8 mean: -0.11~-0.15 (sign-reversal)
+- Strongest cell L=30, K=2, max: +0.866 [+0.412, +1.330]
+  Bonferroni [+0.115, +1.643]
+
+Why K=8 paper §6 prior hid the signal: Qwen3-VL sv7/sv8 elbow at L=33
+is 1.026 (gradual), K=2..7 noise dilutes K=1 anchor direction. K=1
+isolates the dimension cleanly — K=8 mean was -0.05 null on identical
+data. This is a **paper §6 prior cross-architecture transfer caveat**:
+the OneVision-empirical K=8 sweet spot doesn't generalize without
+re-sweeping K.
+
+The layer-specific sign-reversal (positive late + negative mid) is
+direct empirical second anchor for §5.2 routing-vs-integration
+framework (alongside §6.4 LEACE rank-1 ChartQA +56 % reversal).
+
 ## 6. Caveats
 
 - **n = 365** on each anchor arm. Confidence intervals on the

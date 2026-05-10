@@ -122,6 +122,54 @@ Per-mode direction-follow rate at OneVision Main (`outputs/causal_ablation/_summ
 
 Note: OneVision baseline df is computed from intervention pipeline differently than from baseline run — the analyzer's stratification logic doesn't fit OneVision's susceptibility CSV well. The other panel models (5 mech) show clean **−4 to −10pp upper-half ablation** effects. Refining OneVision E1d aggregation is a Phase 3 follow-up. Raw predictions are present and correct in `outputs/causal_ablation/llava-onevision-qwen2-7b-ov/<run>/predictions.jsonl`.
 
+### A.6 Phase 5 P0-1 γ-β residual-stream bridge (2026-05-10, partial rescue)
+
+Source: `docs/insights/_data/gamma_beta_bridge_lk_sweep.{csv,md}` (gitignored;
+regenerable via `scripts/analyze_gamma_beta_bridge_lk_sweep.py`). Full
+evidence: [`gamma-beta-bridge-evidence.md`](gamma-beta-bridge-evidence.md)
++ experiment writeup: [`docs/experiments/P0_1-gamma-beta-bridge.md`](../experiments/P0_1-gamma-beta-bridge.md).
+
+**Setup**: Qwen3-VL self-calibrated V_K subspace (3-pool TallyQA + PlotQA
++ InfoVQA, n_wrong=3017) at all 36 layers; γ-β MathVista S1 bridge
+inference (Instruct + Thinking, 1091 paired records each); 84-cell
+L × K sweep with paired bootstrap B=10,000 + Bonferroni correction.
+
+**Headline**: **14 / 84 cells survive Bonferroni** (within-Thinking CI
+excludes 0 after k=84 correction). Anchor-specific within-Thinking
+activation at K=1 in late-stack with **layer-specific sign-reversal**.
+
+| Cell | within-Thinking | 95 % CI | Bonferroni CI | Direction |
+|---|---:|---|---|---|
+| **L=30, K=2, max** | **+0.866** | [+0.412, +1.330] | **[+0.115, +1.643]** | strongest cell |
+| L=30, K=1, mean | +0.477 | [+0.254, +0.695] | [+0.082, +0.852] | late-stack positive |
+| L=29, K=1, mean | +0.446 | [+0.252, +0.635] | [+0.123, +0.793] | late-stack positive |
+| L=33, K=1, mean | +0.284 | [+0.188, +0.380] | [+0.113, +0.447] | OneVision-proportional band |
+| L=25, K=1, mean | +0.213 | [+0.158, +0.270] | [+0.123, +0.314] | mid-late transitional |
+| L=20, K=1, mean | -0.152 | [-0.189, -0.116] | [-0.213, -0.094] | **mid-stack sign-reversal** |
+| L=14, K=1, mean | -0.041 | [-0.054, -0.028] | [-0.064, -0.020] | early-mid small negative |
+
+**Key insight**: K=8 paper §6 prior hid the signal at L=33 (within-Thinking
+mean -0.05 null). Same data + K=1 → +0.28 Bonferroni-positive (9× larger
+effect at K=1 vs K=8). Reason: Qwen3-VL sv7/sv8 elbow at L=33 = 1.026
+(gradual decay), K=2..7 noise dilutes K=1 anchor direction. **Paper §6
+K=8 prior is OneVision-specific empirical sweet spot, NOT a universal
+anchor-dimensionality.**
+
+**Magnitude caveat**: within-Thinking effects +0.5 to +0.9 amplitude
+units on baseline ~250-700 — qualitative bridge ESTABLISHED, but the
+§4.5 ×12.7 correct-base df ratio is **not** quantitatively predicted.
+
+**Paper consequences**:
+- §4.6.1 CAN be authored at K=1 framing (was: NOT authored under Alt-1)
+- §5.2 Insight 4 routing-vs-integration framework gains second empirical
+  anchor (alongside §6.4 LEACE rank-1 ChartQA +56 % reversal)
+- §1.5 (4a) routing-vs-integration framework cites γ-β bridge as direct
+  empirical evidence
+- §8.2 limitation: "quantitative interlock not achieved; qualitative
+  bridge present at K=1"
+- §8.4 item 1: "partial bridge established (2026-05-10), quantitative
+  magnitude residual"
+
 ---
 
 ## §B. Historical reference numbers (C-form re-aggregation, 2026-04-28)
