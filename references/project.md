@@ -28,7 +28,7 @@ attention extraction are all on origin (`phase1/p0-baseline-recalibration`
 
 | Models | Datasets | Status |
 |---|---|---|
-| llava-onevision-7b (Main), qwen2.5-vl-7b, internvl3-8b, gemma3-4b, qwen2.5-vl-32b, gemma3-27b | TallyQA, ChartQA, MathVista, PlotQA, InfoVQA | 29/30 ✅ + internvl3-8b/TallyQA rerun in flight (~07:00 ETA) |
+| llava-onevision-7b (Main), qwen2.5-vl-7b, gemma3-4b, qwen2.5-vl-32b, gemma3-27b, llava-interleave-7b | TallyQA, ChartQA, MathVista, PlotQA, InfoVQA | 30/30 ✅ (post-InternVL3 removal 2026-05-10 — was 7-model with internvl3-8b; outputs preserved on disk for audit, see roadmap §10) |
 
 `llava-next-interleaved-7b` dropped from main panel (commit `0e7998e`,
 2026-05-04 user decision: low native resolution insufficient for chart/figure
@@ -48,9 +48,16 @@ via `scripts/analyze_cross_dataset_peaks.py`. Key finding: OneVision peak
 layer is **dataset-dependent** (L=27 on PlotQA/TallyQA, L=14 on InfoVQA/VQAv2)
 — see §0.7.
 
-**Phase E E1d causal ablation** (OneVision × 4 datasets, 4/4, commits
-`7a27750` + `2d11876` recovery): per-mode direction-follow reduction
-table at `outputs/causal_ablation/_summary/per_model_per_mode.csv`.
+**Phase E E1d causal ablation** (OneVision × 5 datasets, 5/5, commits
+`7a27750` + `2d11876` recovery + `a7e391c` + `de1f94e` analyzer fix
+2026-05-10 / P4-12 closed): per-mode direction-follow reduction table
+at `outputs/causal_ablation/_summary/per_model_per_mode.csv`. Headline:
+single-layer `ablate_peak` 5/5 null on OneVision (max |Δdf| = 1.5 pp,
+모든 95 % CI overlap 0) — multi-layer redundancy claim의 *확장 검증*.
+Upper-half ablation은 6-mech panel의 균일 −4 ~ −10.5 pp significant와
+달리 OneVision에서는 5/5 null at n=200 (point estimates ∈ [−3.9, +0.4]
+pp), §5.3 dataset-dependent peak와 일관 heterogeneity로 §6.2
+subspace-projection 도구 선택 보강.
 
 For full operational status see `references/roadmap.md §3.0a + §10`.
 
@@ -88,7 +95,7 @@ Three motivating features carry the §1 lead:
 | 4 | Datasets + anchor inventory | **5-dataset main matrix**: TallyQA, ChartQA, MathVista, **PlotQA, InfographicVQA**. FLUX-rendered digit anchor inventory with mask + neutral counterparts. VQAv2 dropped from main (multiple-GT, legacy). | `inputs/`, fetcher / generator scripts | ✅ 5/5 snapshots ready, all evaluated |
 | 5 | Distance, plausibility window, digit-pixel causality | `adopt_rate` decays sharply with `\|anchor − gt\|`; digit pixel is operative cause (anchor > masked); per-dataset distance cutoffs validated; cross-model robustness on 3-model panel × 5 datasets | E5b + E5c + E5d + E5e | **✅ shipped** — 5-dataset matrix done; γ-α/γ-β reasoning-mode supplements landed |
 | 6 | Confidence-modulated anchoring (logit-based) | `direction_follow_rate` is monotonic with answer-token logit / probability; the wrong/correct binary in §A1 is a coarse projection of the same effect | per-token logit + L1–L5 evidence chain | **✅ shipped** — `entropy_top_k` selected; Q4 − Q1 mean df = +0.152 (C-form); 23/35 anchor cells fully monotone |
-| 7.1–7.3 | Attention mechanism (analysis) | **Anchor pull mechanism is digit-pixel-patch attention concentration**, not full anchor-image attention. E1-patch on **5-model perfect-square panel** (gemma4-e4b, llava-1.5-7b, convllava-7b, fastvlm-7b, **internvl3-8b**) shows digit/anchor attention ratio +24–40 pp above fair share at peak layer. **Cross-dataset finding (new, 2026-05-04)**: OneVision Main peak layer is dataset-dependent (L=27 PlotQA/TallyQA, L=14 InfoVQA/VQAv2). | E1-patch + Phase D 24/24 cross-dataset matrix + cross_dataset_peaks.csv | **✅ shipped** — `analyze_cross_dataset_peaks.py` output landed 2026-05-04 |
+| 7.1–7.3 | Attention mechanism (analysis) | **Anchor pull mechanism is digit-pixel-patch attention concentration**, not full anchor-image attention. E1-patch on **5-model perfect-square panel** (gemma4-e4b, qwen2.5-vl-7b, llava-1.5-7b, convllava-7b, fastvlm-7b; InternVL3-8b removed 2026-05-10 — see roadmap §10) shows digit/anchor attention ratio +24–40 pp above fair share at peak layer. **Cross-dataset finding (new, 2026-05-04)**: OneVision Main peak layer is dataset-dependent (L=27 PlotQA/TallyQA, L=14 InfoVQA/VQAv2). | E1-patch + Phase D cross-dataset matrix + cross_dataset_peaks.csv | **✅ shipped** — `analyze_cross_dataset_peaks.py` output landed 2026-05-04 |
 | 7.4 | E4 attention re-weighting mitigation | mid-stack-cluster attention re-weighting at chosen `s*` reduces df 5.8–17.7 % rel with `exact_match` rising — archetype-conditional behaviour | E4 Phase 1 + Phase 2 + Main extension | Phase 3 partial — Main(llava-onevision) E4 deferred (AnyRes encoder ≠ mid-stack cluster) |
 | 7.4.5 | E6 deployable mitigation | **Subspace L=26 K=8 α=1.0 (chosen 2026-05-03)** calibrated on PlotQA+InfoVQA pooled n5k generalises across 5 datasets at full gt range, no per-dataset tuning, no anchor labels at inference. Avg Δdf = -2.9pp, **Δem(a) = +3.9pp benefit, Δem(b) = +8.8pp recovery** on wrong-base sids — free-lunch. | E6 (Main model, 5-dataset full-range eval, commit `9f9dfa0`; Δ-table generator `scripts/build_e6_stage4_summary.py`) | **✅ shipped** — chosen cell + Stage 4-final eval done; em(a)/em(b) free-lunch finding pending §7.4 paper update (#38) |
 | 8 | Future work | LLM/VLM architectural diff (preferred); image-vs-text anchor; reasoning-mode VLMs at scale | scoped only | future |
@@ -122,7 +129,7 @@ applies to `pred_m` (mask arm).
 | **🟢 Main** | `llava-onevision-qwen2-7b-ov` (llava-hf/llava-onevision-qwen2-7b-ov-hf) | §3, §5, §6, §7.4, §7.4.5 — **all headline numbers** | Primary model. SigLIP-So400M-384 + Qwen2-7B LLM. Multi-image + video + single-image unified architecture (OV variant). AnyRes per-image dynamic crops up to 7 × 384×384 (within-crop 27×27 perfect-square; multi-crop layout overall). Tier 1 LLaVA family — direct successor to LLaVA-Interleave with chart-grade resolution restored. |
 | **🟡 Sub-A (cross-family)** | `qwen2.5-vl-7b-instruct` | §3, §5, §6 | Tier 1 cross-family. Different ViT (dynamic-resolution Qwen-ViT non-square). Chart-domain pretrained. Strong base accuracy on chart datasets (~78% PlotQA/InfoVQA). Demonstrates anchoring as universal (non-zero on strongest baseline) but graded. |
 | **🟡 Sub-B (cross-family + scale-up)** | `gemma3-27b-it` | §3, §5, §6 | Tier 3 family but useful as cross-family large-scale check (27B vs 7B Main). SigLIP-896 fixed perfect-square encoder (different resolution strategy from Main). Mid-tier accuracy (~51-71%). |
-| **🔵 Mechanism panel (perfect-square, 5-model)** | gemma4-e4b, llava-1.5-7b, convllava-7b, fastvlm-7b, **internvl3-8b** | §7.1–7.3 (E1-patch digit-bbox attention) | 5-archetype encoder panel: SigLIP-Gemma early / CLIP-336 mid-stack / ConvNeXt / FastViT / InternViT mid-stack. All perfect-square single-grid for clean bbox→token routing. **OneVision Main extracted via AnyRes per-image bbox routing (lite_eager monkey-patch)** — added to mechanism panel as 6th model and shows dataset-dependent peak layer (L=27 plot/tally, L=14 info/vqav2). Phase D 24/24 cells on disk, cross-dataset peak comparison via `scripts/analyze_cross_dataset_peaks.py`. |
+| **🔵 Mechanism panel (perfect-square, 5-model)** | gemma4-e4b, qwen2.5-vl-7b, llava-1.5-7b, convllava-7b, fastvlm-7b | §7.1–7.3 (E1-patch digit-bbox attention) | 5-archetype encoder panel: SigLIP-Gemma early / Qwen-ViT late / CLIP-336 mid-stack / ConvNeXt / FastViT. All perfect-square single-grid for clean bbox→token routing. **OneVision Main extracted via AnyRes per-image bbox routing (lite_eager monkey-patch)** — added to mechanism panel as 6th model and shows dataset-dependent peak layer (L=27 plot/tally, L=14 info/vqav2). Phase D cells on disk, cross-dataset peak comparison via `scripts/analyze_cross_dataset_peaks.py`. **InternVL3-8b removed from this panel 2026-05-10 (was 6th member); outputs preserved on disk for audit. See roadmap §10 changelog.** |
 | **🟣 Reasoning ablation** | `qwen3-vl-8b` (instruct vs thinking) | §5 γ-β | Reasoning-mode amplification contrast. Single-purpose, disjoint from Sub-A. |
 | **🟤 Legacy / breadth (appendix)** | `llava-next-interleaved-7b`, gemma4-31b-it, gemma3-12b/4b-it, qwen3-vl-8b/30b, the 7-model VQAv2 panel | appendix only | **llava-next-interleaved-7b dropped from main panel 2026-05-04** (low native resolution insufficient for chart/figure datasets — user decision, commit `0e7998e`). Phase D §7.1-7.3 attention data preserved on disk (3 datasets, plot/tally/info) as supplementary. Gemma3 4B/12B held in reserve for potential within-family scale ablation in Phase 2. Historical 7-model VQAv2 panel preserved for behavioural breadth. |
 
@@ -143,13 +150,13 @@ All 5 datasets evaluated under the same canonical setup: temperature=0, top_p=1.
 
 | Section | Models | Datasets | Conditions | n per cell | Cells | Status |
 |---|---|---|---|---|---|---|
-| §3 main panel (6-model × 5-dataset) | llava-onevision-7b (Main), qwen2.5-vl-7b, internvl3-8b, gemma3-4b, qwen2.5-vl-32b, gemma3-27b (6) | TallyQA, ChartQA, MathVista, PlotQA, InfoVQA (5) | b / a-S1 / m-S1 / d (4) | full or n=5000-cap | 30 | **29 ✅ + internvl3/tally rerun in flight** |
+| §3 main panel (6-model × 5-dataset) | llava-onevision-7b (Main), qwen2.5-vl-7b, gemma3-4b, qwen2.5-vl-32b, gemma3-27b, llava-interleave-7b (6; post-InternVL3 removal 2026-05-10) | TallyQA, ChartQA, MathVista, PlotQA, InfoVQA (5) | b / a-S1 / m-S1 / d (4) | full or n=5000-cap | 30 | **30 ✅** |
 | §5 distance + digit-mask | 3-model E5e panel (llava-interleave, qwen2.5-vl-7b, gemma3-27b) | 5 (E5b/c on VQAv2+TallyQA, E5e on Tally/Chart/Math/Plot/Info) | b + 5×a + 5×m + d (12) | 500–full | 15 | **✅ shipped** |
 | §6 confidence-modulated | reuses §3+§5 outputs | same | (logit reaggregation) | 112,008 sample×arm rows | 0 new | **✅ shipped** (L1-evidence) |
-| §7.1–7.3 mechanism (E1-patch + Phase D) | **5-model perfect-square panel** (gemma4-e4b, llava-1.5-7b, convllava-7b, fastvlm-7b, internvl3-8b) + OneVision via AnyRes bbox routing | TallyQA + PlotQA + InfoVQA + VQAv2 (4) | b + a + m + d (4) | 200 stratified per dataset | 24 | **✅ shipped** (Phase D, commit `c556fb6`) |
-| §7.4 E4 attention re-weighting | 3-model mid-stack cluster (llava-1.5, convllava, internvl3) | 1 dataset | sweep + validation | 200 / full | 3 | ✅ pre-restructure; OneVision Main extension deferred (AnyRes encoder ≠ mid-stack archetype) |
+| §7.1–7.3 mechanism (E1-patch + Phase D) | **5-model perfect-square panel** (gemma4-e4b, qwen2.5-vl-7b, llava-1.5-7b, convllava-7b, fastvlm-7b) + OneVision via AnyRes bbox routing — InternVL3-8b removed 2026-05-10 (see roadmap §10) | TallyQA + PlotQA + InfoVQA + VQAv2 (4) | b + a + m + d (4) | 200 stratified per dataset | 20 active (+ 4 archived InternVL3) | **✅ shipped** (Phase D, commit `c556fb6`) |
+| §7.4 E4 attention re-weighting (historical 3-model) | mid-stack cluster (llava-1.5, convllava, internvl3) — InternVL3 cell preserved on disk for audit; not in active panel post-2026-05-10 | 1 dataset | sweep + validation | 200 / full | 3 | ✅ pre-restructure; OneVision Main extension deferred (AnyRes encoder ≠ mid-stack archetype) |
 | §7.4.5 E6 Subspace mitigation | OneVision Main | all 5 | chosen cell L=26 K=8 α=1.0 + baseline | n=5000 wrong-base subset (per-dataset eligible cap applies) | 5 | **✅ shipped** (Phase B, commit `9f9dfa0`); em(b) +9.2pp recovery — paper task #38 |
-| §7 E1d causal ablation (OneVision) | OneVision Main only | TallyQA + ChartQA + MathVista + InfoVQA (4) | sweep × 6 modes (baseline / ablate_peak / window / lower-half / upper-half / all) | 200 stratified | 4 | **✅ shipped** (Phase E, commits `7a27750` + `2d11876` recovery) |
+| §7 E1d causal ablation (OneVision) | OneVision Main only | TallyQA + ChartQA + MathVista + InfoVQA + PlotQA (5) | sweep × 6 modes (baseline / ablate_peak / window / lower-half / upper-half / all) | 200 stratified | 5 | **✅ shipped** (Phase E, commits `7a27750` + `2d11876` recovery + `a7e391c` + `de1f94e` analyzer fix 2026-05-10) |
 | §5 γ-β reasoning | qwen3-vl-8b instruct vs thinking | MathVista | b/a/m/d (4) | full testmini subset | 2 | ✅ shipped (×1.6 adopt, ×2.9 df amplification) |
 | Appendix (legacy 7-model) | 7 models | VQAv2 only | b/a/d (3) | full | 7 | ✅ historical |
 
@@ -188,14 +195,13 @@ All 5 datasets evaluated under the same canonical setup: temperature=0, top_p=1.
   wrong-base subset (#38 §7.4 paper update; earlier "-2.4pp em(a) cost"
   framing was a hand-copy error, retracted 2026-05-04).
 - **InternVL3-8b + Qwen2.5-VL-7b in §7 mechanism panel** (2026-05-02
-  decision, **revised 2026-05-04**) — InternVL3-8b **brought into mech
-  panel** as 5th member (perfect-square 27×27 grid confirmed; routes
-  cleanly through standard `_compute_anchor_bbox_mass`). Qwen2.5-VL-7b
-  remains appendix-only (17×23 non-square requires per-encoder routing
-  not yet implemented). §7.1–7.3 main panel = **5-model**: gemma4-e4b,
-  llava-1.5-7b, convllava-7b, fastvlm-7b, **internvl3-8b**. OneVision Main
-  added as 6th via AnyRes per-image bbox routing (lite_eager monkey-patch
-  in `extract_attention_mass.py`).
+  decision, revised 2026-05-04, **revised 2026-05-10**) — InternVL3-8b
+  removed 2026-05-10 from active mech panel (and §3 main matrix); see
+  roadmap §10 changelog. Qwen2.5-VL-7b → appendix only. InternVL3-8b
+  outputs preserved on disk for audit. §7.1–7.3 active panel =
+  **5-model**: gemma4-e4b, qwen2.5-vl-7b, llava-1.5-7b, convllava-7b,
+  fastvlm-7b. OneVision Main added as 6th via AnyRes per-image bbox
+  routing (lite_eager monkey-patch in `extract_attention_mass.py`).
 - **llava-next-interleaved-7b in main panel** (2026-05-04 decision) —
   removed from §3 main panel and §7 mechanism panel. Native
   resolution insufficient for chart/figure datasets (low informativeness

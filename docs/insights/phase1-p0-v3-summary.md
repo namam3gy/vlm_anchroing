@@ -1,5 +1,7 @@
 # Phase 1 P0 v3 — final summary (2026-05-04)
 
+> **[2026-05-10 addendum — InternVL3-8b removed from active panels]** The 6-model main panel transitioned to 5 models (and the 5-model mech panel to 4) when InternVL3-8b was dropped from the active matrix on 2026-05-10. Numbers below predate that change; the 6-model / 5-model framings are kept as the historical Phase 1 P0 v3 record.
+
 Umbrella for the Phase 1 P0 v3 push (2026-05-02 → 2026-05-04). Cross-references `references/project.md §0.0+§0.7` and `references/roadmap.md §3.0a+§10`.
 
 ## What landed
@@ -62,17 +64,22 @@ OneVision E1d on TallyQA + InfoVQA + ChartQA + MathVista. 6-mode ablation table 
 
 **B1 follow-up 2026-05-05 ~00:16 KST** — re-ran InfoVQA E1d with `--peak-layer 14` (Phase D's actual InfoVQA peak from `analyze_cross_dataset_peaks.py`) instead of the master script's hardcoded 27. Result: ablate_peak Δ_df = +0.015 (vs +0 at L27); ablate_peak_window, ablate_lower_half, ablate_upper_half, ablate_all all unchanged. The flat InfoVQA ablation profile is **not** a peak-layer-routing artefact — InfoVQA's OneVision anchor mechanism is genuinely diffuse, with no single layer band causally responsible. Comparison log: `outputs/_logs/phase3_b1_infovqa_peak14/compare_20260504-223234.log`. Launcher: `scripts/_phase3_b1_infovqa_peak14.sh`.
 
-### Mitigation (§7.4.5) — chosen cell
+### Mitigation (§7.4.5) — chosen cell + paired-bootstrap CI
 
-**L=26 K=8 α=1.0 subspace projection** selected from 27-cell pilot grid (L∈{25,26,27} × K∈{2,4,8} × α∈{0.5,1.0,2.0}) on PlotQA+InfoVQA pooled n5k.
+**L=26 K=8 α=1.0 subspace projection** selected from 27-cell pilot grid (L∈{25,26,27} × K∈{2,4,8} × α∈{0.5,1.0,2.0}) on PlotQA+InfoVQA pooled n5k. **Pilot-grid context (P1-6 close, 2026-05-10)**: ex ante "Δem(a) ≤ −6 pp deal-breaker on either calib" rule is *non-binding* on the actual grid (0 / 27 cells rejected); chosen cell ranks **1st by combined |Δdf(a)|** with 1.2 pp margin over runner-up — same ex ante rule on same data does not select a different cell. Heatmap: `docs/figures/E6_pilot_grid_{plotqa,infographicvqa}_heatmap.png`; aggregator `scripts/aggregate_e6_pilot_grid.py`; canonical CSV `_data/E6_pilot_grid_27cells.csv`.
 
-Stage 4-final eval on 5 datasets (n=5000 wrong-base subset per dataset, paired-sids comparison via `scripts/build_e6_stage4_summary.py` → `docs/insights/_data/stage4_final_per_dataset.csv`):
-- avg Δ adopt(a) = **-0.020**
-- avg Δ df(a) = **-0.029** (df reduction works)
-- avg **Δ em(a) = +0.039** (em on anchor arm IMPROVES — every dataset positive)
-- avg **Δ em(b) = +0.088** (recovery on wrong-base sids without anchor present)
+Stage 4-final eval on 5 datasets (n=5000 wrong-base subset per dataset, paired-sids comparison):
+- Point estimates: `scripts/build_e6_stage4_summary.py` → `_data/stage4_final_per_dataset.csv`.
+- **Paired-bootstrap CI (B = 10,000)** added 2026-05-10 (P1-3 close): `scripts/build_e6_stage4_bootstrap_ci.py` → `_data/stage4_final_per_dataset_ci.csv` + raw draws `_data/stage4_final_bootstrap_draws.npz`. 95 % equal-tail + Bonferroni-20 corrected (5 × 4 = 20 family, α = 0.05/20 = 0.0025 → 99.75 %) bands.
 
-This is a **free-lunch on the wrong-base subset**: anchor pull goes down, exact-match goes up on both arms. Earlier "Δ em(a) = -0.024 cost" framing was a hand-copy error from prior aggregation (corrected 2026-05-04 from generator output). Paper §7.4.5 prose update task #38.
+| metric | mean | sign-clean count at 95 % | sign-clean at Bonferroni-20 |
+|---|---:|:---:|:---:|
+| Δ adopt(a) | **−2.0 pp** | 2 / 5 | 2 / 5 |
+| Δ df(a) | **−2.9 pp** | 1 / 5 (PlotQA only [−6.9, −3.4]) | 1 / 5 (PlotQA only) |
+| Δ em(a) | **+3.9 pp** | 3 / 5 | 2 / 5 (PlotQA, TallyQA) |
+| **Δ em(b)** | **+8.8 pp** | **5 / 5** | **5 / 5** |
+
+**Δ em(b) is the multiplicity-robust headline** — only metric whose sign-clean status survives Bonferroni-20 correction on every cell. **InfoVQA Δdf=−0.7 pp on n=443** has 95 % CI [−4.7, +3.4] (zero-inclusive band → inconclusive fence confirmed numerically; sanity gate: half-width 0.0406 lands inside paper's prior paired-Wilson estimate ~0.04–0.06). This is a **strict free-lunch on the wrong-base subset**: anchor pull goes down (PlotQA CI-strong, others CI-individually-borderline), exact-match goes up on both arms (b-arm 5/5 Bonferroni-robust). Earlier "Δ em(a) = -0.024 cost" framing was a hand-copy error from prior aggregation (corrected 2026-05-04 from generator output). Paper §6.2.3 (Korean draft) / §7.4.5 (English sister-section) reframed 2026-05-10. Insight cousin: `docs/insights/E6-stage4-paired-bootstrap-ci.md`.
 
 ### Capability preservation (E8, 8-bench, 2026-05-09)
 

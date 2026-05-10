@@ -41,7 +41,6 @@ MODEL_DISPLAY = {
     # chart/figure datasets to be informative (decision 2026-05-04).
     "llava-onevision-qwen2-7b-ov": "llava-onevision-7b",
     "qwen2.5-vl-7b-instruct":      "qwen2.5-vl-7b",
-    "internvl3-8b":                "internvl3-8b",
     "gemma3-4b-it":                "gemma3-4b",
     "qwen2.5-vl-32b-instruct":     "qwen2.5-vl-32b",
     "gemma3-27b-it":               "gemma3-27b",

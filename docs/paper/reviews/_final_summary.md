@@ -38,7 +38,7 @@
 | 6 | §6.2.3 paired-bootstrap CI on Table 6 (5 cells) | R4 MAJ-4 | ~1 day | §8.4 item 5 |
 | 7 | §A.5 27-cell pilot grid 4-metric heatmap aggregation | R4 CRIT-2 | ~1 day (existing data) | §8.4 deferred (accepted limitation) |
 | 8 | Bonferroni-20 correction on Table 6 paired-test family | R4 MAJ-6 | trivial post-CI | §8.4 item 5 |
-| 9 | OneVision E1d analyzer fix (Phase E) | R4 carryover from earlier rounds | 1-2 day | §8.2 deferred |
+| 9 | ~~OneVision E1d analyzer fix (Phase E)~~ ✅ closed 2026-05-10 (P4-12) | R4 carryover from earlier rounds | 1-2 day → done | §5.2 / §5.3 / §E.2 통합 (single-layer 5/5 null 확장 검증) |
 | 10 | Pre-registration registry document on OSF / AsPredicted | R4 MAJ-6 | not retroactive | future submissions |
 | 11 | Paraphrase robustness (3-5 prompt variants × bootstrap CI) | R1-R4 carryover | 1-2 H200-day | §8.4 item 6 |
 | 12 | Closed-source defuse (GPT-4o / Gemini 2.5, ~500 sample) | R1-R4 carryover | 1-2 day | §8.4 item 6 |

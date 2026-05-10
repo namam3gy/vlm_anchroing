@@ -1,5 +1,7 @@
 # E2 pilot results — encoder ablation, n=1,125 per model
 
+> **Superseded 2026-05-10:** H6 cluster recomputed on the 6-model main matrix without InternVL3. See `docs/insights/_data/H6_2axis_per_model.csv`. The 4-model pilot results below remain the original pilot record and are kept for audit.
+
 **Status:** Pilot complete 2026-04-24. 4 newly-integrated models × 25 samples-per-answer × 9 answer values × 5 irrelevant-set variants × 3 conditions = 1,125 sample-instances per model. Source: `outputs/experiment_encoder_pilot/<model>/<run>/summary.json`. Plan: `docs/experiments/E2-encoder-ablation.md`.
 
 ## Headline numbers

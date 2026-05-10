@@ -69,7 +69,7 @@ def parse_args() -> argparse.Namespace:
     # one timestamp at the parent level.
     parser.add_argument("--output-dir", type=str, default=None)
     parser.add_argument("--max-new-tokens", type=int, default=None,
-                        help="Override sampling.max_new_tokens from config (e.g. 16 for InternVL3 prose-leak test).")
+                        help="Override sampling.max_new_tokens from config (e.g. 16 for prose-leak test).")
     return parser.parse_args()
 
 

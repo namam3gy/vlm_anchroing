@@ -45,8 +45,8 @@ Predictions are written `pred_b / pred_a / pred_m / pred_d`; ground truth is
 | **H3** ❌ | ConvNeXt / encoder-free encoders less susceptible than ViT | `adopt_rate(ConvNeXt)` ≈ `adopt_rate(ViT)` | ❌ Falsified at adoption (E2 pilot 2026-04-24) and per-layer levels (E1b: ConvLLaVA's peak layer L16, signature identical to LLaVA-1.5 CLIP-ViT). Replaced by depth-axis framing (E1c) |
 | **H4** | Reasoning / thinking-mode reduces anchoring | thinking-on `df` ≤ thinking-off `df` | ❌ Falsified, *amplification*. E5e γ-β on Qwen3-VL-8B Instruct vs Thinking on MathVista (`E5e-mathvista-reasoning-evidence.md`): ×2.9 df all-base, ×12.7 df on correct-base. H2 wrong > correct asymmetry collapses in thinking mode. Same direction as VLMBias / Wang LRM-judging. |
 | **H5** | "No-hedging" prompt amplifies anchor pull on uncertain items | `direction_follow` increases under strengthen | ⚠ Suggestive (gemma3-27b-it strengthen `mean_distance_to_anchor` = 2617 → hallucination, not anchor pull). Folded into §"strengthen anomaly" caveat |
-| **H6** | Cross-modal failures decouple into two orthogonal axes — `anchor-pull` vs. `multi-image distraction` | `adopt_rate(a)` and `acc_drop_d_vs_b` perfectly correlated → H6 fails | ✅ Suggested by E2 pilot (InternVL3 = high acc_drop / low adopt; LLaVA-1.5 = low acc_drop / high adopt; ConvLLaVA = both). Confirmed at full E4 Phase 2 scale |
-| **H7** ⚙ | `direction_follow_rate` is monotonic with `pred_b`-token logit / probability — i.e. uncertainty modulates anchor pull on a **continuous** confidence scale, of which wrong/correct (H2) is a coarse projection | `direction_follow_rate` flat across confidence quartiles | ✅ Confirmed for non-reasoning panel — `L1-confidence-modulation-evidence.md` reports `entropy_top_k` Q4 − Q1 mean df = +0.152 on E5b/E5c/E5e, 23/35 anchor cells fully monotone. **Boundary case**: H7 monotonicity *collapses* under reasoning mode (`E5e-mathvista-reasoning-evidence.md` §3.1) and is panel-side compressed on InternVL3-8b (`E7-plotqa-infovqa-evidence.md` §4) — both deserve §6 prose paragraph distinguishing "uncertainty-modulated graded pull" from "reasoning-induced graded pull". |
+| **H6** | Cross-modal failures decouple into two orthogonal axes — `anchor-pull` vs. `multi-image distraction` | `adopt_rate(a)` and `acc_drop_d_vs_b` perfectly correlated → H6 fails | ✅ 6-model main matrix (5 datasets): gemma3 family = anchoring corner (high adopt, no distraction); llava-onevision-7b + qwen2.5-vl-{7b,32b} = distraction corner; llava-interleave-7b mixed. See `docs/insights/_data/H6_2axis_per_model.csv` and `docs/figures/H6_2axis_scatter_5dataset.png`. |
+| **H7** ⚙ | `direction_follow_rate` is monotonic with `pred_b`-token logit / probability — i.e. uncertainty modulates anchor pull on a **continuous** confidence scale, of which wrong/correct (H2) is a coarse projection | `direction_follow_rate` flat across confidence quartiles | ✅ Confirmed for non-reasoning panel — `L1-confidence-modulation-evidence.md` reports `entropy_top_k` Q4 − Q1 mean df = +0.152 on E5b/E5c/E5e, 23/35 anchor cells fully monotone. **Boundary case**: H7 monotonicity *collapses* under reasoning mode (`E5e-mathvista-reasoning-evidence.md` §3.1) — deserves §6 prose paragraph distinguishing "uncertainty-modulated graded pull" from "reasoning-induced graded pull". |
 
 ## 3. Status snapshot — where we are (2026-05-09 — 5-round paper review loop complete)
 
@@ -119,6 +119,17 @@ phase2 branch tip `8ffdc2d`). Methodology / writing / novelty /
 adversarial / bar-raiser personas + author-reviser between rounds.
 Paper 516 → 604 lines net (+88).
 
+**P1 close-outs (2026-05-10, branch `worktree-paper+p1-defense-r4`):**
+P1-3 paired-bootstrap CI on §6.2.3 Table 6 (B = 10,000) and P1-6 §A.5
+27-cell pilot grid 4-metric heatmap aggregation both shipped — closing
+R4 MAJ-4, R4 MAJ-6 (Bonferroni-20), and R4 CRIT-2 (cherry-pick concern).
+Δem(b) emerges as the paper's multiplicity-robust headline (5/5
+sign-clean under both 95 % and Bonferroni-20 corrected CIs); Δdf(a) is
+sample-size-bound to PlotQA n=2,306 as the only CI-strong cell. 27-cell
+heatmap shows the em-deal-breaker rule was non-binding (no cell rejected)
+and the chosen cell ranks first by combined |Δdf(a)| under the same ex
+ante rule, addressing reviewer cherry-pick concerns.
+
 - **Final tier verdict (3-way convergent):** Solid Findings, top of band.
   Borderline / weak-accept Main contingent on §8.4 item 1 (γ-β
   residual-stream bridge experiment) landing positive in next revision.
@@ -149,7 +160,7 @@ Phase 1 P0 v3 substantively complete. See §10 changelog 2026-05-04 entry
 for the full commit chain. Headlines:
 
 - **Branch + master pushed** to origin (`phase1/p0-baseline-recalibration`).
-- **6-model × 5-dataset main matrix** at `docs/insights/_data/main_panel_5dataset_summary.md`. Models: llava-onevision-7b (Main), qwen2.5-vl-7b, internvl3-8b, gemma3-4b, qwen2.5-vl-32b, gemma3-27b. Last cell internvl3-8b/TallyQA rerun in flight (~07:00 ETA).
+- **6-model main matrix (post-InternVL3 removal 2026-05-10; was 7-model with InternVL3) × 5-dataset** at `docs/insights/_data/main_panel_5dataset_summary.md`. Models: llava-onevision-7b (Main), qwen2.5-vl-7b, gemma3-4b, qwen2.5-vl-32b, gemma3-27b, llava-interleave-7b.
 - **Stage 4-final mitigation** (Phase B, commit `9f9dfa0`): cell L=26 K=8 α=1.0 ships. **Free-lunch**: avg Δdf = -2.9pp, **Δem(a) = +3.9pp benefit, Δem(b) = +8.8pp recovery** on wrong-base sids — paired-sids generator `scripts/build_e6_stage4_summary.py` → `docs/insights/_data/stage4_final_per_dataset.csv`. Earlier "em(a) -2.4pp cost" framing was a hand-copy error, corrected 2026-05-04 → paper §7.4 task #38.
 - **Phase D §7.1-7.3** (commit `c556fb6`): 24/24 cells on disk. New finding via `scripts/analyze_cross_dataset_peaks.py` — OneVision peak layer is **dataset-dependent** (L=27 on Plot/Tally, L=14 on Info/VQAv2).
 - **Phase E E1d causal ablation** (commit `2d11876`): OneVision × {Tally, Info, Chart, Math} 4/4. ChartQA + MathVista re-ran with per-dataset susceptibility CSVs after PlotQA-CSV-reuse bug.
@@ -194,8 +205,8 @@ in-flight · ☐ not started.
 
 | Experiment | Dataset | Conditions | Models | Status |
 |---|---|---|---|---|
-| `experiment_e7_plotqa_full` | PlotQA test V1 | b/a/m/d (S1) | 7-model panel | ✅ shipped 2026-05-03; standalone evidence doc `docs/insights/E7-plotqa-infovqa-evidence.md` 2026-05-04 — 7-model wrong-base df ranking, gemma3 anti-scaling 4B (0.395) > 27B (0.227), internvl3-8b H2 collapse (wrong−correct gap +0.008), 6/7 models show em(a) > em(b) free-lunch baseline |
-| `experiment_e7_infographicvqa_full` | InfographicVQA val | b/a/m/d (S1) | 7-model panel | ✅ shipped 2026-05-03; covered jointly in `E7-plotqa-infovqa-evidence.md` — gemma3 anti-scaling reverses (4B 0.324 < 27B 0.350), free-lunch claim doesn't generalise here (mixed em deltas) |
+| `experiment_e7_plotqa_full` | PlotQA test V1 | b/a/m/d (S1) | 6-model panel (post-InternVL3 removal 2026-05-10) | ✅ shipped 2026-05-03; standalone evidence doc `docs/insights/E7-plotqa-infovqa-evidence.md` 2026-05-04 — 6-model wrong-base df ranking, gemma3 anti-scaling 4B (0.395) > 27B (0.227), 5/6 models show em(a) > em(b) free-lunch baseline |
+| `experiment_e7_infographicvqa_full` | InfographicVQA val | b/a/m/d (S1) | 6-model panel (post-InternVL3 removal 2026-05-10) | ✅ shipped 2026-05-03; covered jointly in `E7-plotqa-infovqa-evidence.md` — gemma3 anti-scaling reverses (4B 0.324 < 27B 0.350), free-lunch claim doesn't generalise here (mixed em deltas) |
 | E5b/c PlotQA + InfoVQA + ChartQA + MathVista 3-model | 4 datasets | b + 5×a-strat + 5×m-strat + d | same 3 | 🟡 Phase 2 — OneVision Main shipped 2026-05-04 (4/4 datasets, 12-cond × 4 = 85,258 records). adopt monotonic decay S1→S5 on every dataset; df gentle decay (-0.04 to -0.06) on 3/4 (MathVista flat); em stable. Plausibility-window claim replicates at full GT range on a second architecture. Doc: `docs/insights/E5b-cross-dataset-onevision.md`, generator: `scripts/build_e5b_5strat_decay_summary.py`. 3-model expansion still pending (defer; OneVision is the §5 headline) |
 | E6 Subspace recalibration on PlotQA + InfoVQA pooled, 5-dataset full-range eval | 5 datasets | b/a/m/d (S1) + cell sweep | Main only | ✅ shipped — chosen L=26 K=8 α=1.0; Stage 4-final eval done. **Bonus em(b) +9.2pp** finding for paper §7.4 task #38 |
 | Phase D §7.1-7.3 cross-dataset attention | 4 datasets (Tally/Plot/Info/VQAv2) | b/a/m/d (S1) | 5-panel + OneVision = 6 models | ✅ shipped 2026-05-03 — 24/24 cells; cross-dataset peaks via `analyze_cross_dataset_peaks.py` |
@@ -224,14 +235,14 @@ in-flight · ☐ not started.
 
 | Experiment | Models | n | Status |
 |---|---|---|---|
-| E1 attention-mass | gemma4-e4b, qwen2.5-vl-7b, llava-1.5-7b, internvl3-8b, convllava-7b, fastvlm-7b | 200 stratified | ✅ |
-| E1b per-layer localisation | same 6 | 200 | ✅ — 4 archetypes (SigLIP-Gemma early, mid-stack cluster CLIP-ViT/InternViT/ConvNeXt, Qwen-ViT late, FastVLM late text-stealing) |
-| E1d causal ablation | same 6 | 200 | ✅ — single-layer null on 6/6; upper-half multi-layer **−4.0 to −10.5 pp** Δdf on 6/6 |
+| E1 attention-mass (historical 6-model panel) | gemma4-e4b, qwen2.5-vl-7b, llava-1.5-7b, internvl3-8b, convllava-7b, fastvlm-7b | 200 stratified | ✅ — pre-2026-05-10 panel; InternVL3 removed from active mech panel 2026-05-10 |
+| E1b per-layer localisation | same 6 (historical) | 200 | ✅ — 4 archetypes (SigLIP-Gemma early, mid-stack cluster CLIP-ViT/InternViT/ConvNeXt, Qwen-ViT late, FastVLM late text-stealing) |
+| E1d causal ablation | same 6 (historical) | 200 | ✅ — single-layer null on 6/6; upper-half multi-layer **−4.0 to −10.5 pp** Δdf on 6/6 |
 | E1-patch (digit-pixel attention) | gemma4-e4b, llava-1.5-7b, convllava-7b, fastvlm-7b (4 perfect-square archetypes, n=400 each) | analysis + 2026-04-29 extension extraction | ✅ — peak digit/anchor 0.468–0.631 (+24 to +40 pp above fair share) on every panel model |
-| **Phase D cross-dataset E1** (5 panel × 4 datasets + OneVision × 4 datasets, 2026-05-03) | gemma4-e4b, llava-1.5-7b, convllava-7b, fastvlm-7b, internvl3-8b + OneVision | 200 stratified per (model, dataset) | ✅ 24/24 cells, commit `c556fb6`. Cross-dataset peak layer comparison via `scripts/analyze_cross_dataset_peaks.py` |
+| **Phase D cross-dataset E1** (4 panel × 4 datasets + OneVision × 4 datasets, 2026-05-03; InternVL3 cell preserved on disk for audit but removed from active mech panel 2026-05-10) | gemma4-e4b, llava-1.5-7b, convllava-7b, fastvlm-7b + OneVision | 200 stratified per (model, dataset) | ✅ 20/20 active cells (+ 4 archived InternVL3 cells), commit `c556fb6`. Cross-dataset peak layer comparison via `scripts/analyze_cross_dataset_peaks.py` |
 | **Phase E E1d cross-dataset** (OneVision × 4 datasets, 2026-05-03 + chart/math recovery 2026-05-04) | OneVision Main only | 200 stratified per dataset, 6 modes | ✅ 4/4 cells, commits `7a27750` + `2d11876`. Per-(model, mode) summary at `outputs/causal_ablation/_summary/per_model_per_mode.csv` |
-| E4 mitigation Phase 1 (sweep) | llava-1.5-7b, convllava-7b, internvl3-8b | 200 × 7 strengths | ✅ |
-| E4 mitigation Phase 2 (full validation) | same 3 | 17,730 | ✅ |
+| E4 mitigation Phase 1 (sweep, historical 3-model) | llava-1.5-7b, convllava-7b, internvl3-8b (historical; InternVL3 removed from active panel 2026-05-10) | 200 × 7 strengths | ✅ |
+| E4 mitigation Phase 2 (full validation, historical 3-model) | same 3 (historical) | 17,730 | ✅ |
 | E4 generalisation to other archetypes | gemma4-e4b, qwen2.5-vl-7b, fastvlm-7b | TBD | ☐ P3 |
 | **E6 Subspace mitigation** (Phase B Stage 4-final, 2026-05-03) | OneVision Main | n=5000 wrong-base × 5 datasets | ✅ chosen L=26 K=8 α=1.0; commit `9f9dfa0`. Stage 4-final eval table at `docs/insights/_data/main_panel_5dataset_summary.md` |
 
@@ -259,8 +270,8 @@ Quick orientation:
   consistent with main-panel ranking that gemma3 sits between
   llava and qwen on TallyQA susceptibility.
 - **E5e ChartQA + TallyQA:** 3-model panel, all `a > m`.
-- **E4 mitigation:** LLaVA-1.5 / ConvLLaVA / InternVL3 mid-stack-cluster
-  Phase 2 `df` reduction −14.6 % / −9.6 % / −5.8 % rel; em ↑;
+- **E4 mitigation:** LLaVA-1.5 / ConvLLaVA mid-stack-cluster
+  Phase 2 `df` reduction −14.6 % / −9.6 % rel; em ↑;
   acc(b) invariant.
 
 Numbers re-aggregate from raw `predictions.jsonl` via
@@ -371,7 +382,7 @@ the coarsest possible projection of this monotonicity.
 | **L1** | per-token logit / softmax-prob already captured (commit `5f925b2`) on E5b/E5c/E5e + 7 main runs | ✅ data |
 | **L2** | confidence-proxy menu — `top1_softmax_prob`, `top1_minus_top2_margin`, `entropy_top_k` — `scripts/analyze_confidence_anchoring.py` | ✅ landed 2026-04-29 |
 | **L3** | per-confidence-quartile `adopt_rate` and `direction_follow_rate` table, model × dataset; compare to A1 binary split | ✅ 695,004 (sample × arm) records over 85 anchor cells (5-dataset × 7-model expansion 2026-05-04); `_data/L1_*.csv` |
-| **L4** | report — pick the proxy + quartile shape with cleanest monotone trend; lift over A1 | ✅ `docs/insights/L1-confidence-modulation-evidence.md` — under `log_prob_sum` Q4 − Q1 mean df = **+0.191** (51/85 monotone, 60 %); `cross_entropy` is the paper-clean default at +0.156 (43/85). **InternVL3-8b shows H7 reversal** on PlotQA (Δ −0.134), ChartQA (Δ −0.089), InfoVQA (Δ −0.156) — same model with H2 collapse in `E7-plotqa-infovqa-evidence.md` §4. New §2.E in L1 doc. |
+| **L4** | report — pick the proxy + quartile shape with cleanest monotone trend; lift over A1 | ✅ `docs/insights/L1-confidence-modulation-evidence.md` — under `log_prob_sum` Q4 − Q1 mean df = **+0.191** (51/85 monotone, 60 %); `cross_entropy` is the paper-clean default at +0.156 (43/85). New §2.E in L1 doc. (Note: the InternVL3-8b H7 reversal previously surfaced here was retired with the InternVL3 panel removal 2026-05-10 — see §10 changelog.) |
 | **L5** | re-cast §6 narrative — "wrong/correct gap is a coarse projection of confidence monotonicity" | ✅ paper draft `docs/paper/sections/06_confidence.md` |
 | **L6** | VQAv2 main panel logit re-run (no logit capture pre-commit `5f925b2`) | ☐ P1 — opportunistic |
 
@@ -388,18 +399,18 @@ gt range (no [0,8] restriction).
 | ID | Experiment | Status |
 |---|---|---|
 | **E1 / E1b / E1d (full-anchor, historical)** | full anchor-image attention pipeline (mass + per-layer + causal ablation), 6-model encoder-archetype panel | ✅ landed pre-restructure — kept as supplementary in §7.1 background; main §7.1–7.3 now anchored on E1-patch |
-| **E1-patch perfect-square panel — 5-model (shipped 2026-05-03)** | digit-pixel-patch attention. Final 5-model panel: **gemma4-e4b, llava-1.5-7b, convllava-7b, fastvlm-7b, internvl3-8b**. (llava-interleave-7b dropped 2026-05-04 — low resolution.) | ✅ Phase D 24/24 cells. Headline: digit/anchor ratio +24–40 pp above fair share at peak layer on every panel model. |
+| **E1-patch perfect-square panel — 5-model (shipped 2026-05-03; InternVL3 removed from active panel 2026-05-10 — see §10 changelog)** | digit-pixel-patch attention. Active 5-model panel: **gemma4-e4b, qwen2.5-vl-7b, llava-1.5-7b, convllava-7b, fastvlm-7b**. (llava-interleave-7b dropped 2026-05-04 — low resolution.) | ✅ Phase D 20/20 active cells (+ 4 InternVL3 cells preserved on disk for audit). Headline: digit/anchor ratio +24–40 pp above fair share at peak layer on every panel model. |
 | **OneVision Main extraction via AnyRes** | OneVision in §7.1-7.3 mech panel via `_compute_anchor_bbox_mass` extension to AnyRes per-image bbox routing + lite_eager monkey-patch (`scripts/extract_attention_mass.py:_install_lite_eager_attention`) to fit OOM. Image-anchor mass computed per crop, then composed. | ✅ Phase D 4-dataset cells (Plot/Tally/Info/VQAv2) shipped 2026-05-03 |
 | **Cross-dataset peak comparison** | per-(model, dataset) peak layer comparison from Phase D cells. New finding: **OneVision peak is dataset-dependent** (L=27 PlotQA/TallyQA, L=14 InfoVQA/VQAv2). | ✅ `scripts/analyze_cross_dataset_peaks.py` shipped 2026-05-03 |
 | **E1-patch causal ablation (digit-bbox region zero-mask) — Phase 3** | causal ablation restricted to digit-bbox region (not full anchor span). Patch-level surgical ablation. | ☐ Phase 3 — implementation depends on E1-patch attention path + bbox JSON pipeline |
-| **InternVL3-8b in main panel** (revised 2026-05-04) | Confirmed 27×27 perfect-square; routes through standard `_compute_anchor_bbox_mass`. Now in 5-model panel. | ✅ |
+| ~~**InternVL3-8b in main panel**~~ (revised 2026-05-04) | ~~Confirmed 27×27 perfect-square; routes through standard `_compute_anchor_bbox_mass`. Now in 5-model panel.~~ | ❌ **Removed 2026-05-10** — InternVL3-8b dropped from active mech panel and §3 main matrix. Outputs preserved on disk for audit. See §10 changelog. |
 | **Qwen2.5-VL-7b non-perfect-square (appendix only)** | 17×23 non-square requires per-encoder routing not yet implemented. | ☐ appendix |
 
 #### §7.4 E4 attention re-weighting mitigation
 
 | ID | Experiment | Status |
 |---|---|---|
-| **E4 Phase 1 + 2 (existing 3-model mid-stack cluster)** | mid-stack-cluster attention re-weighting (LLaVA-1.5 / ConvLLaVA / InternVL3) | ✅ landed pre-restructure |
+| **E4 Phase 1 + 2 (existing 3-model mid-stack cluster, historical)** | mid-stack-cluster attention re-weighting (LLaVA-1.5 / ConvLLaVA / InternVL3 — InternVL3 cell preserved on disk for audit; not in active panel post-2026-05-10) | ✅ landed pre-restructure |
 | **E4 + Main `llava-interleave-7b` (Phase 3)** | E4 sweep + full validation for Main model. Risk: Main may not fall in mid-stack cluster archetype (SigLIP ≠ CLIP-ViT/InternViT/ConvNeXt) → E4 may null-effect or backfire. Result drives §7.4 framing: if archetype-conditional, document as such; if cleanly transferred, headline strengthened. | ☐ Phase 3 — depends on E1-patch Main archetype assignment |
 | **E4 §7.4 paper rendering** | report `direction_follow_rate` reduction, `exact_match` rise, `accuracy_vqa(b)` invariance side by side; the "free lunch" framing | ✅ `docs/insights/paper-section-7-4-mitigation-free-lunch.md` (2026-04-29) — needs Phase 3 update with Main extension |
 
@@ -429,8 +440,9 @@ Within phase, P0 blocks the phase target, P1 is opportunistic.
 
 **As of 2026-05-04** — **Phase 1 P0s all complete or in-flight wrap**.
 Master queue + recoveries shipped Phase B/C/D/E/G/H/I/J. 6-model main
-panel × 5-dataset matrix 29/30 ✅; internvl3-8b/TallyQA rerun in flight
-(ETA ~07:00). Mitigation chosen cell L=26 K=8 α=1.0 + Stage 4-final eval
+panel × 5-dataset matrix 30/30 ✅ (post-InternVL3 removal 2026-05-10 —
+panel re-baselined to 6 active models without internvl3-8b).
+Mitigation chosen cell L=26 K=8 α=1.0 + Stage 4-final eval
 landed (commit `9f9dfa0`). §7.1-7.3 cross-dataset attention 24/24
 landed (commit `c556fb6`). Phase E E1d 4/4 landed (commits `7a27750` +
 `2d11876` recovery). Memory + roadmap updated 2026-05-04 (commit `6d8dac4`).
@@ -454,7 +466,7 @@ landed (commit `c556fb6`). Phase E E1d 4/4 landed (commits `7a27750` +
 |---|---|---|---|
 | **P1** | E5b/c (5-stratum + digit-mask) on PlotQA + InfoVQA × 3-model panel | §6.3 §5 | ~10h wall |
 | **P1** | E5b/c on ChartQA + MathVista × 3-model panel (currently absent) | §6.3 §5 | ~10h wall |
-| **P1** | §6 confidence-modulated reaggregation across new 5-dataset matrix | §6.4 | reaggregation only |
+| ~~**P1**~~ | ~~§6 confidence-modulated reaggregation across new 5-dataset matrix~~ | ~~§6.4~~ | ✅ landed 2026-05-10 (branch `paper/p4-13-section6-reaggregation`) — L1_*.csv was already on the 5-dataset × 7-model panel; this pass closes the figure + paper-prose drift left over. Fixes: (i) `paper_L1_confidence_quartile.png` regen against `cross_entropy` proxy (was filtering on the renamed/absent `entropy_top_k`); (ii) §6.2 worked-example table in `docs/paper/sections/06_confidence.md` (Q2/Q3/Q4 numbers + "wrong-base S1" mislabel — the CSV cell is all-base by quartile); (iii) §6.3 adopt/df gradient inline numbers on the same cell; (iv) emnlp_draft_ko §4.4 Insight 2 same gradient + made the worked-example cell explicit; (v) L1 evidence doc historical banner pointing readers to §2.E for canonical 5-dataset numbers. Verified γ-β ×12.7 (§6.5) + InternVL3 reversal table (§6.6) + headline +0.156 cross_entropy / 51 of 85 log_prob_sum (§6.4) all already match canonical CSV. |
 
 ### Phase 3 — mechanism-Main alignment (E1-patch / E4 / Main)
 
@@ -476,7 +488,7 @@ landed (commit `c556fb6`). Phase E E1d 4/4 landed (commits `7a27750` +
 | **P1** | §3 / §5 / §6 paper prose update for 5-dataset matrix | `docs/paper/sections/0[3-6]_*.md` | ✅ shipped 2026-05-04 batch 1 (§3.6 / §4 / §5 / §6 5-dataset rewrites); cross-section drift to §1 / §8 closed 2026-05-08 (this changelog entry) |
 | **P1** | Citation verification — every 2026 arXiv ID in `references/project.md` and §2 paper draft must resolve to a real paper | §9 caveat | ✅ shipped 2026-05-08 — 9/9 arXiv IDs verified, 3 venue tags resolved (NAACL 2025 ✅, HCAIR ICLR 2026 ✅, EMNLP Findings ❌ for CIVET); audit doc closed |
 | **P3** | Image-vs-text anchor (F2) follow-up paper | §6.6 | future |
-| **P3** | InternVL3 + Qwen2.5-VL E1-patch non-square (appendix only) | §6.5 §7 | 1–2 days/model implementation if pursued |
+| ~~**P3**~~ | ~~InternVL3 + Qwen2.5-VL E1-patch non-square (appendix only)~~ | ~~§6.5 §7~~ | ❌ InternVL3 retired from active panel 2026-05-10 (see §10 changelog); Qwen2.5-VL non-square route still appendix-only |
 
 ### Phase 5 — paper review-driven hardening (NEW 2026-05-09, post 5-round loop)
 
@@ -490,10 +502,10 @@ contingent on P0-1 bridge experiment.
 |---|---|---|---|---|---|
 | **P0** | P0-1 | γ-β residual-stream bridge experiment (cheap form) — project Qwen3-VL-Thinking trace residuals onto V_K[L=26]; test amplitude growth predicts ×12.7 correct-base df ratio | §4.6 + §6.2 + §8.4 item 1 | ~2 H100-day | **Tier-shifter** (bar-raiser signature ask). Single highest-leverage move. |
 | **P0** | P0-2 | Eigenvalue spectrum of `D[:, L=26, :]` rank-8 elbow check | §6.4 + new figure | ~4 H100-hour | Theoretical contribution upgrade if elbow clean. |
-| **P1** | P1-3 | Paired-bootstrap CI on §6.2.3 Table 6 (B=10,000) | `scripts/build_e6_stage4_summary.py` extension | ~1 day | Closes R4 MAJ-4. |
+| ~~**P1**~~ | ~~P1-3~~ | ~~Paired-bootstrap CI on §6.2.3 Table 6 (B=10,000)~~ | ~~`scripts/build_e6_stage4_summary.py` extension~~ | ✅ landed 2026-05-10 (branch `worktree-paper+p1-defense-r4`) | Closes R4 MAJ-4 + R4 MAJ-6 (Bonferroni-20). New script `scripts/build_e6_stage4_bootstrap_ci.py`; canonical CSV/MD `docs/insights/_data/stage4_final_per_dataset_ci.{csv,md}` + raw draws `_data/stage4_final_bootstrap_draws.npz`; insight `docs/insights/E6-stage4-paired-bootstrap-ci.md`. Δem(b) sign-clean 5/5 under Bonferroni-20; Δdf(a) sign-clean 1/5 (PlotQA only); InfoVQA Δdf 95 % CI [−4.7, +3.4] confirms inconclusive fence with paper's prior paired-Wilson estimate (~10 % within actual half-width 0.0406). |
 | **P1** | P1-4 | CAA at K=1 + ITI at attention-head — actual Table 7 rows | §6.5 + new evidence doc | ~3 H200-day | Closes R4 MAJ-5 (structural Note → empirical). |
 | **P1** | P1-5 | Random-K=8 baseline for §6.3 (Alt-1 falsification) | §6.3 Insight 1.5 | ~2 H100-day | Closes R4 CRIT-3. |
-| **P1** | P1-6 | §A.5 27-cell pilot grid 4-metric heatmap aggregation | §A.5 + new canonical CSV | ~1 day | Closes R4 CRIT-2 (cherry-pick concern). |
+| ~~**P1**~~ | ~~P1-6~~ | ~~§A.5 27-cell pilot grid 4-metric heatmap aggregation~~ | ~~§A.5 + new canonical CSV~~ | ✅ landed 2026-05-10 (branch `worktree-paper+p1-defense-r4`) | Closes R4 CRIT-2 (cherry-pick concern). New script `scripts/aggregate_e6_pilot_grid.py`; canonical CSV `docs/insights/_data/E6_pilot_grid_27cells.csv` + `_selection_replay.md`; figures `docs/figures/E6_pilot_grid_{plotqa,infographicvqa}_heatmap.png`; insight `docs/insights/E6-pilot-grid-aggregation.md`. Em-deal-breaker rule non-binding on the grid (no cell rejected); chosen cell #17 ranks first by combined `|Δdf(a)|` under the same ex ante rule. |
 | **P2** | P2-7 | E6 cross-architecture replication on Qwen2.5-VL-7B (different encoder archetype) | §6.6 + §1.4 framing | ~10 H200-day | Partial close of R4 CRIT-1 (N=1 → N=2). |
 | **P3** | P3-8 | Paraphrase robustness (5 prompts × 5 datasets) | §A.X + §8.2 | ~3 H200-day | Defuses single-prompt critique. |
 | **P3** | P3-9 | Closed-source defuse (~500 sample on GPT-4o or Gemini 2.5) | §3.6 + §4.* | ~1-2 day + ~$15 API | Defuses open-only critique. |
@@ -501,12 +513,12 @@ contingent on P0-1 bridge experiment.
 
 **Recommended sprint ordering** (per plan §"Recommended execution sequence"):
 
-- **Week 1 (Findings hardening):** P0-1 cheap + P1-3 + P1-6 + P1-5 in parallel.
+- **Week 1 (Findings hardening):** ~~P1-3~~ ✅ + ~~P1-6~~ ✅ + P0-1 cheap + P1-5 in parallel. (P1-3 + P1-6 landed 2026-05-10.)
 - **Week 2 (Main shift):** P0-2 + P1-4 + start P2-7.
 - **Week 3 (Main consolidation):** Finish P2-7. If P0-1 cheap was positive, run clean form.
 - **Camera-ready:** P3-8 + P3-9 + P3-10.
 
-**Don't-touch protect-list (R5 bar-raiser):** (a − m) calibration contrast, single-model 6-callsite hedge, §6.2.3 reframing, Δem(non-anchored) ≥ 0 clause, §1.5 (1) hedge stack, §5.3 dataset-dependent peak self-disclosure, §4.7 InternVL3 boundary case.
+**Don't-touch protect-list (R5 bar-raiser):** (a − m) calibration contrast, single-model 6-callsite hedge, §6.2.3 reframing, Δem(non-anchored) ≥ 0 clause, §1.5 (1) hedge stack, §5.3 dataset-dependent peak self-disclosure. (~~§4.7 InternVL3 boundary case~~ retired 2026-05-10 with InternVL3 panel removal — see §10 changelog.)
 
 **Recently landed (struck from queue 2026-04-29):**
 
@@ -557,10 +569,11 @@ contingent on P0-1 bridge experiment.
 - **`fastvlm-7b` prose outputs.** Often emits prose despite the JSON-only
   prompt; `extract_first_number` rescues most but parse-failure rate is
   non-zero. Report explicitly.
-- **`InternVL3-8b` prose-leak parse loss.** ~30 % of records drop out of
-  E4 Phase-1 valid-triplet count because InternVL3 emits prose ("based
-  on…") truncated at `max_new_tokens=8`. Driver patch to `max_new_tokens`
-  or InternVL3-specific JSON-strict prompt is the fix; tracked in §6.5.
+- **`InternVL3-8b` prose-leak parse loss (historical caveat).** ~30 % of
+  records drop out of E4 Phase-1 valid-triplet count because InternVL3
+  emits prose ("based on…") truncated at `max_new_tokens=8`. No longer
+  active — InternVL3-8b removed from active paper panel 2026-05-10 (see
+  §10 changelog). Caveat preserved for audit only.
 - **Shared GPU.** Same machine runs a vLLM Qwen2.5-32B on port 8000
   (~55 % VRAM). Effective per-GPU budget ~60 GB.
 - **Citation hygiene.** `references/project.md` flags some 2026 arXiv IDs
@@ -702,6 +715,103 @@ contingent on P0-1 bridge experiment.
     trace 2.5h vs 12h estimated)
   - **Branch**: `worktree-phase5+p0-1-gamma-beta-bridge` — PR
     pending user merge
+
+- **2026-05-10** — InternVL3-8b removed from active paper architecture
+  (paper drafts, insights, scripts, references, configs, _data CSVs).
+  `outputs/<exp>/internvl3-8b/` preserved for audit. H6 cluster
+  re-anchored on 6-model main panel via
+  `docs/insights/_data/H6_2axis_per_model.csv` (gemma anchoring corner
+  vs llava-onevision-7b + qwen2.5-vl distraction corner). Branch
+  `worktree-paper+remove-internvl3` PR #21.
+
+- **2026-05-10 (§4.1 PlotQA swap + §4.4 6-bin headline switch + §C.1/§C.3/§C.4 appendix expansion — paper-tier reorganization).** Two structural changes to paper draft `docs/paper/emnlp_draft_ko.md` + 5 sections files. (1) **§4.1 single-dataset depth panel = PlotQA** (was VQAv2). 7-model panel (Gemma3-4b/27b, OneVision *(Main)*, InternVL3, Qwen2.5-VL-7b/32b + LLaVA-Interleave-7b with resolution caveat); df range +0.059~0.325 (vs VQAv2 +0.085~0.274); wrong > correct asymmetry df-기준 +7.4~34.4 pp on 7/7 모델 (PlotQA) — VQAv2의 +6.9~19.6 pp adopt-기준 동일 패턴이 chart-numeric stimulus에서 *증폭*되어 재현. Legacy VQAv2 panel은 새 §C.1 cross-stimulus replication appendix로 이전. New §C.3 = TallyQA + InfoVQA cross-dataset replication (Insight 1 능력↔끌림 역상관 / Insight 2 wrong > correct asymmetry 3/3 dataset robust). New script `scripts/_analyze_section41_swap.py`, canonical CSV `docs/insights/_data/section41_swap_analysis.csv` (gitignored), new figure `docs/figures/paper_4_1_PlotQA_correct_vs_wrong_df.png` via `scripts/_build_figure_4_1_plotqa.py`. (2) **§4.4 L1 confidence headline switched 4-quartile → 6-bin.** Aggregate over 85 anchor cells: mean df B6−B1 = +0.182 (`cross_entropy`) / +0.231 (`log_prob_sum`) — vs 4-bin +0.156 / +0.191, 6-bin +17~21 % larger gap (extreme bins capture confidence endpoints more accurately). Strict monotonicity 기준 변경: ≥ 4 of 5 bin-pair strict ↑ on **52-60 / 85 cells** (relaxed, 1 dip 허용) replaces 4-bin "fully strict 3/3 51/85". Worked example switched to PlotQA × LLaVA-OneVision-7b *(Main)* — B1=B2=0 broad floor → B3-B5 sigmoid rise → B6 saturation, df 0.000 → 0.000 → 0.028 → 0.128 → 0.238 → 0.289 (B6-B1 gap +28.9 pp). New §C.4 binning robustness appendix — 4-bin vs 6-bin sign-preservation table on 85 cells + InternVL3 chart-stack reversal 5/5 sign-preserved (§6.6 boundary case 4-bin Q decomposition retained for original investigation context). `scripts/analyze_confidence_anchoring.py` parameterized on `--n-bins`, new CSVs `_data/L1_confidence_quartile_long_6bin.csv` + `_data/L1_proxy_monotonicity_6bin.csv` + `_data/L1_proxy_comparison_6bin.csv`. Figure 5 (`paper_L1_confidence_quartile.png`) regenerated 6-bin. **Downstream paper updates (16 callsites total)**: abstract / §1.3 (i)-(iii) / §1.5 #1 + #3 / §4.1 6 cross-refs / §4.5 Insight 1 / §4.6 InternVL3 boundary case / Conclusion / §C.1 footer / §E intro + sections/01_intro.md (4 refs) + sections/03_method.md (1 ref + M2 historical preserved) + sections/05_distance_digitpixel.md (1 ref) + sections/06_confidence.md (full 6-bin rewrite §6.1-§6.7, dual-form §6.6) + L1 evidence doc 2026-05-10 update header. Figure 4 (`paper_cross_dataset_summary.png`) also regenerated to fill 6-model × 5-dataset 30-cell heatmap (was showing 4×4 stale visual due to filter bug + missing model rows). Script update: `scripts/build_paper_figures.py:fig_cross_dataset_summary` + `fig_L1_confidence_quartile`.
+
+- **2026-05-10 (§6 confidence reaggregation drift fix — P4-13).** Branch
+  `paper/p4-13-section6-reaggregation`. The L1_confidence_quartile_long.csv
+  + L1_proxy_*.csv canonical artefacts already covered the 5-dataset ×
+  7-model main matrix from the 2026-05-04 reaggregation; this pass
+  closes the figure + paper-prose drift that survived. (1) Audit trail
+  built against canonical CSV: γ-β ×12.7 (§6.5), InternVL3 reversal
+  table (§6.6), headline +0.156 cross_entropy / 51 of 85 log_prob_sum
+  monotone cells (§6.4) all match — no edits needed. (2) Drift fixes:
+  (a) `scripts/build_paper_figures.py:fig_L1_confidence_quartile`
+  filtered on the renamed/absent `entropy_top_k` proxy → switched to
+  paper-default `cross_entropy`, reduced to the worked-example single
+  cell so the figure and §6.2 table tell the same story; figure
+  regenerated. (b) `docs/paper/sections/06_confidence.md` §6.2 worked
+  example: Q2/Q3/Q4 numbers were stale (Q2 df 0.062 → 0.044, Q3 df
+  0.158 → 0.137, Q3 adopt 0.137 → 0.159, Q3 em_b 0.42 → 0.488, Q4
+  em_b 0.34 → 0.284) and the "wrong-base S1" framing was a mislabel
+  — the L1_* CSV cell is all-base by confidence quartile. Fixed both,
+  added an in-paper CSV-row pointer for traceability. (c) §6.3
+  inline gradient updated to match. (d) `docs/paper/emnlp_draft_ko.md`
+  §4.4 Insight 2 same gradient updated + made the worked-example cell
+  explicit instead of leaving bare numbers. (e) L1 evidence doc gets
+  a §0 historical banner pointing readers to §2.E for canonical
+  5-dataset numbers (per advisor: defer the §0–§2.4 single-model
+  rewrite to a separate doc-rewrite branch — this PR scope is
+  paper-table truth-from-CSV). **Paper file edits (b)/(c)/(d) are
+  local-only — `docs/paper/*` is gitignored, so this changelog
+  entry is the recovery record if the local working copy is lost.
+  The CSV-row pointer added to §6.2 (`experiment_e5c_vqa,VQAv2,
+  llava-next-interleaved-7b,a,S1,cross_entropy`) is the verification
+  anchor — re-applying the fix is a single grep against
+  `_data/L1_confidence_quartile_long.csv`.** PR opened against
+  master.
+
+- **2026-05-10 (P4-12 OneVision E1d analyzer fix closed).** `scripts/analyze_causal_ablation.py` 의 두 stratification 버그가 수정되어 OneVision Main Phase E (5 dataset × n=200 stratified) 결과가 §5.2 / §5.3 / §E.2로 통합. **Headline:** single-layer ablation 5/5 null on OneVision (max |Δdf| = 1.5 pp on InfoVQA, 모든 95 % CI overlap 0) — 6-mech panel의 6/6 null과 일관, multi-layer redundancy claim의 *확장 검증*. Upper-half ablation은 6-mech panel의 균일 −4 ~ −10.5 pp significant와 달리 OneVision에서는 5/5 null at n=200 (point estimates ∈ [−3.9, +0.4] pp) — §5.3 dataset-dependent peak (Plot/Tally L=27 vs Info/VQAv2 L=14)와 일관 heterogeneity, §6.2 subspace-projection 도구 선택의 *layer-uniform attention re-weighting 한계*라는 mechanism-level 동기 보강. 버그 두 건: (i) `_build_triplets`의 base/anchor join에 dataset key 누락 (commit `a7e391c`); (ii) per-run dataset detection 부재 (commit `de1f94e`). 문서 통합: `docs/insights/E1d-causal-evidence.md` 2026-05-10 update block, paper Abstract / §1.3 / §5.2 / §5.3 / §8.2 / §E.2, `docs/insights/plan_post_review_2026-05-09.md` P4-12 mark closed, `docs/paper/reviews/_final_summary.md` item 9 mark closed. PR: `paper/p4-12-onevision-e1d-analyzer-fix` (#16).
+
+- **2026-05-10 (P1-3 paired-bootstrap CI + P1-6 27-cell pilot grid
+  aggregation — Phase 5 adversarial-defense rigor batch 1).** Branch
+  `worktree-paper+p1-defense-r4`. Two R4 follow-ups closed in parallel
+  on the existing OneVision Main canonical runs (no new GPU compute).
+  - **P1-3 (R4 MAJ-4 + MAJ-6 close).** Paired-bootstrap CI for §6.2.3
+    Table 6 with B = 10,000 (sid-paired resampling, per-arm denominators
+    recomputed each bootstrap so adopt's `pb ≠ anchor` and df's
+    `pa ≠ pb` clauses shift correctly per arm). 95 % equal-tail
+    percentile + Bonferroni-20 corrected (99.75 %, family = 5 datasets ×
+    4 metrics). New script `scripts/build_e6_stage4_bootstrap_ci.py`;
+    canonical artefacts `docs/insights/_data/stage4_final_per_dataset_ci.{csv,md}`
+    + raw draws `_data/stage4_final_bootstrap_draws.npz` (20 arrays,
+    B = 10,000 each); insight cousin
+    `docs/insights/E6-stage4-paired-bootstrap-ci.md`. Sign-clean count:
+    Δadopt(a) 2/5 at 95 %, Δdf(a) **1/5 (PlotQA n=2,306 [−6.9, −3.4])**,
+    Δem(a) 3/5 at 95 % / 2/5 under Bonferroni, **Δem(b) 5/5 sign-clean
+    at both 95 % and Bonferroni-20**. **InfoVQA Δdf 95 % CI = [−4.7, +3.4]**
+    — `inconclusive fence` confirmed with real CI numbers (paper's earlier
+    paired-Wilson half-width estimate ~±0.04 to ~±0.06 was within ~10 %
+    of the actual half-width 0.0406; sanity gate passed before
+    committing). Paper edits: §6.2.3 Table 6 + reframing paragraph
+    rewritten with CI numbers; abstract Δdf qualifier rewritten with
+    PlotQA cell + Δem(b) Bonferroni-robust call-out; §8.2 P1-3 deferred
+    bullet struck; §8.4 item 5 narrowed to CAA·ITI only; English
+    sister-section `docs/paper/sections/07_mechanism_mitigation.md`
+    Table 6 + Three properties paragraphs synchronised.
+  - **P1-6 (R4 CRIT-2 close).** 27-cell pilot grid (L ∈ {25,26,27} ×
+    K ∈ {2,4,8} × α ∈ {0.5,1.0,2.0}) on PlotQA + InfoVQA n=250 calibration
+    pilots aggregated into a 4-metric heatmap (Δadopt(a) / Δdf(a) /
+    Δem(a) / Δem(b)) per calibration dataset. New script
+    `scripts/aggregate_e6_pilot_grid.py`; canonical CSV
+    `docs/insights/_data/E6_pilot_grid_27cells.csv`; selection-rule
+    replay markdown `_data/E6_pilot_grid_27cells_selection_replay.md`;
+    figures `docs/figures/E6_pilot_grid_{plotqa,infographicvqa}_heatmap.png`
+    (4 metrics × 3 layers × K-α heatmap each, chosen cell starred);
+    insight `docs/insights/E6-pilot-grid-aggregation.md`. **Em-deal-breaker
+    rule (Δem(a) ≤ −6 pp on either calib) is non-binding on the grid**
+    — no cell rejected (PlotQA min Δem(a) = −1.2 pp on cell #19, InfoVQA
+    min = +0.4 pp on cell #1). Chosen cell #17 (L=26, K=8, α=1.0) ranks
+    first by combined |Δdf(a)| (mean −4.4 pp; #2 #8 at −3.2 pp; 1.2 pp
+    margin) — direct response to reviewer cherry-pick concerns. Paper
+    edits: §A.5 stub replaced with full 4-metric aggregation table +
+    top-5 ranking + heatmap figure pointers + binding-clause analysis;
+    §6.2.2 prose updated with §A.5 cross-link; §8.2 P1-6 deferred bullet
+    struck; English sister-section §6.2.2 cross-link added.
+  - **No GPU compute consumed** — both tasks ran on existing
+    `outputs/e6_steering/llava-onevision-qwen2-7b-ov/` predictions
+    (chosen-cell sweeps + pilot grid jsonls; canonical OneVision Main
+    artefacts unchanged). Reproducible notebook
+    `notebooks/E6_phase5_p1_3_p1_6_demo.ipynb`. Total work ≈ 2 h
+    end-to-end (script + run + paper integration + roadmap).
 
 - **2026-05-09 ~21:40 (5-round paper review loop + post-review plan +
   selective gitignore overrides for tracked review trail).**

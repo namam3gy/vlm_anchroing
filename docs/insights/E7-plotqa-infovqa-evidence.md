@@ -1,8 +1,9 @@
 # E7 — PlotQA + InfoVQA full panel (Phase 1 P0 v3 chart-stack)
 
 **Status:** First standalone write-up 2026-05-04. Inference landed 2026-05-02.
-The 7-model × 2-dataset matrix (Phase 1 P0 v3 chart-stack expansion) was
-folded into the §3.3 main panel headline via `phase1-p0-v3-summary.md` and
+Re-anchored 2026-05-10 to the 6-model × 2-dataset matrix (Phase 1 P0 v3
+chart-stack expansion); folded into the §3.3 main panel headline via
+`phase1-p0-v3-summary.md` and
 `docs/insights/_data/main_panel_5dataset_summary.md`; this doc surfaces
 the per-dataset findings that the umbrella summary doesn't show.
 
@@ -12,11 +13,12 @@ Source:
 - Per-cell CSVs (gitignored):
   `docs/insights/_data/experiment_e7_plotqa_full_per_cell.csv`,
   `docs/insights/_data/experiment_e7_infographicvqa_full_per_cell.csv`.
-- Models (7-panel): `gemma3-4b-it`, `gemma3-27b-it`, `internvl3-8b`,
+- Models (6-panel, post-2026-05-10 cleanup): `gemma3-4b-it`, `gemma3-27b-it`,
   `llava-next-interleaved-7b`, `llava-onevision-qwen2-7b-ov` (Main),
   `qwen2.5-vl-7b-instruct`, `qwen2.5-vl-32b-instruct`. (gemma3-12b-it
   was queued but never produced predictions; empty dir under
-  `experiment_e7_plotqa_full/gemma3-12b-it/`.)
+  `experiment_e7_plotqa_full/gemma3-12b-it/`. **InternVL3-8b excluded
+  post-2026-05-10 (canonical CSV NaN; see roadmap §10).**)
 
 ## TL;DR
 
@@ -24,14 +26,10 @@ Source:
 > Gemma3 family, 4B is *more* anchor-pulled than 27B on PlotQA
 > (df 0.395 vs 0.227, wrong-base) but the ordering reverses on InfoVQA
 > (4B 0.324 vs 27B 0.350). Within Qwen2.5-VL, the 7B-vs-32B gap is
-> small (≤ 4 pp) on both datasets. **internvl3-8b is the most robust
-> model on PlotQA but only mid-pack on InfoVQA.** The H2 wrong > correct
-> asymmetry holds on every model except internvl3, which has a
-> near-zero wrong−correct gap (PlotQA 0.008 pp; InfoVQA 0.024 pp) —
-> a panel-side hint of the same H2-collapse pattern that thinking
-> mode shows on MathVista (`E5e-mathvista-reasoning-evidence.md`).
+> small (≤ 4 pp) on both datasets. The H2 wrong > correct asymmetry
+> holds on every model in the 6-panel.
 >
-> **Anchor presence sometimes *improves* exact-match on PlotQA.** 6/7
+> **Anchor presence sometimes *improves* exact-match on PlotQA.** 5/6
 > models post `em(a) > em(b)` on the all-base PlotQA cell — a baseline
 > "free-lunch" pattern that motivates E6 §7.4.5 mitigation. On InfoVQA
 > the picture is mixed.
@@ -67,7 +65,6 @@ Same M2 + C-form metrics as §3.3 main panel; rows split by
 | llava-onevision-qwen2-7b-ov *(Main)* | 0.206 | 0.021 | +0.185 | 0.090 | 0.044 |
 | qwen2.5-vl-7b-instruct | 0.174 | 0.015 | +0.159 | 0.024 | 0.119 |
 | qwen2.5-vl-32b-instruct | 0.163 | 0.009 | +0.154 | 0.023 | 0.091 |
-| **internvl3-8b** | **0.095** | 0.087 | +0.008 | 0.002 | 0.021 |
 
 ### 2.2 InfoVQA
 
@@ -77,7 +74,6 @@ Same M2 + C-form metrics as §3.3 main panel; rows split by
 | gemma3-4b-it | 0.324 | 0.075 | +0.249 | 0.133 | 0.094 |
 | llava-next-interleaved-7b | 0.244 | 0.115 | +0.129 | 0.061 | 0.047 |
 | llava-onevision-qwen2-7b-ov *(Main)* | 0.190 | 0.059 | +0.131 | 0.020 | 0.079 |
-| internvl3-8b | 0.161 | 0.137 | +0.024 | 0.005 | 0.084 |
 | qwen2.5-vl-32b-instruct | 0.156 | 0.009 | +0.147 | 0.098 | 0.069 |
 | qwen2.5-vl-7b-instruct | 0.123 | 0.008 | +0.115 | 0.025 | 0.068 |
 
@@ -99,38 +95,15 @@ strength on free-form text questions doesn't help robustness.
 Within Qwen2.5-VL the 7B-vs-32B gap is ≤ 4 pp on both datasets —
 **Qwen scales smoothly** in robustness, Gemma doesn't.
 
-## 4. internvl3-8b — H2 weakest in panel
+## 4. (Removed 2026-05-10) — H2-weakest deep-dive
 
-InternVL3-8b is the most-robust model on PlotQA (df_wrong = 0.095).
-But its wrong − correct gap is **near zero** on both datasets:
-
-| dataset | df wrong | df correct | gap |
-|---|---:|---:|---:|
-| PlotQA | 0.095 | 0.087 | +0.008 pp |
-| InfoVQA | 0.161 | 0.137 | +0.024 pp |
-
-Compare other models: gap = +0.10 to +0.34 pp. This is a panel-side
-analogue of the H2 collapse we observed in **thinking mode** on MathVista
-(`E5e-mathvista-reasoning-evidence.md` §3.1): the binary
-wrong/correct projection of confidence breaks down. For internvl3 it's
-particularly notable because the model isn't a reasoning-mode VLM. Two
-plausible interpretations:
-
-1. **InternVL3's robustness is global, not confidence-modulated.** It
-   resists anchor pull uniformly across base-correctness, possibly
-   because its chat template / JSON-strict prompting locks the answer
-   format more than other models. (Roadmap §9 caveat: InternVL3 emits
-   prose despite the JSON-strict prompt; ~30 % parse-failure on E4
-   Phase 1.)
-2. **The wrong-base subset is too small to measure.** On PlotQA
-   `em(b) = 0.019` for InternVL3 — almost all 5000 sids land in the
-   wrong-base subset, and the few correct-base sids may be noise.
-   But on InfoVQA `em(b) = 0.194` (wrong = 924, correct = 223) —
-   the small-correct-n explanation is weaker.
-
-Worth a follow-up §6 confidence-quartile analysis (Phase 2 P1) on
-InternVL3-8b specifically to see whether the L1 entropy_top_k Q4 − Q1
-gap is also compressed.
+The original §4 deep-dive on the seventh-panel model's near-zero
+wrong−correct gap (PlotQA +0.008 pp, InfoVQA +0.024 pp) and its
+hypothesised panel-side analogue of the MathVista thinking-mode H2
+collapse has been retired together with that model's removal from the
+canonical panel (see roadmap §10). The H2 wrong > correct asymmetry
+holds on all six remaining models with gaps in the +0.115 to +0.338 pp
+range (see §2.1 / §2.2).
 
 ## 5. Anchor sometimes *improves* em — PlotQA "free-lunch" pattern
 
@@ -143,10 +116,9 @@ All-base `accuracy_exact` per arm:
 | llava-onevision-qwen2-7b-ov | 0.481 | 0.470 | 0.501 | 0.497 | **+2.0 pp** |
 | qwen2.5-vl-32b-instruct | 0.729 | 0.731 | 0.757 | 0.753 | **+2.8 pp** |
 | qwen2.5-vl-7b-instruct | 0.783 | 0.784 | 0.804 | 0.804 | **+2.1 pp** |
-| internvl3-8b | 0.019 | 0.015 | 0.025 | 0.026 | +0.6 pp |
 | llava-next-interleaved-7b | 0.116 | 0.107 | 0.112 | 0.113 | −0.4 pp |
 
-6/7 models show `em(a) ≥ em(b)` on PlotQA — anchor presence is
+5/6 models show `em(a) ≥ em(b)` on PlotQA — anchor presence is
 **accuracy-positive** at the all-base level. This isn't a random
 fluke: the S1 anchor cutoff `|a − GT| ≤ max(1, 0.10·GT)` means the
 anchor digit is *by construction* close to the gt, so models that pick
@@ -163,9 +135,9 @@ accuracy-positive on PlotQA — recovery isn't fighting an em-loss but
 amplifying an em-gain.
 
 InfoVQA shows a more mixed picture (gemma3 +2.7 pp; llava-onevision
-−3.1 pp; internvl3 −5.5 pp), so the free-lunch finding **does not
-generalise to chart-text-heavy datasets**. The §7.4.5 prose should
-note this dataset-bound aspect.
+−3.1 pp), so the free-lunch finding **does not generalise to
+chart-text-heavy datasets**. The §7.4.5 prose should note this
+dataset-bound aspect.
 
 ## 6. Digit-pixel causality — (a − m) gap on df, wrong-base
 
@@ -177,9 +149,8 @@ note this dataset-bound aspect.
 | gemma3-27b-it | +0.062 | +0.086 |
 | qwen2.5-vl-32b-instruct | +0.035 | +0.057 |
 | qwen2.5-vl-7b-instruct | +0.019 | +0.005 |
-| internvl3-8b | +0.014 | +0.026 |
 
-7/7 models preserve `df(a) > df(m)` on both datasets — digit-pixel
+6/6 models preserve `df(a) > df(m)` on both datasets — digit-pixel
 causality replicates beyond the 3-model E5e MathVista panel onto a
 larger (n=5000) PlotQA sample and a different chart-text axis.
 The (a − m) gap correlates loosely with overall susceptibility:
@@ -195,27 +166,21 @@ high-susc models have larger digit-pixel-specific contribution.
   4-12-27B Gemma scaling curve is missing the middle point; the
   anti-scaling claim is built on the 4B-vs-27B endpoints only. Any
   follow-up should include 12B to nail down the curve shape.
-- **InfoVQA panel is 7-model on inference but the Gemma3-12B gap is
+- **InfoVQA panel is 6-model on inference and the Gemma3-12B gap is
   identical** (no 12B run). Section §3 anti-scaling reading should
   not over-claim a "U-shape" without the 12B data.
-- **InternVL3 prose-leak parse failure** (~30 % on E4 Phase 1, see
-  roadmap §9). Some of InternVL3's apparent robustness on these
-  datasets may be parse-dropout rather than genuine resistance —
-  a `--max-new-tokens 8` truncation drops "based on..." prose. Check
-  the per-cell `n_pb_ne_anchor` columns before quoting; the wrong-base
-  ranking should survive but absolute numbers may be noisier.
 
 ## 8. Cross-link to other insight docs
 
-- `phase1-p0-v3-summary.md` — umbrella headline panel (5-dataset, 6-7 models).
+- `phase1-p0-v3-summary.md` — umbrella headline panel (5-dataset, 6 models).
 - `docs/insights/_data/main_panel_5dataset_summary.md` (gitignored) —
   numeric backing for §3.3.
 - `docs/insights/L1-confidence-modulation-evidence.md` — H2/H7 monotonicity
   on E5b/E5c/E5e (4-dataset, 3-model). The Phase 2 P1 follow-up should
-  re-run the L1 analyzer on this 7-model × 2-dataset E7 matrix.
+  re-run the L1 analyzer on this 6-model × 2-dataset E7 matrix.
 - `docs/insights/E5e-mathvista-reasoning-evidence.md` — H2 collapse in
-  thinking mode. The InternVL3 panel-side analogue (§4 above) is a
-  different mechanism for the same surface symptom.
+  thinking mode (the panel-side analogue from the original §4 was
+  retired with the seventh model; see roadmap §10).
 - `docs/insights/paper-section-7-4-mitigation-free-lunch.md` — §7.4.5
   E6 Subspace mitigation that turns the PlotQA accuracy-positive
   baseline into a free-lunch story.

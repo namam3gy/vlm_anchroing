@@ -83,26 +83,30 @@ If both land positive, the paper's *이론적* contribution graduates from "we f
 
 ## P1 — Adversarial-defense rigor (ship for stronger Findings + Main hardening)
 
-### P1-3 · Paired-bootstrap CI on §6.2.3 Table 6
+### P1-3 · Paired-bootstrap CI on §6.2.3 Table 6 ✅ LANDED 2026-05-10
 
 **What.** Re-aggregate the 5-dataset E6 paired-sids deltas in `docs/insights/_data/stage4_final_per_dataset.md` with paired bootstrap (B=10,000) on (Δ adopt, Δ df, Δ em(a), Δ em(b)) per dataset. Report 95 % CI per cell.
 
 **Why.** R4 MAJ-4 critical: InfoVQA n=443 Δdf=−0.7 pp is noise floor without CI. R4 reviser DEFERred this; aggressive reviewer named it as Main blocker. The paper currently fences this caveat in prose; adding the CI converts caveat to defense.
 
-**How.** Extend `scripts/build_e6_stage4_summary.py` with `--bootstrap-n=10000` flag; per-cell paired bootstrap on parsed predictions; emit `*_per_dataset_with_ci.{csv,md}`. Update Table 6 in paper.
+**How (as shipped).** New sibling script `scripts/build_e6_stage4_bootstrap_ci.py` (rather than extending the point-estimate script — keeps both regenerable independently). Sid-paired resampling; per-arm `(num, den)` recomputed each bootstrap so adopt's `pb ≠ anchor` and df's `pa ≠ pb` clauses shift correctly per arm. 95 % CI + Bonferroni-corrected (5 × 4 = 20 family, α = 0.0025 → 99.75 %) bands on the same draws.
 
-**Estimate.** ~1 day (wall-clock; mostly scripting; bootstrap is fast on existing data).
+**Estimate.** ~1 day (wall-clock; mostly scripting; bootstrap is fast on existing data). **Actual: ~2 h end-to-end.**
 
-**Deliverable.**
-- Updated `docs/insights/_data/stage4_final_per_dataset_with_ci.{csv,md}`.
-- Updated Table 6 in `docs/paper/emnlp_draft_ko.md`.
-- §6.2.3 신뢰구간 caveat upgraded from prose-fence to numeric-fence with explicit CI per cell.
+**Deliverable (shipped).**
+- ✅ New canonical `docs/insights/_data/stage4_final_per_dataset_ci.{csv,md}` + raw draws `_data/stage4_final_bootstrap_draws.npz`.
+- ✅ Updated Table 6 in `docs/paper/emnlp_draft_ko.md` + sister-section `docs/paper/sections/07_mechanism_mitigation.md`.
+- ✅ §6.2.3 신뢰구간 caveat upgraded from prose-fence to numeric-fence with explicit CI per cell + sign-clean count table + Bonferroni-20 row.
+- ✅ Insight cousin `docs/insights/E6-stage4-paired-bootstrap-ci.md`.
+- ✅ Reproducible notebook `notebooks/E6_phase5_p1_3_p1_6_demo.ipynb` (with InfoVQA hw95 sanity assert).
 
-**Acceptance criteria.**
-- (4/5 datasets Δdf CI excludes zero) Headline "5/5" claim survives with 4/5 confirmed + InfoVQA fenced as inconclusive *with citable CI*.
-- (Bonferroni-corrected CIs still hold) §7 Bonferroni-6 robustness story mirrors here.
+**Acceptance criteria — actual outcome.**
+- ❌ "4/5 datasets Δdf CI excludes 0" — **failed**. Only 1/5 (PlotQA n=2,306, [−6.9, −3.4]) has Δdf 95 % CI excluding 0; ChartQA / MathVista / TallyQA Δdf CIs straddle 0 due to small-n CI half-widths consistent with paper's prior paired-Wilson estimate. **Headline reframed**: from Δdf-led to Δem(b)-led — Δem(b) is sign-clean 5/5 under both 95 % AND Bonferroni-20 corrected (99.75 %) CIs, the multiplicity-robust headline.
+- ✅ Bonferroni-corrected CIs computed and tabulated. Δem(b) survives Bonferroni-20 on every cell; Δem(a) survives on 2/5 (PlotQA, TallyQA); Δdf(a) and Δadopt(a) Bonferroni status mirrors 95 %.
 
-**Owner.** thyun.park.
+**Owner.** thyun.park (with claude-opus-4-7 1M-context). Branch `worktree-paper+p1-defense-r4`, PR #15.
+
+**Sanity gate (passed).** InfoVQA Δdf 95 % CI half-width 0.0406 ∈ paper's prior paired-Wilson estimate band [0.04, 0.06]. Implementation verified.
 
 **Dependency.** None (existing prediction files).
 
@@ -164,26 +168,29 @@ If both land positive, the paper's *이론적* contribution graduates from "we f
 
 ---
 
-### P1-6 · §A.5 27-cell pilot grid 4-metric heatmap aggregation
+### P1-6 · §A.5 27-cell pilot grid 4-metric heatmap aggregation ✅ LANDED 2026-05-10
 
 **What.** Aggregate the 27 (L, K, α) pilot cells into a per-cell 4-metric (Δdf, Δadopt, Δem(a), Δem(b)) heatmap. Surface in §A.5.
 
 **Why.** R4 CRIT-2: 27-cell pilot grid was DEFERred across R1 and R3. Currently §A.5 has cell labels + chosen #17 marked but no aggregated metric values. Surfacing closes the cherry-pick concern.
 
-**How.** Aggregate from existing predictions in `outputs/e6_steering/llava-onevision-qwen2-7b-ov/sweep_subspace_*_pilot/`. Trivial — existing data, just needs aggregation script.
+**How (as shipped).** New aggregator `scripts/aggregate_e6_pilot_grid.py` reads `outputs/e6_steering/llava-onevision-qwen2-7b-ov/pilot_grid_{plotqa,infographicvqa}_n250/predictions.jsonl`; per (cell × calib dataset) computes Δadopt(a) / Δdf(a) / Δem(a) / Δem(b) vs same-pilot baseline; renders 4 metric × 3 layer × K-α 9-cell heatmap per calib dataset (chosen cell #17 starred + outlined); emits selection-rule replay markdown.
 
-**Estimate.** ~1 day.
+**Estimate.** ~1 day. **Actual: bundled with P1-3 in ~2 h.**
 
-**Deliverable.**
-- New canonical `docs/insights/_data/e6_pilot_grid_27cell_full.{csv,md}`.
-- Updated §A.5 with 4-metric heatmap (or 4 sub-tables, one per metric).
-- §6.2.2 deal-breaker rule prose updated to point to the heatmap with chosen-cell #17 highlighted.
+**Deliverable (shipped).**
+- ✅ New canonical `docs/insights/_data/E6_pilot_grid_27cells.csv` (54 rows = 27 cells × 2 calib pilots) + `_selection_replay.md`.
+- ✅ §A.5 in `docs/paper/emnlp_draft_ko.md` rewritten — DEFER stub replaced with 4-metric aggregation + top-5 |Δdf(a)| ranking + heatmap figure pointers + binding-clause analysis.
+- ✅ §6.2.2 deal-breaker rule prose updated to cross-link the §A.5 heatmap.
+- ✅ Heatmap figures `docs/figures/E6_pilot_grid_{plotqa,infographicvqa}_heatmap.png`.
+- ✅ Insight cousin `docs/insights/E6-pilot-grid-aggregation.md`.
 
-**Acceptance criteria.**
-- All 26 non-chosen cells visible. Em-deal-breaker rule (Δem(a) ≤ −6 pp on either calibration dataset → reject) verified visually.
-- Chosen cell #17 (L=26, K=8, α=1.0) sits at clear non-cherry-picked optimum (best |Δdf| among em-deal-breaker survivors).
+**Acceptance criteria — actual outcome.**
+- ✅ All 26 non-chosen cells visible across 2 calib datasets × 4 metrics.
+- ✅ **Em-deal-breaker rule is non-binding on this grid** — 0 / 27 cells rejected (PlotQA min Δem(a) = −1.2 pp on cell #19 = L=27_K=2_α=0.5; InfoVQA min Δem(a) = +0.4 pp on cell #1). The rule served as a pre-committed safety rail; the actual filter is empty. Worth surfacing because this is a stronger statement than "rule pruned correctly" — *no cell got close to the threshold*.
+- ✅ Chosen cell #17 (L=26, K=8, α=1.0) ranks **1st by combined |Δdf(a)|** with 1.2 pp margin (mean −4.4 pp; #2 cell #8 = L=25_K=8_α=1.0 at −3.2 pp). Same ex ante rule on same data does not select a different cell — direct response to cherry-pick concern.
 
-**Owner.** thyun.park.
+**Owner.** thyun.park (with claude-opus-4-7 1M-context). Branch `worktree-paper+p1-defense-r4`, PR #15.
 
 **Dependency.** None.
 
@@ -289,10 +296,10 @@ If both land positive, the paper's *이론적* contribution graduates from "we f
 2. **OneVision × VQAv2 E5c (b/a/m/d × S1)** — ~17k base × 4 cond, ~30 min H200. 결과 → Table 3 VQAv2 OneVision 행.
 3. **OneVision × TallyQA E5c (b/a/m/d × S1)** — stratified ~5k base × 4 cond, ~30 min H200. 결과 → Table 3 TallyQA OneVision 행.
 
-**Tier 2 (cross-panel consistency, ~3 H200-day, 선택):**
-Main matrix 6 model 중 VQAv2 panel에 부재한 3 model을 VQAv2에 추가하여 *11-model panel* 구성:
+**Tier 2 (cross-panel consistency, ~3 H200-day, 선택):** ~~InternVL3-8b row CLOSED 2026-05-10 (removed per remove-internvl3 PR); Tier 2 reduced to 2 model backfill.~~
+Main matrix 5 model 중 VQAv2 panel에 부재한 2 model을 VQAv2에 추가하여 *10-model panel* 구성:
 4. Gemma3-4b × VQAv2 (b/a/d) — ~30 min H200
-5. InternVL3-8b × VQAv2 (b/a/d) — ~30 min H200
+5. ~~InternVL3-8b × VQAv2 (b/a/d) — ~30 min H200~~ — DONE/CLOSED 2026-05-10 per remove-internvl3 PR (model dropped from active panel).
 6. Qwen2.5-VL-32B × VQAv2 (b/a/d) — ~1-2 h H200
 
 → VQAv2 panel이 legacy 7 + OneVision + main matrix 3 = **11-model breadth × n=17,730 depth**로 paper 내 *최대 single-dataset comprehensive panel*이 됨; main matrix와의 *모델 overlap* 완성으로 cross-panel 정합 의문 제거.
@@ -309,7 +316,7 @@ Main matrix 6 model 중 VQAv2 panel에 부재한 3 model을 VQAv2에 추가하�
 
 **Deliverable.**
 - Tier 1: `outputs/experiment_vqav2_onevision/<ts>/`, `outputs/experiment_e5c_vqa_onevision/<ts>/`, `outputs/experiment_e5c_tally_onevision/<ts>/`. Tables 2 + 3 OneVision 행으로 placeholder *(plan)* 닫음.
-- Tier 2: `outputs/experiment_vqav2_<gemma3_4b|internvl3_8b|qwen2.5vl_32b>/<ts>/`. Table 2를 8-model → 11-model panel로 확장.
+- Tier 2: `outputs/experiment_vqav2_<gemma3_4b|qwen2.5vl_32b>/<ts>/`. Table 2를 8-model → 10-model panel로 확장 (InternVL3 row CLOSED 2026-05-10 per remove-internvl3 PR).
 - §4.1 prose reframe — "legacy" 표현 삭제, "single-dataset depth panel" framing.
 
 **Acceptance criteria.**
@@ -330,9 +337,9 @@ Main matrix 6 model 중 VQAv2 panel에 부재한 3 model을 VQAv2에 추가하�
 
 Trivial post-P1-3 (family-wise correction once paired CIs exist). Owner: thyun.park. Holds for revision pass after P1-3 lands.
 
-### P4-12 · OneVision E1d analyzer fix (Phase E)
+### ~~P4-12 · OneVision E1d analyzer fix (Phase E)~~ ✅ closed 2026-05-10
 
-Phase E carryover from earlier rounds. Owner: thyun.park. ~1-2 day. Holds for follow-up paper or appendix.
+Two analyzer bugs fixed in `scripts/analyze_causal_ablation.py`: (i) `_build_triplets` joined base/anchor on `sample_instance_id` only — added `dataset` to join key (commit `a7e391c`); (ii) per-run dataset key was unknown to analyzer — added timestamp→dataset hardcode for canonical Phase E runs + susceptibility-CSV qid-intersection auto-detect for re-runs (commit `de1f94e`). OneVision Main 5-dataset Δdf table integrated into paper §5.2 / §5.3 / Appendix §E.2 + `docs/insights/E1d-causal-evidence.md` 2026-05-10 update block. **Headline:** single-layer 5/5 null on OneVision (multi-layer redundancy claim *확장 검증*); upper-half 5/5 null at n=200 on OneVision (heterogeneous, dataset-dependent — §5.3 dataset-dependent peak와 일관, §6.2 subspace-projection 도구 선택 강화). PR: `paper/p4-12-onevision-e1d-analyzer-fix`.
 
 ### P4-13 · Pre-registration registry (OSF / AsPredicted)
 
@@ -362,10 +369,10 @@ R1-R4 carryover P3 task; ~1 H200-week per archetype. Useful breadth strengthenin
 |---|---|---|---|---|
 | **P0** | P0-1 | γ-β residual-stream bridge experiment (cheap form) | ~2 H100-day | **Tier-shifter** — bar-raiser signature ask. Single highest-leverage move. |
 | **P0** | P0-2 | Eigenvalue spectrum at L=26 (rank-8 elbow check) | ~4 H100-hour | Theoretical contribution upgrade if elbow clean. |
-| **P1** | P1-3 | §6.2.3 Table 6 paired-bootstrap CI | ~1 day | Closes R4 MAJ-4 (5/5 → 4/5 + InfoVQA fence). |
+| ~~**P1**~~ | ~~P1-3~~ | ~~§6.2.3 Table 6 paired-bootstrap CI~~ | ✅ landed 2026-05-10 | Closes R4 MAJ-4 + R4 MAJ-6 (Bonferroni-20). Headline reframed Δdf-led → Δem(b)-led; 5/5 Bonferroni-robust on Δem(b). |
 | **P1** | P1-4 | CAA K=1 + ITI Table 7 empirical rows | ~3 H200-day | Closes R4 MAJ-5 (structural Note → empirical). |
 | **P1** | P1-5 | Random-K=8 baseline for §6.3 (Alt-1) | ~2 H100-day | Closes R4 CRIT-3 (b-arm em alternative). |
-| **P1** | P1-6 | §A.5 27-cell pilot 4-metric heatmap | ~1 day | Closes R4 CRIT-2 (cherry-pick). |
+| ~~**P1**~~ | ~~P1-6~~ | ~~§A.5 27-cell pilot 4-metric heatmap~~ | ✅ landed 2026-05-10 | Closes R4 CRIT-2 (cherry-pick). Em-deal-breaker non-binding (0/27 rejected); chosen cell ranks 1st by combined |Δdf(a)|. |
 | **P2** | P2-7 | E6 cross-arch replication on Qwen2.5-VL | ~10 H200-day | Partial close of R4 CRIT-1 (N=1 → N=2). |
 | **P3** | P3-8 | Paraphrase robustness (5 prompts × 5 datasets) | ~3 H200-day | Defuses single-prompt critique. |
 | **P3** | P3-9 | Closed-source defuse (~500 sample on GPT-4o / Gemini 2.5) | ~1-2 day + ~$15 API | Defuses open-only critique. |
@@ -376,7 +383,7 @@ R1-R4 carryover P3 task; ~1 H200-week per archetype. Useful breadth strengthenin
 
 ## Recommended execution sequence
 
-**Week 1 (sprint 1, Findings hardening):** P0-1 (cheap) + P1-3 + P1-6 + P1-5 in parallel (different compute resources possible). Total ~5-7 day wall-clock with parallelism. Cost: ~3 H100-day + ~2 H100-day + ~1 day script work.
+**Week 1 (sprint 1, Findings hardening):** ~~P1-3~~ ✅ + ~~P1-6~~ ✅ landed 2026-05-10 (~2 h end-to-end, no GPU). Remaining: P0-1 (cheap) + P1-5 in parallel. Cost: ~3 H100-day + ~2 H100-day.
 
 **Week 2 (sprint 2, Main shift):** P0-2 + P1-4 + (begin P2-7). P0-2 + P1-4 finish in <3 day; P2-7 spans into week 3.
 
@@ -398,7 +405,7 @@ Per R5 bar-raiser's 7-item protect-list:
 4. Δem(non-anchored) ≥ 0 clause — substantive, not promotional.
 5. §1.5 (1) "first-evidence 평가 프레임워크" hedge stack — appropriate.
 6. §5.3 dataset-dependent peak self-disclosure — strength, not weakness.
-7. §4.7 InternVL3 boundary case — correctly framed.
+7. ~~§4.7 InternVL3 boundary case — correctly framed.~~ — DONE/CLOSED 2026-05-10: InternVL3 removed from active panel per remove-internvl3 PR; §4.7 boundary case obsolete.
 
 Do NOT touch these in P1-P3 work.
 

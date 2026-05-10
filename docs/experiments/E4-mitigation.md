@@ -1,5 +1,7 @@
 # E4 — attention re-weighting mitigation: results
 
+> **InternVL3-8b removed from active panel 2026-05-10 — historical results below kept for audit.** The mid-stack-cluster panel (LLaVA-1.5 / ConvLLaVA / InternVL3) was the active E4 panel at time of analysis; subsequent active panels drop InternVL3 and the cluster reduces to 2 models.
+
 **Status:** **Phase 1 + Phase 2 complete; C-form re-aggregated 2026-04-28.**
 Phase 1 sweep landed on all 3 mid-stack-cluster models (llava-1.5-7b,
 convllava-7b, internvl3-8b); Phase 2 full validation landed via

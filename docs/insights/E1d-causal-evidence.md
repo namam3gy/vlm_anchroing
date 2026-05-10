@@ -2,10 +2,29 @@
 
 **Status:** Causal follow-up to E1b across the 6-model panel. Source data: `outputs/causal_ablation/<model>/<run>/predictions.jsonl`. Aggregate tables: `outputs/causal_ablation/_summary/{per_model_per_mode.csv, by_stratum.csv}`. Full writeup: `docs/experiments/E1d-causal-ablation.md`.
 
-> **2026-05-04 update — Phase E extension on OneVision Main × 4 datasets.**
-> Phase 1 P0 v3 added OneVision E1d on TallyQA + InfoVQA + ChartQA + MathVista (4 datasets). Chart + Math originally ran with PlotQA susceptibility CSV (Phase E master queue bug) → empty output; recovered 2026-05-04 with proper per-dataset susceptibility CSVs (commit `2d11876`).
+> **Historical panel note:** The "6/6 models" causal results below reflect the original 6-model E1b panel (incl. internvl3-8b). InternVL3-8b has since been removed from the project's main mechanism panel; the current panel is 5-model. Mid-stack-cluster `ablate_upper_half` results retain LLaVA-1.5 + ConvLLaVA in the live panel.
+
+> **2026-05-10 update — Phase E OneVision analyzer fix landed (P4-12 closed).**
+> The earlier "0.000 baseline df on all 4 datasets" symptom was traced to two issues, both fixed in `scripts/analyze_causal_ablation.py`: (i) `_build_triplets` was joining base/anchor on `sample_instance_id` only and so collapsed across datasets — fixed by adding `dataset` to the join key (commit `a7e391c`); (ii) the dataset key for each OneVision run dir was unknown to the analyzer — fixed by hardcoding the timestamp → dataset map for the canonical Phase E runs and adding a susceptibility-CSV qid-intersection auto-detect for re-runs (commit `de1f94e`). Per-dataset OneVision susceptibility CSVs (`docs/insights/_data/susceptibility_<ds>_onevision.csv`) are loaded for stratum lookup; the panel-wide `susceptibility_strata.csv` is used only for the legacy 6-mech-panel models.
 >
-> OneVision aggregator output shows 0.000 baseline df on all 4 datasets — the analyzer's stratification logic does not match OneVision's per-dataset susceptibility CSV format. Raw predictions are correct in `outputs/causal_ablation/llava-onevision-qwen2-7b-ov/<run>/predictions.jsonl`. Refining the OneVision-aware analyzer is a Phase 3 follow-up. The 5-model mech panel results below remain valid; OneVision Main is added to the §7.3 narrative once the analyzer is fixed.
+> **OneVision Phase E results (n=200 stratified per dataset, B=2,000 bootstrap CI; canonical CSV: `outputs/causal_ablation/_summary/per_model_per_mode.csv`):**
+>
+> | Mode | TallyQA | InfoVQA | ChartQA | MathVista | PlotQA |
+> |---|---:|---:|---:|---:|---:|
+> | baseline df | 0.130 | 0.167 | 0.105 | 0.171 | 0.243 |
+> | Δ `ablate_peak` (pp) | −0.5 [−5.0, +4.0] | +1.5 [−3.9, +7.0] | 0.0 [−4.0, +4.5] | 0.0 [−5.1, +5.5] | −0.6 [−6.2, +5.5] |
+> | Δ `ablate_peak_window` | +0.5 [−4.0, +5.5] | +0.4 [−4.6, +5.6] | +0.5 [−3.5, +5.0] | −0.5 [−5.5, +4.9] | −1.0 [−6.6, +5.2] |
+> | Δ `ablate_lower_half` | +5.0 [+0.0, +10.5] | −0.6 [−5.5, +4.7] | +2.6 [−2.0, +7.3] | **+7.5 [+1.6, +13.6]** | +2.4 [−3.7, +8.7] |
+> | Δ `ablate_upper_half` | −2.5 [−6.5, +2.0] | +0.4 [−4.7, +6.0] | −0.5 [−4.4, +4.0] | −2.6 [−7.1, +2.4] | −3.9 [−9.4, +1.9] |
+> | Δ `ablate_all` | −4.0 [−7.5, +0.0] | +0.8 [−4.2, +6.3] | +0.6 [−3.5, +5.1] | −4.5 [−9.0, +0.4] | −5.1 [−10.6, +0.5] |
+>
+> **Reading on OneVision (n=200 per dataset):**
+> - **Single-layer ablation 5/5 null** (`ablate_peak` and `ablate_peak_window` 모두 5 dataset 전부 95 % CI overlap 0; max |Δ| = 1.5 pp on InfoVQA peak). 6-mech panel 6/6 null과 일관 — multi-layer redundancy claim이 OneVision Main으로 *확장* 검증.
+> - **Upper-half ablation은 6-mech panel에서 −4.0 ~ −10.5 pp 균일 significant인 것과 달리, OneVision은 5/5 null at n=200** (point estimates [−3.9, +0.4] pp, 모든 CI overlap 0). PlotQA −3.9 pp가 가장 가깝지만 95 % CI [−9.4, +1.9]로 0 포함. 이는 §5.3 OneVision dataset-dependent peak (Plot/Tally L=27, Info/VQAv2 L=14)와 일관 — encoder-family-fixed upper-half locus가 OneVision에서는 *uniform 효과를 산출하지 않음*. 이 qualification은 §6.2 subspace projection이 attention re-weighting보다 OneVision에 적합한 mechanism-level 이유를 제공.
+> - **Lower-half BACKFIRE는 OneVision에서도 1/5 significant** (MathVista +7.5 pp [+1.6, +13.6]) + TallyQA boundary (+5.0 pp [+0.0, +10.5]) — 6-mech panel의 3/6 backfire와 같은 heterogeneity pattern.
+> - **Full ablation 0/5 significant on OneVision at n=200** (6-mech panel의 −5 ~ −12 pp uniform과 대비) — OneVision의 anchor effect dynamic range가 legacy panel 대비 좁다 (likely dataset-distribution effect, GT range가 넓어 anchor pull이 분산).
+>
+> **`mean_distance_to_anchor` caveat for OneVision.** OneVision은 다이어그램 응답에서 매우 큰 hallucinated 숫자 (e.g. 1e6 단위)를 산출하는 경우가 있어 OneVision row의 `mean_distance_to_anchor` (3000–8000 range)와 그 CI는 *fluency 비교 metric으로 사용 불가*. C-form direction-follow는 sign-only `(pa−pb)·(anchor−pb) > 0` 정의이므로 magnitude outlier에 영향받지 않는다 — 따라서 본 표의 Δdf 결과는 신뢰 가능.
 >
 > ---
 
@@ -87,7 +106,7 @@ ConvLLaVA and LLaVA-1.5 share the E1b answer-step peak (L16), the same text-stea
 ## Implications for the experiment plan
 
 - **E4 intervention class — open question 1 closed.** Single-layer attention re-weighting (at the E1b peak or layer 0) is ruled out as a candidate. Upper-half re-weighting is the prototype.
-- **E4 architecture coverage.** The mid-stack cluster (LLaVA-1.5, ConvLLaVA, InternVL3) is the single highest-leverage prototype target — three encoders, one shared upper-half-clean response.
+- **E4 architecture coverage.** The mid-stack cluster (LLaVA-1.5, ConvLLaVA) is the single highest-leverage prototype target — two encoders, one shared upper-half-clean response. (Historical 6-model panel also included InternVL3/InternViT in this cluster.)
 - **A new open question: multi-layer combinatorial ablation.** Does the union of (anchor span ablated at peak) + (anchor span ablated at one complementary layer) recover an `ablate_all`-magnitude reduction at lower fluency cost? Cheap to run; informs E4 directly.
 - **Roadmap §6 E1 row:** open question "causal test" → **closed (null on single layer; layer-0 control confirms multi-layer redundancy across 6/6 models)**. Open new question: head-level sparsity. Open new question: multi-layer combinatorial ablation.
 

@@ -51,7 +51,6 @@ class BuildRunnerDispatchTests(unittest.TestCase):
     def test_default_dispatch(self) -> None:
         for name in [
             "llava-hf/llava-1.5-7b-hf",
-            "OpenGVLab/InternVL3-8B-hf",
             "Qwen/Qwen3-VL-8B-Instruct",
         ]:
             self.assertIs(self._select(name), HFAttentionRunner)

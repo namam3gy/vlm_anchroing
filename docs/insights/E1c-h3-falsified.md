@@ -2,6 +2,8 @@
 
 **Status:** New insight from the 6-model E1b panel (this round). Source data: `outputs/attention_analysis/{convllava-7b,llava-1.5-7b}/<run>/per_step_attention.jsonl`. Aggregate table: `outputs/attention_analysis/_per_layer/per_layer_deltas.csv`. Full 6-model context: `docs/experiments/E1b-per-layer-localisation.md`.
 
+> **Historical panel note:** Per-layer findings here reflect the original 6-model E1b panel; InternVL3-8b has since been removed from the project's main mechanism panel. The mid-stack-cluster claim was originally a 3-encoder convergence (CLIP-ViT, InternViT, ConvNeXt); the current 5-model panel retains the 2-encoder replication (CLIP-ViT, ConvNeXt).
+
 ## The hypothesis and its falsifier
 
 **H3** (from `references/roadmap.md` §2): "Vision-encoder family modulates susceptibility. ConvNeXt/encoder-free should be *less* susceptible than CLIP/SigLIP-ViT (typographic-attack inheritance)."
@@ -57,7 +59,7 @@ That last point is the actually-useful paper-level outcome of the falsification:
 ## Implications for the experiment plan
 
 - **Replace H3 with the depth-axis framing in the paper.** The mechanistic story becomes "post-projection LLM depth is the axis on which the anchor signature varies; encoder architecture is not." The 6-model panel naturally supports this.
-- **E4 mitigation prototype priority — mid-stack cluster first.** Because three encoders share the profile, a single intervention tuned on one (say LLaVA-1.5) can be tested on the other two (ConvLLaVA, InternVL3) as a portability check. If it ports, that's the paper's "architecture-agnostic E4" claim.
+- **E4 mitigation prototype priority — mid-stack cluster first.** Because the mid-stack profile replicates across the cluster, a single intervention tuned on one (say LLaVA-1.5) can be tested on ConvLLaVA as a portability check. If it ports, that's the paper's "architecture-agnostic E4" claim. (Historical 6-model panel also included InternVL3 in this cluster.)
 - **Drop the planned "encoder-ablation" subsection of E2.** E2 was designed as the H3 test; with H3 dead, E2 as originally framed has nothing left to prove. Re-purpose that compute toward E5 (multi-dataset) or E7 (paraphrase robustness).
 
 ## Caveats
