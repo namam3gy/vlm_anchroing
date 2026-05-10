@@ -50,6 +50,27 @@ Predictions are written `pred_b / pred_a / pred_m / pred_d`; ground truth is
 
 ## 3. Status snapshot — where we are (2026-05-09 — 5-round paper review loop complete)
 
+### 3.0c Post-bridge state (2026-05-10 — Solid Findings, top of band; bridge null, paper §8.2 limitation)
+
+P0-1 γ-β residual-stream bridge experiment shipped, **Alt-1 falsified** —
+Thinking trace V_K[L=33] amplitude growth (+45.1, 1.24×) is uniform
+across anchor and neutral arms (DiD ≈ 0). Paper tier remains *Solid
+Findings, top of band*; the would-have-been Main lift via mechanism
+interlock did not materialize, but honest null reporting preserves
+methodology defensibility. Full evidence:
+[`docs/insights/gamma-beta-bridge-evidence.md`](../docs/insights/gamma-beta-bridge-evidence.md).
+
+- **§4.6.1 NOT authored** (per spec §1.2 Adverse outcome). §4.6
+  behavioral existence-proof unchanged.
+- **§8.2 limitation extension** drafted (English in evidence doc).
+  Korean translation pending paper-revise pass on
+  `docs/paper/emnlp_draft_ko.md` (gitignored, user-managed).
+- **§8.4 item 1** strikethrough-with-annotation pending user paper edit.
+- **Tier-shift hypothesis weakened**, but other Phase 5 P0/P1 items
+  (P0-2 spectrum sweep, P1-3 Table 6 paired-bootstrap CI, P1-4 CAA+ITI
+  empirical rows, P1-5 random-K=8 baseline, P1-6 27-cell pilot heatmap)
+  remain viable Main-tier hardening paths.
+
 ### 3.0b Post-review state (2026-05-09 — Solid Findings, top of band; Main contingent on bridge experiment)
 
 5-round iterative review-revise loop on `docs/paper/emnlp_draft_ko.md`
@@ -523,6 +544,71 @@ contingent on P0-1 bridge experiment.
   `predictions.jsonl` only.
 
 ## 10. Changelog
+
+- **2026-05-10 ~11:30 (Phase 5 P0-1 γ-β residual-stream bridge —
+  Alt-1 falsified, paper §8.2 limitation extended, no §4.6.1).**
+  Path B Qwen3-VL self-calibration shipped end-to-end on worktree
+  `worktree-phase5+p0-1-gamma-beta-bridge` per spec
+  `docs/superpowers/specs/2026-05-10-p0-1-gamma-beta-bridge-design.md`
+  (commit `e173618`).
+  - **Phase B (calibration)**. Qwen3-VL-Instruct on PlotQA n=5000 +
+    InfoVQA n=1147; calibrate-subspace produced PlotQA D_wrong=1017
+    + InfoVQA D_wrong=220 = 1237 paired (h_a − h_m) at L∈{0..35}.
+    SVD K=8 on pooled D → V_K[L=33] in
+    `outputs/e6_steering/qwen3-vl-8b-instruct/_subspace/subspace_plotqa_infovqa_pooled_K16.pt`
+    (shape `(36, 16, 4096)`). sv7/sv8 elbow ratio at L=33 = 1.026
+    (gradual decay, K=8 not spectrum-predicted at this scope).
+  - **Phase C (bridge inference)**. Qwen3-VL Instruct + Thinking on
+    γ-β MathVista S1 (a-S1 + d arms), per-token L∈{29,30,33,34}
+    residual capture; primary L=33. 1091 paired records each model.
+    SDPA over eager (eager OOM at 125 GB on multi-image; SDPA-safe
+    for forward_hook on layer output per memory rule).
+  - **Phase D (aggregation)**. Paired bootstrap B=10,000 on per-item
+    Δ = thinking − instruct.
+    - a-S1 / all (n=522): Δ=+45.115 [+44.134, +46.088], 1.24×, CI ✓
+    - d (control) / all (n=569): Δ=+44.675 [+43.735, +45.603],
+      1.24×, CI ✓
+    - DiD per sid (n=522): mean +0.471 ± 5.585 std — noise floor
+  - **Verdict**: spec §4 *Adverse (Alt-1 falsified)*. Thinking-mode
+    reasoning-trace dynamics broadly activate the K=8 calibration
+    subspace, NOT anchor-specifically. Mechanism-level bridge
+    between paper §4.6 (γ-β behavioral) and §6 (K=8 mitigation
+    subspace) NOT established at this calibration scope.
+  - **Per-token trajectory**: amplitude ramps from prefill ~143 to
+    plateau ~245 within ~10 generated tokens, then stable through
+    rest of trace; identical shape between a-S1 and d arms (gaps
+    within ±4 at every position).
+  - **Paper consequences** (per spec §1.2):
+    - §4.6.1 **NOT authored** (bridge claim does not survive
+      falsification)
+    - §1.5 (5) hedge stack stays at current strength
+    - §4.6 behavioral existence-proof unchanged
+    - §8.2 limitation extension drafted (English) in
+      [`docs/insights/gamma-beta-bridge-evidence.md`](../docs/insights/gamma-beta-bridge-evidence.md);
+      Korean translation pending paper-revise pass
+    - §8.4 item 1 strikethrough-with-annotation pending user paper
+      edit (paper file is gitignored, user-managed)
+  - **Tier impact**: bar-raiser convergent verdict was *Solid
+    Findings, top of band; weak-accept Main contingent on bridge
+    landing positive*. Bridge null → paper tier remains *Solid
+    Findings, top of band*. Honest reporting of failed bridge is
+    methodology-defensibility positive.
+  - **Files committed**:
+    `configs/p0_1_calibration_qwen3vl_{plotqa,infovqa}.yaml` ·
+    `configs/p0_1_gamma_beta_bridge.yaml` ·
+    `scripts/run_gamma_beta_bridge.py` ·
+    `scripts/build_gamma_beta_bridge_summary.py` ·
+    `scripts/run_p0_1_chain.sh` + 2 resume scripts ·
+    `tests/test_gamma_beta_bridge.py` (10 tests, 1 GPU smoke + 9
+    unit) ·
+    `docs/insights/gamma-beta-bridge-evidence.md` ·
+    `notebooks/gamma_beta_bridge_amplitude.ipynb` ·
+    `docs/figures/gamma_beta_bridge_*.png` (2 figures)
+  - **Wall-clock**: ~10 H200-hour total (vs spec ~26h estimate —
+    Qwen3-VL inference faster than projected, especially Thinking
+    trace 2.5h vs 12h estimated)
+  - **Branch**: `worktree-phase5+p0-1-gamma-beta-bridge` — PR
+    pending user merge
 
 - **2026-05-09 ~21:40 (5-round paper review loop + post-review plan +
   selective gitignore overrides for tracked review trail).**
