@@ -205,7 +205,7 @@ research/
   6-model main panel 기준으로 re-anchor —
   `docs/insights/_data/H6_2axis_per_model.csv` 참조 (gemma anchoring
   corner vs llava-onevision-7b + qwen2.5-vl distraction corner).
-  Branch `worktree-paper+remove-internvl3` PR #?? (PR 번호로 대체).
+  Branch `worktree-paper+remove-internvl3` PR #21.
 
 - **2026-04-24** — Roadmap 작성. Status: 7 모델 × full VQAv2 (standard + strengthen prompt) 완료; 신규 5 모델 통합되었으나 main run 없음; 3 데이터셋 확장 smoke만. Phase A queued.
 - **2026-04-24** — Phase A 완료. Headline (H2): anchoring은 uncertainty-modulated **graded pull**, categorical capture가 아님 (`docs/insights/A1-asymmetric-on-wrong.md`). Per-digit asymmetry 확인 (A2). Cross-model correlation 0.15–0.31 (A7) → encoder와 content 둘 다 영향 → E1+E2 motivate. A3/A4/A5/A6는 `00-summary.md`에 통합. §7 결정 trigger 발화 — Phase B 순서 변경 없음.
