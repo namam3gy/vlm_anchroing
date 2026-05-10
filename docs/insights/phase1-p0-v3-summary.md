@@ -1,5 +1,7 @@
 # Phase 1 P0 v3 — final summary (2026-05-04)
 
+> **[2026-05-10 addendum — InternVL3-8b removed from active panels]** The 6-model main panel transitioned to 5 models (and the 5-model mech panel to 4) when InternVL3-8b was dropped from the active matrix on 2026-05-10. Numbers below predate that change; the 6-model / 5-model framings are kept as the historical Phase 1 P0 v3 record.
+
 Umbrella for the Phase 1 P0 v3 push (2026-05-02 → 2026-05-04). Cross-references `references/project.md §0.0+§0.7` and `references/roadmap.md §3.0a+§10`.
 
 ## What landed

@@ -296,10 +296,10 @@ If both land positive, the paper's *이론적* contribution graduates from "we f
 2. **OneVision × VQAv2 E5c (b/a/m/d × S1)** — ~17k base × 4 cond, ~30 min H200. 결과 → Table 3 VQAv2 OneVision 행.
 3. **OneVision × TallyQA E5c (b/a/m/d × S1)** — stratified ~5k base × 4 cond, ~30 min H200. 결과 → Table 3 TallyQA OneVision 행.
 
-**Tier 2 (cross-panel consistency, ~3 H200-day, 선택):**
-Main matrix 6 model 중 VQAv2 panel에 부재한 3 model을 VQAv2에 추가하여 *11-model panel* 구성:
+**Tier 2 (cross-panel consistency, ~3 H200-day, 선택):** ~~InternVL3-8b row CLOSED 2026-05-10 (removed per remove-internvl3 PR); Tier 2 reduced to 2 model backfill.~~
+Main matrix 5 model 중 VQAv2 panel에 부재한 2 model을 VQAv2에 추가하여 *10-model panel* 구성:
 4. Gemma3-4b × VQAv2 (b/a/d) — ~30 min H200
-5. InternVL3-8b × VQAv2 (b/a/d) — ~30 min H200
+5. ~~InternVL3-8b × VQAv2 (b/a/d) — ~30 min H200~~ — DONE/CLOSED 2026-05-10 per remove-internvl3 PR (model dropped from active panel).
 6. Qwen2.5-VL-32B × VQAv2 (b/a/d) — ~1-2 h H200
 
 → VQAv2 panel이 legacy 7 + OneVision + main matrix 3 = **11-model breadth × n=17,730 depth**로 paper 내 *최대 single-dataset comprehensive panel*이 됨; main matrix와의 *모델 overlap* 완성으로 cross-panel 정합 의문 제거.
@@ -316,7 +316,7 @@ Main matrix 6 model 중 VQAv2 panel에 부재한 3 model을 VQAv2에 추가하�
 
 **Deliverable.**
 - Tier 1: `outputs/experiment_vqav2_onevision/<ts>/`, `outputs/experiment_e5c_vqa_onevision/<ts>/`, `outputs/experiment_e5c_tally_onevision/<ts>/`. Tables 2 + 3 OneVision 행으로 placeholder *(plan)* 닫음.
-- Tier 2: `outputs/experiment_vqav2_<gemma3_4b|internvl3_8b|qwen2.5vl_32b>/<ts>/`. Table 2를 8-model → 11-model panel로 확장.
+- Tier 2: `outputs/experiment_vqav2_<gemma3_4b|qwen2.5vl_32b>/<ts>/`. Table 2를 8-model → 10-model panel로 확장 (InternVL3 row CLOSED 2026-05-10 per remove-internvl3 PR).
 - §4.1 prose reframe — "legacy" 표현 삭제, "single-dataset depth panel" framing.
 
 **Acceptance criteria.**
@@ -405,7 +405,7 @@ Per R5 bar-raiser's 7-item protect-list:
 4. Δem(non-anchored) ≥ 0 clause — substantive, not promotional.
 5. §1.5 (1) "first-evidence 평가 프레임워크" hedge stack — appropriate.
 6. §5.3 dataset-dependent peak self-disclosure — strength, not weakness.
-7. §4.7 InternVL3 boundary case — correctly framed.
+7. ~~§4.7 InternVL3 boundary case — correctly framed.~~ — DONE/CLOSED 2026-05-10: InternVL3 removed from active panel per remove-internvl3 PR; §4.7 boundary case obsolete.
 
 Do NOT touch these in P1-P3 work.
 
