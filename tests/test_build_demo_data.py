@@ -236,3 +236,15 @@ def test_build_writes_demo_json_and_images(tmp_path):
     for kind in ("target", "anchor", "masked", "neutral"):
         rel = s1["images"][kind]
         assert (site / rel).exists()
+
+
+def test_first_path_handles_double_quoted_json_arrays():
+    """Live CSVs serialize input_image_paths with double quotes (JSON)."""
+    real = '["/mnt/abs/inputs/plotqa_test/images/000000031236.png", "/mnt/abs/inputs/irrelevant_number/300.png"]'
+    assert bdd._first_path(real) == "/mnt/abs/inputs/plotqa_test/images/000000031236.png"
+
+
+def test_first_path_handles_single_quoted_python_repr():
+    """Synthetic / legacy rows use Python repr() with single quotes."""
+    legacy = "['/abs/inputs/vqav2_number_val/images/000000000136.jpg']"
+    assert bdd._first_path(legacy) == "/abs/inputs/vqav2_number_val/images/000000000136.jpg"

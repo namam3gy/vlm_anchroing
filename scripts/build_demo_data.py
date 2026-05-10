@@ -89,10 +89,26 @@ def _to_int(x) -> int | None:
 
 
 def _first_path(input_image_paths: str) -> str | None:
-    """Extract the first absolute path from a stringified list."""
+    """Extract the first absolute path from a stringified list.
+
+    Live CSVs serialise this column as a JSON-style array with double
+    quotes (``["/abs/path", ...]``); some legacy / synthetic rows use
+    Python's ``repr()`` form with single quotes. Parse JSON first, then
+    fall back to a quote-agnostic regex.
+    """
     if not isinstance(input_image_paths, str):
         return None
-    m = re.search(r"'([^']+)'", input_image_paths)
+    text = input_image_paths.strip()
+    if not text:
+        return None
+    try:
+        parsed = json.loads(text)
+        if isinstance(parsed, list) and parsed:
+            first = parsed[0]
+            return first if isinstance(first, str) else None
+    except (json.JSONDecodeError, ValueError):
+        pass
+    m = re.search(r"['\"]([^'\"]+)['\"]", text)
     return m.group(1) if m else None
 
 
