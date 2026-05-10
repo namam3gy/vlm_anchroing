@@ -598,6 +598,26 @@ contingent on P0-1 bridge experiment.
 
 ## 10. Changelog
 
+- **2026-05-11 PM (Paper drop encoder-family-determines-archetype as
+  contribution — PR #25).** §5.3's own finding (OneVision Main bimodal
+  L14/L27 across datasets) + FastVLM cross-dataset peak shift
+  (L17/L22/L23/L27) falsify the "encoder family fixes peak position"
+  claim. Demoted from contribution-tier to PlotQA calibration
+  observation. 40-line surgery (20+/20-) on `docs/paper/emnlp_draft_ko.md`:
+  Abstract + §1.3 strong clause softened; §1.5 (4b) bullet removed,
+  (4a) → (4) renormalized; §2 typographic Hufe-alignment claim
+  dropped; §3.3 panel description simplified; §4.3 Insight 3 hedged
+  (peak-position generalization fragile per §5.3, ordering holds on
+  5-dataset average df only); §5.1/§5.2 archetype parenthetical +
+  `encoder-family-fixed locus` phrasings dropped; §6.6/§8.2/§8.4
+  archetype-tagged extension scope → architecture/model names; §D.1
+  reframed `Encoder-family clustering — PlotQA calibration 관찰,
+  fragile` with FastVLM/OneVision dataset shifts upfront. Preserved
+  (different register): §4.1 Insight 2 / §C.1 "H2 invariant ACROSS
+  encoder family", §D.1 5-row peak table itself, §4.3 5-dataset
+  average df ordering. Branch
+  `paper/drop-encoder-family-contribution`, awaits review/merge.
+
 - **2026-05-11 ~AM (Paper §4.2 digit-pixel causality two-slice
   reorganization — VQAv2 dropped, PlotQA-anchored unification).**
   Closes "§4.2 정돈" ask: previous Table 3 mixed VQAv2 (E5c 3-model) +
