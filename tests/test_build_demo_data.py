@@ -271,6 +271,11 @@ def test_build_writes_demo_json_and_images(tmp_path):
     assert s1["id"] == "S1"
     assert s1["dataset"] == "VQAv2"
     assert s1["predictions"]["llava-onevision-7b"] == {"b": 4, "a": 5, "m": 4, "d": 4}
+    # The fixture writes target.jpg + anchor/masked/neutral.png — extension
+    # should be preserved through _copy_image, not flattened to .jpg.
+    assert s1["images"]["target"].endswith(".jpg")
+    for kind in ("anchor", "masked", "neutral"):
+        assert s1["images"][kind].endswith(".png"), s1["images"][kind]
     for kind in ("target", "anchor", "masked", "neutral"):
         rel = s1["images"][kind]
         assert (site / rel).exists()

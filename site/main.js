@@ -67,13 +67,15 @@ function render() {
     const cells = CONDITIONS.map((c) => {
       const pred = s.predictions[m.id][c];
       const isGt = pred === s.gt;
-      const isAnchor = pred === s.anchor;
+      // Anchor marker only on the a column — b/m/d don't carry an
+      // anchor value so the glyph there is misleading.
+      const showAnchor = c === "a" && pred === s.anchor;
       const cls = [
         "pred-cell",
-        isGt ? "gt" : "",
+        isGt ? "gt" : "wrong",
         c === state.condition ? "cond-active" : "",
       ].filter(Boolean).join(" ");
-      const mark = isAnchor ? '<span class="anchor-mark">⚓</span>' : "";
+      const mark = showAnchor ? '<span class="anchor-mark">⚓</span>' : "";
       return `<td class="${cls}">${pred}${mark}</td>`;
     }).join("");
     return `<tr><td>${escapeHtml(m.label)}</td>${cells}</tr>`;
@@ -93,19 +95,23 @@ function render() {
       <div class="flex gap-3 overflow-x-auto pb-2">${thumbs}</div>
     </div>
     <div class="rounded-md border border-neutral-200 p-4 space-y-4">
-      <div class="text-sm">
-        <span class="font-semibold">Q:</span> ${escapeHtml(s.question)}
-        <span class="ml-3 text-neutral-500">GT = ${s.gt}, anchor = ${s.anchor}</span>
+      <div class="text-base md:text-lg leading-snug">
+        <span class="font-semibold text-[var(--accent)]">Q:</span> ${escapeHtml(s.question)}
+        <span class="ml-3 text-sm text-neutral-500 whitespace-nowrap">GT = ${s.gt}, anchor = ${s.anchor}</span>
       </div>
       <div class="grid ${showSecond ? "md:grid-cols-2" : "grid-cols-1"} gap-4">
         <figure>
-          <img src="${escapeHtml(s.images.target)}" class="w-full rounded-md border border-neutral-200" alt="target" />
-          <figcaption class="text-xs text-neutral-500 mt-1">target image</figcaption>
+          <a href="${escapeHtml(s.images.target)}" target="_blank" rel="noopener" class="image-frame block">
+            <img src="${escapeHtml(s.images.target)}" class="image-fit" alt="target" />
+          </a>
+          <figcaption class="text-xs text-neutral-500 mt-1">target image · click for full size</figcaption>
         </figure>
         ${showSecond ? `
         <figure>
-          <img src="${escapeHtml(second)}" class="w-full rounded-md border border-neutral-200" alt="${escapeHtml(state.condition)}" />
-          <figcaption class="text-xs text-neutral-500 mt-1">condition <code>${escapeHtml(state.condition)}</code></figcaption>
+          <a href="${escapeHtml(second)}" target="_blank" rel="noopener" class="image-frame block">
+            <img src="${escapeHtml(second)}" class="image-fit" alt="${escapeHtml(state.condition)}" />
+          </a>
+          <figcaption class="text-xs text-neutral-500 mt-1">condition <code>${escapeHtml(state.condition)}</code> · click for full size</figcaption>
         </figure>` : ""}
       </div>
       <div class="flex gap-2 flex-wrap">${condButtons}</div>

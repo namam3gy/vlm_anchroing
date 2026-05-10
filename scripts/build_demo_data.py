@@ -341,16 +341,35 @@ def pick_samples(scored: dict[str, tuple[str, float]], n: int) -> list[str]:
     return chosen
 
 
-def _copy_resized(src: Path, dst: Path, max_edge: int) -> None:
-    dst.parent.mkdir(parents=True, exist_ok=True)
+def _copy_image(src: Path, dst_stem: Path, max_edge: int) -> str:
+    """Copy ``src`` to ``dst_stem.<ext>``, resizing if the long edge exceeds
+    ``max_edge``. Preserves the source format: PNG → PNG (lossless), JPEG /
+    everything-else → JPEG quality 92. Returns the destination filename so
+    the caller can record the actual extension in demo.json.
+
+    Lossless PNG path matters for the digit anchor / masked / neutral
+    images: they have sharp glyph edges that JPEG q85 visibly blurred in
+    the first iteration.
+    """
+    dst_stem.parent.mkdir(parents=True, exist_ok=True)
+    is_png = src.suffix.lower() == ".png"
     with Image.open(src) as im:
-        im = im.convert("RGB")
+        if is_png:
+            im = im.convert("RGBA" if im.mode in ("RGBA", "LA", "P") else "RGB")
+        else:
+            im = im.convert("RGB")
         w, h = im.size
         long_edge = max(w, h)
         if long_edge > max_edge:
             scale = max_edge / long_edge
             im = im.resize((int(w * scale), int(h * scale)), Image.LANCZOS)
-        im.save(dst, "JPEG", quality=85)
+        if is_png:
+            dst = dst_stem.with_suffix(".png")
+            im.save(dst, "PNG", optimize=True)
+        else:
+            dst = dst_stem.with_suffix(".jpg")
+            im.save(dst, "JPEG", quality=92)
+    return dst.name
 
 
 def _resolve_anchor_image(inputs_root: Path, anchor_value: int) -> Path:
@@ -402,11 +421,13 @@ def build_site_artifacts(
         neutral_src = _resolve_neutral_image(inputs_root)
 
         sample_img_dir = img_root / sid
+        image_paths: dict[str, str] = {}
         for kind, src in (
             ("target", target_src), ("anchor", anchor_src),
             ("masked", masked_src), ("neutral", neutral_src),
         ):
-            _copy_resized(src, sample_img_dir / f"{kind}.jpg", max_image_px)
+            fname = _copy_image(src, sample_img_dir / kind, max_image_px)
+            image_paths[kind] = f"assets/img/{sid}/{fname}"
 
         predictions = {
             mid: {c: by_model[mid][sid][c] for c in REQUIRED_CONDITIONS}
@@ -418,12 +439,7 @@ def build_site_artifacts(
             "question": meta["question"],
             "gt": meta["gt"],
             "anchor": anchor_value,
-            "images": {
-                "target":  f"assets/img/{sid}/target.jpg",
-                "anchor":  f"assets/img/{sid}/anchor.jpg",
-                "masked":  f"assets/img/{sid}/masked.jpg",
-                "neutral": f"assets/img/{sid}/neutral.jpg",
-            },
+            "images": image_paths,
             "predictions": predictions,
         })
 
@@ -446,8 +462,9 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p.add_argument("--num-samples", type=int, default=6)
     p.add_argument("--anchor-stratum", default="S1",
                    help="Stratum suffix used for the anchor (a) and masked (m) conditions.")
-    p.add_argument("--max-image-px", type=int, default=768,
-                   help="Long-edge pixel cap for copied images.")
+    p.add_argument("--max-image-px", type=int, default=1280,
+                   help="Long-edge pixel cap for copied images. Source PNGs "
+                        "stay PNG (lossless); source JPEGs save as JPEG q92.")
     return p.parse_args(argv)
 
 

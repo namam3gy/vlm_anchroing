@@ -29,10 +29,10 @@
       "gt": 3,
       "anchor": 4,
       "images": {
-        "target": "assets/img/2448100_24481_stratified/target.jpg",
-        "anchor": "assets/img/2448100_24481_stratified/anchor.jpg",
-        "masked": "assets/img/2448100_24481_stratified/masked.jpg",
-        "neutral": "assets/img/2448100_24481_stratified/neutral.jpg"
+        "target": "assets/img/2448100_24481_stratified/target.png",
+        "anchor": "assets/img/2448100_24481_stratified/anchor.png",
+        "masked": "assets/img/2448100_24481_stratified/masked.png",
+        "neutral": "assets/img/2448100_24481_stratified/neutral.png"
       },
       "predictions": {
         "llava-onevision-7b": {
@@ -75,9 +75,9 @@
       "anchor": 35,
       "images": {
         "target": "assets/img/636_636_stratified/target.jpg",
-        "anchor": "assets/img/636_636_stratified/anchor.jpg",
-        "masked": "assets/img/636_636_stratified/masked.jpg",
-        "neutral": "assets/img/636_636_stratified/neutral.jpg"
+        "anchor": "assets/img/636_636_stratified/anchor.png",
+        "masked": "assets/img/636_636_stratified/masked.png",
+        "neutral": "assets/img/636_636_stratified/neutral.png"
       },
       "predictions": {
         "llava-onevision-7b": {
@@ -120,9 +120,9 @@
       "anchor": 15,
       "images": {
         "target": "assets/img/93096_297_stratified/target.jpg",
-        "anchor": "assets/img/93096_297_stratified/anchor.jpg",
-        "masked": "assets/img/93096_297_stratified/masked.jpg",
-        "neutral": "assets/img/93096_297_stratified/neutral.jpg"
+        "anchor": "assets/img/93096_297_stratified/anchor.png",
+        "masked": "assets/img/93096_297_stratified/masked.png",
+        "neutral": "assets/img/93096_297_stratified/neutral.png"
       },
       "predictions": {
         "llava-onevision-7b": {
@@ -164,10 +164,10 @@
       "gt": 86,
       "anchor": 85,
       "images": {
-        "target": "assets/img/85564_22036_stratified/target.jpg",
-        "anchor": "assets/img/85564_22036_stratified/anchor.jpg",
-        "masked": "assets/img/85564_22036_stratified/masked.jpg",
-        "neutral": "assets/img/85564_22036_stratified/neutral.jpg"
+        "target": "assets/img/85564_22036_stratified/target.png",
+        "anchor": "assets/img/85564_22036_stratified/anchor.png",
+        "masked": "assets/img/85564_22036_stratified/masked.png",
+        "neutral": "assets/img/85564_22036_stratified/neutral.png"
       },
       "predictions": {
         "llava-onevision-7b": {
@@ -209,10 +209,10 @@
       "gt": 16,
       "anchor": 15,
       "images": {
-        "target": "assets/img/222_222_stratified/target.jpg",
-        "anchor": "assets/img/222_222_stratified/anchor.jpg",
-        "masked": "assets/img/222_222_stratified/masked.jpg",
-        "neutral": "assets/img/222_222_stratified/neutral.jpg"
+        "target": "assets/img/222_222_stratified/target.png",
+        "anchor": "assets/img/222_222_stratified/anchor.png",
+        "masked": "assets/img/222_222_stratified/masked.png",
+        "neutral": "assets/img/222_222_stratified/neutral.png"
       },
       "predictions": {
         "llava-onevision-7b": {
@@ -254,10 +254,10 @@
       "gt": 1,
       "anchor": 2,
       "images": {
-        "target": "assets/img/1754400_17544_stratified/target.jpg",
-        "anchor": "assets/img/1754400_17544_stratified/anchor.jpg",
-        "masked": "assets/img/1754400_17544_stratified/masked.jpg",
-        "neutral": "assets/img/1754400_17544_stratified/neutral.jpg"
+        "target": "assets/img/1754400_17544_stratified/target.png",
+        "anchor": "assets/img/1754400_17544_stratified/anchor.png",
+        "masked": "assets/img/1754400_17544_stratified/masked.png",
+        "neutral": "assets/img/1754400_17544_stratified/neutral.png"
       },
       "predictions": {
         "llava-onevision-7b": {
