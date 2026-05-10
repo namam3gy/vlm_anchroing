@@ -1,0 +1,70 @@
+seed: 42
+output_root: outputs/gamma_beta_bridge
+
+# P0-1 Phase C: γ-β bridge inference. Capture per-generated-token L=33 residual
+# during Qwen3-VL-{Instruct, Thinking} generation on MathVista S1 stimuli,
+# project onto V_K[L=33] (calibrated in Phase B), emit per-trace amplitude.
+#
+# Anchor arm a-S1 + neutral arm d only. Skip masked m-S1 (not used in bridge eval)
+# and baseline b (no anchor stimulus to project against).
+
+vqa_dataset:
+  local_path: inputs/mathvista_testmini
+  answer_range: 1000
+  require_single_numeric_gt: true
+
+inputs:
+  irrelevant_number_dir: inputs/irrelevant_number
+  irrelevant_number_masked_dir: inputs/irrelevant_number_masked
+  irrelevant_neutral_dir: inputs/irrelevant_neutral
+  anchor_sampling: stratified
+  stratified_extras: ["neutral"]   # m-S1 not needed for bridge eval
+  anchor_distance_scheme: relative_s1
+
+models:
+  - name: qwen3-vl-8b-instruct
+    hf_model: Qwen/Qwen3-VL-8B-Instruct
+  - name: qwen3-vl-8b-thinking
+    hf_model: Qwen/Qwen3-VL-8B-Thinking
+
+# P0-1 bridge-specific capture spec
+capture:
+  # Expanded layer list for L-sweep rescue (Phase B' + C' redo, 2026-05-10).
+  # Mid-stack layers 14/20/25 added in addition to OneVision-proportional 33
+  # band. Phase D OneVision finding showed peak layer is dataset-dependent
+  # (L=14 InfoVQA/VQAv2, L=27 PlotQA/TallyQA), so MathVista's anchor-processing
+  # layer is not necessarily L=33.
+  layers: [14, 20, 25, 29, 30, 33, 34]
+  primary_layer: 33
+  # Subspace pooled across 3 calibration datasets (TallyQA + PlotQA + InfoVQA).
+  # Domain diversity expected to improve anchor-specific signal isolation.
+  subspace_path: outputs/e6_steering/qwen3-vl-8b-instruct/_subspace/subspace_tally_plotqa_infovqa_pooled_K16.pt
+  # K=16 (full SVD output) — store ALL coefficients so post-hoc K-sweep
+  # works without re-running inference. Amplitude(K') = sqrt(sum_{k<K'} c_k^2)
+  # is computable from the stored coefficients for any K' <= 16.
+  K: 16
+  per_token: true   # capture every generated token (NOT just answer-step)
+
+# Conditions to evaluate. Restrict to a-S1 anchor + d neutral; b serves as
+# Instruct's pred_b reference for base-correctness sub-group annotation
+# (already captured in 2026-04-28 γ-α run).
+conditions_to_run:
+  - target_plus_irrelevant_number_S1
+  - target_plus_irrelevant_neutral
+
+sampling:
+  temperature: 0.0
+  top_p: 1.0
+  max_new_tokens: 512   # match γ-α reasoning config — Thinking trace budget
+
+prompt:
+  system: |
+    You are a visual question answering system.
+    Return valid JSON only in the form {"result": <number>}.
+    Use a numeric JSON value for <number>, not a string.
+    Do not output any other keys, words, explanation, or markdown.
+    If uncertain, still output the single most likely number in that JSON format.
+  user_template: |
+    Answer the question using the provided image(s).
+    Return JSON only in the form {"result": <number>}.
+    Question: {question}
