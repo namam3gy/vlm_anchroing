@@ -610,7 +610,6 @@ const TOTAL = 22; // updated after we count below
     [head("Archetype"), head("Encoder"), head("Peak L"), head("δ (anchor − neutral)"), head("메커니즘 (budget decomposition)")],
     [cell("SigLIP-Gemma early"), cell("SigLIP-So (gemma4-e4b)"), cell("L5 / 42 (12% depth)"), cell("+0.050"), cell("text-stealing (δ_text −0.038)")],
     [cell("Mid-stack cluster"), cell("CLIP-ViT (llava-1.5)"), cell("L16 / 32"), cell("+0.019"), cell("text-stealing")],
-    [cell("Mid-stack cluster"), cell("InternViT (internvl3-8b)"), cell("L14 / 28"), cell("+0.019"), cell("text-stealing")],
     [cell("Mid-stack cluster"), cell("ConvNeXt (convllava-7b)"), cell("L16 / 32"), cell("+0.022"), cell("text-stealing (H3 falsified)")],
     [cell("Qwen-ViT late"), cell("Qwen-ViT (qwen2.5-vl-7b)"), cell("L22 / 28 (82%)"), cell("+0.015"), cell("target-stealing (anchor takes from target image)")],
     [cell("FastVLM late"), cell("FastViT (fastvlm-7b)"), cell("L22"), cell("+0.047"), cell("text-stealing, A7 gap +0.086 (n=75)")],
@@ -622,7 +621,7 @@ const TOTAL = 22; // updated after we count below
   s.addShape("rect", { x: 0.5, y: 5.4, w: 12.3, h: 1.3,
     fill: { color: ICE }, line: { color: ICE } });
   s.addShape("rect", { x: 0.5, y: 5.4, w: 0.08, h: 1.3, fill: { color: ACCENT_GOLD }, line: { color: ACCENT_GOLD } });
-  s.addText("H3 (\"ConvNeXt < ViT\") falsified — 3개 다른 encoder가 같은 mid-stack text-stealing profile.\n→ \"post-projection LLM stack depth\"가 axis (H6: 2-axis decomposition).",
+  s.addText("H3 (\"ConvNeXt < ViT\") falsified — 다른 encoder가 같은 mid-stack text-stealing profile.\n→ \"post-projection LLM stack depth\"가 axis (H6: 2-axis decomposition).",
     { x: 0.75, y: 5.5, w: 11.9, h: 1.1, fontFace: BODY_FONT, fontSize: 13, color: NAVY, italic: true, valign: "middle", margin: 0 });
 
   addBgFooter(s, 18, TOTAL, "7 Attention");
@@ -667,7 +666,7 @@ const TOTAL = 22; // updated after we count below
   const s = pres.addSlide();
   s.background = { color: WHITE };
   addTitle(s, "Mitigation — \"free lunch\" (E4)",
-    "mid-stack cluster 3 모델 Phase 2 full validation: df ↓ · em ↑ · acc invariant");
+    "mid-stack cluster 2 모델 Phase 2 full validation: df ↓ · em ↑ · acc invariant");
 
   const head = (t) => ({ text: t, options: { fill: { color: NAVY }, color: WHITE, bold: true, fontFace: HEADER_FONT, fontSize: 12 } });
   const cell = (t, c = GREY_DARK, b = false) => ({ text: t, options: { fontFace: BODY_FONT, fontSize: 12, color: c, bold: b } });
@@ -682,11 +681,6 @@ const TOTAL = 22; // updated after we count below
      cell("−2.0"),
      cell("0.228 → 0.204 (−10.6 %)", NAVY, true),
      cell("0.352 → 0.365 (+1.30 pp)", ACCENT_GOLD, true),
-     cell("invariant", GREY_MED)],
-    [cell("internvl3-8b", NAVY, true),
-     cell("−0.5"),
-     cell("0.103 → 0.097 (−5.8 %)", NAVY, true),
-     cell("0.590 → 0.595 (+0.49 pp)", ACCENT_GOLD, true),
      cell("invariant", GREY_MED)],
   ];
   s.addTable(data, { x: 0.5, y: 1.85, w: 12.3, colW: [2.4, 2.0, 3.4, 2.7, 1.8],
