@@ -1,5 +1,7 @@
 # E4 — attention re-weighting mitigation prototype: design
 
+> **InternVL3-8b removed from active panel 2026-05-10 — historical design record below kept for audit.** The mid-stack-cluster (LLaVA-1.5 / ConvLLaVA / InternVL3) was the original E4 design panel; subsequent active panels drop InternVL3.
+
 **Status:** **Superseded by results writeup as of 2026-04-29.** Pre-implementation design (approved 2026-04-25) — preserved as the design record. Phase 1 + 2 complete; C-form re-aggregation landed 2026-04-28 (commit `fe33a9d`). Results: `docs/experiments/E4-mitigation.md` (writeup) + `docs/insights/E4-mitigation-evidence.md` (evidence) + `docs/insights/paper-section-7-4-mitigation-free-lunch.md` (paper §7.4 framing).
 
 ## Goal

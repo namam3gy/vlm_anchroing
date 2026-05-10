@@ -1,5 +1,7 @@
 # E1b — per-layer localisation of the anchor-attention gap
 
+> **InternVL3-8b removed from active panel 2026-05-10 — historical results below kept for audit.** The 6-model panel (Gemma / InternVL3 / LLaVA-1.5 / ConvLLaVA / Qwen2.5-VL / FastVLM) was the active mechanism panel at time of analysis; subsequent panels drop InternVL3.
+
 **Status:** Follow-up to `docs/experiments/E1-preliminary-results.md`. Now covers the full 6-model panel (4 HFAttention + 2 inputs_embeds-path extensions) at n=200 each. Analysis script: `scripts/analyze_attention_per_layer.py`. Raw per-layer table: `outputs/attention_analysis/_per_layer/per_layer_deltas.csv`. Figures: `outputs/attention_analysis/_per_layer/fig_delta_by_layer_{answer,step0}.png`.
 
 ## TL;DR — three per-layer findings, now on 6 models

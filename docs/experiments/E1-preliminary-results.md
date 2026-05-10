@@ -1,5 +1,7 @@
 # E1 — attention-mass results across 4 encoder families (n=200 each)
 
+> **InternVL3-8b removed from active panel 2026-05-10 — historical results below kept for audit.** InternVL3 was one of the 4 encoder families in this preliminary E1 run; subsequent active panels drop it.
+
 **Status:** 4 models × 200 susceptibility-stratified questions × 3 conditions each = 2,400 attention records. Cross-replication settled on the main claims. Plan: `docs/experiments/E1-attention-mass.md`. Raw data: `outputs/attention_analysis/{gemma4-e4b,qwen2.5-vl-7b-instruct,llava-1.5-7b,internvl3-8b}/<run>/per_step_attention.jsonl`. Analysis: `scripts/analyze_attention_mass.py`.
 
 ## TL;DR — three findings, each replicated or cleanly split across 4 models

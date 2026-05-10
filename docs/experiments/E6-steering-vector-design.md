@@ -1,5 +1,7 @@
 # E6 — anchor-agnostic steering-vector mitigation: design
 
+> **InternVL3-8b removed from active panel 2026-05-10 — historical design references below kept for audit.** Mentions of the "E1 mechanism panel" and the §7.4 E4 panel ({LLaVA-1.5-7b, ConvLLaVA-7b, InternVL3-8b}) describe panel composition at the time of design; subsequent active panels drop InternVL3.
+
 **Status:** Pre-implementation design (2026-04-29, revised post-review).
 Branch: `e6-steering-vector-mitigation`. Implementation pending — this
 doc captures motivation, objective, and the Phase-0/1/2 plan; results

@@ -1,7 +1,7 @@
 """Build paper Figure 2 (§4.1 PlotQA wrong vs correct df bars).
 
 Reads per-model wrong/correct df from section41_swap_analysis.csv, draws a
-grouped bar chart (red = wrong-base, blue = correct-base) for the 7-model
+grouped bar chart (red = wrong-base, blue = correct-base) for the 6-model
 PlotQA panel, sorted by df_all descending.
 """
 from __future__ import annotations
@@ -18,7 +18,6 @@ OUT = ROOT / "docs" / "figures" / "paper_4_1_PlotQA_correct_vs_wrong_df.png"
 PRETTY = {
     "gemma3-4b-it": "Gemma3-4b",
     "gemma3-27b-it": "Gemma3-27b",
-    "internvl3-8b": "InternVL3-8b ‡",
     "llava-next-interleaved-7b": "LLaVA-Interleave-7b †",
     "llava-onevision-qwen2-7b-ov": "LLaVA-OneVision-7b\n(Main)",
     "qwen2.5-vl-7b-instruct": "Qwen2.5-VL-7b",
@@ -57,7 +56,7 @@ def main() -> None:
     ax.set_xticklabels(labels, rotation=22, ha="right", fontsize=9.5)
     ax.set_ylabel("direction-follow rate df(a)", fontsize=10)
     ax.set_title("§4.1 Figure 2 — PlotQA wrong vs correct base "
-                 "(7-model, S1 anchor; df gap +7.4–34.4 pp on 7/7 models)",
+                 "(6-model, S1 anchor)",
                  fontsize=11)
     ax.set_ylim(0, max(df_w.max(), df_c.max()) * 1.18)
     ax.grid(axis="y", linestyle=":", alpha=0.45)

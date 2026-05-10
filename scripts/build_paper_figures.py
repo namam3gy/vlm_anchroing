@@ -204,7 +204,7 @@ def fig_cross_dataset_summary() -> Path | None:
 
     Reads `docs/insights/_data/main_panel_5dataset_per_cell.csv`
     (built by scripts/build_e5e_e7_5dataset_summary.py). Restricts to the
-    6-model §4.3 main panel (drops llava-next-interleaved-7b — see roadmap
+    5-model §4.3 main panel (drops llava-next-interleaved-7b — see roadmap
     §3.0a / commit 0e7998e: low native resolution, not informative for
     chart/figure datasets). Orders rows by mean df(a) ascending so most-
     robust models sit at the top.
@@ -221,7 +221,6 @@ def fig_cross_dataset_summary() -> Path | None:
         "qwen2.5-vl-7b-instruct": "Qwen2.5-VL-7b",
         "qwen2.5-vl-32b-instruct": "Qwen2.5-VL-32b",
         "llava-onevision-qwen2-7b-ov": "LLaVA-OneVision-7b (Main)",
-        "internvl3-8b": "InternVL3-8b",
         "gemma3-27b-it": "Gemma3-27b",
         "gemma3-4b-it": "Gemma3-4b",
     }

@@ -82,7 +82,7 @@ For the paper headline, the effect should be framed as **gated** rather than gra
 ## What we did NOT test
 
 - **Anchor-mask control.** E5b cannot distinguish (a) the anchor digit's *value* causes the pull from (b) the mere presence of a second image causes the pull and value is incidental. The anchor-mask experiment (E5c, queued in the roadmap) replaces the anchor digit pixels with an information-equivalent neutral patch — that is the clean test.
-- **Multi-model generalisation.** The 11-model E5b extension (mid-stack cluster + Gemma + InternVL3 + Qwen + FastVLM) is queued. Until it runs, "anchoring is gated by uncertainty AND plausibility" is a single-model claim with strong cross-dataset replication on that one model.
+- **Multi-model generalisation.** The multi-model E5b extension (mid-stack cluster + Gemma + Qwen + FastVLM) is queued. Until it runs, "anchoring is gated by uncertainty AND plausibility" is a single-model claim with strong cross-dataset replication on that one model.
 
 ## Implications for the experiment plan
 

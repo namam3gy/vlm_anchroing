@@ -21,10 +21,9 @@ cd "$(dirname "$0")/.."
 # Read chosen strengths from Phase 1 JSON
 S_LLAVA=$(uv run python -c "import json; d=json.load(open('outputs/e4_mitigation/_summary/chosen_strength.json')); print(d['llava-1.5-7b'])")
 S_CONVLLAVA=$(uv run python -c "import json; d=json.load(open('outputs/e4_mitigation/_summary/chosen_strength.json')); print(d['convllava-7b'])")
-S_INTERNVL3=$(uv run python -c "import json; d=json.load(open('outputs/e4_mitigation/_summary/chosen_strength.json')); print(d['internvl3-8b'])")
 
 echo "[chain] starting Phase 2 chain at $(date)"
-echo "[chain] strengths: llava=${S_LLAVA}, convllava=${S_CONVLLAVA}, internvl3=${S_INTERNVL3}"
+echo "[chain] strengths: llava=${S_LLAVA}, convllava=${S_CONVLLAVA}"
 
 # Skip any model whose chosen strength is "None" (no valid s* from Phase 1)
 run_phase2() {
@@ -45,6 +44,5 @@ run_phase2() {
 
 run_phase2 llava-1.5-7b llava-hf/llava-1.5-7b-hf "${S_LLAVA}"
 run_phase2 convllava-7b ConvLLaVA/ConvLLaVA-sft-1536 "${S_CONVLLAVA}"
-run_phase2 internvl3-8b OpenGVLab/InternVL3-8B-hf "${S_INTERNVL3}"
 
 echo "[chain] all done at $(date)"

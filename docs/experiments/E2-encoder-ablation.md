@@ -1,5 +1,7 @@
 # E2 — Vision-encoder ablation: ConvLLaVA vs CLIP-ViT VLMs
 
+> **InternVL3-8b removed from active panel 2026-05-10 — historical pilot composition below kept for audit.** The 4-model pilot (convllava / llava-1.5 / internvl3 / fastvlm) was the original E2 design; the InternViT lineage row is no longer represented in active panels.
+
 **Status:** Pilot launched 2026-04-24 (`configs/experiment_encoder_pilot.yaml`, 4 models × 25 samples-per-answer = ~1,100 sample-instances each). Full run blocked on pilot success. Source: `references/roadmap.md` §6 Tier 1 E2 + H3.
 
 ## Hypothesis under test

@@ -1,5 +1,15 @@
 # Phase 1 runbook — paper consistency push (2026-05-02 restructure)
 
+> **Updated 2026-05-10** — InternVL3-8b removed from main matrix (and §7
+> mechanism panel). See `references/roadmap.md §10` 2026-05-10 changelog
+> entry for full removal scope. The §7 mechanism panel below now reads:
+> "5-model perfect-square panel only (gemma4-e4b, qwen2.5-vl-7b,
+> llava-1.5-7b, convllava-7b, fastvlm-7b); Qwen2.5-VL-7b non-square route
+> → appendix only." Other §0 Context decisions (Main = gemma3-27b-it /
+> llava-next-interleaved) have themselves been superseded by the
+> 2026-05-04 paper-architecture revision (Main = llava-onevision-7b);
+> this runbook is preserved as historical operational record.
+
 This is the operational runbook for next-session Phase 1 work. Reads in
 sequence with `references/project.md §0.4` (paper architecture) and
 `references/roadmap.md §7` (Phase-structured priority queue).
@@ -16,7 +26,7 @@ Decision summary (2026-05-02 v2 — Main switch + Gemma scale):
 - **Dropped**: VQAv2 (legacy, multi-GT). Existing 7-model VQAv2 → appendix only.
 - **TallyQA**: re-run at n=5000 stratified (was 38k full); legacy 38k archive at `outputs/_legacy_tallyqa_n38k/`
 - **§7.4.5 mitigation**: recalibrate on PlotQA + InfoVQA pooled, full gt range; sweep cap 5000 wrong-base; **backbone is now gemma3-27b** (not llava-interleave)
-- **§7 mechanism**: 5-model perfect-square panel only (incl Main); InternVL3 + Qwen2.5-VL → appendix
+- **§7 mechanism**: 5-model perfect-square panel only (gemma4-e4b, qwen2.5-vl-7b, llava-1.5-7b, convllava-7b, fastvlm-7b); Qwen2.5-VL-7b non-square route → appendix only. (InternVL3-8b removed from this panel 2026-05-10 — see top-of-doc note + roadmap §10.)
 
 ## 1. Phase 1 task list (P0 only — execute in order)
 

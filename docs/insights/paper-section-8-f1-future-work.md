@@ -35,8 +35,8 @@ mechanistic question:
 
 The minimal experiment isolates modality-of-delivery while controlling
 for everything else. (i) Pair each VLM in our panel with its underlying
-LLM (e.g. the Vicuna behind LLaVA-1.5, the Qwen2.5 behind Qwen2.5-VL,
-the InternLM behind InternVL3); this pairing is exact for a subset of
+LLM (e.g. the Vicuna behind LLaVA-1.5, the Qwen2.5 behind Qwen2.5-VL);
+this pairing is exact for a subset of
 the panel and only approximate (different post-training, different
 instruction-tuning) for the rest. The exact-pair subset carries the
 load-bearing comparison; the approximate-pair models contribute a
