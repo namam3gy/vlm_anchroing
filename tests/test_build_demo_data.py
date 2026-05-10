@@ -260,7 +260,7 @@ def test_build_writes_demo_json_and_images(tmp_path):
 def test_eligible_samples_drops_degenerate_anchor_equal_gt():
     """Samples where anchor == gt are uninformative for an anchoring demo."""
     by_model = {mid: {} for mid in bdd.MAIN_PANEL}
-    # S1: anchor != gt → eligible
+    # S1: anchor != gt → eligible (5 models pull to anchor)
     for mid in bdd.MAIN_PANEL:
         by_model[mid]["S1"] = _make_sample(4, 5, 4, 4, gt=4, anchor=5)
     # S2: anchor == gt → degenerate, should be dropped
@@ -268,6 +268,19 @@ def test_eligible_samples_drops_degenerate_anchor_equal_gt():
         by_model[mid]["S2"] = _make_sample(7, 7, 7, 7, gt=7, anchor=7)
     eligible = bdd.eligible_samples(by_model)
     assert eligible == ["S1"]
+
+
+def test_eligible_samples_drops_flat_no_anchor_pull():
+    """Samples where no model moves toward the anchor are unconvincing."""
+    by_model = {mid: {} for mid in bdd.MAIN_PANEL}
+    # FLAT: every model just stays at gt across all conditions, anchor != gt
+    for mid in bdd.MAIN_PANEL:
+        by_model[mid]["FLAT"] = _make_sample(4, 4, 4, 4, gt=4, anchor=5)
+    # PULLED: at least one model moves b → anchor on the a-arm
+    for mid in bdd.MAIN_PANEL:
+        by_model[mid]["PULLED"] = _make_sample(4, 5, 4, 4, gt=4, anchor=5)
+    eligible = bdd.eligible_samples(by_model)
+    assert eligible == ["PULLED"]
 
 
 def test_first_path_handles_double_quoted_json_arrays():

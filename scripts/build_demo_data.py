@@ -221,6 +221,16 @@ def eligible_samples(by_model: dict[str, dict[str, dict]]) -> list[str]:
         anchor = ref_meta.get("anchor")
         if gt is None or anchor is None or gt == anchor:
             continue
+        # Require at least one model to actually *move* toward the anchor on
+        # the a-arm — sample is otherwise flat, which makes the demo
+        # unconvincing.
+        n_movers = sum(
+            1
+            for mid in MAIN_PANEL
+            if by_model[mid][sid]["a"] == anchor and by_model[mid][sid]["b"] != anchor
+        )
+        if n_movers < 1:
+            continue
         eligible.append(sid)
     return eligible
 
