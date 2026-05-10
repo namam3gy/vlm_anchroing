@@ -148,7 +148,7 @@ exact_match           = #(pa == gt) / #(numeric pair)
 | TallyQA | **llava-interleave** | 0.110 | 0.084 | **+2.5 pp** | E5c 3-model panel |
 | TallyQA | **gemma3-27b** | 0.074 | 0.053 | **+2.1 pp** | E5c 3-model panel |
 | TallyQA | qwen2.5-vl-7b | 0.033 | 0.037 | −0.5 pp | E5c 3-model panel |
-| TallyQA | llava-onevision *(Main)* | — | — | *(plan)* | OneVision E5c TallyQA 미실행 (plan §C.1) |
+| TallyQA | llava-onevision *(Main)* | 0.032 | 0.022 | **+1.0 pp** | E5e 4-cond × OneVision (Phase 1 P0 v3, n_eligible=7,328) |
 | PlotQA | **llava-onevision *(Main)*** | 0.087 | 0.025 | **+6.2 pp** | E5b 5-strata × OneVision (§E.3) |
 | MathVista | **llava-onevision *(Main)*** | 0.105 | 0.039 | **+6.6 pp** | E5b 5-strata × OneVision (§E.3) |
 | ChartQA | llava-onevision *(Main)* | 0.028 | 0.014 | +1.4 pp | E5b 5-strata × OneVision (§E.3) |
@@ -158,7 +158,7 @@ exact_match           = #(pa == gt) / #(numeric pair)
 
 (`b`, `m`, `d`) 통제는 *anchor scene background가 효과를 운반*하는 가설을 기각한다 — masked와 neutral이 correct-base 정확도에 끼치는 손실은 1-2 pp 안에서 구별 불가, scene 자체는 generic distractor와 동등.
 
-**Main model coverage 주의**: VQAv2 + TallyQA cell의 OneVision 데이터는 *legacy 3-model E5c panel에 OneVision이 미포함되어 비어 있으며*, plan §C.1에 backfill 항목으로 등록 (~30 min H200 / dataset). PlotQA / MathVista / ChartQA / InfoVQA cell은 §E.3 5-strata × OneVision extension의 wrong-base × S1 부분집합에서 추출되었다 (`docs/insights/_data/experiment_e5b_5strat_<ds>_onevision_per_cell.csv`).
+**Main model coverage 주의**: TallyQA OneVision row는 E5e 4-condition full panel (Phase 1 P0 v3, `outputs/experiment_e5e_tallyqa_full/llava-onevision-qwen2-7b-ov/20260502-083926/predictions.jsonl`, n=38,245 per cond, wrong-base × S1 paired n_eligible=7,328) 에서 backfill 추출 — adopt(a)=0.032, adopt(m)=0.022, gap=+1.0 pp의 작은 양수는 §4.3 main matrix가 보고한 OneVision TallyQA susceptibility 최저 위치 (df=0.099, panel-min)와 정렬한다. **VQAv2 OneVision row는 여전히 미실행** (plan §C.1, ~30-45 min H200, post-acceptance backfill). PlotQA / MathVista / ChartQA / InfoVQA cell은 §E.3 5-strata × OneVision extension의 wrong-base × S1 부분집합에서 추출되었다 (`docs/insights/_data/experiment_e5b_5strat_<ds>_onevision_per_cell.csv`).
 
 **Insight 1 (단조 ordering).** 효과 크기와 (a − m) gap은 단조 순서를 따른다 — *큰 끌림 → 큰 gap*. Qwen2.5-VL-7b는 §4.1의 `adopt(a)` panel-min 모델 (PlotQA 0.017)이며 양 arm이 모두 floor에 위치하여 (a − m) gap도 noise 안에 머문다 (TallyQA에서 −0.5 pp는 95 % 신뢰구간 ±1.5 pp 안). 이는 (a − m) gap이 *digit pixel의 인과 기여를 측정하면서 동시에 모델별 끌림 강도의 비례 함수*임을 보인다 — 메커니즘과 효과 크기가 같은 축에서 움직인다.
 
