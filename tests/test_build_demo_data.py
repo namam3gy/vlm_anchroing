@@ -134,3 +134,42 @@ def test_load_predictions_drops_samples_missing_b(tmp_path):
     samples = by_model["llava-onevision-7b"]
     assert "S1" in samples
     assert "S2" not in samples  # dropped — no b condition
+
+
+def _make_sample(b, a, m, d, gt, anchor, dataset="VQAv2", question="Q?",
+                 target="/abs/inputs/vqav2_number_val/images/x.jpg"):
+    return {
+        "b": b, "a": a, "m": m, "d": d,
+        "meta": {"question": question, "gt": gt, "anchor": anchor,
+                 "dataset": dataset, "target_image_path": target},
+    }
+
+
+def test_eligible_samples_require_all_5_models_all_4_conditions():
+    by_model = {mid: {} for mid in bdd.MAIN_PANEL}
+    # S1 has all 5 models and all 4 conditions
+    for mid in bdd.MAIN_PANEL:
+        by_model[mid]["S1"] = _make_sample(4, 5, 4, 4, gt=4, anchor=5)
+    # S2 has only 4 models
+    for mid in list(bdd.MAIN_PANEL)[:4]:
+        by_model[mid]["S2"] = _make_sample(4, 5, 4, 4, gt=4, anchor=5)
+    # S3 has all models but missing the m condition for one
+    for mid in bdd.MAIN_PANEL:
+        by_model[mid]["S3"] = _make_sample(4, 5, 4, 4, gt=4, anchor=5)
+    by_model["qwen2.5-vl-7b"]["S3"].pop("m")
+    eligible = bdd.eligible_samples(by_model)
+    assert eligible == ["S1"]
+
+
+def test_score_sample_rewards_correct_base_and_anchor_pull():
+    by_model = {mid: {} for mid in bdd.MAIN_PANEL}
+    # SAMPLE A: 5 correct on b, 5 pulled to anchor on a, 5 recover on m
+    for mid in bdd.MAIN_PANEL:
+        by_model[mid]["A"] = _make_sample(4, 5, 4, 4, gt=4, anchor=5)
+    # SAMPLE B: 0 correct on b, 0 pulled, 0 recover
+    for mid in bdd.MAIN_PANEL:
+        by_model[mid]["B"] = _make_sample(7, 7, 7, 7, gt=4, anchor=5)
+    score_a = bdd.score_sample(by_model, "A")
+    score_b = bdd.score_sample(by_model, "B")
+    assert score_a > score_b
+    assert score_a > 0

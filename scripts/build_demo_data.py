@@ -170,6 +170,57 @@ def load_predictions(
     return dict(by_model)
 
 
+REQUIRED_CONDITIONS = ("b", "a", "m", "d")
+
+
+def eligible_samples(by_model: dict[str, dict[str, dict]]) -> list[str]:
+    """Return sample ids that have every (main-panel model × b/a/m/d)."""
+    if not all(mid in by_model for mid in MAIN_PANEL):
+        missing = [mid for mid in MAIN_PANEL if mid not in by_model]
+        print(f"WARN: missing models in outputs/: {missing}", file=sys.stderr)
+        return []
+    sample_ids = set(by_model[next(iter(MAIN_PANEL))])
+    for mid in MAIN_PANEL:
+        sample_ids &= set(by_model[mid])
+    eligible = []
+    for sid in sorted(sample_ids):
+        ok = True
+        for mid in MAIN_PANEL:
+            sample = by_model[mid][sid]
+            if not all(cond in sample for cond in REQUIRED_CONDITIONS):
+                ok = False
+                break
+        if ok:
+            eligible.append(sid)
+    return eligible
+
+
+def score_sample(by_model: dict[str, dict[str, dict]], sample_id: str) -> float:
+    """Higher score = better demo candidate.
+
+    +2 per model whose b-arm matches GT (criterion 1)
+    +3 per model whose a-arm equals the anchor value (criterion 2)
+    +2 per model whose m-arm equals GT (criterion 3, digit-pixel control fires)
+    +1 if at least 3 models adopt anchor on a (the headline pattern)
+    """
+    score = 0.0
+    pulled = 0
+    for mid in MAIN_PANEL:
+        s = by_model[mid][sample_id]
+        gt = s["meta"]["gt"]
+        anchor = s["meta"]["anchor"]
+        if gt is not None and s["b"] == gt:
+            score += 2
+        if anchor is not None and s["a"] == anchor:
+            score += 3
+            pulled += 1
+        if gt is not None and s["m"] == gt:
+            score += 2
+    if pulled >= 3:
+        score += 1
+    return score
+
+
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--outputs-root", type=Path, default=PROJECT_ROOT / "outputs")
