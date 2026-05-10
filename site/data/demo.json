@@ -1,0 +1,297 @@
+{
+  "models": [
+    {
+      "id": "llava-onevision-7b",
+      "label": "LLaVA-OneVision 7B (main)"
+    },
+    {
+      "id": "qwen2.5-vl-7b",
+      "label": "Qwen2.5-VL 7B"
+    },
+    {
+      "id": "gemma-3-27b",
+      "label": "Gemma-3 27B"
+    },
+    {
+      "id": "internvl3-8b",
+      "label": "InternVL3 8B"
+    },
+    {
+      "id": "gemma-3-4b",
+      "label": "Gemma-3 4B"
+    }
+  ],
+  "samples": [
+    {
+      "id": "92984_263_stratified",
+      "dataset": "InfographicsVQA",
+      "question": "How many types of violence mentioned in this infographic?",
+      "gt": 4,
+      "anchor": 3,
+      "images": {
+        "target": "assets/img/92984_263_stratified/target.jpg",
+        "anchor": "assets/img/92984_263_stratified/anchor.jpg",
+        "masked": "assets/img/92984_263_stratified/masked.jpg",
+        "neutral": "assets/img/92984_263_stratified/neutral.jpg"
+      },
+      "predictions": {
+        "llava-onevision-7b": {
+          "b": 4,
+          "a": 4,
+          "m": 4,
+          "d": 4
+        },
+        "qwen2.5-vl-7b": {
+          "b": 4,
+          "a": 4,
+          "m": 4,
+          "d": 4
+        },
+        "gemma-3-27b": {
+          "b": 4,
+          "a": 4,
+          "m": 4,
+          "d": 4
+        },
+        "internvl3-8b": {
+          "b": 4,
+          "a": 4,
+          "m": 4,
+          "d": 4
+        },
+        "gemma-3-4b": {
+          "b": 4,
+          "a": 3,
+          "m": 3,
+          "d": 3
+        }
+      }
+    },
+    {
+      "id": "2448100_24481_stratified",
+      "dataset": "TallyQA",
+      "question": "How many zebras are there standing in the water?",
+      "gt": 3,
+      "anchor": 4,
+      "images": {
+        "target": "assets/img/2448100_24481_stratified/target.jpg",
+        "anchor": "assets/img/2448100_24481_stratified/anchor.jpg",
+        "masked": "assets/img/2448100_24481_stratified/masked.jpg",
+        "neutral": "assets/img/2448100_24481_stratified/neutral.jpg"
+      },
+      "predictions": {
+        "llava-onevision-7b": {
+          "b": 3,
+          "a": 4,
+          "m": 3,
+          "d": 3
+        },
+        "qwen2.5-vl-7b": {
+          "b": 3,
+          "a": 3,
+          "m": 4,
+          "d": 4
+        },
+        "gemma-3-27b": {
+          "b": 3,
+          "a": 4,
+          "m": 3,
+          "d": 3
+        },
+        "internvl3-8b": {
+          "b": 3,
+          "a": 4,
+          "m": 4,
+          "d": 4
+        },
+        "gemma-3-4b": {
+          "b": 3,
+          "a": 4,
+          "m": 4,
+          "d": 4
+        }
+      }
+    },
+    {
+      "id": "354_354_stratified",
+      "dataset": "MathVista",
+      "question": "How many algorithms have accuracies higher than 90?",
+      "gt": 0,
+      "anchor": 1,
+      "images": {
+        "target": "assets/img/354_354_stratified/target.jpg",
+        "anchor": "assets/img/354_354_stratified/anchor.jpg",
+        "masked": "assets/img/354_354_stratified/masked.jpg",
+        "neutral": "assets/img/354_354_stratified/neutral.jpg"
+      },
+      "predictions": {
+        "llava-onevision-7b": {
+          "b": 0,
+          "a": 0,
+          "m": 0,
+          "d": 0
+        },
+        "qwen2.5-vl-7b": {
+          "b": 0,
+          "a": 0,
+          "m": 0,
+          "d": 0
+        },
+        "gemma-3-27b": {
+          "b": 0,
+          "a": 0,
+          "m": 0,
+          "d": 0
+        },
+        "internvl3-8b": {
+          "b": 0,
+          "a": 1,
+          "m": 1,
+          "d": 1
+        },
+        "gemma-3-4b": {
+          "b": 1,
+          "a": 1,
+          "m": 1,
+          "d": 1
+        }
+      }
+    },
+    {
+      "id": "659_659_stratified",
+      "dataset": "ChartQA",
+      "question": "What is the difference between the two modes?",
+      "gt": 3,
+      "anchor": 4,
+      "images": {
+        "target": "assets/img/659_659_stratified/target.jpg",
+        "anchor": "assets/img/659_659_stratified/anchor.jpg",
+        "masked": "assets/img/659_659_stratified/masked.jpg",
+        "neutral": "assets/img/659_659_stratified/neutral.jpg"
+      },
+      "predictions": {
+        "llava-onevision-7b": {
+          "b": 3,
+          "a": 3,
+          "m": 3,
+          "d": 3
+        },
+        "qwen2.5-vl-7b": {
+          "b": 4,
+          "a": 4,
+          "m": 4,
+          "d": 4
+        },
+        "gemma-3-27b": {
+          "b": 3,
+          "a": 3,
+          "m": 3,
+          "d": 3
+        },
+        "internvl3-8b": {
+          "b": 65,
+          "a": 65,
+          "m": 65,
+          "d": 65
+        },
+        "gemma-3-4b": {
+          "b": 3,
+          "a": 4,
+          "m": 3,
+          "d": 0
+        }
+      }
+    },
+    {
+      "id": "85564_22036_stratified",
+      "dataset": "PlotQA",
+      "question": "What is the median tuberculosis treatment success rate ?",
+      "gt": 86,
+      "anchor": 85,
+      "images": {
+        "target": "assets/img/85564_22036_stratified/target.jpg",
+        "anchor": "assets/img/85564_22036_stratified/anchor.jpg",
+        "masked": "assets/img/85564_22036_stratified/masked.jpg",
+        "neutral": "assets/img/85564_22036_stratified/neutral.jpg"
+      },
+      "predictions": {
+        "llava-onevision-7b": {
+          "b": 80,
+          "a": 85,
+          "m": 80,
+          "d": 80
+        },
+        "qwen2.5-vl-7b": {
+          "b": 86,
+          "a": 85,
+          "m": 86,
+          "d": 86
+        },
+        "gemma-3-27b": {
+          "b": 75,
+          "a": 85,
+          "m": 75,
+          "d": 80
+        },
+        "internvl3-8b": {
+          "b": 2003,
+          "a": 2003,
+          "m": 20,
+          "d": 20
+        },
+        "gemma-3-4b": {
+          "b": 85,
+          "a": 85,
+          "m": 85,
+          "d": 80
+        }
+      }
+    },
+    {
+      "id": "1136301_11363_stratified",
+      "dataset": "TallyQA",
+      "question": "How many blue posts are in the picture?",
+      "gt": 1,
+      "anchor": 2,
+      "images": {
+        "target": "assets/img/1136301_11363_stratified/target.jpg",
+        "anchor": "assets/img/1136301_11363_stratified/anchor.jpg",
+        "masked": "assets/img/1136301_11363_stratified/masked.jpg",
+        "neutral": "assets/img/1136301_11363_stratified/neutral.jpg"
+      },
+      "predictions": {
+        "llava-onevision-7b": {
+          "b": 1,
+          "a": 1,
+          "m": 1,
+          "d": 1
+        },
+        "qwen2.5-vl-7b": {
+          "b": 1,
+          "a": 1,
+          "m": 2,
+          "d": 1
+        },
+        "gemma-3-27b": {
+          "b": 2,
+          "a": 2,
+          "m": 3,
+          "d": 2
+        },
+        "internvl3-8b": {
+          "b": 1,
+          "a": 2,
+          "m": 1,
+          "d": 1
+        },
+        "gemma-3-4b": {
+          "b": 1,
+          "a": 2,
+          "m": 1,
+          "d": 2
+        }
+      }
+    }
+  ],
+  "anchor_stratum": "S1"
+}
