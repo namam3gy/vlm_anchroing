@@ -33,7 +33,7 @@ Neutral arm은 **anchoring**과 **단순 distraction**을 분리합니다. `numb
 | **H3** | Vision-encoder family가 susceptibility를 modulate한다. ConvNeXt/encoder-free는 CLIP/SigLIP-ViT보다 *덜* 취약 (typographic-attack 상속). | ConvLLaVA / EVE / DINO-VLM의 direction-follow gap이 CLIP-ViT와 통계적 동등이면 fail. | ❌ **Adoption과 per-layer 두 수준 모두에서 Falsified.** Pilot (2026-04-24): ConvLLaVA adoption=0.156이 CLIP/SigLIP 클러스터 CI 안. 6-모델 E1b (2026-04-24): ConvLLaVA의 per-layer attention 지문이 LLaVA-1.5와 정확히 매칭 — 같은 피크 layer L16, 같은 text-stealing 메커니즘, magnitude 19 % 이내, A7 gap 30 % 이내. E1b의 depth-axis framing + H6 (two-axis decomposition)로 대체. `docs/insights/E1c-h3-falsified.md` 참조. |
 | **H4** | "Thinking"/instruction-tuned reasoning이 anchoring을 줄인다 (System-2 suppression). | 같은 모델 family에서 reasoning on/off가 동일한 direction-follow를 보이면 fail. | ❌ Untested. *주의*: VLMBias + LRM-judging 문헌은 reasoning이 일부 bias를 *증폭*시킬 수 있다고 보고 — 실험은 방향에 agnostic하게 짜야 함. |
 | **H5** | Prompt 강화 ("number를 출력해라, hedge하지 마") → uncertain item에서 anchor pull 증가, 다른 item에서는 large-number hallucination 유발. | item별로 `experiment_anchor_strengthen_prompt`와 `experiment` 비교. | ⚠️ Suggestive: strengthen run에서 `mean_distance_to_anchor`가 gemma3-27b-it에 대해 2617 (같은 모델 standard run에서는 4.4)에 도달 → "must answer" 압력 하에서 모델이 huge number를 fabricate. 적절한 분석 필요. |
-| **H6** | Cross-modal failure는 두 직교 축으로 분해된다: **anchor-pull** (uncertainty-modulated, encoder-mediated) + **multi-image distraction** (encoder-architecture-mediated, anchor를 encode하지 않고 정확도만 깎음). 다른 encoder family는 이 2D plane 위 다른 위치에 위치. | `adoption_rate`와 `acc_drop_vs_target_only`가 완전 상관(= single failure mode)이면 H6 fail. | ✅ **Pilot 강하게 시사.** InternVL3 = high acc_drop / low adoption; LLaVA-1.5 = low acc_drop / high adoption; ConvLLaVA = both. 두 축 decoupling이 새 headline candidate. Full-run CIs 필요. |
+| **H6** | Cross-modal failure는 두 직교 축으로 분해된다: **anchor-pull** (uncertainty-modulated, encoder-mediated) + **multi-image distraction** (encoder-architecture-mediated, anchor를 encode하지 않고 정확도만 깎음). 다른 encoder family는 이 2D plane 위 다른 위치에 위치. | `adoption_rate`와 `acc_drop_vs_target_only`가 완전 상관(= single failure mode)이면 H6 fail. | ✅ 6-model main matrix (5 datasets): gemma3 family = anchoring corner (high adopt, no distraction); llava-onevision-7b + qwen2.5-vl-{7b,32b} = distraction corner; llava-interleave-7b mixed. 참조: `docs/insights/_data/H6_2axis_per_model.csv`, `docs/figures/H6_2axis_scatter_5dataset.png`. |
 
 ## 3. Status — 무엇이 돌아갔나
 
@@ -198,6 +198,14 @@ research/
 > 결과, paper §3/§7.4/§8 prose, E1-patch 4-model, E5c 다모델 확장, gemma3-27b
 > TallyQA 등) 만 추가되어 있습니다. §1–§9 본문은 stale — 작업은 항상
 > 영문 canonical을 먼저 참조하세요.
+
+- **2026-05-10** — InternVL3-8b를 active paper architecture에서 제거
+  (paper drafts, insights, scripts, references, configs, _data CSVs).
+  `outputs/<exp>/internvl3-8b/` 는 audit용으로 보존. H6 cluster를
+  6-model main panel 기준으로 re-anchor —
+  `docs/insights/_data/H6_2axis_per_model.csv` 참조 (gemma anchoring
+  corner vs llava-onevision-7b + qwen2.5-vl distraction corner).
+  Branch `worktree-paper+remove-internvl3` PR #?? (PR 번호로 대체).
 
 - **2026-04-24** — Roadmap 작성. Status: 7 모델 × full VQAv2 (standard + strengthen prompt) 완료; 신규 5 모델 통합되었으나 main run 없음; 3 데이터셋 확장 smoke만. Phase A queued.
 - **2026-04-24** — Phase A 완료. Headline (H2): anchoring은 uncertainty-modulated **graded pull**, categorical capture가 아님 (`docs/insights/A1-asymmetric-on-wrong.md`). Per-digit asymmetry 확인 (A2). Cross-model correlation 0.15–0.31 (A7) → encoder와 content 둘 다 영향 → E1+E2 motivate. A3/A4/A5/A6는 `00-summary.md`에 통합. §7 결정 trigger 발화 — Phase B 순서 변경 없음.
