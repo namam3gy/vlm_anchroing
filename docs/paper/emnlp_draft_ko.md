@@ -251,13 +251,13 @@ Cells 정렬 패턴: **late-stack (L=29, 30, 33)에서 K=1 mean이 positive (+0.
 
 5 mechanism panel 모델 × 200 stratified 자극의 (text → 두 번째 이미지) attention mass에서 각 모델은 *calibration dataset (PlotQA)에서 단일 peak layer*를 가진다 (qwen2.5-vl은 PlotQA peak 미측정으로 VQAv2 reference 사용 — 부록 §D.1 footnote). 4개 archetype이 분리된다: SigLIP-Gemma early (L5/42, gemma4-e4b), mid-stack cluster (L14, llava-1.5 / convllava), Qwen-ViT late (L22/28, qwen2.5-vl; VQAv2 reference), FastVLM late + text-stealing (L17/28, fastvlm). FastVLM과 OneVision의 *cross-dataset peak variability*는 §5.3에서 별도 다룬다 (FastVLM: PlotQA L17 / VQAv2 L22 / TallyQA L23 / InfoVQA L27 — `_data/cross_dataset_peaks.csv`; OneVision: bimodal L14/L27).
 
-**Insight 1 (Encoder가 위치를 정한다).** Archetype은 LM backbone이 아닌 *encoder family*와 정렬한다. 동일 LLaMA 계열을 공유하는 LLaVA-1.5 (CLIP-ViT) / ConvLLaVA (ConvNeXt)가 *모두* mid-stack L14-16 cluster에 속한다 — *어디에서 anchor를 보는지를 visual encoder가 결정*한다. 이는 mitigation 설계 시 *encoder family별로 개입 위치를 조정*해야 한다는 직접 함의 (E4가 mid-stack cluster에서만 검증된 것은 우연이 아님).
+**Insight 1 (Encoder가 위치를 정한다).** Archetype은 LM backbone이 아닌 *encoder family*와 정렬한다. 동일 LLaMA 계열을 공유하는 LLaVA-1.5 (CLIP-ViT) / ConvLLaVA (ConvNeXt)가 *모두* mid-stack L14 cluster에 속한다 — *어디에서 anchor를 보는지를 visual encoder가 결정*한다. 이는 mitigation 설계 시 *encoder family별로 개입 위치를 조정*해야 한다는 직접 함의 (E4가 mid-stack cluster에서만 검증된 것은 우연이 아님).
 
-**Insight 2 (E1-patch — digit pixel 자체).** 4-model perfect-square panel (`gemma4-e4b`, `llava-1.5-7b`, `convllava-7b`, `qwen2.5-vl-7b` — non-perfect-square AnyRes 모델은 부록)에서 digit bbox 내부 attention 분배 비율이 0.468-0.631 — *fair-share assumption 대비 +24 ~ +40 pp 위*. OneVision Main의 *digit-bbox concentration peak*는 calibration set (VQAv2)에서 L20-L23 cluster (`L20=0.507, L23=0.492, L25=0.459`, 출처 `_data/E1_patch_concentration_per_layer.csv`); 이는 attention-mass의 *answer-step peak depth*와 다른 양으로 후자는 dataset-dependent (§5.3). Attention은 *수치 단서를 운반하는 픽셀 영역에 우선 정렬*되며, 이것이 §4.2 digit-pixel causality의 메커니즘 측 직접 측정.
+**Insight 2 (E1-patch — digit pixel 자체).** 4-model perfect-square panel (`gemma4-e4b`, `llava-1.5-7b`, `convllava-7b`, `qwen2.5-vl-7b` — non-perfect-square AnyRes 모델은 부록)에서 digit bbox 내부 attention 분배 비율이 0.468-0.631 — *fair-share assumption 대비 +24 ~ +40 pp 위*. OneVision Main의 *digit-bbox concentration peak*는 cross-dataset pooled extraction (n=1,205, `analyze_attention_patch.py`가 `outputs/attention_analysis/llava-onevision-qwen2-7b-ov/` 아래 모든 dataset run을 자동 합산)에서 L20-L23 cluster (`L20=0.507, L23=0.492, L25=0.459`, 출처 `_data/E1_patch_concentration_per_layer.csv`); 이는 attention-mass의 *answer-step peak depth*와 다른 양으로 후자는 dataset-dependent (§5.3). Attention은 *수치 단서를 운반하는 픽셀 영역에 우선 정렬*되며, 이것이 §4.2 digit-pixel causality의 메커니즘 측 직접 측정.
 
 ### 5.2 Single-layer ablation null → multi-layer redundancy
 
-§5.1에서 정한 모델별 peak layer (4 archetype 매핑 + FastVLM·OneVision dataset-dependent caveat)를 기준으로, 5-model 메커니즘 panel (gemma4-e4b, llava-1.5, ConvLLaVA, qwen2.5-vl, fastvlm) × 200 자극 × 6 ablation mode (`baseline`, `ablate_peak`, `ablate_peak_window`, `ablate_lower_half`, `ablate_upper_half`, `ablate_all`)를 평가했다. Peak는 §5.1 Table E.1의 model별 archetype peak (calibration dataset VQAv2 기준) — encoder-family-specific 위치를 *피해도* signal이 사라지지 않는지가 목표 질문이다.
+§5.1에서 정한 모델별 peak layer (4 archetype 매핑 + FastVLM·OneVision dataset-dependent caveat)를 기준으로, 5-model 메커니즘 panel (gemma4-e4b, llava-1.5, ConvLLaVA, qwen2.5-vl, fastvlm) × 200 자극 × 6 ablation mode (`baseline`, `ablate_peak`, `ablate_peak_window`, `ablate_lower_half`, `ablate_upper_half`, `ablate_all`)를 평가했다. Peak는 §5.1 / 부록 §D.1의 model별 archetype peak (calibration dataset PlotQA 기준; qwen2.5-vl은 PlotQA peak 미측정으로 VQAv2 L22 reference 사용) — encoder-family-specific 위치를 *피해도* signal이 사라지지 않는지가 목표 질문이다.
 
 - **Single-layer ablation (`ablate_peak`, `ablate_peak_window`)**: 5/5 모델 null.
 - **Lower-half ablation**: heterogeneous (2/5 backfire — Gemma +0.27 / LLaVA-1.5 +0.165; 1/5 reduce; 2/5 flat — `E1d-causal-evidence.md`). 본문은 panel-mean ~0으로 보고하나 single-architecture-cluster 일반화 caveat 부록 §D.2 참조.
@@ -709,13 +709,15 @@ C-form `(pa − pb) · (anchor − pb) > 0`을 두 alternative와 비교했다 (
 
 ### D.1 Encoder별 archetype peak layer
 
-| Archetype | 모델 | Peak layer |
-|---|---|---|
-| SigLIP-Gemma early | gemma4-e4b | L5 / L42 |
-| Mid-stack cluster (CLIP-ViT) | llava-1.5-7b | L14-16 |
-| Mid-stack cluster (ConvNeXt) | convllava-7b | L14-16 |
-| Qwen-ViT late | qwen2.5-vl-7b | L22 / L28 |
-| FastVLM late (text-stealing) | fastvlm-7b | L22 |
+Calibration dataset = **PlotQA** (`docs/insights/_data/cross_dataset_peaks.csv` answer-step). Cross-dataset stability matrix는 [`headline-numbers.md §A.4`](../insights/headline-numbers.md). qwen2.5-vl-7b은 PlotQA bbox-extraction run 부재로 **VQAv2 reference**를 사용 (top-decile susceptible stratum L=22; `_per_layer/peak_layer_summary.csv`).
+
+| Archetype | 모델 | Peak layer | Source dataset |
+|---|---|---|---|
+| SigLIP-Gemma early | gemma4-e4b | L5 / L42 | PlotQA (4-dataset stable: VQAv2/Tally/Info/PlotQA 모두 L=5) |
+| Mid-stack cluster (CLIP-ViT) | llava-1.5-7b | L14 / L32 | PlotQA (VQAv2/Tally/Info-only는 L=8) |
+| Mid-stack cluster (ConvNeXt) | convllava-7b | L14 / L32 | PlotQA (VQAv2/Tally L=7, Info L=12) |
+| Qwen-ViT late | qwen2.5-vl-7b | L22 / L28 | **VQAv2 reference** (PlotQA bbox run 미측정) |
+| FastVLM late (text-stealing) | fastvlm-7b | L17 / L28 | PlotQA (VQAv2 L=22, Tally L=23, Info L=27 — cross-dataset variability §5.3) |
 
 ### D.2 E1d ablation mode별 결과. Bold = significant (95 % bootstrap CI excludes 0).
 
