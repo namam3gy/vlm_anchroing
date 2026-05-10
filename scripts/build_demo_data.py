@@ -193,7 +193,12 @@ REQUIRED_CONDITIONS = ("b", "a", "m", "d")
 
 
 def eligible_samples(by_model: dict[str, dict[str, dict]]) -> list[str]:
-    """Return sample ids that have every (main-panel model × b/a/m/d)."""
+    """Return sample ids that have every (main-panel model × b/a/m/d).
+
+    Also drops samples whose anchor value equals the ground truth — those
+    are degenerate for an anchoring demo because adopting the anchor and
+    being correct are indistinguishable.
+    """
     if not all(mid in by_model for mid in MAIN_PANEL):
         missing = [mid for mid in MAIN_PANEL if mid not in by_model]
         print(f"WARN: missing models in outputs/: {missing}", file=sys.stderr)
@@ -209,8 +214,14 @@ def eligible_samples(by_model: dict[str, dict[str, dict]]) -> list[str]:
             if not all(cond in sample for cond in REQUIRED_CONDITIONS):
                 ok = False
                 break
-        if ok:
-            eligible.append(sid)
+        if not ok:
+            continue
+        ref_meta = by_model[next(iter(MAIN_PANEL))][sid]["meta"]
+        gt = ref_meta.get("gt")
+        anchor = ref_meta.get("anchor")
+        if gt is None or anchor is None or gt == anchor:
+            continue
+        eligible.append(sid)
     return eligible
 
 
