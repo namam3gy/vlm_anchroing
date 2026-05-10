@@ -1,0 +1,44 @@
+seed: 42
+output_root: outputs/p0_1_calibration_qwen3vl
+
+# P0-1 Phase B' calibration: Qwen3-VL-Instruct on TallyQA test (counting subset).
+# Counting domain: digit pixel is truly EXTRA noise on natural images of objects,
+# unlike chart/infographic domains where the image itself contains numbers.
+# Hypothesis: cleaner (a − m) anchor contrast at this calibration domain.
+
+vqa_dataset:
+  local_path: inputs/tallyqa_test
+  answer_type_filter: ["number"]
+  answer_range: 8
+  require_single_numeric_gt: true
+  max_samples: 5000
+  samples_per_answer: 700   # 0..8 stratified, ≤700 per gt-bin
+
+inputs:
+  irrelevant_number_dir: inputs/irrelevant_number
+  irrelevant_number_masked_dir: inputs/irrelevant_number_masked
+  irrelevant_neutral_dir: inputs/irrelevant_neutral
+  anchor_sampling: stratified
+  stratified_extras: ["masked", "neutral"]
+  anchor_distance_strata: [[0, 5]]   # absolute single-stratum, |a-GT| <= 5
+
+models:
+  - name: qwen3-vl-8b-instruct
+    hf_model: Qwen/Qwen3-VL-8B-Instruct
+
+sampling:
+  temperature: 0.0
+  top_p: 1.0
+  max_new_tokens: 16
+
+prompt:
+  system: |
+    You are a visual question answering system.
+    Return valid JSON only in the form {"result": <number>}.
+    Use a numeric JSON value for <number>, not a string.
+    Do not output any other keys, words, explanation, or markdown.
+    If uncertain, still output the single most likely number in that JSON format.
+  user_template: |
+    Answer the question using the provided image(s).
+    Return JSON only in the form {"result": <number>}.
+    Question: {question}

@@ -179,6 +179,20 @@ def project_amplitude(residuals: torch.Tensor, V_K: torch.Tensor) -> torch.Tenso
     return proj.norm(dim=1)
 
 
+def project_coefficients(residuals: torch.Tensor, V_K: torch.Tensor) -> torch.Tensor:
+    """Compute per-token raw projection coefficients onto V_K basis.
+
+    Args:
+        residuals: shape (n_gen, d_model).
+        V_K: shape (d_model, K), columns assumed orthonormal.
+
+    Returns:
+        coefficients shape (n_gen, K) where coefs[i, k] = V_K[:, k]^T residuals[i].
+        Post-hoc: amplitude(K_subset) = ||coefs[:, K_subset]||_2 along last axis.
+    """
+    return residuals @ V_K  # (n_gen, K)
+
+
 def _build_messages(system_prompt: str, user_text: str, image_paths: list) -> list[dict]:
     """Build chat-template messages with embedded image placeholders.
 
@@ -449,6 +463,11 @@ def main() -> None:
                         "n_generated_tokens": n_gen,
                         "raw_text": raw_text,
                         "amplitude_per_layer": {},
+                        # Raw per-token coefficients in V_K basis at every captured layer.
+                        # Format: {str(L): [[c0..c{K-1}] for token in 0..n_gen-1]}.
+                        # Post-hoc: amplitude(K') = sqrt(sum_{k<K'} coef[k]^2) for any K' <= K.
+                        # This enables L-sweep + K-sweep without re-running inference.
+                        "coefficients_per_layer": {},
                     }
                     for L in layers_to_capture:
                         residuals = per_layer_residuals.get(L)
@@ -459,19 +478,23 @@ def main() -> None:
                                 "max": None,
                                 "n": 0,
                             }
+                            record["coefficients_per_layer"][str(L)] = []
                             continue
                         amps = project_amplitude(residuals, V_K_L)
+                        coefs = project_coefficients(residuals, V_K_L)  # (n_gen, K)
                         entry: dict = {
                             "mean": float(amps.mean().item()),
                             "max": float(amps.max().item()),
                             "n": int(amps.shape[0]),
                         }
-                        # Per-token detail only at the primary layer to keep the
-                        # JSONL footprint small (4 layers * 365 samples * 512
-                        # tokens would otherwise blow up).
                         if L == primary_layer:
                             entry["per_token"] = [float(x) for x in amps.tolist()]
                         record["amplitude_per_layer"][str(L)] = entry
+                        # Store raw K=full coefficients for post-hoc L-sweep + K-sweep.
+                        record["coefficients_per_layer"][str(L)] = [
+                            [round(float(c), 4) for c in row]
+                            for row in coefs.tolist()
+                        ]
 
                     fout.write(json.dumps(record) + "\n")
                     fout.flush()

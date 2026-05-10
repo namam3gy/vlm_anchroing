@@ -29,10 +29,20 @@ models:
 
 # P0-1 bridge-specific capture spec
 capture:
-  layers: [29, 30, 33, 34]
+  # Expanded layer list for L-sweep rescue (Phase B' + C' redo, 2026-05-10).
+  # Mid-stack layers 14/20/25 added in addition to OneVision-proportional 33
+  # band. Phase D OneVision finding showed peak layer is dataset-dependent
+  # (L=14 InfoVQA/VQAv2, L=27 PlotQA/TallyQA), so MathVista's anchor-processing
+  # layer is not necessarily L=33.
+  layers: [14, 20, 25, 29, 30, 33, 34]
   primary_layer: 33
-  subspace_path: outputs/e6_steering/qwen3-vl-8b-instruct/_subspace/subspace_plotqa_infovqa_pooled_K16.pt
-  K: 8
+  # Subspace pooled across 3 calibration datasets (TallyQA + PlotQA + InfoVQA).
+  # Domain diversity expected to improve anchor-specific signal isolation.
+  subspace_path: outputs/e6_steering/qwen3-vl-8b-instruct/_subspace/subspace_tally_plotqa_infovqa_pooled_K16.pt
+  # K=16 (full SVD output) — store ALL coefficients so post-hoc K-sweep
+  # works without re-running inference. Amplitude(K') = sqrt(sum_{k<K'} c_k^2)
+  # is computable from the stored coefficients for any K' <= 16.
+  K: 16
   per_token: true   # capture every generated token (NOT just answer-step)
 
 # Conditions to evaluate. Restrict to a-S1 anchor + d neutral; b serves as
