@@ -1,5 +1,14 @@
 # L1 — Confidence-modulated anchoring (§6 of the paper)
 
+> **Historical record (post-2026-05-04).** InternVL3-8b was removed from
+> the active model panel on 2026-05-10. The chart-stack reversal observed
+> below in §3.3 / §B2 (wrong/correct decomposition) / §B3 (max-tokens 16
+> follow-up) is preserved as a historical anomaly; the model is no longer
+> in the live panel and the residual mechanism hypotheses queued for §8
+> (confident-confabulation, InternViT-300M encoder family interaction)
+> are closed. See `references/roadmap.md` §10 (2026-05-10 changelog) for
+> the full removal rationale.
+
 > **2026-05-10 update.** Paper switched headline binning from 4-quartile
 > (Q1-Q4) to **6-bin (B1-B6)**. New 6-bin aggregate on the same
 > 85-cell panel: **mean df B6−B1 gap = +0.182 (`cross_entropy`) /
@@ -122,6 +131,12 @@ breaks down, similar to the E5e γ-β reasoning-mode cell
 (`E5e-mathvista-reasoning-evidence.md` §3.1) — different mechanism,
 same surface symptom.
 
+> **Closed (2026-05-10): InternVL3-8b removed from active panel; no
+> further investigation.** The two hypothesis-tests proposed above
+> (max-new-tokens 16 rerun; base-correct stratification) were both
+> executed in §B2 / §B3 below and falsified. Model removal closes the
+> follow-up loop.
+
 #### B2 follow-up (2026-05-04): wrong-base / correct-base × quartile decomposition
 
 To distinguish hypotheses (a) and (b), we stratified InternVL3-8b's
@@ -209,6 +224,11 @@ remaining mechanisms (left for §8 future work):
 Paper-side action: cite the reversal as a documented but not yet
 mechanistically explained boundary case. §6.6 paper prose updated to
 match.
+
+> **Closed (2026-05-10): model removed from active panel.** The
+> confident-confabulation and InternViT-300M-encoder hypotheses above
+> are no longer queued for §8 future work; they remain on record as
+> historical mechanism candidates for the chart-stack reversal anomaly.
 
 ## 3. Why direction-follow modulation is bigger than adopt modulation
 
