@@ -143,17 +143,21 @@ Plus a **Table 5 numbering bug** — both §4.6.1 and §6.1 use the label
       §4.4 6-bin headline against 4-bin (under-resolution) and 10-bin
       (over-resolution) on the same high-n PlotQA × OneVision cell.
 
-### Open follow-ups (separate decisions)
+### Resolved (2026-05-11)
 
-- [ ] `paper_4_2_digit_pixel_causality.png` + `_build_figure_4_2_digit_pixel.py`
-      were prepared 2026-05-11 00:45 (before this audit) as a 2-panel
-      replacement for Fig 3 (PlotQA 6-model + OneVision 5-dataset). The
-      current Fig 3 in §4.2 is the legacy 3-model
-      `E5c_anchor_vs_masked_adopt.png`. Decision pending: swap Fig 3 to
-      the new figure (more Main-panel-aligned) vs keep legacy
-      (current §4.2 prose was authored against it).
-- [ ] Worktree-to-main-checkout sync workflow (helper script vs symlink
-      shared dir vs un-gitignore paper) — separate decision.
+- [x] **Fig 3 swap.** `paper_4_2_digit_pixel_causality.png` replaced
+      legacy `E5c_anchor_vs_masked_adopt.png`. §4.2 Table 3 also
+      restructured into two orthogonal slices (Slice A: PlotQA 6-model
+      E7 panel; Slice B: OneVision Main × 5-dataset). VQAv2 rows
+      dropped. Cross-references in §4.1 / §4.3 / §C.1 / §E.4 updated.
+      roadmap §10 changelog records the reorg. (Folded into commit
+      `adae6df`.)
+- [x] **Worktree-to-main sync workflow.** Option A (rsync helper)
+      shipped as `scripts/_sync_from_worktree.sh`. Excludes
+      `docs/paper/reviews/` (already git-tracked via the
+      `!docs/paper/reviews/*.md` rule). Use:
+      `bash scripts/_sync_from_worktree.sh <branch> [--dry-run]`.
+      (Folded into commit `adae6df`.)
 
 ---
 
