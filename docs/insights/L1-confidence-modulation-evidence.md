@@ -1,5 +1,26 @@
 # L1 — Confidence-modulated anchoring (§6 of the paper)
 
+> **2026-05-10 update.** Paper switched headline binning from 4-quartile
+> (Q1-Q4) to **6-bin (B1-B6)**. New 6-bin aggregate on the same
+> 85-cell panel: **mean df B6−B1 gap = +0.182 (`cross_entropy`) /
+> +0.231 (`log_prob_sum`)** (vs 4-bin +0.156 / +0.191 — 6-bin gap
+> +17-21 % larger because extreme bins capture confidence endpoints
+> more accurately). Strict monotonicity criterion changed: 6-bin
+> ≥ 4 of 5 bin-pair strict ↑ on **52-60 / 85 cells** (relaxed,
+> 1 dip allowed) replaces 4-bin "fully strict 3/3 on 51/85" as the
+> paper headline; *fully strict 5/5* falls to 21-24 / 85 (5-pair
+> strictness is structurally harder than 3-pair). InternVL3 chart-stack
+> reversal sign-preservation 5/5 verified (paper §C.4 robustness
+> table). Worked example switched to **PlotQA × LLaVA-OneVision-7b
+> *(Main)*** (B1=B2=0 broad floor → B3-B5 sigmoid rise → B6 saturation;
+> df 0.000 → 0.000 → 0.028 → 0.128 → 0.238 → 0.289). New canonical
+> CSVs: `_data/L1_confidence_quartile_long_6bin.csv`,
+> `_data/L1_proxy_monotonicity_6bin.csv`,
+> `_data/L1_proxy_comparison_6bin.csv`. Original 4-bin CSVs preserved
+> at `_data/L1_confidence_quartile_long.csv` etc. (no suffix). All
+> §0–§3 below uses 4-bin Q labels — read as historical / dual-form
+> reference; current paper headline is 6-bin.
+
 > **2026-05-04 update.** Re-aggregated on the **5-dataset × 7-model**
 > Phase 1 P0 v3 main matrix (was 4-dataset × 1-3 model). Coverage now:
 > 85 anchor cells across {VQAv2, TallyQA, ChartQA, MathVista, PlotQA,
@@ -31,247 +52,17 @@
 > `paper_L1_confidence_quartile.png` regenerated against the new CSV.
 > *(2026-05-04 supersession: see top.)*
 
-## §0. Intuition — what this analysis measures, in plain terms
+> *(2026-05-10 supersession: paper headline switched to 6-bin. Tables
+> below remain in 4-bin Q form as historical / cross-validation
+> evidence; current 6-bin canonical numbers in
+> `_data/L1_confidence_quartile_long_6bin.csv` and paper §4.4 / §6.)*
 
-> **Reading guide (2026-05-10).** §0–§2.4 are retained as historical
-> small-panel context: numbers and proxy names (`entropy_top_k`,
-> `softmax_top1_prob`) reflect the pre-2026-04-29 single-model E5b/E5c
-> aggregation. The **canonical 5-dataset × 7-model panel** numbers are
-> in §2.E and are the basis for paper §6 prose + figure
-> (`docs/figures/paper_L1_confidence_quartile.png`, regenerated
-> 2026-05-10 against `_data/L1_confidence_quartile_long.csv` under
-> the paper-default `cross_entropy` proxy). Where §0–§2.4 disagrees
-> with §2.E or the paper, §2.E + paper win.
+## 2.E. 5-dataset × 7-model expansion (2026-05-04, 4-bin Q, `cross_entropy` proxy — historical reference)
 
-> **Question:** When a VLM gives an answer to a question, does the certainty
-> of *that base answer* predict how much the answer would shift if we showed
-> an irrelevant anchor image alongside?
->
-> **Answer:** Yes. The less certain the base answer, the more the model's
-> answer is *graded toward* the anchor — but the anchor rarely *replaces*
-> the answer outright.
-
-### What "Q1 / Q2 / Q3 / Q4" mean
-
-For each base inference (`target_only` row) the model outputs not just
-the predicted token but also its **logit / softmax probability / top-k
-distribution**. We define three confidence proxies on this distribution
-(see §1.1 below). Within each (model, dataset, condition, stratum) cell
-we sort all base inferences by the chosen proxy and split them into
-**four equal groups**:
-
-- **Q1** — top quarter, **most confident** base answers (e.g., highest
-  `softmax_top1_prob`, lowest `entropy_top_k`).
-- **Q2** — second quarter.
-- **Q3** — third quarter.
-- **Q4** — bottom quarter, **least confident** base answers.
-
-Then we go to the *matching anchor arm* (`target_plus_irrelevant_number(_S?)`)
-of the same `sample_instance_id` and compute the M2 `adopt_rate` and
-`direction_follow_rate` per quartile.
-
-A **"fully monotone Q1 < Q2 < Q3 < Q4"** cell is one where the rate goes
-strictly up across the four quartiles — every adjacent pair (Q1→Q2,
-Q2→Q3, Q3→Q4) increases. Partial monotone is when only some adjacent
-pairs increase. We report both.
-
-**"Q4 − Q1" (or "Q4-Q1 gap")** is `rate(Q4) − rate(Q1)`. Positive means
-the least-confident records get more anchor effect than the most-confident
-ones.
-
-### The three confidence proxies
-
-| Proxy | What it measures | More confident → |
-|---|---|---|
-| `softmax_top1_prob` | softmax probability of the top-1 token (peakiness of the answer) | larger value |
-| `top1_minus_top2_margin` | logit gap between top-1 and top-2 tokens (relative confidence over the runner-up) | larger value |
-| `entropy_top_k` | Shannon entropy `−Σ p log p` over the captured top-k probabilities (spread of the distribution) | smaller value |
-
-### A worked example
-
-`experiment_e5c_vqa`, `llava-interleave-7b`, S1 anchor arm,
-`entropy_top_k` proxy. n ≈ 1 000 base questions split into ~250 per
-quartile.
-
-| quartile | which records | base answer correctness (mean `exact_match`) | anchor adopt | direction-follow |
-|---|---|---:|---:|---:|
-| Q1 | most confident (lowest entropy) | **0.77** (mostly correct) | 0.077 | 0.040 |
-| Q2 | upper-middle | 0.50 | 0.090 | 0.080 |
-| Q3 | lower-middle | 0.27 | 0.110 | 0.090 |
-| Q4 | least confident (highest entropy) | **0.07** (mostly wrong) | **0.147** | **0.113** |
-| **Δ (Q4 − Q1)** | | | **+7.0 pp** | **+7.4 pp** |
-
-Reading: when the model produced its base answer with low confidence
-(Q4), exposure to the anchor image shifted the answer toward the anchor
-much more than when it answered confidently (Q1). The shift is gradual
-across Q1 → Q2 → Q3 → Q4, not categorical.
-
-### One-line takeaway for §6 of the paper
-
-> **Anchor pull is a *graded* function of base-prediction uncertainty,
-> not a wrong/correct switch.** Phase A's wrong > correct binary (A1) is
-> a coarse projection of this continuous monotonicity — confidence
-> quartile recovers most of the wrong/correct signal but adds resolution
-> on items where the binary blurs ("confident wrong" / "lucky correct").
-
----
-
-**Status:** Generated 2026-04-29 from `scripts/analyze_confidence_anchoring.py`.
-Source: 10 `predictions.jsonl` files with per-token logit capture
-(post-commit `5f925b2` runs — E5b, E5c, E5d, E5e). 112,008 (sample × arm)
-records covering 34 (model × dataset × cond_class × stratum) cells.
-Pre-commit runs (VQAv2 main, strengthen) lack logit capture and are
-excluded; revisiting them with the new runner is queued separately under
-roadmap §6.4 if §6 needs to extend.
-
-## TL;DR
-
-> **Direction-follow rate (and to a lesser extent adopt rate) on the anchor
-> arm is monotonic with the *base* (target_only) prediction's answer-token
-> uncertainty.** The wrong/correct binary in Phase A A1 is a coarse projection
-> of the same effect.
-
-Of three candidate confidence proxies, **`entropy_top_k`** wins on both
-mean effect size and per-cell monotonicity, with `softmax_top1_prob` a
-close second. `top1_minus_top2_margin` is the noisiest of the three.
-
-| Proxy | mean(`adopt_rate` Q4 − Q1) | mean(`direction_follow_rate` Q4 − Q1) | cells fully monotone Q1<Q2<Q3<Q4 |
-|---|---:|---:|---|
-| **`entropy_top_k`** | **+0.044** | **+0.152** | **10 / 35 (adopt), 23 / 35 (df)** |
-| `softmax_top1_prob` | +0.036 | +0.108 | 5 / 34 (adopt), 15 / 34 (df) |
-| `top1_minus_top2_margin` | +0.017 | +0.013 | 7 / 34 (adopt), 8 / 34 (df) |
-
-(Q1 = most-confident quartile, Q4 = least-confident. Each cell ≈ 50 base
-questions on E5d, 250 on E5b/E5c, hundreds-to-thousands on E5e/E5e-tallyqa.
-n_eligible per quartile is what populates the pair-wise rate, so adopt
-rates on small E5d cells have wide error bars.)
-
-The headline shifts the §6 narrative: **anchor pull is a *graded*
-function of base-prediction uncertainty, not a wrong/correct switch.**
-This is the §6 paper claim.
-
-## 1. Setup
-
-### 1.1 Confidence proxies
-
-Computed on the **target_only** row of each `sample_instance` (= the same
-question + image without any anchor). The first generated answer token's
-distribution is used:
-
-| Proxy | Definition | Direction (more confident →) |
-|---|---|---|
-| `softmax_top1_prob` | `answer_token_probability` (top-1 prob after softmax) | larger value |
-| `top1_minus_top2_margin` | `top_logit_1 − top_logit_2` from `token_info` | larger value |
-| `entropy_top_k` | `−Σᵢ pᵢ log pᵢ` over the captured top-k probabilities | smaller value |
-
-### 1.2 Pairing and quartiles
-
-For each (model, dataset, cond_class, stratum) cell:
-
-1. Pair every anchor (`a`) or mask (`m`) row with its target_only row by
-   `sample_instance_id`.
-2. Sort by the chosen proxy in the "confidence-descending" direction (largest
-   prob first / largest margin first / smallest entropy first).
-3. Partition the sorted list into 4 equal quartiles. Q1 = top quarter
-   (most confident), Q4 = bottom quarter (least confident).
-4. Compute M2 metrics within each quartile:
-   - `adopt_rate` (M2): `Σ anchor_adopted` over `Σ (pb != anchor)`
-   - `direction_follow_rate` (M2): `Σ anchor_direction_followed_moved`
-     over `Σ (numeric pair AND anchor present)`
-
-### 1.3 Cells in scope
-
-| Experiment | Models | Datasets | n_pair |
-|---|---|---|---:|
-| `experiment_distance_vqa` (E5b) | llava-interleave-7b | VQAv2 | ~5 000 |
-| `experiment_distance_tally` (E5b) | llava-interleave-7b | TallyQA | ~5 000 |
-| `experiment_e5c_vqa` (E5c) | llava-interleave-7b | VQAv2 | ~10 000 (a + m) |
-| `experiment_e5c_tally` (E5c) | llava-interleave-7b | TallyQA | ~10 000 |
-| `experiment_e5d_chartqa_validation` | llava-interleave-7b | ChartQA | ~1 000 |
-| `experiment_e5d_mathvista_validation` | llava-interleave-7b | MathVista | ~750 |
-| `experiment_e5e_chartqa_full` | gemma3-27b-it, llava-interleave-7b, qwen2.5-vl-7b | ChartQA | ~6 000 |
-| `experiment_e5e_tallyqa_full` | llava-interleave-7b | TallyQA | ~76 000 |
-
-Cross-model on E5b / E5c is in flight; this analysis re-runs cleanly when
-those `predictions.jsonl` arrive.
-
-## 2. Per-cell evidence on `entropy_top_k`
-
-Best-proxy table. Q1 = lowest entropy (most confident), Q4 = highest
-entropy (least confident). All rates are M2.
-
-### 2.1 E5b distance sweep (single-model, multi-stratum)
-
-`adopt_rate` Q4 − Q1 on the anchor arm (S1 = signal-bearing stratum):
-
-| dataset | S1 Q1 | S1 Q4 | Δ | direction_follow Q1 | Q4 | Δ |
-|---|---:|---:|---:|---:|---:|---:|
-| VQAv2 (E5b) | 0.071 | 0.156 | **+0.085** | 0.044 | 0.103 | **+0.060** |
-| TallyQA (E5b) | 0.033 | 0.101 | **+0.068** | 0.012 | 0.060 | **+0.048** |
-
-Both confirm Q4 (most uncertain) shows substantially higher anchor effect
-than Q1 (most confident) on the signal-bearing S1 cell.
-
-Far-stratum (S5) decay still shows direction-follow modulation:
-
-| dataset | S5 df Q1 | S5 df Q4 | Δ |
-|---|---:|---:|---:|
-| VQAv2 | 0.024 | 0.080 | **+0.056** |
-| TallyQA | 0.024 | 0.092 | **+0.068** |
-
-So even at S5 where the anchor's value is implausible, the *direction* of
-movement is still uncertainty-modulated. Adopt is at floor (≈ 0) at S5
-since the implausible anchor never gets literal-copied.
-
-### 2.2 E5c digit-pixel × confidence cross-cut
-
-E5c gives a digit-pixel-causality lens on the confidence effect. On
-`a` arm the effect is bigger than on `m` arm (digit absent), but both arms
-show the same Q4 > Q1 direction:
-
-| dataset | arm | S1 adopt Q1 | S1 adopt Q4 | Δ |
-|---|---|---:|---:|---:|
-| VQAv2 | a | 0.077 | 0.182 | **+0.105** |
-| VQAv2 | m | 0.046 | 0.073 | +0.027 |
-| TallyQA | a | 0.054 | 0.122 | **+0.068** |
-| TallyQA | m | 0.039 | 0.062 | +0.023 |
-
-The `a − m` gap (digit-pixel-specific contribution) is **larger in Q4**
-than in Q1 on both datasets. Reading: when the model is uncertain, the
-digit pixel does even more of the work; the anchor-image background
-(captured by `m`) contributes a smaller, mostly entropy-flat distractor.
-
-### 2.3 E5e cross-model panel (3 models × ChartQA + TallyQA)
-
-S1 anchor-arm Q4 − Q1 on `entropy_top_k`:
-
-| dataset | model | adopt Δ (Q4−Q1) | df Δ (Q4−Q1) |
-|---|---|---:|---:|
-| ChartQA | gemma3-27b-it | -0.014 | +0.070 |
-| ChartQA | llava-interleave-7b | +0.025 | +0.014 |
-| ChartQA | qwen2.5-vl-7b | +0.007 | +0.021 |
-| TallyQA | llava-interleave-7b | +0.017 | +0.030 |
-
-3 / 4 cells positive on adopt, 4 / 4 positive on direction-follow.
-ChartQA gemma3-27b adopt-Q4 < adopt-Q1 is small (-0.014, n_pb_ne_anchor
-~75 per quartile, SE ≈ 0.022 — within noise). All df cells positive.
-
-### 2.4 E5d small-n diagnostic (validation runs)
-
-On E5d ChartQA (n_base = 200) and MathVista (n_base = 153), the
-direction-follow Q4 − Q1 trend is **negative** on most strata. Mean df at
-Q1 is 0.20-0.30 vs. Q4 at 0.05-0.15. Likely a small-n artefact: per
-(stratum × quartile) cell n is ≤ 50, and the model's behaviour on this
-small validation set is noisier than on the larger experimental panels.
-The E5d cells are excluded from the headline trend table; their pattern
-will firm up if MathVista (γ-α / γ-β) replaces E5d at full scale.
-
-## 2.E. 5-dataset × 7-model expansion (2026-05-04, `cross_entropy` proxy)
-
-The §6 main panel now covers 7 models on 5 datasets (the same matrix used
+The §6 main panel covers 7 models on 5 datasets (the same matrix used
 in §3.3 / §5; see `phase1-p0-v3-summary.md`). Per-cell `direction_follow`
 Q4 − Q1 on the S1 anchor arm under the paper-default `cross_entropy`
-proxy:
+proxy (4-bin partition; current paper headline is 6-bin):
 
 | dataset | model | df Q1 | df Q4 | Δ |
 |---|---|---:|---:|---:|

@@ -225,21 +225,22 @@ def iter_paired_rows(spec: InputSpec) -> Iterator[dict]:
             yield row
 
 
-def quartile_label(rank: int, n: int) -> str:
+def bin_label(rank: int, n: int, n_bins: int) -> str:
     if n == 0:
-        return "Q?"
-    q = (rank * 4) // n
-    q = min(q, 3)
-    return f"Q{q + 1}"  # Q1..Q4 with Q1 = highest confidence
+        return "B?"
+    b = (rank * n_bins) // n
+    b = min(b, n_bins - 1)
+    return f"B{b + 1}"  # B1..B{n_bins} with B1 = highest confidence
 
 
-def per_quartile_table(records: pd.DataFrame) -> pd.DataFrame:
-    """Compute adopt and df rates per (cell, proxy, quartile).
+def per_bin_table(records: pd.DataFrame, n_bins: int = 4) -> pd.DataFrame:
+    """Compute adopt and df rates per (cell, proxy, bin).
 
-    Cell = (experiment, dataset, model, cond_class, stratum). Quartiles
-    are assigned along each proxy's confidence direction within each
-    cell — Q1 is the most-confident quarter (so the proxy's `direction`
-    determines whether to sort ascending or descending).
+    Cell = (experiment, dataset, model, cond_class, stratum). Bins are
+    assigned along each proxy's confidence direction within each cell —
+    B1 is the most-confident bin (so the proxy's `direction` determines
+    whether to sort ascending or descending). The label column is
+    historically named `quartile` but holds B1..B{n_bins} for any n_bins.
     """
     rows = []
     cell_keys = ["experiment", "dataset", "model", "cond_class", "stratum"]
@@ -250,17 +251,17 @@ def per_quartile_table(records: pd.DataFrame) -> pd.DataFrame:
             if proxy not in sub.columns or sub[proxy].isna().all():
                 continue
             direction = proxy_directions[proxy]
-            # Q1 = most confident quarter; sort to put most-confident first.
             ascending = (direction == "lower_more_confident")
             sorted_sub = sub.sort_values(proxy, ascending=ascending, na_position="last").reset_index(drop=True)
             n = int(sorted_sub[proxy].notna().sum())
             if n == 0:
                 continue
-            sorted_sub["_quartile"] = None
+            sorted_sub["_bin"] = None
             for i in range(n):
-                sorted_sub.loc[i, "_quartile"] = quartile_label(i, n)
-            for q in ("Q1", "Q2", "Q3", "Q4"):
-                cell_q = sorted_sub[sorted_sub["_quartile"] == q]
+                sorted_sub.loc[i, "_bin"] = bin_label(i, n, n_bins)
+            for k in range(n_bins):
+                lab = f"B{k + 1}"
+                cell_q = sorted_sub[sorted_sub["_bin"] == lab]
                 if cell_q.empty:
                     continue
                 pb_ne_a = cell_q[cell_q["pred_b_equal_anchor"] == 0]
@@ -268,7 +269,8 @@ def per_quartile_table(records: pd.DataFrame) -> pd.DataFrame:
                 row = dict(zip(cell_keys, cell))
                 row.update({
                     "proxy": proxy,
-                    "quartile": q,
+                    "quartile": lab,  # historical column name; holds B1..B{n_bins}
+                    "n_bins": n_bins,
                     "n": int(len(cell_q)),
                     "n_pb_ne_anchor": int(len(pb_ne_a)),
                     "n_numeric_anchor": int(len(num_anchor)),
@@ -281,42 +283,49 @@ def per_quartile_table(records: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
-def monotonicity_score(quartile_df: pd.DataFrame) -> pd.DataFrame:
-    """Per (cell, proxy) compute the trend across Q1 → Q4.
+# Back-compat alias — older callers (figure scripts, notebooks) import this.
+per_quartile_table = per_bin_table
 
-    Score: count of monotonic-decrease pairs out of (Q1>Q2, Q2>Q3, Q3>Q4)
-    for both adopt_rate and direction_follow_rate. Q1 = most confident →
-    expect *lower* anchor effect (anchor doesn't pull confident base);
-    Q4 = least confident → expect *higher* anchor effect.
 
-    A clean monotone increase from Q1 to Q4 = score 3/3.
+def monotonicity_score(quartile_df: pd.DataFrame, n_bins: int = 4) -> pd.DataFrame:
+    """Per (cell, proxy) compute the trend across B1 → B{n_bins}.
+
+    Score: count of strictly-increasing pairs out of (B1<B2, B2<B3, ...,
+    B{n-1}<B{n}). B1 = most confident → expect lower anchor effect; last
+    bin = least confident → expect highest anchor effect. A clean monotone
+    increase = score (n_bins-1)/(n_bins-1).
     """
     rows = []
     cell_keys = ["experiment", "dataset", "model", "cond_class", "stratum", "proxy"]
+    order = [f"B{i+1}" for i in range(n_bins)]
     for cell, sub in quartile_df.groupby(cell_keys, dropna=False):
         sub = sub.sort_values("quartile")
-        if len(sub) < 4:
+        if len(sub) < n_bins:
             continue
         adopt = sub.set_index("quartile")["adopt_rate"].to_dict()
         df = sub.set_index("quartile")["direction_follow_rate"].to_dict()
-        order = ["Q1", "Q2", "Q3", "Q4"]
-        if not all(q in adopt for q in order):
+        if not all(b in adopt for b in order):
             continue
 
-        adopt_pairs = [(adopt[order[i]], adopt[order[i + 1]]) for i in range(3)]
-        df_pairs = [(df[order[i]], df[order[i + 1]]) for i in range(3)]
+        adopt_pairs = [(adopt[order[i]], adopt[order[i + 1]]) for i in range(n_bins - 1)]
+        df_pairs = [(df[order[i]], df[order[i + 1]]) for i in range(n_bins - 1)]
         adopt_inc = sum(1 for a, b in adopt_pairs if a is not None and b is not None and b > a)
         df_inc = sum(1 for a, b in df_pairs if a is not None and b is not None and b > a)
+        adopt_weakly = sum(1 for a, b in adopt_pairs if a is not None and b is not None and b >= a)
+        df_weakly = sum(1 for a, b in df_pairs if a is not None and b is not None and b >= a)
 
-        adopt_q1 = adopt.get("Q1")
-        adopt_q4 = adopt.get("Q4")
-        df_q1 = df.get("Q1")
-        df_q4 = df.get("Q4")
+        adopt_q1 = adopt.get(order[0])
+        adopt_q4 = adopt.get(order[-1])
+        df_q1 = df.get(order[0])
+        df_q4 = df.get(order[-1])
 
         rows.append({
             **dict(zip(cell_keys, cell)),
+            "n_bins": n_bins,
             "adopt_increases": adopt_inc,
             "df_increases": df_inc,
+            "adopt_weakly_increases": adopt_weakly,
+            "df_weakly_increases": df_weakly,
             "adopt_q1": adopt_q1,
             "adopt_q4": adopt_q4,
             "adopt_q4_minus_q1": (adopt_q4 - adopt_q1) if (adopt_q4 is not None and adopt_q1 is not None) else None,
@@ -327,12 +336,13 @@ def monotonicity_score(quartile_df: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
-def proxy_comparison_table(mono: pd.DataFrame) -> pd.DataFrame:
+def proxy_comparison_table(mono: pd.DataFrame, n_bins: int = 4) -> pd.DataFrame:
     """Aggregate monotonicity statistics per proxy, anchor-arm only.
 
-    Used to choose the §6 primary proxy for the paper: highest mean
-    adopt/df Q4-Q1 gap + most cells fully-monotone (3/3).
+    Used to choose the §4.4 primary proxy for the paper: highest mean
+    adopt/df last−first gap + most cells fully-monotone.
     """
+    n_pairs = n_bins - 1
     rows = []
     for proxy in PROXY_NAMES:
         sub = mono[(mono["proxy"] == proxy) & (mono["cond_class"] == "a")]
@@ -343,12 +353,21 @@ def proxy_comparison_table(mono: pd.DataFrame) -> pd.DataFrame:
         rows.append({
             "proxy": proxy,
             "n_cells": n,
+            "n_bins": n_bins,
             "mean_adopt_q4_minus_q1": float(sub["adopt_q4_minus_q1"].mean()),
             "mean_df_q4_minus_q1": float(sub["df_q4_minus_q1"].mean()),
-            "adopt_fully_monotone_3of3": int((sub["adopt_increases"] == 3).sum()),
-            "df_fully_monotone_3of3": int((sub["df_increases"] == 3).sum()),
-            "adopt_at_least_2of3": int((sub["adopt_increases"] >= 2).sum()),
-            "df_at_least_2of3": int((sub["df_increases"] >= 2).sum()),
+            "adopt_fully_monotone": int((sub["adopt_increases"] == n_pairs).sum()),
+            "df_fully_monotone": int((sub["df_increases"] == n_pairs).sum()),
+            "adopt_weakly_monotone": (
+                int((sub["adopt_weakly_increases"] == n_pairs).sum())
+                if "adopt_weakly_increases" in sub.columns else None
+            ),
+            "df_weakly_monotone": (
+                int((sub["df_weakly_increases"] == n_pairs).sum())
+                if "df_weakly_increases" in sub.columns else None
+            ),
+            "adopt_at_least_n_minus_1": int((sub["adopt_increases"] >= n_pairs - 1).sum()),
+            "df_at_least_n_minus_1": int((sub["df_increases"] >= n_pairs - 1).sum()),
         })
     return pd.DataFrame(rows)
 
@@ -359,6 +378,10 @@ def main():
     parser.add_argument("--print-summary", action="store_true")
     parser.add_argument("--primary-proxy", default="cross_entropy",
                         help="Primary proxy used in --print-summary headline.")
+    parser.add_argument("--n-bins", type=int, default=4,
+                        help="Number of equal-frequency confidence bins (default 4 = quartiles).")
+    parser.add_argument("--out-suffix", default="",
+                        help="Suffix appended to output CSV stems (e.g. '_6bin').")
     args = parser.parse_args()
     args.out_dir.mkdir(parents=True, exist_ok=True)
 
@@ -378,28 +401,33 @@ def main():
     pair_df.to_csv(args.out_dir / "L1_confidence_pair_records.csv", index=False)
     print(f"[pair] {len(pair_df)} (sample × arm) records")
 
-    quartile_df = per_quartile_table(pair_df)
-    quartile_df.to_csv(args.out_dir / "L1_confidence_quartile_long.csv", index=False)
+    suffix = args.out_suffix
+    quartile_df = per_bin_table(pair_df, n_bins=args.n_bins)
+    quartile_df.to_csv(args.out_dir / f"L1_confidence_quartile_long{suffix}.csv", index=False)
 
-    mono = monotonicity_score(quartile_df)
-    mono.to_csv(args.out_dir / "L1_proxy_monotonicity.csv", index=False)
+    mono = monotonicity_score(quartile_df, n_bins=args.n_bins)
+    mono.to_csv(args.out_dir / f"L1_proxy_monotonicity{suffix}.csv", index=False)
 
-    proxy_cmp = proxy_comparison_table(mono)
-    proxy_cmp.to_csv(args.out_dir / "L1_proxy_comparison.csv", index=False)
+    proxy_cmp = proxy_comparison_table(mono, n_bins=args.n_bins)
+    proxy_cmp.to_csv(args.out_dir / f"L1_proxy_comparison{suffix}.csv", index=False)
 
     if args.print_summary:
         print()
-        print("=== Per-proxy monotonicity score (anchor-arm cells; Q4 = least confident) ===")
+        print(f"=== Per-proxy monotonicity score (n_bins={args.n_bins}, anchor-arm cells; B(last) = least confident) ===")
         for _, r in proxy_cmp.sort_values("mean_df_q4_minus_q1", ascending=False).iterrows():
             n = int(r.get("n_cells") or 0)
             if n == 0:
                 print(f"  {r['proxy']:28s}: no cells")
                 continue
+            adopt_weak = r.get("adopt_weakly_monotone")
+            df_weak = r.get("df_weakly_monotone")
             print(f"  {r['proxy']:28s}: n={n:3d}  "
-                  f"adopt(Q4-Q1)={r['mean_adopt_q4_minus_q1']:+.4f}  "
-                  f"df(Q4-Q1)={r['mean_df_q4_minus_q1']:+.4f}  "
-                  f"adopt 3/3 monotone={int(r['adopt_fully_monotone_3of3'])}/{n}  "
-                  f"df 3/3 monotone={int(r['df_fully_monotone_3of3'])}/{n}")
+                  f"adopt(last-1st)={r['mean_adopt_q4_minus_q1']:+.4f}  "
+                  f"df(last-1st)={r['mean_df_q4_minus_q1']:+.4f}  "
+                  f"adopt fully={int(r['adopt_fully_monotone'])}/{n}"
+                  f"{f' weakly={int(adopt_weak)}/{n}' if adopt_weak is not None else ''}  "
+                  f"df fully={int(r['df_fully_monotone'])}/{n}"
+                  f"{f' weakly={int(df_weak)}/{n}' if df_weak is not None else ''}")
 
         primary = args.primary_proxy
         print()
