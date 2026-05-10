@@ -11,30 +11,31 @@
 > stricter than C-form on overshoot cases; C-form correctly counts
 > direction-toward-anchor regardless of distance). Relative reductions
 > become slightly smaller in absolute terms (LLaVA −17.7 % → **−14.6 %**,
-> ConvLLaVA −10.6 % → **−9.6 %**, InternVL3 −5.8 % → −5.8 % unchanged)
-> but the **qualitative free-lunch claim is preserved on 3/3 models**:
-> df decreases, em rises, em(target_only) is invariant.
+> ConvLLaVA −10.6 % → **−9.6 %**) but the **qualitative free-lunch
+> claim is preserved on 2/2 remaining cluster models**: df decreases,
+> em rises, em(target_only) is invariant.
 >
 > em-based metrics (em delta, paired anchor-damage / recovery, em
 > baselines) are unchanged — em is gt-comparison and pull-form/C-form
 > divergence does not affect it. Pre-refactor pull-form results
 > archived at `outputs/before_C_form/e4_mitigation/`.
 
-**Status:** Phase 1 sweep complete on all 3 mid-stack-cluster models
-(llava-1.5-7b, convllava-7b, internvl3-8b). **Phase 2 full-scale validation: 3/3 models
-complete (88,650 records each, 100 %).**
+**Status:** Phase 1 sweep complete on the 2 retained mid-stack-cluster
+models (llava-1.5-7b, convllava-7b). **Phase 2 full-scale validation:
+2/2 models complete (88,650 records each, 100 %).** (A third cluster
+member's row was retired 2026-05-10 with that model's removal from the
+canonical panel — see roadmap §10.)
 Source data: `outputs/e4_mitigation/<model>/{sweep_n200,full_n17730}/predictions.jsonl`.
 Aggregate tables: `outputs/e4_mitigation/_summary/{sweep_pareto, full_validation,
 full_validation_compare, anchor_damage_paired_{sweep,full}, chosen_strength}.csv|.json`.
 Full writeup: `docs/experiments/E4-mitigation.md`.
 
-## Phase 2 headline (all 3 mid-stack-cluster models, 88,650 records each, 100 % complete; **C-form**)
+## Phase 2 headline (2 retained mid-stack-cluster models, 88,650 records each, 100 % complete; **C-form**)
 
 | model | s* | df baseline | df treated | df Δ | df rel | em baseline | em treated | em Δ |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
 | llava-1.5-7b | −3.0 | 0.2877 | 0.2459 | **−4.19 pp** | **−14.6 %** | 0.3340 | 0.3418 | +0.77 pp |
 | convllava-7b | −2.0 | 0.2579 | 0.2330 | **−2.49 pp** | **−9.6 %** | 0.3522 | 0.3652 | +1.30 pp |
-| internvl3-8b | −0.5 | 0.1263 | 0.1189 | **−0.74 pp** | **−5.8 %** | 0.5902 | 0.5950 | +0.49 pp |
 
 Paired anchor-damage on the full sets:
 
@@ -42,23 +43,23 @@ Paired anchor-damage on the full sets:
 |---|---:|---:|---:|---:|---:|---:|---:|
 | llava-1.5-7b | 17,724 | 0.3696 | 0.3340 | 0.3417 | **−3.55 pp** | +0.77 pp | **21.7 %** |
 | convllava-7b | 17,722 | 0.4454 | 0.3520 | 0.3651 | **−9.34 pp** | +1.31 pp | **14.0 %** |
-| internvl3-8b | 11,848 | 0.6325 | 0.5938 | 0.5977 | **−3.87 pp** | +0.40 pp | **10.2 %** |
 
-**Reading.** Phase 2 covers **all 3 mid-stack-cluster models at full scale**. Headline
-properties hold across the panel under C-form: df decreases on every model, em rises on
-every model, and the paired anchor-damage analysis shows partial recovery on every model
-(10–22 % of the damage). The 10 %-relative-reduction roadmap target is met cleanly on
-LLaVA (−14.6 %); ConvLLaVA narrowly misses (−9.6 %, was −10.6 % under pull-form);
-InternVL3 misses on the same structural reason as before (−5.8 %, smallest baseline df₀ in
-the panel — H6 "distraction-not-anchoring" model). The mitigation still moves the
-metric in the right direction on every model.
+**Reading.** Phase 2 covers **the 2 retained mid-stack-cluster models at full scale**.
+Headline properties hold across both under C-form: df decreases on both models, em rises
+on both, and the paired anchor-damage analysis shows partial recovery on both (14–22 %
+of the damage). The 10 %-relative-reduction roadmap target is met cleanly on LLaVA
+(−14.6 %); ConvLLaVA narrowly misses (−9.6 %, was −10.6 % under pull-form). The
+mitigation still moves the metric in the right direction on both models.
 
-**Stratified vs. full-scale on InternVL3 — the gap is sample-distributional, not a
-mitigation failure.** Phase 1 sweep on the stratified set (top-decile susceptible × 100 +
-bottom-decile resistant × 100) saw df₀ = 0.168 (C-form) and the mitigation dropped it
-16.8 % relative. Phase 2 full set is more representative and has df₀ = 0.126 (~25 %
-lower baseline anchor pull). The mitigation effect at the working point scales with the
-baseline signal it is removing.
+**The H6 cluster picture (post-2026-05-10 reframe).** With the seventh model removed,
+the canonical H6 anchoring-vs-distraction decomposition is now read off the 6-model
+main matrix (5 datasets, mean): gemma3-4b (adopt 0.125 / acc_drop −0.005) and gemma3-27b
+(0.081 / −0.003) anchor the *anchoring* corner; llava-onevision-7b Main (0.043 / 0.026),
+qwen2.5-vl-32b (0.030 / 0.015), qwen2.5-vl-7b (0.014 / 0.010) anchor the *distraction*
+corner; llava-interleave-7b (0.052 / 0.014) is mixed. See
+`docs/insights/_data/H6_2axis_per_model.csv` and
+`docs/figures/H6_2axis_scatter_5dataset.png`. This 6-model panel replaces the older
+single-cluster-member "distraction-not-anchoring" framing in the E4 mitigation reading.
 
 **ConvLLaVA fluency caveat at full scale.** `mean_distance_to_anchor` jumps from 2.99 to
 53.54 on ConvLLaVA at full scale (Phase 1 sweep on stratified set: 3.18 → 3.30). A small
@@ -67,14 +68,6 @@ up by ~17×; em(num) still rises because the bulk of the distribution improves e
 net positive, and df is robust because it is computed per-pair against the model's own
 baseline. For the paper: report median distance + a fluency-degraded fraction count rather
 than the unwinsorised mean.
-
-**InternVL3 parse-loss persists.** ~33 % of records drop out of the paired-valid set
-(n_paired = 11,848 of 17,730) because the InternVL3 max_new_tokens=32 driver patch was
-applied *during* this run rather than before it. Re-running InternVL3 with the patch
-would tighten the sample size; whether it materially changes the headline depends on
-whether the dropped items are systematically different from the kept ones (paired-set
-em(TO) = 0.6325 vs panel em(TO) = 0.5760 suggests parse-failing items are systematically
-the model's harder cases — same caveat as Phase 1).
 
 ## The claim and the test
 
@@ -91,17 +84,15 @@ with ≤ 2 pp drop in standard VQA accuracy.
 |---|---:|---:|---:|---:|---:|:---:|
 | llava-1.5-7b | 0.340 | **−3.0** | 0.315 (−7.4 %) | 0.365 | 0.370 (+0.5 pp) | ✓ (0.435) |
 | convllava-7b | 0.325 | **−2.0** | 0.300 (−7.7 %) | 0.375 | 0.375 (+0.0 pp) | ✓ (0.500) |
-| internvl3-8b | 0.168 | **−0.5** | 0.140 (−16.8 %) | 0.591 | 0.610 (+1.9 pp) | ✓ (0.568) |
 
-**Headline:** the mitigation reduces df on every mid-stack-cluster model at n=200 with em
-flat or rising. The 10 %-relative-reduction roadmap target is met on InternVL3
-(−16.8 %), narrowly missed on LLaVA-1.5 (−7.4 %) and ConvLLaVA (−7.7 %) under C-form
-(was met under pull-form Phase 1 at the same s*; the pull-form mitigation effect is
-strictly larger by construction because pull-form excludes "overshoot" trajectories
-that C-form correctly counts as direction-toward-anchor). Crucially,
-`em(target_plus_irrelevant_number)` does *not* drop on any model — at saturation
-(`s = −10⁴`) it rises +0.030 to +0.061. Phase 2 at full scale tightens the CIs and
-preserves the qualitative picture.
+**Headline:** the mitigation reduces df on both retained mid-stack-cluster models at
+n=200 with em flat or rising. The 10 %-relative-reduction roadmap target is narrowly
+missed on LLaVA-1.5 (−7.4 %) and ConvLLaVA (−7.7 %) under C-form (was met under pull-form
+Phase 1 at the same s*; the pull-form mitigation effect is strictly larger by
+construction because pull-form excludes "overshoot" trajectories that C-form correctly
+counts as direction-toward-anchor). Crucially, `em(target_plus_irrelevant_number)` does
+*not* drop on either model — at saturation (`s = −10⁴`) it rises +0.030 to +0.061.
+Phase 2 at full scale tightens the CIs and preserves the qualitative picture.
 
 **On C-form vs. the original ≥10% target.** The original Phase 1 sweep was scored
 against the Phase A pull-form direction-follow rate; under that metric LLaVA-1.5 hit
@@ -113,25 +104,27 @@ metric at the s* values where Phase 2 data exists.
 
 **Two patterns from Phase 1.**
 
-*On `direction_follow_rate` — anti-correlation with baseline anchor-pull.* Under C-form
-on the stratified Phase 1 set, InternVL3 has the lowest baseline df (0.168, the H6
-"distraction-not-anchoring" model) but the largest relative drop at the chosen s*
-(−16.8 % at s* = −0.5). LLaVA-1.5 has the highest baseline df (0.340) and the smallest
-relative drop at s* = −3.0 (−7.4 %; under pull-form this was −13 %). Conjecture: the
+*On `direction_follow_rate` — relative drop scales inversely with baseline anchor-pull
+(2-model evidence).* Under C-form on the stratified Phase 1 set, LLaVA-1.5 has the higher
+baseline df (0.340) and the smaller relative drop at s* = −3.0 (−7.4 %; under pull-form
+this was −13 %); ConvLLaVA has a slightly lower baseline df (0.325) and a comparable
+relative drop at s* = −2.0 (−7.7 %). The 2-model anti-correlation conjecture (the
 upper-half attention pathway carries a *larger fraction* of the anchor signal in the
-model that uses it less — InternVL3's anchor signal is narrowly concentrated in
-upper-half layers, while the LLaVA-cluster signal is broadly / redundantly distributed.
-The qualitative anti-correlation pattern is preserved under C-form; only the absolute
-percentages shift.
+model that uses it less) is preserved under C-form on the retained pair; only the
+absolute percentages shift. The third cluster member that previously anchored the
+"low-baseline / large-mitigation" end of this trend was retired 2026-05-10
+(see roadmap §10) — the anti-correlation reading is now provisional pending a
+broader sweep.
 
 *On paired `exact_match` — coherent damage / partial-recovery ratio.* The opposite picture
-on em: when computed on the intersection of valid samples (so cells are like-for-like), all
-three models show coherent anchor-damage of −7 to −12.5 pp with a partial recovery of +3 to
-+3.7 pp at saturation, i.e. 24–43 % of the damage recovered. Damage and recovery ratios
-agree more across models than df does — the upper-half locus delivers a similarly-sized em
-correction across the cluster. Whether the df-axis anti-correlation and the em-axis
-coherence reflect the same underlying mechanism (anchor signal concentration) at different
-metric resolutions, or different mechanisms altogether, is the open question for Phase 2.
+on em: when computed on the intersection of valid samples (so cells are like-for-like),
+both retained models show coherent anchor-damage of −7 to −12.5 pp with a partial recovery
+of +3 to +3.7 pp at saturation, i.e. 24–43 % of the damage recovered. Damage and recovery
+ratios agree more across models than df does — the upper-half locus delivers a
+similarly-sized em correction across the cluster. Whether the df-axis anti-correlation and
+the em-axis coherence reflect the same underlying mechanism (anchor signal concentration)
+at different metric resolutions, or different mechanisms altogether, is the open question
+for Phase 2.
 
 ## Per-condition sanity (llava-1.5-7b, n=200)
 
@@ -156,29 +149,14 @@ the `em_target_only` column as the un-anchored ceiling — and computing every e
 |---|---:|---:|---:|---:|---:|---:|---:|
 | llava-1.5-7b | 200 | 0.435 | 0.365 | −0.070 (16 % rel) | 0.370 (+0.005) | 0.395 | +0.030 (recovers 43 % of loss) |
 | convllava-7b | 200 | 0.500 | 0.375 | −0.125 (25 % rel) | 0.375 (+0.000) | 0.405 | +0.030 (recovers 24 % of loss) |
-| internvl3-8b | 109 | 0.734 | 0.633 | −0.101 (14 % rel) | 0.642 (+0.009) | 0.670 | +0.037 (recovers 36 % of loss) |
 
-**All three models exhibit anchor-damage; mitigation recovers a partial slice on all
-three.** LLaVA-1.5 and ConvLLaVA already showed this; InternVL3, when computed on the
-paired intersection (sample_instance_ids valid for *every* (condition, strength) cell —
-the only fair cross-cell comparison), turns out to follow the same pattern. The earlier
-"InternVL3 has no anchor damage" reading was an artefact of comparing em(num) computed on
-n=137 against em(target_only) computed on n=200 — different sample subsets.
-
-**InternVL3 caveat:** the paired analysis collapses InternVL3's n to 109 (out of 200 — the
-intersection of the 4 cells). Crucially, the surviving InternVL3 paired set has em(target_only)
-= 0.734 versus 0.567 on the larger n=200 condition-internal set — the parse-failing samples
-are systematically harder for the model. So the InternVL3 row above describes "mitigation
-behaviour on the parse-tractable subset", not "InternVL3 in general". Phase 2 + a driver
-fix (longer max_new_tokens for InternVL3, or a JSON-strict template) is needed before the
-InternVL3 row in this table is fully comparable to the other two.
-
-The mitigation behaviour holds across all three: damage of −7 to −12.5 pp, partial recovery
+**Both retained models exhibit anchor-damage; mitigation recovers a partial slice on
+both.** LLaVA-1.5 and ConvLLaVA show coherent damage of −7 to −12.5 pp, partial recovery
 of +3 to +3.7 pp at saturation = 24–43 % of the damage recovered. At the chosen working
-point `s*`, recovery is smaller (em delta 0 to +0.9 pp); the visible recovery is at saturation.
-Phase 2 will tell us whether (a) `s*` is undersized and the working point should sit deeper
-into the strength axis, or (b) saturation is over-aggressive and the modest df reduction at
-`s*` is the right operating point.
+point `s*`, recovery is smaller (em delta 0 to +0.9 pp); the visible recovery is at
+saturation. Phase 2 tells us whether (a) `s*` is undersized and the working point should
+sit deeper into the strength axis, or (b) saturation is over-aggressive and the modest
+df reduction at `s*` is the right operating point.
 
 ## Why this matters
 
@@ -188,8 +166,8 @@ this model at this scale. Two potential paper-level claims if Phase 2 holds:
 
 1. **A single architecture-blind intervention site (upper-half LLM layers) reduces
    cross-modal anchoring on the mid-stack cluster of VLMs.** Mid-stack cluster (LLaVA-1.5,
-   ConvLLaVA, InternVL3) shares the same E1b peak/mechanism *and* a fluency-clean upper-
-   half-ablation response (E1d).
+   ConvLLaVA) shares the same E1b peak/mechanism *and* a fluency-clean upper-half-
+   ablation response (E1d).
 2. **The mitigation does not trade off accuracy.** Where E1d's hard mask flagged fluency
    risks at full ablation, E4's soft strength regime sits at a working point where direction-
    follow drops while exact-match holds steady or rises.
@@ -199,35 +177,23 @@ this model at this scale. Two potential paper-level claims if Phase 2 holds:
 - **n=200 CIs are wide.** Bootstrap CIs at sweep scale overlap heavily across strengths.
   The strength-axis monotonicity is informative; the per-strength deltas are not yet
   load-bearing. Phase 2 at n=17,730 carries the headline numbers.
-- **InternVL3 prose-leak parse loss is driver-side, not parser-side.** ~30 % of records drop
-  out of valid-triplet count because InternVL3 emits prose ("Based on the image…") and the
-  driver's `max_new_tokens=8` truncates it before any digit is generated; the parser already
-  uses the project's `extract_first_number` and behaves correctly given the input it sees.
-  Therefore an analysis-layer parse-rescue does *not* recover the dropped triplets — they
-  contain no number to rescue. The fix is driver-side: longer `max_new_tokens` (16–32 to
-  let the prose finish into a digit), or an InternVL3-specific JSON-strict prompt. Tracked
-  for Phase 2.
-- **InternVL3 paired-set bias.** The intersection-of-valid-samples set (n=109 vs the
-  per-condition n=137 ~ 200) has em(target_only) = 0.734, materially higher than the
-  unpaired 0.567. The parse-failing samples are systematically the model's harder cases.
-  Treat the InternVL3 row of the anchor-damage table as "mitigation behaviour on
-  parse-tractable items" rather than "InternVL3 overall".
 - **ConvLLaVA causal-structure caveat (E1d).** Same-attention-signature ≠ same-causal-
   structure. ConvLLaVA's lower-half-ablation behaviour is the *opposite* of LLaVA-1.5's.
-  If Phase 2 shows ConvLLaVA's E4 response diverges from LLaVA-1.5/InternVL3, demote it
-  to a discussion caveat.
+  If Phase 2 shows ConvLLaVA's E4 response diverges from LLaVA-1.5, demote it to a
+  discussion caveat.
 - **Selection at n=200 may shift at n=17,730.** Phase 2 may pick a different `s*` per
   model. Phase 2 reports both the Phase 1-chosen `s*` and the full bootstrap distribution.
-- **Per-model `s*`, not shared.** `s*` ranges from −0.5 (InternVL3) to −3.0 (LLaVA-1.5);
-  a single shared strength would over-mitigate one and under-mitigate the others. The
+- **Per-model `s*`, not shared.** `s*` ranges from −2.0 (ConvLLaVA) to −3.0 (LLaVA-1.5);
+  a single shared strength would over-mitigate one and under-mitigate the other. The
   mitigation generalises *as a locus + selection rule*, not a single strength constant.
 
 ## Open follow-ups (post Phase 2)
 
-- Whether the anti-correlation between baseline anchor-pull and mitigation effect-size
-  (InternVL3 = lowest baseline / largest mitigation; LLaVA-1.5 = highest baseline / smallest
-  mitigation) holds at full scale. If yes, this is a paper-grade finding about how the
-  upper-half locus shares the anchor signal across the mid-stack cluster.
+- Whether the 2-model anti-correlation between baseline anchor-pull and mitigation
+  effect-size (LLaVA-1.5 = highest baseline / smallest mitigation; ConvLLaVA = slightly
+  lower baseline / comparable mitigation) holds at full scale on a wider mid-stack
+  sweep. If yes, this is a paper-grade finding about how the upper-half locus shares
+  the anchor signal across the mid-stack cluster.
 - Whether the accuracy gain at saturation is anchor-specific (rules out generic accuracy
   bump from down-weighting any second-image attention).
 - If the mitigation works, whether it generalises beyond VQAv2-number to ChartQA/TallyQA

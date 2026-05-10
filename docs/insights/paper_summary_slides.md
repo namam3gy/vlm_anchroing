@@ -337,22 +337,29 @@ quartile은 confidently wrong / lucky correct를 더 정밀 분리. C-form
 
 ---
 
-## 슬라이드 18 — Attention 4-archetype (E1 + E1b, §7)
+## 슬라이드 18 — Attention archetype panel (E1 + E1b, §7)
 
-**핵심 메시지:** 6-model panel attention dump → 4 archetype 발견.
+**핵심 메시지:** 5-model retained panel attention dump → mid-stack
+text-stealing이 multiple encoders에서 공통.
 
 | Archetype | Encoder | Peak L | δ | 메커니즘 |
 |---|---|---|---:|---|
 | SigLIP-Gemma early | SigLIP-So (gemma4-e4b) | L5/42 (12%) | +0.050 | text-stealing |
 | Mid-stack cluster | CLIP-ViT (llava-1.5) | L16/32 | +0.019 | text-stealing |
-| Mid-stack cluster | InternViT (internvl3-8b) | L14/28 | +0.019 | text-stealing |
 | Mid-stack cluster | ConvNeXt (convllava-7b) | L16/32 | +0.022 | text-stealing |
 | Qwen-ViT late | Qwen-ViT (qwen2.5-vl-7b) | L22/28 (82%) | +0.015 | target-stealing |
 | FastVLM late | FastViT (fastvlm-7b) | L22 | +0.047 | text-stealing (A7 +0.086) |
 
-**핵심:** H3 ("ConvNeXt < ViT") falsified — 3개 다른 encoder가 같은
+**핵심:** H3 ("ConvNeXt < ViT") falsified — 다른 encoder가 같은
 mid-stack text-stealing profile. 즉 **post-projection LLM stack depth**가
-axis (H6: 2-axis decomposition).
+axis (H6: 2-axis decomposition). H6 cluster picture는 6-model main
+matrix (5 datasets, mean) 기반으로 재정렬: gemma3-4b (adopt 0.125 /
+acc_drop −0.005) + gemma3-27b (0.081 / −0.003)이 *anchoring* corner;
+llava-onevision-7b Main (0.043 / 0.026), qwen2.5-vl-32b (0.030 /
+0.015), qwen2.5-vl-7b (0.014 / 0.010)이 *distraction* corner;
+llava-interleave-7b (0.052 / 0.014)는 mixed. 자세한 좌표는
+`docs/insights/_data/H6_2axis_per_model.csv` +
+`docs/figures/H6_2axis_scatter_5dataset.png`.
 
 ---
 
@@ -377,14 +384,13 @@ architecture-blind mitigation locus.
 
 ## 슬라이드 20 — Mitigation "free lunch" (E4, §7)
 
-**핵심 메시지:** mid-stack cluster 3-model Phase 2 full validation: df ↓ ·
+**핵심 메시지:** mid-stack cluster 2-model Phase 2 full validation: df ↓ ·
 em ↑ · acc invariant.
 
 | Model | s* | Δ direction_follow | Δ exact_match | Δ acc(b) |
 |---|---|---|---|---|
 | llava-1.5-7b | −3.0 | −17.7 % rel | +0.77 pp | invariant |
 | convllava-7b | −2.0 | −10.6 % | +1.30 pp | invariant |
-| internvl3-8b | −0.5 | −5.8 % | +0.49 pp | invariant |
 
 **"Free lunch" 의미:**
 - df ↓ 함과 동시에 em이 *오히려 상승* (anchor에 끌렸던 wrong 답을 회복)
@@ -424,8 +430,8 @@ em ↑ · acc invariant.
    datasets · digit-pixel는 effect의 인과.
 3. **Mechanistic** — 4 archetypes의 attention peak · upper-half ablation
    −5.5 to −11.5 pp on 6/6 architecture-blind.
-4. **Mitigation** — mid-stack cluster 3-model: df −5.8 to −17.7 % rel ·
-   em +0.5 to +1.3 pp · acc invariant — "free lunch".
+4. **Mitigation** — mid-stack cluster 2-model: df −9.6 to −17.7 % rel ·
+   em +0.77 to +1.30 pp · acc invariant — "free lunch".
 
 **Submission target:** EMNLP 2026 Main · ARR May 25.
 
@@ -452,8 +458,8 @@ em ↑ · acc invariant.
   Three profiles — (A) globally digit-concentrated (gemma), (B) peaked
   mid-early then decay (llava-1.5 + convllava 동일 shape),
   (C) sharp early peak + sustained mid-stack plateau (fastvlm).
-  `docs/insights/E1-patch-evidence.md` 참조. 2 non-square archetypes
-  (InternVL3 multi-tile, Qwen2.5-VL 17×23) + masked-arm causal control은
+  `docs/insights/E1-patch-evidence.md` 참조. 1 non-square archetype
+  (Qwen2.5-VL 17×23) + masked-arm causal control은
   per-encoder bbox-mapping dev 필요 (P3 in roadmap §6.5).
 
 **Q3. M2 metric refactor가 기존 publishing numbers를 바꾸는가?**

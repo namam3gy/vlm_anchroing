@@ -32,7 +32,6 @@ regenerable via `scripts/build_e5e_e7_5dataset_summary.py`). All cells at
 |---|---:|---:|---:|---:|---:|
 | llava-onevision-7b (Main) | 8178 | 0.786 | 0.032 | **0.099** | 0.117 |
 | qwen2.5-vl-7b | 7541 | 0.803 | 0.030 | **0.085** | 0.110 |
-| internvl3-8b | (rerun in flight) | — | — | — | — |
 | gemma3-4b | 14772 | 0.614 | 0.062 | **0.172** | 0.174 |
 | qwen2.5-vl-32b | 7407 | 0.806 | 0.038 | **0.109** | 0.141 |
 | gemma3-27b | 11014 | 0.712 | 0.059 | **0.152** | 0.140 |
@@ -43,7 +42,6 @@ regenerable via `scripts/build_e5e_e7_5dataset_summary.py`). All cells at
 |---|---:|---:|---:|---:|---:|
 | llava-onevision-7b | 2314 | 0.481 | 0.090 | **0.206** | 0.044 |
 | qwen2.5-vl-7b | 926 | 0.783 | 0.024 | **0.174** | 0.119 |
-| internvl3-8b | 4610 | 0.019 | 0.002 | 0.095 | 0.021 |
 | gemma3-4b | 3220 | 0.300 | 0.184 | **0.395** | 0.123 |
 | qwen2.5-vl-32b | 1186 | 0.729 | 0.023 | **0.163** | 0.091 |
 | gemma3-27b | 2166 | 0.513 | 0.099 | **0.227** | 0.063 |
@@ -51,9 +49,9 @@ regenerable via `scripts/build_e5e_e7_5dataset_summary.py`). All cells at
 ### A.2 Cross-dataset patterns
 
 **Susceptibility ranking** (avg df(a) across 5 datasets, descending):
-gemma3-4b ≫ gemma3-27b > llava-onevision/interleave > qwen2.5-vl-32b ≈ qwen2.5-vl-7b > internvl3-8b
+gemma3-4b ≫ gemma3-27b > llava-onevision/interleave > qwen2.5-vl-32b ≈ qwen2.5-vl-7b
 
-→ qwen family + internvl3 most robust. Gemma3 family most susceptible. **Anti-scaling within Gemma**: gemma3-4b worse than gemma3-27b (smaller model more pulled).
+→ qwen family most robust. Gemma3 family most susceptible. **Anti-scaling within Gemma**: gemma3-4b worse than gemma3-27b (smaller model more pulled).
 
 **Dataset susceptibility ranking** (mean df across panel):
 PlotQA (0.226) ≈ MathVista (0.241) > InfoVQA (0.227) > ChartQA (0.204) ≫ TallyQA (0.116)
@@ -244,6 +242,6 @@ E1d upper-half ablation: **−4.0 to −10.5 pp** `direction_follow`
 on 6/6 models; fluency-clean on 4/6 (mid-stack cluster + Qwen).
 
 E4 Phase 2 full mid-stack-cluster: `direction_follow_rate`
-reduction LLaVA-1.5 **−14.6 %** rel, ConvLLaVA **−9.6 %**, InternVL3
-**−5.8 %**; `exact_match` rises +0.49 to +1.30 pp; `accuracy_vqa(b)`
+reduction LLaVA-1.5 **−14.6 %** rel, ConvLLaVA **−9.6 %**;
+`exact_match` rises +0.77 to +1.30 pp; `accuracy_vqa(b)`
 invariant — anchor-condition specific.
