@@ -5,15 +5,176 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Cross-modal numerical anchoring in VLMs</title>
   <link rel="icon" href="assets/favicon.svg" type="image/svg+xml" />
+  <meta name="description" content="Companion site for the EMNLP submission on cross-modal numerical anchoring in vision-language models." />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="styles.css" />
+  <!--
+    GitHub Pages source: gh-pages branch / (root). One-time setup:
+    Repo Settings → Pages → "Build and deployment" → Source = Deploy from a
+    branch → Branch = gh-pages, folder = / (root).
+  -->
 </head>
 <body class="bg-neutral-50 text-neutral-900 font-sans">
   <main class="mx-auto max-w-5xl px-6 py-12 space-y-24">
-    <section id="hero">Hero placeholder</section>
+
+    <!-- Hero -->
+    <section id="hero" class="space-y-6">
+      <p class="text-sm uppercase tracking-widest text-[var(--accent)] font-semibold">
+        EMNLP 2026 — submission
+      </p>
+      <h1 class="text-4xl md:text-5xl font-bold leading-tight">
+        Cross-modal numerical anchoring in vision–language models
+      </h1>
+      <p class="text-lg text-neutral-700">
+        <!-- TODO(authors): replace before public launch -->
+        <span class="italic">Authors TBD</span> ·
+        <span class="italic">Affiliation TBD</span>
+      </p>
+      <div class="flex flex-wrap gap-3 text-sm">
+        <a class="px-4 py-2 rounded-md bg-[var(--accent)] text-white hover:opacity-90" href="#">Paper PDF</a>
+        <a class="px-4 py-2 rounded-md border border-neutral-300 hover:bg-neutral-100" href="#">arXiv</a>
+        <a class="px-4 py-2 rounded-md border border-neutral-300 hover:bg-neutral-100" href="https://github.com/namam3gy/vlm_anchroing">Code</a>
+        <a class="px-4 py-2 rounded-md border border-neutral-300 hover:bg-neutral-100" href="#demo">Demo</a>
+        <a class="px-4 py-2 rounded-md border border-neutral-300 hover:bg-neutral-100" href="#cite">BibTeX</a>
+      </div>
+    </section>
+
+    <!-- TL;DR -->
+    <section id="tldr" class="space-y-6">
+      <h2 class="text-2xl font-bold">TL;DR</h2>
+      <p class="text-neutral-800 leading-relaxed">
+        Showing a vision–language model an irrelevant <em>second</em> image that
+        contains a number can drag its numeric VQA answer toward that number,
+        even when the question and the target image have nothing to do with it.
+        We isolate this <strong>cross-modal numerical anchoring</strong> from
+        mere multi-image distraction, trace it through the residual stream, and
+        show that a small subspace edit at one mid-stack layer neutralises it
+        without hurting general capability.
+      </p>
+      <figure class="rounded-md border border-neutral-200 overflow-hidden">
+        <img src="assets/figures/teaser.png" alt="Teaser figure: cross-dataset summary"
+             class="w-full" />
+        <figcaption class="px-4 py-3 text-sm text-neutral-600 bg-neutral-50">
+          Anchor-adoption rates across five datasets and the main-panel models.
+        </figcaption>
+      </figure>
+    </section>
+
+    <!-- Phenomenon -->
+    <section id="phenomenon" class="space-y-6">
+      <h2 class="text-2xl font-bold">The phenomenon</h2>
+      <p class="text-neutral-800 leading-relaxed">
+        Each VQA item is run under four conditions:
+        <code>b</code> shows the target image only;
+        <code>a</code> adds an irrelevant image carrying a single digit (the
+        <em>anchor</em>);
+        <code>m</code> uses the same anchor image with the digit pixels inpainted
+        out;
+        <code>d</code> swaps the anchor for a digit-free FLUX render. The
+        <code>a − d</code> gap separates anchoring from generic multi-image
+        distraction; the <code>a − m</code> gap isolates the digit-pixel
+        contribution. The interactive demo below lets you flip between
+        <code>b/a/m/d</code> on six samples and watch the predictions move.
+      </p>
+    </section>
+
+    <!-- Interactive demo -->
+    <section id="demo" class="space-y-6">
+      <h2 class="text-2xl font-bold">Interactive demo: condition flipper</h2>
+      <p class="text-neutral-700 text-sm">
+        Pick a sample, then toggle <code>b/a/m/d</code> to see how each
+        main-panel model's prediction changes. ⚓ marks predictions that
+        equal the anchor value; bold marks predictions that equal ground truth.
+      </p>
+      <div id="demo-app" class="space-y-6">
+        <p class="text-neutral-500 text-sm">Loading…</p>
+      </div>
+    </section>
+
+    <!-- Headline results -->
+    <section id="results" class="space-y-6">
+      <h2 class="text-2xl font-bold">Headline results</h2>
+      <div class="grid md:grid-cols-3 gap-4">
+        <!-- TODO(verify): all three card numbers must trace to docs/insights/_data/*.csv or summary.json before public launch -->
+        <div class="rounded-md border border-neutral-200 p-5">
+          <div class="text-3xl font-bold text-[var(--accent)]">5 / 5</div>
+          <div class="text-sm text-neutral-700 mt-2">datasets where the chosen mitigation cell (L=26, K=8, α=1.0) is sign-clean on Δem(b) under both 95 % and Bonferroni-20 corrected CIs.</div>
+        </div>
+        <div class="rounded-md border border-neutral-200 p-5">
+          <div class="text-3xl font-bold text-[var(--accent)]">+19.6 pp</div>
+          <div class="text-sm text-neutral-700 mt-2">peak wrong-vs-correct gap on direction-follow across the 7-VLM main panel — the textbook uncertainty-modulated anchoring signature (A1 evidence).</div>
+        </div>
+        <div class="rounded-md border border-neutral-200 p-5">
+          <div class="text-3xl font-bold text-[var(--accent)]">×12.7</div>
+          <div class="text-sm text-neutral-700 mt-2">amplification of df on correct-base under Qwen3-VL-8B Thinking vs Instruct (E5e γ-β) — reasoning mode <em>amplifies</em>, not suppresses, anchor pull.</div>
+        </div>
+      </div>
+      <div class="grid md:grid-cols-2 gap-4">
+        <figure class="rounded-md border border-neutral-200 overflow-hidden">
+          <img src="assets/figures/headline_1.png" alt="M2 variant comparison" class="w-full" />
+          <figcaption class="px-4 py-3 text-sm text-neutral-600 bg-neutral-50">
+            Direction-follow under the canonical M2 metric across models and datasets.
+          </figcaption>
+        </figure>
+        <figure class="rounded-md border border-neutral-200 overflow-hidden">
+          <img src="assets/figures/headline_2.png" alt="L1 confidence quartile" class="w-full" />
+          <figcaption class="px-4 py-3 text-sm text-neutral-600 bg-neutral-50">
+            Anchor pull grows monotonically with base-prediction uncertainty (L1 quartile).
+          </figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <!-- Mitigation -->
+    <section id="mitigation" class="space-y-6">
+      <h2 class="text-2xl font-bold">Mitigation: a single subspace edit</h2>
+      <p class="text-neutral-800 leading-relaxed">
+        A K=8 anchor-direction subspace at layer L=26 of the main model carries
+        most of the anchor pull. Subtracting <code>α=1.0</code> of that
+        subspace from the residual stream at inference time reduces
+        direction-follow on the anchored arm without measurably hurting
+        baseline accuracy or general-capability benchmarks. The chart below
+        shows the chosen cell on one dataset; the paper's §7.4.5 carries the
+        full per-dataset table.
+      </p>
+      <figure class="rounded-md border border-neutral-200 overflow-hidden">
+        <img src="assets/figures/mitigation_bars.png" alt="Mitigation before/after" class="w-full" />
+        <figcaption class="px-4 py-3 text-sm text-neutral-600 bg-neutral-50">
+          Δ on direction-follow (a-arm) vs. Δ on baseline exact-match.
+        </figcaption>
+      </figure>
+    </section>
+
+    <!-- Citation -->
+    <section id="cite" class="space-y-4">
+      <h2 class="text-2xl font-bold">Citation</h2>
+      <p class="text-neutral-700 text-sm">
+        <!-- TODO(authors): replace with final BibTeX after submission. -->
+        Working BibTeX entry — fields will be finalised post-arXiv.
+      </p>
+      <div class="relative">
+        <pre id="bibtex" class="bg-neutral-900 text-neutral-100 rounded-md p-4 overflow-x-auto text-sm leading-relaxed">@inproceedings{anchoring2026,
+  title     = {Cross-modal numerical anchoring in vision--language models},
+  author    = {TBD},
+  booktitle = {Proceedings of EMNLP},
+  year      = {2026}
+}</pre>
+        <button id="copy-bibtex" type="button"
+                class="absolute top-3 right-3 px-3 py-1 text-xs rounded-md border border-neutral-600 text-neutral-100 hover:bg-neutral-800">
+          Copy
+        </button>
+      </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="pt-12 border-t border-neutral-200 text-sm text-neutral-500 flex flex-wrap gap-4 justify-between">
+      <span>© 2026 · code under the project's repository license</span>
+      <a class="hover:text-neutral-800" href="https://github.com/namam3gy/vlm_anchroing">github.com/namam3gy/vlm_anchroing</a>
+    </footer>
+
   </main>
   <script src="main.js" defer></script>
 </body>
