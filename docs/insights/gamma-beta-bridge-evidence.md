@@ -247,3 +247,19 @@ Total wall-clock: ~10 H200-hour (vs spec ~26h estimate — Qwen3-VL inference fa
 - Singular value spectrum (gitignored): `docs/insights/_data/gamma_beta_bridge_qwen3vl_singular_values.csv` (36 layers × 16 sv)
 - Spec: `docs/superpowers/specs/2026-05-10-p0-1-gamma-beta-bridge-design.md` (commit `e173618`)
 - Source plan: `docs/insights/plan_post_review_2026-05-09.md` §P0-1
+
+## 2026-05-11 paper-reframe note (no result change)
+
+Paper §4.6 reframed from "14 / 84 Bonferroni headline" framing to a *pre-registered cell hierarchy* framing per spec §2.3 lines 82–86. The data + numbers in this evidence doc are unchanged; only the paper's *narrative ordering* shifted.
+
+| register | what it is | result |
+|---|---|---|
+| **Pre-registered primary cell** | L=33, K=8, mean, all-base | within-Thinking Δ = +0.057, single-cell 95 % CI [−0.317, +0.424] — **null** |
+| **Pre-registered robustness sweep** (3 cells) | L ∈ {29, 30, 34}, K=8, mean | 2/3 single-cell 95 % CI excludes 0 marginally; 0/4 cells survive k=84 reference CI → 0/4 Bonferroni-4 by monotone follow |
+| **Pre-registered conclusion** | K=8 OneVision prior transfer test | **falsified** — informative null per spec line 86 |
+| **Exploratory K-sweep (post-hoc)** | 84 cells, K∈{1,2,4,8,12,16} × L∈{14,20,25,29,30,33,34} × stat∈{mean,max} | 14/84 cells Bonferroni-corrected k=84 CI excludes 0; K=1 late-stack positive + mid-stack negative sign-reversal — *hypothesis-generating, not confirmatory* |
+| **Argmax exploratory cell** | L=30, K=2, max | +0.866 [+0.412, +1.330], Bonferroni-84 [+0.115, +1.643] — descriptive strongest-cell statistic, triple post-hoc argmax over 84 |
+
+The "K=1 rescue" narrative in the TL;DR + Bonferroni-survivor section above is now classified as *hypothesis-generating for §8.4 item 8 cross-architecture confirmatory pre-registered K-sweep* (item 8a in paper §8.4). The sv7/sv8 = 1.026 spectrum is calibration-time-knowable and provides a *post-hoc interpretation* of why K=8 prior under-performs, but the K=1 decision was reactive to the K=8 null and stays exploratory in the paper.
+
+See `references/roadmap.md` §10 changelog entry "2026-05-11 evening 2" for full propagation list (abstract, §1.3, §1.5, §5.4, §8.2, §8.4).
