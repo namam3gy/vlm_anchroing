@@ -598,6 +598,7 @@ contingent on P0-1 bridge experiment.
 
 ## 10. Changelog
 
+- **2026-05-11 evening (Inline `docs/insights/` citation sweep — body → §A.5 only).** `docs/paper/emnlp_draft_ko.md`: 3 inline `docs/insights/...` 본문 인용 (§4.2 Insight 3 PlotQA un-mitigated free-lunch → `E7-plotqa-infovqa-evidence.md`; §6.2.3 multiplicity-correction honest note → `E6-bonferroni540-smalln-floor.md`; §8.4 item 8 future work → 같은 파일)을 모두 "부록 §A.5" 포인터로 교체. §A.5 헤더는 "27-cell pilot grid — 4-metric heatmap aggregation" → "Reproducibility — canonical evidence pointers + 27-cell pilot grid"로 broaden, 본문→appendix 이전된 두 evidence file (E7-plotqa-infovqa, E6-bonferroni540-smalln-floor) source pointer를 §A.5 도입부에 bullet 두 개로 surface. 검증: body §1–§8 grep `docs/insights` = 0 match, appendix만 6 match. Reviewer convention 일관성 — paper body는 `figures/` · `_data/*.csv` · `scripts/` 직접 인용만 허용, evidence file은 §A.5에서만 surface.
 - **2026-05-11 PM (Bonferroni-540 free-recompute aborted — small-n
   bootstrap floor diagnostic, §6.2.3 + §8.4 item 8 update).** Round-4
   MAJ-1/MAJ-2's "free recompute" task — read 99.99 % tail quantiles of
