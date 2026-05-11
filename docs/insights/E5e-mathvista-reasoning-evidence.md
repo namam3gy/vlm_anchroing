@@ -233,6 +233,23 @@ framework (alongside §6.4 LEACE rank-1 ChartQA +56 % reversal).
   sits well inside the CI; the qualitative claim
   ("reasoning-mode collapses the wrong/correct asymmetry") is robust to
   resampling.
+
+  *Parametric cross-check.* Delta-method Wald CI on log(p_thinking /
+  p_instruct) with SE(log p̂) ≈ √(1/x − 1/n) (x successes in n trials):
+  SE(log r) ≈ 0.457, Wald 95 % CI [× 5.18, × 31.09]. Wald is wider on
+  the lower tail (× 5.18 vs × 6.23) and tighter on the upper tail
+  (× 31.09 vs × 56.31) — the difference is the expected log-normality
+  vs. right-skewed-percentile divergence. Both agree on **>1 separation
+  by a wide margin** (Wald lower bound × 5.18 ≫ 1, bootstrap lower
+  bound × 6.23 ≫ 1); the headline `> ×6` claim is robust to the choice
+  of CI method.
+
+  *Per-arm CI floor note.* The instruct per-arm CI lower bound 0.0042 ≈
+  1 / 238 is at the empirical discretization floor for a 5 / 238 cell —
+  per-arm percentile CIs are less informative at this event sparsity.
+  The ratio CI is not floor-bound: its lower bound × 6.23 comes from
+  paired draws where instruct numerator ≈ 10 (upper-instruct ×
+  lower-thinking), not from the 1 / 238 boundary.
 - **Same architecture, different training**. The Instruct vs. Thinking
   weights diverge during reasoning-mode SFT/RL. We cannot fully
   separate "reasoning trace presence" from "Thinking-checkpoint

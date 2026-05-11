@@ -206,6 +206,20 @@ def main() -> None:
     ci_ratio = percentile_ci(ratio_b)
     ci_logratio = percentile_ci(log_ratio_b)
 
+    # Parametric cross-check: Wald CI on log-ratio of two proportions.
+    # SE(log p̂) ≈ √(1/x − 1/n) for x successes in n trials (delta method).
+    x_i, n_i = point["instruct"][1], point["instruct"][2]
+    x_t, n_t = point["thinking"][1], point["thinking"][2]
+    se_log_ratio = math.sqrt((1 / x_i - 1 / n_i) + (1 / x_t - 1 / n_t))
+    log_r_point = math.log(point["thinking"][0] / point["instruct"][0])
+    wald_lo = log_r_point - 1.96 * se_log_ratio
+    wald_hi = log_r_point + 1.96 * se_log_ratio
+    print(
+        f"[Wald 95%] log-ratio (parametric cross-check): "
+        f"[{wald_lo:.3f}, {wald_hi:.3f}]   exp → [{math.exp(wald_lo):.3f}, {math.exp(wald_hi):.3f}]"
+    )
+    print(f"            SE(log r) = {se_log_ratio:.4f}")
+
     print(f"\n[CI 95%] instruct df(a) correct: [{ci_instruct[0]:.4f}, {ci_instruct[1]:.4f}]")
     print(f"[CI 95%] thinking df(a) correct: [{ci_thinking[0]:.4f}, {ci_thinking[1]:.4f}]")
     print(f"[CI 95%] ratio (T/I)           : [{ci_ratio[0]:.3f}, {ci_ratio[1]:.3f}]   point={ratio_point:.3f}")
@@ -244,6 +258,17 @@ def main() -> None:
             "log_ratio": list(ci_logratio),
             "ratio_exp_logCI": [math.exp(ci_logratio[0]), math.exp(ci_logratio[1])],
         },
+        "wald_cross_check": {
+            "se_log_ratio_delta_method": se_log_ratio,
+            "log_ratio_ci_95": [wald_lo, wald_hi],
+            "ratio_exp_wald_ci_95": [math.exp(wald_lo), math.exp(wald_hi)],
+            "note": (
+                "Delta-method Wald CI on log(p_t/p_i) with "
+                "SE(log p̂) ≈ √(1/x − 1/n). Parametric cross-check against the "
+                "paired-bootstrap percentile CI; agrees on >1 separation, tighter "
+                "on the right tail since Wald assumes log-normality."
+            ),
+        },
         "diagnostics": {
             "invalid_ratio_draws_instruct_zero": n_invalid,
         },
@@ -260,6 +285,8 @@ def main() -> None:
         f"ratio_T_over_I,{ratio_point:.4f},{ci_ratio[0]:.4f},{ci_ratio[1]:.4f}",
         f"log_ratio_T_over_I,{math.log(ratio_point):.4f},{ci_logratio[0]:.4f},{ci_logratio[1]:.4f}",
         f"ratio_exp_logCI,{ratio_point:.4f},{math.exp(ci_logratio[0]):.4f},{math.exp(ci_logratio[1]):.4f}",
+        f"wald_log_ratio,{log_r_point:.4f},{wald_lo:.4f},{wald_hi:.4f}",
+        f"wald_ratio_exp,{ratio_point:.4f},{math.exp(wald_lo):.4f},{math.exp(wald_hi):.4f}",
     ]
     csv_path.write_text("\n".join(csv_rows) + "\n")
     print(f"\n[write] {json_path.relative_to(ROOT)}")
