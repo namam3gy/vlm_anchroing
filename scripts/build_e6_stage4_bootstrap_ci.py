@@ -114,10 +114,13 @@ def _per_sid_indicators(arm_data: dict, sids: list[str]) -> dict[str, np.ndarray
         a = arm_data[sid].get("target_plus_irrelevant_number_S1")
         if not (b and a):
             continue
+        import math
         pb = _try_float(b["parsed_number"])
         pa = _try_float(a["parsed_number"])
         anchor = _try_float(a.get("anchor_value"))
         if pb is None or pa is None or anchor is None:
+            continue
+        if not (math.isfinite(pb) and math.isfinite(pa) and math.isfinite(anchor)):
             continue
         gt_b = _try_int(b.get("ground_truth"))
         gt_a = _try_int(a.get("ground_truth"))
