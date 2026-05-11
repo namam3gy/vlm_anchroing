@@ -251,7 +251,7 @@ Late-stack (L = 29, 30, 33) K = 1 mean이 positive (+0.21 ~ +0.48), mid-stack (L
 
 **Insight 1 (Peak ≠ causal site).** Single-layer null은 메커니즘 해석에 직접적 결과를 가진다. *attention peak이 가장 큰 mass를 가진다*는 사실이 그 layer가 *causal site*임을 의미하지 *않는다*. Signal은 다층에 *redundant*하게 분산되어 어떤 한 layer를 잘라도 다른 layer가 그 부담을 받는다.
 
-**Insight 2 (Single-direction mitigation 실패와의 *사후 일관성*).** Multi-layer redundancy 발견과 §6.4의 single-direction ActAdd cross-dataset 실패 + LEACE rank-1 ChartQA +56 % 역행은 timeline 상 *모두 §5.4 framework 작성 이전*에 관찰되었다 (§5.4 본문 참조). 따라서 본 절은 §6.4를 §5.2의 prediction에 대한 verification으로 *주장하지 않는다* — 두 결과는 §5.4 *routing vs integration framework* 안에서 함께 accommodate되는 *짝 (paired observation)* 이다 (dataset이 다르면 signal이 다른 layer 조합에 분산되어 single direction이 cross-dataset alignment를 잃는다는 framework-level 해석은 §5.4가 사후 부여한다; 본 framework의 *load-bearing prospective leg*은 §4.6 layer-routing sign-reversal 검증 한 곳이다).
+**Insight 2 (Single-direction mitigation 실패와의 *사후 일관성*).** Multi-layer redundancy 발견과 §6.4의 single-direction ActAdd cross-dataset 실패 + LEACE rank-1 ChartQA +56 % 역행은 모두 §5.4 framework 작성 이전 관측된 *post-hoc synthesis*의 일부로 §5.4 *routing vs integration framework*와 일관된 *짝 (paired observation)* 이며 (framework-level 해석은 §5.4가 사후 부여; timing 출처 §5.4 본문 + §8.4 참조), framework의 *load-bearing prospective leg*은 §4.6 layer-routing sign-reversal 검증 한 곳이다.
 
 **Insight 3 (Upper-half는 re-weighting 가능).** 동시에 upper-half ablation의 significant 결과는 *upper-half attention pathway 전체가 signal의 일부를 운반*함을 보인다. Peak 한 layer는 causal하지 않지만 upper-half 다층의 *soft re-weighting*은 signal을 줄일 수 있다 — §6.1 E4의 직접 동기.
 
