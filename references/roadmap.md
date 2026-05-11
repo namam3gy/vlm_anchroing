@@ -598,6 +598,32 @@ contingent on P0-1 bridge experiment.
 
 ## 10. Changelog
 
+- **2026-05-12 AM (P4 — §5.4 framework verification via layer sweep + K=1 falsification, OneVision Main).**
+  §5.4 routing-vs-integration framework predictions P2 (single-direction failure) +
+  P3 (late-layer integration site) were not directly tested in the prior chosen-cell
+  §6.2.3. P4 follow-up: 7 cells × 5 datasets paired-bootstrap sweep on
+  `llava-onevision-qwen2-7b-ov`, same calibration scope (PlotQA + InfoVQA pooled n=5,000),
+  same (a−m) K=16 subspace. Cells: L ∈ {5, 10, 15, 20, 25, 27} × K=8 × α=1.0
+  (P3 layer sweep) + L=26 × K=1 × α=1.0 (P2 single-direction falsification).
+  **Results**: (P3) PlotQA n=2,306 shows clean late-layer specificity — L=5/L=10/L=15
+  null (point estimates ±1.6 pp), **L=20 -4.7 [-6.4, -3.0] sig + L=25 -3.0 [-4.8, -1.2] sig**,
+  L=27 -0.7 [-2.2, +0.8] ns (peak at L=20-26 plateau, L=27 "too late"); TallyQA n=4,978
+  mirrors with **L=20 -1.1 [-2.0, -0.2] sig** (smaller magnitude — baseline floor).
+  (P2) **TallyQA K=1 +1.4 [+0.5, +2.2] sig BACKFIRE** (n=4,975) — sign-flip vs §6.2.3
+  chosen-cell K=8 -0.3 ns; PlotQA K=1 -0.4 [-1.7, +0.9] ns vs K=8 chosen -5.2 sig
+  (gap 4.85 pp ≈ 4.4σ). OneVision-internal verification of single-direction failure,
+  mirrors §6.4 LEACE rank-1 ChartQA +56 % backfire (5-mech panel). **Caveats**: (a)
+  eager→SDPA precision drift ~2 % boundary-sample divergence between §6.2.3 chosen-cell
+  (eager) and P4 sweep (SDPA post-commit 5c2f52b); P4 sweep methodologically self-consistent
+  but §6.2.3 chosen-cell numbers referenced separately; (b) Δem(b) all-layer positive on
+  all 5 datasets (L=5/L=10 K=8 included), §6.3 Insight 1.5 Alt-1 (general regularization)
+  unfalsified — random-K=8 baseline (§8.4 #3) remains the definitive falsifier. Lands
+  paper §6.2.4 (new sub-section with Table P4.1 cross-dataset layer sweep + Table P4.2
+  K=1 vs K=8 + Figure 13). Source: `outputs/e6_steering/llava-onevision-qwen2-7b-ov/
+  sweep_subspace_<ds>_..._p4_layer_sweep_K1_{layers_K8,L26_K1}/predictions.jsonl`,
+  generator `scripts/aggregate_e6_layer_sweep_p4.py`, launcher
+  `scripts/_p4_layer_sweep_K1_followup.sh`. Total GPU: ~12.5 H200-hour wall.
+
 - **2026-05-11 PM (Paper drop encoder-family-determines-archetype as
   contribution — PR #25).** §5.3's own finding (OneVision Main bimodal
   L14/L27 across datasets) + FastVLM cross-dataset peak shift
