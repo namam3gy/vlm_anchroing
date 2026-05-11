@@ -410,19 +410,19 @@ Main 모델 `llava-onevision-qwen2-7b-ov`을 **PlotQA + InfoVQA pooled** wrong-b
 
 **Table P4.2.** P2 K=1 falsification at L=26 — same calibration, same α. **K=1 fails to reach the K=8 effect on every dataset**.
 
-| Dataset | K=1 Δdf [95 % CI] | K=8 Δdf [95 % CI] (§6.2.3 ref) | Gap (pp) |
-|---|---:|---:|---:|
-| TallyQA | <TBD> | -0.3 [-1.3, +0.6] | <TBD> |
-| PlotQA | -0.4 [-1.7, +0.9] ns | **-5.2 [-6.9, -3.4]** sig | **-4.85** |
-| InfoVQA | -1.4 [-4.5, +1.8] ns | -0.7 [-4.7, +3.4] ns | -0.65 |
-| ChartQA | -2.7 [-6.7, +1.3] ns | -4.0 [-9.8, +1.8] ns | +1.32 |
-| MathVista | +5.3 [-2.4, +12.9] ns | -4.1 [-11.8, +3.5] ns | +9.40 |
+| Dataset | n_paired | K=1 Δdf [95 % CI] | K=8 Δdf [95 % CI] (§6.2.3 ref) | Sign-flip? |
+|---|---:|---:|---:|---|
+| **TallyQA** | 4,975 | **+1.4 [+0.5, +2.2]** sig **BACKFIRE** | -0.3 [-1.3, +0.6] ns | **✓ Sign flip** |
+| PlotQA | 2,306 | -0.4 [-1.7, +0.9] ns | **-5.2 [-6.9, -3.4]** sig | (K=1 null vs K=8 sig) |
+| InfoVQA | 443 | -1.4 [-4.5, +1.8] ns | -0.7 [-4.7, +3.4] ns | (both ns) |
+| ChartQA | 224 | -2.7 [-6.7, +1.3] ns | -4.0 [-9.8, +1.8] ns | (both ns, same sign) |
+| MathVista | 170 | +5.3 [-2.4, +12.9] ns | -4.1 [-11.8, +3.5] ns | (sign-flip ns) |
 
 **Figure 13.** Layer sweep Δdf with K=8 line (blue, shaded 95 % CI) + K=1 marker at L=26 (red square). One sub-panel per dataset. Reference: `docs/figures/p4_layer_sweep_delta_df.png`.
 
 **P3 reading (late-layer specificity).** PlotQA (highest power, n=2,306, K=8 calibration scope) shows the cleanest verification — L=5/L=10/L=15 K=8 Δdf 모두 CI overlap 0 (point estimates ±1.6 pp), L=20 K=8 **-4.7 pp [-6.4, -3.0]** + L=25 K=8 **-3.0 pp [-4.8, -1.2]** 모두 **excludes 0**, §6.2.3 chosen-cell L=26 -5.2 pp 와 같은 방향. *L=27은 점추정 -0.7 pp [-2.2, +0.8] ns로 다시 null* — peak는 *L=20-26 좁은 plateau*, L=27은 "too late" (답안 token 결정 후 redirect 불가) 라는 §5.4 Prediction 3 의 *결정 직전 통합 site* 해석과 일관 (즉 framework P3 의 "early null + late significant" 만이 아니라 "very late null"까지 함께 verify). MathVista n=170 에서도 L=20 -7.7 pp [-14.1, -0.6] sig. *Anchor signal 통합은 mid-stack residual layer L≈20 부터 시작되어 late layer L=25-26 근방에서 plateau, L=27 이후 redirect-불가*라는 §5.4 P3 의 직접 verification — sharp peak at L=20-26 in 28-layer Qwen2 backbone. (ChartQA · InfoVQA 작은 n=224, 443은 개별 cell sig 아니지만 layer trend는 일관.)
 
-**P2 reading (single-direction fails).** PlotQA n=2,306 에서 K=1 Δdf = -0.4 pp [-1.7, +0.9] *ns* — 동일 L=26 + α=1.0 위에서 *K만* 1로 줄이면 chosen-cell K=8 의 -5.2 pp 효과가 사라진다. **Gap = 4.85 pp ≈ 4.4σ**, eager→SDPA baseline drift (~ ±1 pp 상한) 5× 압도. *Single-direction subspace는 anchor pull 의 cross-dataset signal 을 capture 하기 부족하다* — §5.4 P2 의 OneVision-internal verification (§6.4 LEACE rank-1 ChartQA +56 % 역행과 동일 방향).
+**P2 reading (single-direction fails — and backfires).** 두 가지 OneVision-internal evidence: (i) **PlotQA n=2,306 에서 K=1 Δdf = -0.4 pp [-1.7, +0.9] *ns*** — 동일 L=26 + α=1.0 위에서 *K만* 1로 줄이면 chosen-cell K=8 의 -5.2 pp 효과가 사라진다 (gap 4.85 pp ≈ 4.4σ, eager→SDPA baseline drift ~±1 pp 5× 압도); (ii) **TallyQA n=4,975 에서 K=1 Δdf = +1.4 pp [+0.5, +2.2] sig BACKFIRE** — K=1 은 단순 fail이 아니라 *anchor pull 을 증폭*, K=8 chosen (-0.3 ns) 과 명확한 sign-flip. 본 sign-flip 은 §6.4 의 LEACE rank-1 ChartQA +56 % 역행 (5-mech panel) 패턴이 *OneVision-internal* 위에서도 재현됨을 보이며, **single-direction subspace 는 dataset 마다 *다른 방향* 에 정렬되어 한 dataset 에서 보정한 direction 이 다른 dataset 에서 *역효과*를 낼 수 있다**는 §5.4 P2 의 직접 증거. *§6.4 cross-architecture LEACE 역행 + 본 절 OneVision-internal K=1 역행 두 angle 이 모두 single-direction failure 의 predict-then-verify chain 을 강화*한다.
 
 **Caveat — Δem(b) all-layer positive (§6.3 Insight 1.5 reaffirmed).** Layer sweep Δem(b) 는 모든 layer (L=5, L=10, L=15 포함) 에서 positive (PlotQA L=5 K=8 Δem(b) +2.3 pp [+1.2, +3.5] sig 등) — *anchor signal integration site* 만에 국한되지 않음을 확인. 본 결과는 §6.3 Insight 1.5 에서 사전 명시한 **Alt-1 (general regularization)** 가설을 *falsify하지 않으며*, K=8 random-subspace baseline (§8.4 후속 작업 3) 의 head-to-head 비교가 유일한 결정적 분리이다. P3 의 *Δdf* 기반 verification 은 본 caveat 와 독립이다 — anchor-pull 감소는 late-layer 에서만 sig, generic regularization 신호는 모든 layer 에서 sig 라는 *분리*가 오히려 두 효과의 distinct mechanism 을 시사한다.
 
