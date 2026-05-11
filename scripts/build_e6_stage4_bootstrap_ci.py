@@ -9,6 +9,17 @@ mitigation arms. For each bootstrap resample we recompute both
 denominator and df's `pa != pb` clause both shift correctly with the
 arm's own predictions — see build_e6_stage4_summary.py:_metrics).
 
+R4 MAJ-1/MAJ-2 (Bonferroni-540 selection-rule multiplicity over the
+27-cell pilot grid × 20-test family) is *not* applied here. The strict
+correction would read the 0.00463 % / 99.99537 % tail quantiles of the
+draws below — but for the small-n datasets (ChartQA n=224, MathVista
+n=170) those quantiles land exactly on the 1/n empirical discretization
+floor, not on a statistically informative bound (see
+`docs/insights/E6-bonferroni540-smalln-floor.md` for the diagnostic).
+Bonferroni-20 (5 datasets × 4 metric = 20 family) is retained as the
+headline correction; the 27-cell selection layer is disclosed in §6.2.3
+prose and §8.4 item 8 instead.
+
 Inputs (per dataset):
   outputs/e6_steering/<MODEL>/sweep_subspace_<ds>_<SCOPE>_chosen/predictions.jsonl
 
@@ -114,10 +125,13 @@ def _per_sid_indicators(arm_data: dict, sids: list[str]) -> dict[str, np.ndarray
         a = arm_data[sid].get("target_plus_irrelevant_number_S1")
         if not (b and a):
             continue
+        import math
         pb = _try_float(b["parsed_number"])
         pa = _try_float(a["parsed_number"])
         anchor = _try_float(a.get("anchor_value"))
         if pb is None or pa is None or anchor is None:
+            continue
+        if not (math.isfinite(pb) and math.isfinite(pa) and math.isfinite(anchor)):
             continue
         gt_b = _try_int(b.get("ground_truth"))
         gt_a = _try_int(a.get("ground_truth"))
