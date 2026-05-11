@@ -598,6 +598,33 @@ contingent on P0-1 bridge experiment.
 
 ## 10. Changelog
 
+- **2026-05-11 PM (Bonferroni-540 free-recompute aborted — small-n
+  bootstrap floor diagnostic, §6.2.3 + §8.4 item 8 update).** Round-4
+  MAJ-1/MAJ-2's "free recompute" task — read 99.99 % tail quantiles of
+  existing paired-bootstrap draws to widen Bonferroni-20 CIs into
+  Bonferroni-540 CIs covering the 27-cell pilot grid selection layer
+  — turns out to be *noninformative* on the two small-n datasets.
+  Diagnostic at B = 100,000 paired-bootstrap (`scripts/build_e6_stage4_bootstrap_ci.py
+  --bootstrap 100000`): for ChartQA n = 224 and MathVista n = 170, the
+  bootstrap Bonferroni-540 Δem(b) lower bound lands *exactly* on the
+  1/n empirical discretization floor (ChartQA +0.89 pp = 2/n;
+  MathVista +0.59 pp = 1/n), and parametric normal-approximation
+  99.99 % CIs (`Δ ± 3.91 · SE`) include zero on the same two cells
+  (ChartQA LO = −0.05 pp, MathVista LO = −0.50 pp). Bootstrap and
+  parametric agree on PlotQA / TallyQA / InfoVQA (n ≥ 443). Decision:
+  retain Bonferroni-20 (5 × 4 = 20 family) as headline correction;
+  disclose 27-cell selection layer in §6.2.3 prose only with pointer
+  to new diagnostic doc. Edits: `docs/paper/emnlp_draft_ko.md`
+  §6.2.3 honest note (replaces "would survive at Bonferroni-540"
+  hedge with sample-size diagnostic), §8.4 item 8 split into 8(a)
+  free + 8(b) ~5 H100-hour (additional n ≥ 1,000 dataset inference
+  required to escape 1/n floor on small-n cells); new doc
+  `docs/insights/E6-bonferroni540-smalln-floor.md` with reproducible
+  snippet; `scripts/build_e6_stage4_bootstrap_ci.py` docstring
+  refreshed to point at the doc and explain why Bonferroni-540
+  quantiles are not output. PR `worktree-bonferroni-540-recompute →
+  master`.
+
 - **2026-05-11 PM (Paper drop encoder-family-determines-archetype as
   contribution — PR #25).** §5.3's own finding (OneVision Main bimodal
   L14/L27 across datasets) + FastVLM cross-dataset peak shift
