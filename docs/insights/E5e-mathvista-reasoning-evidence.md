@@ -22,7 +22,9 @@ Notebook: `notebooks/E5e_reasoning_ablation.ipynb`.
 > samples*, where instruct mode shows almost none.** On MathVista S1
 > anchor arm, `direction_follow_rate` C-form jumps from 0.021
 > (qwen3-instruct) to 0.267 (qwen3-thinking) on correct-base records —
-> a **×12.7 amplification** that the all-base headline (×2.9) hides.
+> a **×12.7 amplification** (paired-bootstrap 95 % CI [×6.23, ×56.31];
+> n=365 paired sids, B=10,000; §6) that the all-base headline (×2.9)
+> hides.
 > Wrong-base df only goes from 0.256 → 0.327 (×1.28). The H2
 > wrong > correct asymmetry that holds across the entire main panel
 > **collapses** in reasoning mode: thinking pulls correct answers
@@ -89,8 +91,11 @@ asymmetry.
 - thinking: **0.267** (anchor pulls correct answers as strongly as
   wrong ones; df(0.267) ≈ df(0.327) on wrong-base).
 
-The thinking ÷ instruct ratio on this single cell is **×12.7**, vs ×1.28
-on wrong-base. The all-base ×2.9 headline averages these two regimes
+The thinking ÷ instruct ratio on this single cell is **×12.69**
+(paired-bootstrap 95 % CI [×6.23, ×56.31]; lower bound separates from 1
+even under the right-skewed percentile distribution of a ratio with a
+sparse-numerator denominator — see §6 for details), vs ×1.28 on
+wrong-base. The all-base ×2.9 headline averages these two regimes
 together and undersells the qualitative finding.
 
 ### 3.1 H2 / H7 framing
@@ -205,11 +210,29 @@ framework (alongside §6.4 LEACE rank-1 ChartQA +56 % reversal).
 
 ## 6. Caveats
 
-- **n = 365** on each anchor arm. Confidence intervals on the
-  correct-base df cell (n = 214 for thinking, n = 238 for instruct) are
-  wide. Bootstrap 95 % on `df(a) correct, thinking` is approximately
-  [0.21, 0.33]; on instruct correct it's [0.005, 0.045]. The ratio is
-  decisively > 1 even at the lower bounds.
+- **n = 365** paired sids on each anchor arm. **Paired-bootstrap 95 %
+  CI** (sid-level resample, arm-conditional `base_correct` filter,
+  B=10,000, seed=42; data
+  `docs/insights/_data/qwen3vl_x12_7_paired_ci.{csv,json}`):
+
+  | quantity                          | point  | 95 % CI            |
+  |-----------------------------------|--------|--------------------|
+  | instruct df(a) correct (5 / 238)  | 0.0210 | [0.0042, 0.0413]   |
+  | thinking df(a) correct (56 / 210) | 0.2667 | [0.2085, 0.3286]   |
+  | ratio = thinking ÷ instruct       | 12.69  | **[6.23, 56.31]**  |
+  | log-ratio                         | 2.541  | [1.83, 4.03]       |
+
+  The lower bound **× 6.23** is the load-bearing quantity: thinking-mode
+  amplifies the correct-base direction-follow rate by *at least* ~6.2 ×
+  with 95 % confidence. The heavy upper tail (× 56) reflects the
+  sparsity of the instruct numerator (5 direction-follow events out of
+  238 numeric-pair correct-base trials); the percentile-bootstrap of a
+  ratio with a small-event denominator is intrinsically right-skewed.
+  74 / 10,000 resamples drew an instruct subset with zero direction-follow
+  events and were excluded from the ratio CI. The point estimate × 12.7
+  sits well inside the CI; the qualitative claim
+  ("reasoning-mode collapses the wrong/correct asymmetry") is robust to
+  resampling.
 - **Same architecture, different training**. The Instruct vs. Thinking
   weights diverge during reasoning-mode SFT/RL. We cannot fully
   separate "reasoning trace presence" from "Thinking-checkpoint
