@@ -354,7 +354,9 @@ Main 모델 `llava-onevision-qwen2-7b-ov`을 **PlotQA + InfoVQA pooled** wrong-b
 
 #### 6.2.3 5-dataset cross-evaluation (paper headline)
 
-선택 cell 동결 + 추가 tuning 없이 5개 dataset (full GT range, dataset당 n=5,000 wrong-base)에서 paired-sids deltas로 평가 (Table 7).
+선택 cell 동결 + 추가 tuning 없이 5개 dataset (full GT range, dataset당 n=5,000 wrong-base)에서 paired-sids deltas로 평가 (Figure 7, Table 7).
+
+![Figure 7 — E6 Stage-4 (L = 26, K = 8, α = 1.0) 5-dataset paired-bootstrap deltas, 두 headline clause를 한 panel에 carry. (좌) Δdf(a) anchoring-effect clause — PlotQA n=2,306만 95 % CI excludes 0 ([−6.9, −3.4]); 나머지 4 small-n cell은 점추정 음 부호 일관이지만 CI가 0을 포함 (CI half-width sample-size에 비례). (우) Δem(b) non-anchored arm capability clause — 5/5 cell 95 % CI excludes 0 (Bonferroni-20 후에도 동일, 부록 §A.5). Row는 `n_paired` 내림차순; 강조색 = headline 방향으로 0 제외, 회색 = CI가 0 포함. Source `docs/insights/_data/stage4_final_per_dataset_ci.csv`, builder `scripts/build_paper_stage4_paired_ci_figure.py`.](../figures/paper_6_2_3_stage4_5dataset_paired_ci.png)
 
 **Table 7.** E6 Stage 4-final, paired-sids paired wrong-base deltas with paired-bootstrap 95 % CI (B = 10,000, sid 단위 paired resampling, per-arm denominator/numerator 매 resample 재계산). Bold = 95 % CI excludes 0 in headline direction. 추가 Bonferroni-20 corrected (99.75 %) CI는 부록 §A.5 reproducibility.
 
