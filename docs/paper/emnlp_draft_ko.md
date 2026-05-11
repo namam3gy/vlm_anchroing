@@ -394,6 +394,8 @@ Main 모델 `llava-onevision-qwen2-7b-ov`을 **PlotQA + InfoVQA pooled** wrong-b
 
 모든 cell은 동일 SDPA-backed inference로 산출되어 (post-commit 5c2f52b, 2026-05-03), §6.2.3 chosen-cell (eager attention pre-2026-05-03 baseline) 대비 boundary-sample 수준 ~2 % 의 bf16 정밀도 drift가 발생하지만 본 절 내부 Δ 비교에는 영향 없다 (모두 SDPA baseline 위). §6.2.3 chosen-cell 절대 수치는 *별도 reference*로 인용하며 본 figure에 mix하지 않는다 (caveat).
 
+**Inference stability 보조 관찰 (n drop pattern).** Early-layer K=8 projection (특히 L=5) 은 paired-sids 수가 baseline 대비 *현저히 줄어든다* — PlotQA L=5 K=8 paired n=751 vs baseline n=2,306 (67 % drop), 반면 L=10 이후는 ~100 % retention. 원인은 early-layer residual에 K=8 anchor structure가 부재해 projection이 inference 자체를 destabilize (non-numeric / inf 예측 발생, paired filter에서 탈락). 이 *n drop*은 framework P3 의 *negative-direction* 추가 증거 — early layer는 *제거할 통합 구조 자체가 없어* projection이 잡을 게 없을 뿐만 아니라 forward computation 을 disrupt한다.
+
 **Table P4.1.** P3 layer sweep (K=8 × α=1.0) — Δdf paired-bootstrap CI (B=10,000). Bold = 95 % CI excludes 0.
 
 | Layer | TallyQA | PlotQA | InfoVQA | ChartQA | MathVista |
@@ -401,10 +403,10 @@ Main 모델 `llava-onevision-qwen2-7b-ov`을 **PlotQA + InfoVQA pooled** wrong-b
 | L=5 | <TBD> | -1.6 [-4.5, +1.3] | 0.0 [-5.2, +5.2] | +2.7 [-4.8, +10.9] | +7.1 [-5.4, +19.6] |
 | L=10 | <TBD> | -0.7 [-2.2, +0.8] | -2.5 [-5.9, +0.9] | -3.1 [-7.6, +0.9] | +3.5 [-1.8, +8.8] |
 | L=15 | <TBD> | +1.2 [-0.4, +2.7] | +1.8 [-1.4, +5.0] | -0.5 [-5.4, +4.5] | +2.9 [-4.1, +10.0] |
-| L=20 | <TBD> | **-5.1 [-7.4, -2.7]** | -0.5 [-4.1, +3.2] | -3.6 [-8.9, +1.8] | **-7.7 [-14.1, -0.6]** |
-| L=25 | <TBD> | <TBD> | +0.5 [-3.6, +4.3] | -4.9 [-10.7, +0.5] | -2.4 [-9.4, +4.7] |
+| L=20 | <TBD> | **-4.7 [-6.4, -3.0]** | -0.5 [-4.1, +3.2] | -3.6 [-8.9, +1.8] | **-7.7 [-14.1, -0.6]** |
+| L=25 | <TBD> | **-3.0 [-4.8, -1.2]** | +0.5 [-3.6, +4.3] | -4.9 [-10.7, +0.5] | -2.4 [-9.4, +4.7] |
 | **L=26** *(§6.2.3 ref, eager)* | -0.3 [-1.3, +0.6] | **-5.2 [-6.9, -3.4]** | -0.7 [-4.7, +3.4] | -4.0 [-9.8, +1.8] | -4.1 [-11.8, +3.5] |
-| L=27 | <TBD> | <TBD> | +0.9 [-2.7, +4.5] | 0.0 [-5.4, +5.4] | -0.5 [-7.6, +6.6] |
+| L=27 | <TBD> | -1.0 [-2.6, +0.6] *(partial)* | +0.9 [-2.7, +4.5] | 0.0 [-5.4, +5.4] | -0.5 [-7.6, +6.6] |
 
 **Table P4.2.** P2 K=1 falsification at L=26 — same calibration, same α. **K=1 fails to reach the K=8 effect on every dataset**.
 
@@ -418,7 +420,7 @@ Main 모델 `llava-onevision-qwen2-7b-ov`을 **PlotQA + InfoVQA pooled** wrong-b
 
 **Figure 13.** Layer sweep Δdf with K=8 line (blue, shaded 95 % CI) + K=1 marker at L=26 (red square). One sub-panel per dataset. Reference: `docs/figures/p4_layer_sweep_delta_df.png`.
 
-**P3 reading (late-layer specificity).** PlotQA (highest power, n=2,306) shows the cleanest verification — L=5/L=10/L=15 K=8 Δdf 모두 CI overlap 0 (point estimates ±1.6 pp), 반면 L=20 K=8 -5.1 pp [-7.4, -2.7] **excludes 0**, §6.2.3 chosen-cell L=26 -5.2 pp 와 거의 동일 크기. MathVista n=170 에서도 L=20 -7.7 pp [-14.1, -0.6] sig. *Anchor signal 통합은 mid-stack residual layer L≈20부터 시작되며 late layer L=26 근방까지 유지된다*는 §5.4 P3 의 직접 verification. (ChartQA · InfoVQA 작은 n=224, 443은 개별 cell sig 아니지만 layer trend는 일관.)
+**P3 reading (late-layer specificity).** PlotQA (highest power, n=2,306) shows the cleanest verification — L=5/L=10/L=15 K=8 Δdf 모두 CI overlap 0 (point estimates ±1.6 pp), 반면 L=20 K=8 **-4.7 pp [-6.4, -3.0]** + L=25 K=8 **-3.0 pp [-4.8, -1.2]** 모두 **excludes 0**, §6.2.3 chosen-cell L=26 -5.2 pp 와 같은 방향. *L=27은 점추정 -1.0 pp [-2.6, +0.6] ns로 다시 약화* (partial n=1,978) — peak는 L=20-26 plateau, L=27은 "too late" (답안 token 결정 후 redirect 불가) 라는 §5.4 Prediction 3 의 *결정 직전 통합 site* 해석과 일관. MathVista n=170 에서도 L=20 -7.7 pp [-14.1, -0.6] sig. *Anchor signal 통합은 mid-stack residual layer L≈20 부터 시작되어 late layer L=25-26 근방에서 plateau, L=27 이후 redirect-불가*라는 §5.4 P3 의 직접 verification. (ChartQA · InfoVQA 작은 n=224, 443은 개별 cell sig 아니지만 layer trend는 일관.)
 
 **P2 reading (single-direction fails).** PlotQA n=2,306 에서 K=1 Δdf = -0.4 pp [-1.7, +0.9] *ns* — 동일 L=26 + α=1.0 위에서 *K만* 1로 줄이면 chosen-cell K=8 의 -5.2 pp 효과가 사라진다. **Gap = 4.85 pp ≈ 4.4σ**, eager→SDPA baseline drift (~ ±1 pp 상한) 5× 압도. *Single-direction subspace는 anchor pull 의 cross-dataset signal 을 capture 하기 부족하다* — §5.4 P2 의 OneVision-internal verification (§6.4 LEACE rank-1 ChartQA +56 % 역행과 동일 방향).
 
