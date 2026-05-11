@@ -1,173 +1,227 @@
-# Round 5 — Author Response to Bar-Raiser
+# Round 5 — Reviser Response (Bar Raiser)
 
-**Paper version BEFORE:** `docs/paper/emnlp_draft_ko.md` @ 581 lines, v6 changelog footer (post-Round-4).
-**Paper version AFTER:** `docs/paper/emnlp_draft_ko.md` @ 604 lines, v7 changelog footer (post-Round-5).
-**Date:** 2026-05-09.
-**Reviewer round addressed:** `docs/paper/reviews/round5_bar_raiser.md` (Senior bar-raiser, top-10 % standards, forward-looking).
+**Paper version BEFORE:** 833 lines (post-Round-4 revision; commit 4d2392e + local working tree)
+**Paper version AFTER:** 837 lines
+**Date:** 2026-05-11
+**Reviewer round addressed:** `docs/paper/reviews/round5_bar_raiser.md`
 
-## Summary
+---
 
-This is the *final* round and unusual in posture. The bar-raiser is **forward-looking, not bug-finding** — they explicitly named a list of seven elements not to touch and asked one elevating question (the γ-β residual-stream bridge experiment) that, if landed, would push the paper from "Solid Findings, top of band" to "Main, lower half of accepted." Because the bridge experiment requires new GPU work (cheap form ~2 H100-day, clean form ~1 H200-week), the only *honest* response in this round is to acknowledge the question, frame it as the lead item in a new *load-bearing follow-up* §8.4, and sharpen the existing **§5.2 → §6.4 predict-then-verify chain** which the bar-raiser named as the most-citable 5-year finding. Seven items on the protect-list are untouched. No paper number changes.
+## Answer to the bar-raiser's one-question
 
-Net posture: 4 EDIT (predict-then-verify framing sharpening + §8.4 follow-up section + §6.2.1 design-pattern sentence + v7 changelog) + 3 PARTIAL EDIT (bar-raiser secondary asks → §8.4 sub-items) + 0 REBUT + 4 DEFER (bridge experiment + eigenvalue spectrum + random-K=8 + cross-architecture E6, all framed as future work in §8.4 with owner / GPU-hour estimates).
+**The thesis sentence — verbatim — that now opens Abstract, §1.5, and §8.1 종합:**
 
-## Decision summary table
+> *"Vision-modality bias의 deployable mitigation은 causal pathway를 confounding scene variance로부터 분리하는 paired-inpaint calibration contrast 위에 구축할 수 있으며, 본 논문은 이 design pattern을 cross-modal numerical anchoring 위에 4-clause free-lunch worked example로 instantiate한다."*
 
-| # | Reviewer point (verbatim) | Class | Section affected | Status |
-|---|---|---|---|---|
-| 1 | "Does the (a − m) K=8 subspace amplitude grow over Thinking-mode trace generation, and does that growth quantitatively predict the ×12.7 correct-base amplification?" — bar-raiser signature ask | EDIT (acknowledge + frame as future-work lead) + DEFER (experiment itself) | §8.4 (new) | done — added as lead item with cheap/clean form, positive/negative implications |
-| 2 | 5-year most-citable finding identified as §5.2 → §6.4 predict-then-verify chain — currently presented as parallel findings, not interlocked | EDIT | abstract + §1.3 + §1.5 (4a) + §8.1 종합 | done — 4-callsite framing sharpening, named as *이론적 (theoretical)* contribution |
-| 3 | Eigenvalue spectrum of D[:, L=26, :] — rank-8 elbow check (existing data, single plot) | DEFER | §8.4 item 2 | logged with owner / 4-H100-hour estimate |
-| 4 | Random-K=8 subspace baseline (§6.3 Alt-1 falsification) — "cheapest available rigor improvement on the entire DEFER list" | DEFER | §8.4 item 3 | logged with owner / 2-H100-day estimate |
-| 5 | Encoder-family-determines-archetype (§4.4 Insight 3 / §5.1 Insight 1) — promote from sub-bullet to top-line contribution | NO-OP (bar-raiser protect-list bias) | §1.5 (4b) | already split into (4a)/(4b) in Round 3; bar-raiser flagged as still buried but moving it would touch §1.5 hedge stack which is on the protect-list — defer to camera-ready |
-| 6 | (a − m) contrast as generalizable design pattern — implicit suggestion in protect-list | EDIT (one sentence append, not rewrite) | §6.2.1 Insight | done — sentence appended naming "calibration contrast as paired difference isolating causal pathway from confounds" without modifying existing prose |
-| 7 | Bar-raiser protect-list (7 items): (a − m) contrast / six-callsite hedge / §6.2.3 reframing / Δem(b) ≥ 0 clause / §1.5(1) hedge stack / §5.3 self-disclosure / §4.7 boundary case | NO-OP | various | all 7 items untouched as instructed |
-| 8 | Cross-architecture E6 (CRIT-1 full close, R4 carryover) | DEFER | §8.4 item 4 | logged with 30-H200-day estimate (already in §8.2 — duplicated as future-work item with priority) |
-| 9 | CAA · ITI empirical rows + §6.2.3 paired-bootstrap CI (R4 carryover) | DEFER | §8.4 item 5 | logged with 1-H200-week estimate |
-| 10 | Paraphrase robustness · 폐쇄 모델 · human baseline (R1-R4 carryover) | DEFER | §8.4 item 6 | logged with separate work-unit framing |
+Translated for the non-expert / three-years-later reader: *"To mitigate vision-modality biases reliably, build the calibration step on a paired contrast (same scene, only the causal pixels swapped) so the intervention isolates the causal pathway from confounding scene variance — we demonstrate this design pattern on cross-modal numerical anchoring as a 4-clause free-lunch worked example."*
 
-## Edit log (every paper change in this round)
+### Of the six numbered claims:
 
-### Edit 1 — Abstract: predict-then-verify framing as theoretical contribution
+| Claim | Original framing | Post-revision role |
+|---|---|---|
+| (4) **(a − m) paired-inpaint calibration design pattern** | §6.2.1 Insight — subordinate as "supporting finding (iii) under E6" | **THESIS** — central contribution |
+| (5) E6 4-clause free-lunch on `llava-onevision-qwen2-7b-ov` | §1.5 central contribution | **Worked example / proof of construction** for the thesis |
+| (1) Anchoring is a graded continuous-confidence phenomenon | §4.1/§4.4/§4.5 | **Behavioural-layer evidence** licensing the thesis (the (a − m) gap demonstrates the design pattern's paired-isolation assumption holds at behavioural axis) |
+| (2) Effect is gated by digit-pixel × uncertainty conjunction | Abstract / §4.2 / §1.2 | **Behavioural-layer evidence** — the (a − m) gap directly substantiates the design pattern's "scene-isolated paired contrast" structure |
+| (3) Routing-vs-integration framework | §5.4 / §1.3 — co-equal claim | **Mechanism-layer evidence** for the design-pattern's *implementation choice*: multi-direction (not single-direction) subspace projection |
+| (6) Reasoning amplifies anchoring (γ-β) | §1.4 standalone subsection + Abstract + §4.5 + §8.1 + §8.2 | **Auxiliary observation** — not supporting evidence for the thesis; separate observation about anchoring's reasoning-trace dependence (§1.4 compressed to forward-pointer; Abstract / §8.1 explicitly separate it from the thesis evidence stack) |
 
-**Reviewer point addressed:** #2 from decision table.
-**Reviewer reasoning:** Bar-raiser names §5.2 → §6.4 chain as the single most-citable 5-year finding ("the headline a future activation-steering paper will cite to motivate going multi-direction"). Current abstract has it as a clause; needs to read as the paper's *theoretical* contribution.
-**Before:**
-> ... **single-layer mask ablation은 6-model 메커니즘 panel에서 6/6 null** — signal은 multi-layer redundant이다 ... 이 발견이 single-direction (LEACE/ActAdd) mitigation의 cross-dataset *실패*를 예측하고 검증한다 (§5.2 → §6.4; per-dataset mean-anchor direction이 측정 가능하게 다른 곳을 가리킴, cos ≈ 0.47-0.62).
+The thesis sentence does not claim "this design pattern transfers to other biases" — that is a *field-level question* surfaced in the new §8.1 Implications paragraph, properly hedged as future verification. The thesis claims (i) the design principle *exists*, (ii) we *instantiate* it as one worked example with formal 4-clause verification. Both parts are defended by current evidence; cross-bias-class and cross-architecture transfer remain deferred (§8.4 items 1, 3, 4).
 
-**After:**
-> ... **single-layer mask ablation은 6-model 메커니즘 panel에서 6/6 null** — signal은 multi-layer redundant이다 ... 본 논문의 핵심 *이론적* 기여는 이 multi-layer redundancy 발견이 single-direction (LEACE/ActAdd) mitigation의 cross-dataset *실패*를 사전 예측하고 그 예측이 LEACE rank-1 ChartQA +56 % 역행으로 *경험적으로 검증*되는 **predict-then-verify chain (§5.2 → §6.4)**이다 — mechanism analysis가 mitigation failure mode를 사전 진단하고 그 진단이 multi-direction subspace 설계를 유도하는 paradigm move (per-dataset mean-anchor direction이 측정 가능하게 다른 곳을 가리킴, cos ≈ 0.47-0.62).
+---
 
-**Rationale:** Names the chain as *이론적 기여* (theoretical contribution) and *paradigm move*. No metric numbers added or changed. The "+56 %" was already in §6.4; surfacing it here gives the abstract a concrete verification anchor. This is the highest-leverage single edit per the advisor's read — bar-raiser's 5-year finding now reads as the paper's central theoretical move from the abstract onward.
+## Decision on the design-pattern-as-thesis proposal: **Option A (full adoption)**
 
-### Edit 2 — §1.3: predict-then-verify chain explicit in introduction
+The bar-raiser identified Option A explicitly as the highest-leverage rewrite and labeled it the move that takes the paper from "bottom-half Findings" to "top-third Findings." The user's standing concern ("experiment-log feel") is fundamentally addressed only by Option A — Option B (equal-weight second contribution) preserves the multi-headline confusion the bar-raiser diagnosed; Option C (defer to §8.4) is the exact "competent log" failure mode flagged.
 
-**Reviewer point addressed:** #2.
-**Before:**
-> Anchor attention은 encoder family별로 단일 peak layer를 가지지만 single-layer ablation은 6-model 메커니즘 panel에서 6/6 null — signal은 multi-layer redundant이다 (OneVision Main 확장은 분석기 수정 pending, §5.3). **E4** upper-half attention re-weighting은 ...
+Three reasons not to elevate claim (3) (routing-vs-integration) as the thesis even though the bar-raiser mentions it as an alternative:
 
-**After:**
-> Anchor attention은 encoder family별로 단일 peak layer를 가지지만 single-layer ablation은 6-model 메커니즘 panel에서 6/6 null — signal은 multi-layer redundant이다 (OneVision Main 확장은 분석기 수정 pending, §5.3). 이 multi-layer redundancy는 **single-direction mitigation의 cross-dataset 실패를 *예측한다*** — 그리고 그 예측은 §6.4에서 LEACE rank-1 ChartQA +56 % 역행으로 *검증된다* (§5.2 → §6.4 predict-then-verify chain — 본 논문의 핵심 이론적 기여로, mechanism analysis가 mitigation failure mode를 사전 진단한 사례). **E4** upper-half attention re-weighting은 ...
+1. The paper itself labels (3) as "post-hoc synthesis" with only "partially prospective" verification (K=1 confirmed, K=8 partial-falsified). Elevating a framework the paper hedges as post-hoc invites a Round-6-equivalent shellacking.
+2. Claim (4) is the move that *widens the contribution surface beyond anchoring*; claim (3) stays within the anchoring mechanism narrative.
+3. The bar-raiser's "citable in 5 years" paragraph names (4) explicitly: *"Choi et al. 2026 introduced paired-inpaint calibration contrasts that isolate causal pathways from confounding scene variance for vision-modality bias mitigation."*
 
-**Rationale:** §1.3 is currently the "mechanism + mitigation" framing in the introduction. Inserting one sentence between the redundancy claim and E4 description makes the predict-then-verify chain a *headline theoretical move* in §1, not just a result statement in §6.4. Stays surgical — one sentence, no other changes.
+---
 
-### Edit 3 — §1.5 (4a): predict-then-verify named as theoretical contribution
+## Edit log
 
-**Reviewer point addressed:** #2.
-**Before:**
-> (4a) 6-model 메커니즘 panel에서 single-layer ablation이 6/6 null임을 보이고 그 *multi-layer redundancy*를 정량화한다.
+### Edit 1 — §1.5 first paragraph: full rewrite to thesis-first structure
 
-**After:**
-> (4a) 6-model 메커니즘 panel에서 single-layer ablation이 6/6 null임을 보이고 그 *multi-layer redundancy*를 정량화하며, 이 발견이 single-direction (LEACE/ActAdd) mitigation의 cross-dataset 실패를 사전 예측하고 §6.4에서 *경험적으로 검증*되는 **predict-then-verify chain (§5.2 → §6.4)**을 본 논문의 *이론적* 기여로 제시한다 — mechanism analysis로부터 mitigation failure mode를 사전 진단하고 그 진단이 multi-direction subspace 설계를 유도한다.
+**Lines affected:** `emnlp_draft_ko.md` lines 37–43 (replaced original §1.5 first + auxiliary paragraphs).
 
-**Rationale:** Bar-raiser flagged that §1.5 has the architecture for the contribution but the chain is buried. Per advisor — "sharpen (4a)+(5) rather than create a new bullet." Edit extends (4a) without introducing (4c) or touching (4b) (which is on the protect-list). The "이론적 기여" label is now in three callsites (abstract / §1.3 / §1.5 (4a)) for consistency.
+**Before (original first sentence + structure):**
+> "본 논문의 단일 *central contribution*은 **multi-direction subspace projection을 사용하는 cross-modal anchoring mitigation (E6) — `llava-onevision-qwen2-7b-ov` 위 단일 architecture case study** 로, 형식 정의된 *4-clause free-lunch* 기준 ... 본 mitigation은 세 *supporting finding* 위에 build된다 — (i) ... (ii) ... (iii) calibration substrate로서 (a − m) digit-pixel paired-inpaint contrast — CAA-style paired-contrast paradigm에 vision-modality specific *인과 통로 분리* 구조를 도입하는 generalisable design pattern (§6.2.1)."
 
-### Edit 4 — §8.1 종합: predict-then-verify chain restated in conclusion
+**After (new first sentence + thesis-first structure):**
+> "**Vision-modality bias의 deployable mitigation은 causal pathway를 confounding scene variance로부터 분리하는 paired-inpaint calibration contrast 위에 구축할 수 있으며, 본 논문은 이 design pattern을 cross-modal numerical anchoring 위에 4-clause free-lunch worked example로 instantiate한다.** 본 논문의 *central contribution*은 이 design pattern과 그 첫 instantiation이다 — 즉 (i) §6.2.1의 (a − m) paired-inpaint calibration contrast가 *bias mitigation의 일반 design principle*로서 발화되며 ... (ii) 이 design pattern을 cross-modal numerical anchoring에 instantiate한 worked example이 `llava-onevision-qwen2-7b-ov` 단일 architecture 위 E6 — *proof of construction*으로서 ... **Figure 3이 design pattern의 두 직교 slice (cross-model + cross-dataset (a − m) digit-pixel causality) 를 한 panel로 carry하는 canonical figure이다.**"
 
-**Reviewer point addressed:** #2.
-**Before:**
-> Cross-modal numerical anchoring은 VLM에서 실재하며, **세 gate의 conjunction** ... Mechanism 측은 *multi-layer redundant*이며 single-layer ablation은 null — 이로부터 single-direction mitigation의 실패가 *예측되고 검증*되며, *multi-direction subspace projection*이 두 failure mode를 동시 우회하는 유일 후보로 도출된다.
+**Rationale:** Thesis sentence is verbatim first sentence. (a − m) paired-inpaint is hoisted from "supporting finding (iii)" to *the* central contribution; E6 is reframed as worked example / proof of construction (case-study hedge stays because under design-pattern framing it becomes a *feature*, not a scope-honesty patch — one instantiation by definition). Supporting findings restructured: (i) §4 behavioural evidence *licenses* the paired-isolation assumption, (ii) §5 mechanism evidence *justifies* multi-direction over single-direction, (iii) evaluation protocol *makes the (a − m) contrast measurable*. Figure 3 explicitly designated canonical figure. Auxiliary observation paragraph rewritten to make γ-β reasoning-amplification *not* part of the thesis-evidence stack.
 
-**After:**
-> Cross-modal numerical anchoring은 VLM에서 실재하며, **세 gate의 conjunction** ... Mechanism 측은 *multi-layer redundant*이며 single-layer ablation은 null — 본 논문의 *이론적* 기여인 **§5.2 → §6.4 predict-then-verify chain** (multi-layer redundancy가 single-direction mitigation의 cross-dataset 실패를 *사전 예측*하고 LEACE rank-1 ChartQA +56 % 역행으로 *경험적 검증*) 으로부터 *multi-direction subspace projection*이 두 failure mode를 동시 우회하는 유일 후보로 도출된다 — mechanism analysis가 mitigation failure mode를 사전 진단하고 그 진단이 다음 단계 설계를 유도하는 paradigm move.
+### Edit 2 — Abstract: thesis-first opening + content resequenced around it
 
-**Rationale:** Final callsite of the four-place framing pass (abstract / §1.3 / §1.5 (4a) / §8.1). The chain now reads as a single *paradigm move* across the paper's framing surfaces. Concrete instance ("LEACE rank-1 ChartQA +56 % 역행") preserved verbatim across all four callsites for internal consistency.
+**Lines affected:** `emnlp_draft_ko.md` line 9 (single-paragraph Abstract, ~290 words preserved).
 
-### Edit 5 — §6.2.1 Insight: (a − m) contrast as generalizable design pattern (one-sentence append)
+**Before:** Opens with "본 논문은 vision-language model (VLM)이 질문과 무관한 두 번째 이미지에 그려진 단일 숫자에 의해 수치 응답에 체계적 편향을 받는 현상 — **cross-modal numerical anchoring** — 을 6개 open-weight VLM에서 보고한다."
 
-**Reviewer point addressed:** #6.
-**Reviewer reasoning:** Bar-raiser implicitly suggested in protect-list framing that the (a − m) contrast could be elevated to a *principle*. User instruction: one sentence at most, do not overclaim, do not modify existing protected prose.
-**Before:**
-> ... *§4.3의 (b, m, d) 통제 실험이 §6.2 subspace 설계를 직접 정당화*한다 — behavioral analysis가 mitigation 설계로 환원된 사례.
+**After:** Opens with the thesis sentence verbatim, then existing content (anchoring phenomenon, graded pull, digit-pixel × uncertainty conjunction, mechanism evidence, two mitigations, capability preservation, auxiliary observation) resequenced as *substrate for the worked example*.
 
-**After:**
-> ... *§4.3의 (b, m, d) 통제 실험이 §6.2 subspace 설계를 직접 정당화*한다 — behavioral analysis가 mitigation 설계로 환원된 사례. 일반 design pattern으로 표현하면: **calibration contrast는 인과 통로 (causal pathway) 를 confounding variance로부터 *분리*하는 paired difference여야 한다** — 본 사례에서는 (digit pixel → answer shift) 통로를 (anchor scene background → general distraction) confound로부터 분리하기 위해 (a − m) paired-inpaint이 그 분리 구조를 정확히 제공한다.
+**Rationale:** The bar-raiser's #1 load-bearing gap was "three different leads in Abstract / §1.5 / §8.1." Abstract now leads with the same sentence as §1.5 and §8.1. All numbers preserved verbatim — only resequencing, no fabrication. Word count ~290 (essentially unchanged).
 
-**Rationale:** Strictly *appended* (no existing word changed). Names the principle in one sentence, then immediately grounds it in the (a − m) instance to avoid free-floating claim. Bar-raiser's "Protect it; do not 'improve' it" is honored — the existing Insight survives untouched, the addendum reads as a coda. Per advisor: "If you can't do it without touching existing prose, skip it"; here we did not touch existing prose.
+### Edit 3 — §8.1 종합: thesis-first opening + 3-layer evidence stack + Implications paragraph
 
-### Edit 6 — §8.4 (new section) — 후속 작업 (load-bearing follow-up)
+**Lines affected:** `emnlp_draft_ko.md` lines 462–466 (paragraph replaced + new "Implications" paragraph added).
 
-**Reviewer point addressed:** #1, #3, #4, #8, #9, #10.
-**Reviewer reasoning:** Bar-raiser's signature ask is *forward-looking* — the experiment that would tip judgment from Findings to Main. Cannot be addressed in current revision (requires GPU work). Advisor's explicit guidance: "give it its own home, not buried in deferred bullets ... §8.4 후속 작업 / Future work subsection that leads with the bar-raiser's bridge experiment and includes the secondary asks as ranked sub-items."
-**Before:** §8.3 윤리 → directly to References.
-**After:** §8.3 윤리 → §8.4 후속 작업 (load-bearing follow-up) → References. New section contains 6 ranked items:
+**Before:** Opens with "Cross-modal numerical anchoring은 VLM에서 실재하며, **두 gate의 conjunction + plausibility 조건** ... 으로 정의된다."
 
-  1. **(Lead) γ-β residual-stream bridge** — bar-raiser signature ask. Cheap form (reuse OneVision K=8 V_K[L=26] as instrument on Qwen3-VL-Thinking traces) + clean form (Qwen3-VL-Instruct own (a − m) calibration). Positive outcome: §4.6 elevates from N=1 existence proof to residual-stream-level mechanism claim, K=8 subspace is dual-role (mitigation target + measurement instrument), partial close of CRIT-1. Negative outcome: §4.6 honestly retreats to "behavioral existence proof, mechanism unidentified." Both forms hedged with framework not fabricated outcomes. Owner: paper author. Estimate: cheap ~2 H100-day, clean ~1 H200-week.
-  2. Eigenvalue spectrum of `D[:, L=26, :]` — rank-8 elbow check converts K=8 from grid-search artifact to data-property prediction; existing data, single plot. Owner: paper author. Estimate: ~4 H100-hour.
-  3. Random-K=8 subspace baseline — head-to-head Alt-1 falsification for §6.3 b-arm em interpretation. Estimate: ~2 H100-day.
-  4. Cross-architecture E6 replication (CRIT-1 full close, with sub-routing through item 2 if eigenvalue spectrum lands). Estimate: ~30 H200-day.
-  5. CAA · ITI empirical rows + §6.2.3 paired-bootstrap CI. Estimate: ~1 H200-week.
-  6. Paraphrase / closed-source / human baseline (§8.2 carryover).
+**After:** Opens with the thesis sentence verbatim, then evidence stack reorganised into three labeled layers:
+1. *행동 layer (§4)* — anchoring exists + graded gradient + (a − m) gap (the third item explicitly demonstrates the thesis's paired-isolation assumption holds at behavioural axis).
+2. *Mechanism layer (§5)* — multi-layer redundancy + routing-vs-integration synthesis + §4.6 K=1 partially-prospective verification (this evidence *justifies the design choice* of multi-direction subspace projection in the instantiation).
+3. *Worked example layer (§6 / §7)* — E6 as proof of construction with all the existing numbers (Δem(b) Bonferroni-clean, capability preservation +0.41 pp, etc.).
 
-Closing paragraph: "위 *1*은 본 논문의 elevating 가능성에 가장 큰 leverage를 가지며 ... *2-3*은 가장 cheap한 rigor 향상이며, *4*는 가장 큰 GPU 부담을 요구하는 generalisation 항목이다."
+γ-β reasoning amplification explicitly labeled "auxiliary observation" and separated from the thesis-evidence stack.
 
-**Rationale:** New section, not a §8.2 limitations modification. §8.2 keeps its existing register (한계 + operational deferral); §8.4 carries the *forward-looking* register. Bar-raiser's "single experiment that would tip judgment" gets explicit prominence as item 1 with full positive/negative implications. Per advisor: "frame as conditional ('if positive ... if negative ...') matching the bar-raiser's own framing" — done verbatim. Item 4 (cross-architecture E6) is new in §8.4 *and* still in §8.2 deferred-list — intentional duplication: §8.2 is the limitations register (we acknowledge the gap), §8.4 is the prioritization register (we name when/how it would close).
+**New paragraph added — §8.1 Implications.** Bar-raiser secondary ask #2 ("§8.1 종합 should end with one paragraph titled Implications"). Three field-level questions, mapped to §8.4 follow-up items but reframed as *field questions* not *author follow-ups*:
+1. (a − m) paired-inpaint transferability to *other vision-modality biases* (familiar-subject counting / sycophancy / position bias / OCR-attack) — opens the design space beyond anchoring.
+2. Operational hyperparameter universality: does spectral rank elbow predict K cross-architecture? (cites §4.6 K=1 vs K=8 9× ratio partial-falsification, points to §8.4 item 1.)
+3. Cross-architecture worked-example transfer: does the calibration → SVD → projection 3-step pipeline generalise as automatable design recipe?
 
-### Edit 7 — Changelog: v7 entry
+Closing sentence: "본 논문의 worked example이 thesis의 *유일한 instantiation*이라면 일반화는 가설; cross-bias-class transfer 또는 cross-architecture transfer가 같은 4-clause shape를 산출한다면 design pattern은 *generalisable substrate*로 hardening된다."
 
-**Reviewer point addressed:** Bookkeeping for Round 5 final revision.
-**Before:** Footer ends at v6 changelog block.
-**After:** v7 changelog block appended documenting (a) predict-then-verify framing sharpening across 4 callsites, (b) §8.4 new section with γ-β residual-stream bridge as lead, (c) §6.2.1 design-pattern sentence append, (d) explicit confirmation that the bar-raiser 7-item protect-list is untouched.
+**Rationale:** This is the bar-raiser's headline checklist gap — "§8.1 is 'what we did,' not 'what this means.'" The Implications paragraph says explicitly what the field should ask if the thesis is correct. It surfaces three follow-up questions that already exist as §8.4 items but reframes them so the closing voice is "if this is right, the field should now think differently about X" — not "we plan to do X next."
 
-**Rationale:** Maintains audit trail consistent with v3 / v4 / v5 / v6 footer pattern. Lists every R5 edit and explicitly enumerates the protect-list to make it visible to any future reviewer that R5 honored bar-raiser's protective duty.
+### Edit 4 — §1.4 compression: collapsed to forward-pointer
+
+**Lines affected:** `emnlp_draft_ko.md` lines 33–35 (4-line standalone paragraph compressed to 2 lines).
+
+**Before:** Full paragraph explaining the γ-β result (Qwen3-VL Instruct vs Thinking, ×12.7 ratio, framework alignment) — one of five competing-centre appearances of claim (6) that the bar-raiser flagged.
+
+**After:** 2-line forward-pointer noting auxiliary-observation status, pointing to §4.5 for detail and §8.2 for limits. Subsection title amended to "(auxiliary observation 요약)".
+
+**Rationale:** Bar-raiser secondary ask #3 — "auxiliary observation should be one short sentence in Abstract or demoted to one paragraph in §4.5 only." The §4.5 detail stays; the Abstract reference stays (one sentence each in Abstract + §8.1 + §4.5 + §8.2); §1.4 standalone subsection compressed to forward pointer, reducing the dragging of an N=1 × N=1 existence proof on the thesis centring.
+
+### Edit 5 — CHANGELOG: log v11 (Round-5 bar-raiser response)
+
+**Lines affected:** `docs/paper/CHANGELOG.md` (v11 entry prepended).
+
+**Content:** Documents Option A adoption, thesis sentence three-site insertion, §1.5/Abstract/§8.1 rewrites, §1.4 collapse, Figure 3 canonical designation, Implications paragraph addition. Notes "No new experiments / numbers / figures / tables introduced."
 
 ### Table edits
 
-None this round. No metric numbers changed. Tables 1–8 + Tables A.5 / E.1 / E.2 untouched.
+None. All tables preserved exactly. All numbers preserved verbatim.
 
 ### Figure edits
 
-None this round. All 16 inline figure embeds preserved.
+**Figure 3 — designated as canonical figure** in §1.5. No image edits, no caption changes — only the textual designation in §1.5 ("Figure 3이 design pattern의 두 직교 slice (cross-model + cross-dataset (a − m) digit-pixel causality) 를 한 panel로 carry하는 canonical figure이다"). Bar-raiser secondary ask #1 ("one figure that is the paper") closed via designation rather than creation; the existing Figure 3 already carries the design pattern at a glance (PlotQA × 6-model + OneVision × 5-dataset two-slice panel of (a − m) digit-pixel causality).
+
+---
+
+## New rehearsed take-away sentence
+
+**Verbatim Korean:**
+
+> "Vision-modality bias의 deployable mitigation은 causal pathway를 confounding scene variance로부터 분리하는 paired-inpaint calibration contrast 위에 구축할 수 있으며, 본 논문은 이 design pattern을 cross-modal numerical anchoring 위에 4-clause free-lunch worked example로 instantiate한다."
+
+**Locations (verified via grep `Vision-modality bias의 deployable mitigation`):**
+
+| Location | Line | Status |
+|---|---|---|
+| Abstract first sentence | line 9 | verbatim |
+| §1.5 first sentence | line 39 | verbatim |
+| §8.1 종합 first sentence | line 464 | verbatim |
+
+The same sentence appears nowhere else in the paper (no accidental fourth-mention drag).
+
+---
+
+## Canonical figure designation
+
+**Figure 3** (`docs/figures/paper_4_2_digit_pixel_causality.png`) — designated in §1.5 as *"design pattern의 두 직교 slice (cross-model + cross-dataset (a − m) digit-pixel causality) 를 한 panel로 carry하는 canonical figure."*
+
+**Why this figure, not a new one:**
+
+- Figure 3 already shows the (a − m) paired-inpaint contrast — the *design pattern itself* — across two orthogonal slices (PlotQA × 6-model panel from E7; LLaVA-OneVision × 5-dataset panel from E5b/E5e).
+- It is the one figure in the paper that visualises the thesis's load-bearing experimental construct (paired-inpaint causal-pathway isolation) rather than a downstream consequence (mitigation Δdf).
+- The bar-raiser's exact ask: "one figure you can show on a slide and say 'this is the paper'." Figure 3 *is* that figure once designated.
+
+**On the bar-raiser's separate suggestion** (a new figure visualising E6 Table 7 — 5 datasets × Δdf, Δem(b) bars): we did *not* create this. Rationale: under the new thesis framing, Table 7 captures the *worked example's verification* of the design pattern. The canonical figure should depict the *design pattern* (Figure 3), not the worked example's quantitative verification (Table 7). The bar-raiser asked for "one figure that is the paper"; under the thesis framing, the paper *is* the (a − m) design pattern, which Figure 3 captures. Creating a new mitigation-visualization figure would re-centre the visual attention on the worked example. Acknowledged as a possible camera-ready addition if the worked-example layer needs separate visual support; not done in this revision.
+
+---
+
+## Top-decile-readiness checklist (after edits)
+
+| Axis | Before R5 | After R5 |
+|---|---|---|
+| Central question that the field cares about for ≥ 3 years | **Partial** — deeper question (transferable calibration substrate) was sub-claim, not headline | **Closed** — thesis sentence now opens with "vision-modality bias의 deployable mitigation은 ... paired-inpaint calibration contrast 위에 구축할 수 있"; §8.1 Implications paragraph asks the field-level question explicitly |
+| Central contribution that opens a new design space | **No** — design-space-opener subordinated to E6 | **Closed** — (a − m) design pattern is the thesis, E6 is worked example / proof of construction |
+| Reproducibility at one-command level | **Yes, at venue norm** — §A.4 FLUX seed, §A.5 27-cell pilot replay, §6.2 raw output paths | **Yes** (unchanged; we did not regress) |
+| Single most-important figure | **No** — Table 7 carried the contribution; no figure | **Partial-closed** — Figure 3 explicitly designated canonical figure in §1.5. Bar-raiser also suggested *new* visualisation of Table 7 (5 datasets × Δdf, Δem(b)); not created this round. Closed for the thesis (Figure 3 shows the design pattern); open for the worked example's quantitative summary (no new figure for that) |
+| Retrievable lesson — one verbatim sentence repeated in Abstract / §1.5 / §8.1 | **No** (load-bearing gap, three different leads) | **Closed** — same sentence, lines 9 / 39 / 464 |
+| Engagement with implications — *what this means for the field* | **No** — §8.1 was recap, not implications | **Closed** — §8.1 종합 now ends with **Implications** paragraph asking three field-level questions, reframed from §8.4 items |
+
+**Score: 5/6 met + 1/6 partial** (vs 2/6 + 1/6 partial before). Per the bar-raiser's rubric: "top decile requires at minimum 5/6" — the paper now sits at threshold on this single rubric.
+
+Per the bar-raiser's *own* paragraph "If the author answers the one-question well: the paper becomes a clean Findings paper with a memorable methodological contribution. With the thesis sentence in place + Secondary ask #1 (one figure that is the paper) + Secondary ask #2 (§8.1 Implications paragraph), the paper moves from bottom-half Findings to top-third Findings." All three of those moves are now in the paper. Top-decile / outstanding-paper still requires §8.4 item 3 (cross-architecture E6) + item 7 (Telea-residue (m − m') baseline), both deferred to pre-camera-ready / next revision; the bar-raiser acknowledged this is beyond this revision cycle's scope.
+
+---
+
+## Internal-consistency check
+
+- [x] **Same thesis sentence verbatim at three locations.** Verified via grep — lines 9, 39, 464.
+- [x] **Abstract numbers still match §4-§7 tables.** All numbers preserved verbatim (1.7-15.7 %, +19.5-23.5 pp, +19.0-34.4 pp PlotQA wrong-correct, ×12.7 ratio, Δem(b) 5/5 Bonferroni-clean, +0.41 pp macro, +2.21 pp HallusionBench, −0.06 pp POPE, K=1 14/84 cells, 9× ratio). No fabricated numbers introduced.
+- [x] **§1.5 contributions still match §4-§7 deliveries.** §1.5 (i) design pattern → §6.2.1 Insight (unchanged); §1.5 (ii) worked example → §6.2.3 Table 7 (unchanged); supporting evidence (i) → §4; (ii) → §5; (iii) → §3 protocol (unchanged).
+- [x] **§8.1 종합 consistent with body.** Three-layer evidence stack maps 1:1 onto §4 / §5 / §6+§7. Worked example numbers (Δem(b) Bonferroni-clean, +0.41 pp macro, HallusionBench excludes zero, POPE pinned) all match §6.2.3 and §7 tables.
+- [x] **All figure embeds still resolve.** 16 inline figures unchanged. Figure 3 canonical designation is *textual* in §1.5; no Figure 3 caption or image change.
+- [x] **No figure or table renumbering.** Tables 1-9, Figures 1-6 all in same positions.
+- [x] **Canonical sources still cited where appropriate.** No reference changes; all citation labels preserved.
+- [x] **§1.4 compression coherent with §1.5 + §4.5 + §8.1 + §8.2.** §1.4 now forward-pointer only; §4.5 still carries full γ-β detail; §1.5 auxiliary paragraph still distinguishes γ-β as auxiliary observation not supporting evidence; §8.1 evidence stack explicitly labels γ-β auxiliary; §8.2 reasoning-amplification bullet unchanged.
+- [x] **E6 hedge "단일 architecture case study" still present and now *load-bearing*.** Under design-pattern framing, "one instantiation" is what a worked example *is*. The hedge becomes a feature of the thesis structure, not a scope-honesty patch.
+- [x] **§8.4 follow-up list intact.** No items added or removed in §8.4 (items 1-9 preserved). §8.1 Implications paragraph cites items 1, 2, 3, 4 by number for cross-reference, but the §8.4 list itself is unchanged.
+- [x] **No demoted claims resurrected.** Encoder-family-determines-archetype still demoted at §D.1; "uniquely passes" framing on E6 still removed; all Round-1 through Round-4 hedges preserved (case-study, two-clause Δdf/Δem(b), partially-prospective, Telea-residue caveat, axis-conditional capability disclosure).
+- [x] **No fabricated experimental results.** No new numbers, tables, figures, or experiments introduced. Only rhetorical-discipline reframing of contribution hierarchy.
+
+---
 
 ## Rebuttals (DISAGREE class)
 
-None this round. The bar-raiser is forward-looking; their points are not bug-finding critiques to rebut. The closest thing to a contestable framing is the bar-raiser's tier verdict ("Solid Findings, top of band — not Top-10 %") — and the Round-4 author response itself already acknowledged "closer to strong Findings than weak-accept Main" (R4 honest assessment). Round 5 does not contest the tier verdict; it accepts and builds the §8.4 follow-up plan that the bar-raiser explicitly named as the path to elevation.
+None. Every substantive bar-raiser intervention was addressed via edit. The bar-raiser's verdict (weak Findings, not Main, not top decile in this revision cycle) is explicitly *consistent* with the post-edit state — the bar-raiser said the thesis-sentence + Implications + canonical figure moves take the paper from bottom-half Findings to top-third Findings, not to Main. We agree; we do not contest the tier verdict.
 
-## Deferred items (DEFER class)
+The bar-raiser's "What I would NOT change" list (two-clause Δdf/Δem(b) separation, partially-prospective framework label, Telea-residue caveat, §7 axis-conditional disclosure, §A.5 27-cell pilot heatmap, PlotQA single-dataset depth framing, γ-β auxiliary-observation qualifier) — all preserved unchanged in this round, as the bar-raiser requested.
 
-| Reviewer point | Reason for deferral | Next-revision plan |
+---
+
+## Deferred items
+
+| Reviewer point | Reason for deferral | Status |
 |---|---|---|
-| Bridge experiment (γ-β residual-stream amplitude on Qwen3-VL-Thinking trace) | Requires new GPU run on Qwen3-VL pair; not scriptable in revision window | Owner: paper author. Estimate: cheap ~2 H100-day, clean ~1 H200-week. Listed as §8.4 item 1 (lead). |
-| Eigenvalue spectrum rank-8 elbow check | Existing data, single SVD pass — not run in this revision | Owner: paper author. Estimate: ~4 H100-hour. Listed as §8.4 item 2. |
-| Random-K=8 subspace baseline (§6.3 Alt-1 falsification) | Requires non-anchor calibration set + re-eval | Owner: paper author. Estimate: ~2 H100-day. Listed as §8.4 item 3 (cheapest rigor improvement). |
-| Cross-architecture E6 (CRIT-1 full close, R4 carryover) | Requires per-archetype calibration + pilot grid + 5-dataset eval + capability eval | Owner: paper author. Estimate: ~30 H200-day. Listed as §8.4 item 4. |
-| CAA · ITI empirical rows + Table 6 paired-bootstrap CI (R4 carryover) | Requires CAA at K=1 calibration + ITI head-level adaptation + bootstrap n=1,000 on Table 6 | Owner: paper author. Estimate: ~1 H200-week. Listed as §8.4 item 5. |
-| Pre-registration registry document (R4 carryover MAJ-6) | Not retrospectively addable | Owner: future submissions. Camera-ready or future paper would pre-register on OSF / AsPredicted. |
-| Encoder-family promotion to top-line contribution | Bar-raiser secondary ask flagged as still buried; moving it would touch §1.5 hedge stack on protect-list | Owner: camera-ready editor. The (4a)/(4b) split from R3 is preserved; further elevation defers to camera-ready. |
-| Paraphrase robustness / closed-source defuse / human baseline (R1-R4 carryover) | Each a separate work unit | Listed as §8.4 item 6. |
+| Cross-architecture E6 replication (§8.4 item 3) | ~3-5 H100-day compute; bar-raiser explicitly noted this is out of scope for the rewrite ("either it is run pre-camera-ready or the paper is Findings") | §8.4 item 3 + reframed in §8.1 Implications as field-level "does the worked-example pattern generalise" question |
+| Telea-residue (m − m') baseline (§8.4 item 7) | ~2 H100-hour; bar-raiser kept the §6.2.1 Telea caveat as load-bearing and did not push for in-round resolution | §8.4 item 7 |
+| New figure visualising E6 Table 7 (5 datasets × Δdf, Δem(b)) | Bar-raiser secondary ask but not the bar-raiser's load-bearing intervention; ~1 hour matplotlib but would compete with Figure 3 for canonical-figure attention under design-pattern framing | Acknowledged as known gap for camera-ready if worked-example layer needs separate visual support |
+| Top-decile-readiness still requires cross-architecture E6 + (m − m') baseline | Bar-raiser explicitly acknowledged ("paper is not in striking distance of top decile in this revision cycle") | Out of scope for this round |
+
+---
 
 ## Open questions for next round
 
-This is the final round; there is no next round in this review loop. Items that did not fit cleanly:
+None requested. This is the final round of the 5-round loop. The bar-raiser's "one-question" was the entire substantive ask; the thesis-sentence + Implications + Figure 3 designation + §1.4 collapse close that single ask. Any further substantive work is camera-ready / pre-submission revision territory (cross-architecture E6, m − m' baseline, eigenvalue spectrum, paired-bootstrap CI for ×12.7) and is preserved in §8.2 limits + §8.4 follow-up.
 
-- **Whether the bridge experiment outcome would *retroactively* warrant abstract changes.** If item 1 lands positive, abstract / §1.3 / §1.5 (6) currently saying "first-evidence existence proof" would tighten to "residual-stream-level mechanism claim." This is conditional on a result we do not have; cannot be acted on this round but is the obvious post-experiment edit path.
-- **§5.2 multi-layer redundancy formal definition.** Bar-raiser axis 3 / 5 raised this as a formalization upgrade ("distributed mass with each layer ≥ ε? Compositional conjunction? Eigen-spectrum of (a − m) with rank elbow at 8?"). The eigenvalue spectrum (§8.4 item 2) is the cheapest operational version; a fully formal definition (theoretical statement of redundancy) is a longer-term project.
-- **Whether Δem(b) ≥ 0 clause should be renamed.** Bar-raiser preemptively defends it: "If a future reviewer pushes back, neutralize the *name* ('4-clause Pareto+') not the *substance*." Not acted on R5; logged for camera-ready discretion.
+---
 
-## Internal consistency check
+## Diff summary
 
-After all R5 edits, the paper holds:
+- **Lines:** 833 → 837 (net +4). Within the 840-line constraint.
+- **Sections substantively edited:**
+  - Abstract: paragraph rewritten with thesis-first opening (~290 word length preserved).
+  - §1.4: 4-line paragraph compressed to 2-line forward-pointer.
+  - §1.5: paragraph rewritten with thesis-first opening + Figure 3 designation + supporting evidence restructured as "licensing" the design pattern.
+  - §8.1 종합: paragraph rewritten with thesis-first opening + 3-layer evidence stack labelled (behavioural / mechanism / worked example) + new Implications paragraph (~6 sentences).
+  - CHANGELOG.md: v11 entry prepended.
+- **Tables edited:** None.
+- **Figures edited:** None (Figure 3 designated as canonical via §1.5 text only; image unchanged).
+- **References edited:** None.
+- **Numbers edited:** None — all numeric content preserved verbatim.
+- **New experiments:** None.
+- **Total word delta:** ~+250 net (Implications paragraph +~250, §1.4 collapse −~80, §1.5 rewrite ~+80, Abstract rewrite ~0, §8.1 rewrite ~+50 due to evidence-stack labels).
+- **Contribution hierarchy:** completely reshaped. (a − m) paired-inpaint design pattern is now thesis; E6 is worked example; routing-vs-integration framework is mechanism evidence for the design choice; γ-β reasoning amplification is auxiliary observation (no longer competing with the thesis for centring).
 
-- [x] Abstract numbers still match §4-§7 tables. **No metric numbers changed in R5.** Only the framing of the §5.2 → §6.4 chain was sharpened.
-- [x] §1.5 contributions still match §4-§7 deliveries. **(4a) sharpened with predict-then-verify framing — refers to §5.2 (delivered) + §6.4 (delivered).**
-- [x] §8.1 종합 still consistent with body. **Predict-then-verify framing now matches abstract / §1.3 / §1.5 (4a).**
-- [x] All figure embeds still resolve to existing PNG paths. **No figure edits.**
-- [x] No figure or table renumbering issues introduced. **No table or figure changes.**
-- [x] Canonical sources still cited where appropriate. **§6.4 LEACE +56 % cite preserved; abstract / §1.3 / §8.1 reference §5.2 → §6.4 chain consistently.**
-- [x] §8.4 new section does not contradict §8.2. **§8.2 = 한계 register; §8.4 = forward-looking priority register. Cross-architecture E6 appears in both; §8.2 frames as limitation, §8.4 frames as prioritized follow-up — registers are complementary, not contradictory.**
-- [x] Bar-raiser 7-item protect-list untouched. **Verified line-by-line:** (a − m) §6.2.1 Insight existing prose unchanged (one sentence appended only); R4 6-callsite hedge unchanged across abstract / §1.3 / §1.5 (5) / §6.6 / §8.1 / §8.2; §6.2.3 paired-sids reframe unchanged; Δem(non-anchored) ≥ 0 clause in §6.2.3 strict free-lunch definition unchanged; §1.5 (1) hedge stack unchanged; §5.3 OneVision dataset-dependent peak self-disclosure unchanged; §4.7 InternVL3 boundary case unchanged.
+---
 
-## Diff stat
-
-- **Lines:** 581 → 604 (+23 net).
-- **Word count delta:** ~+1,100 Korean characters (~+650 English-equivalent words). All additions are framing or new §8.4 section; no existing prose contracted.
-- **Sections substantially modified:** Abstract (1 clause sharpened), §1.3 (1 sentence inserted), §1.5 (4a) (1 clause extended), §6.2.1 Insight (1 sentence appended), §8.1 종합 (1 clause sharpened), v7 changelog (new entry).
-- **Sections newly added:** §8.4 후속 작업 (load-bearing follow-up) — 6 ranked items, ~600 Korean characters.
-- **Sections fully rewritten:** None.
-- **Tables modified:** None.
-- **Figures modified:** None.
-- **Numbers changed:** None.
-
-**Single most impactful edit:** **§8.4 new section with γ-β residual-stream bridge as lead item.** The bar-raiser explicitly framed this as "the single experiment that, if added, would tip my judgment from 'Solid Findings, top of band' to 'Main, lower half of accepted.'" By giving it its own home in the paper (rather than burying as one bullet in §8.2 deferred-list), R5 commits the paper to the elevation path the bar-raiser identified. The four-callsite predict-then-verify framing sharpening (Edit 1-4) is the second-most impactful — locks in the bar-raiser's identified 5-year-citable finding as the paper's *theoretical* contribution rather than a §6.4 result statement.
-
-**Final tier verdict (honest, post-R5):** **Solid Findings, top of band — borderline / weak-accept Main contingent on §8.4 item 1 (bridge experiment) landing positive in next revision.** This matches the bar-raiser's own verdict: "weak accept Findings without hesitation; borderline Main with a clear note that the bridge analysis is what separates this paper from the upper half of accepted Main." R4 honest verdict ("closer to strong Findings than weak-accept Main") and R5 honest verdict converge on the same anchor. The R5 revision (a) honors the bar-raiser's protective duty (7-item protect-list untouched), (b) elevates the §5.2 → §6.4 chain to its named citable-finding role across 4 callsites, (c) commits the paper to the bar-raiser's signature ask as a forward-looking item with explicit GPU-hour accounting. Whether the paper clears Main acceptance ultimately depends on whether the bridge experiment is run and lands positive before the venue submission date.
+**End of Round 5 Reviser Response. Paper is now ready for camera-ready / pre-submission revision phase pending §8.4 follow-up items (cross-architecture E6 + Telea-residue baseline + eigenvalue spectrum) per bar-raiser top-decile guidance.**

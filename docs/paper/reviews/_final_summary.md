@@ -1,99 +1,96 @@
-# Paper Review Loop — Final Summary
+# Paper Review Loop V2 — Final Summary
 
-**Paper:** `docs/paper/emnlp_draft_ko.md` — "Cross-Modal Numerical Anchoring in Vision-Language Models: Uncertainty, Plausibility, and Digit-Pixel Gates with a Deployable Subspace-Projection Mitigation."
-**Loop dates:** 2026-05-09 (5 rounds in single day, alternating reviewer + author response).
-**Final paper state:** 604 lines, v7 changelog footer.
+**Paper:** `docs/paper/emnlp_draft_ko.md`
+**Worktree:** `paper+review-loop-v2` (branch `worktree-paper+review-loop-v2`)
+**Started:** 2026-05-11 03:01 (commit `f529a6a`, master ec0ab15 + archive move)
+**Finished:** 2026-05-11 06:53
+**Initial paper:** 834 lines (master `ec0ab15`)
+**Final paper:** 837 lines (uncommitted)
+**Net body delta:** +3 lines / 119 insertions / 116 deletions (substantial in-place rewrites — most net delta is in §1.5 + Abstract + §8.1 contribution-hierarchy reshape, balanced by §1.4 compression + scope-honesty insertions)
 
 ## Round-by-round headline
 
-| # | Reviewer persona | Headline critique | Author decision | Net edit posture |
-|---:|---|---|---|---|
-| 1 | Methodology reviewer | C-form metric definition needed audit; M2 18-variant analysis required justification; canonical CSV consistency | Accept core methodology critiques; add §B variant analysis appendix; backfill canonical citations | EDIT-heavy (new §B, M2 evidence file referenced, metric appendix expanded) |
-| 2 | Writing reviewer | Forced Korean translations of technical terms (거리감쇠 / 사상 / 0결과); Table robustness ordering inconsistency; sentence-fragment endings; abstract overclaim ("입증") | Accept all writing fixes; restore English technical terms; tighten abstract; add Figure 1 in-text reference | EDIT-heavy (13 prose-level edits across abstract / §1 / §4 / §5 / §7 / §8) |
-| 3 | Novelty / positioning reviewer | VLMBias mischaracterization in §2; missing CAA / ITI / LEACE prior-work block; §1.5 (1) "first-evidence" framing under-hedged; LRM / Wang 2025a citation ambiguity; strict free-lunch needs formal definition | Accept all positioning critiques; add §2 *Activation steering and concept erasure* paragraph (CAA / ITI / LEACE); add Hufe 2025 Dyslexify; add Lou and Sun 2024; add Chand et al. 2025 negative-result precedent; add §6.2.3 strict free-lunch 4-clause definition; add 4 references | EDIT-heavy (+11 edits, 4 new references, §2 substantially expanded, §1.5 (1) 7-axis hedge stack landed) |
-| 4 | Aggressive adversarial reviewer | CRIT-1 E6 mitigation chain is N=1 model; CRIT-2 27-cell pilot grid two rounds deferred; CRIT-3 §6.3 b-arm em +8.8 pp post-hoc with un-falsified alternatives; MAJ-4 paired-bootstrap CI absent on Table 6; MAJ-5 CAA/ITI as Note not rows; MAJ-6 multiple-comparisons; MIN-10 FLUX seed missing | Accept all CRIT framings; do not contest; propagate **single-model case study** scope hedge across 6 callsites; add §6.3 Insight 1.5 (Alt-1 / Alt-2 enumeration); §6.2.3 신뢰구간 caveat + InfoVQA inconclusive fence; §A.4 FLUX seed=1729; §A.5 27-cell cell-label enumeration with chosen #17; §7 Bonferroni-6 robustness; §8.2 deferred-list expansion | EDIT-heavy + DEFER (6-callsite hedge propagation, §6.3 Insight 1.5, §A.4, §A.5, §7 Bonferroni paragraph; 4 items honestly DEFERred with GPU-hour estimates) |
-| 5 | Bar-raiser (forward-looking) | Three threads (§4.6 γ-β / §5.2 multi-layer redundancy / §6.2 K=8 subspace) sit on same page but never causally interlock; signature ask = does (a−m) K=8 subspace amplitude grow over Thinking-mode trace and predict ×12.7? Most-citable 5-year finding = §5.2 → §6.4 predict-then-verify chain | Bar-raiser is forward-looking — bridge experiment is future work. Sharpen predict-then-verify chain framing (4 callsites: abstract / §1.3 / §1.5 (4a) / §8.1) as paper's *이론적* contribution; add §8.4 후속 작업 with bridge experiment as lead item + 5 secondary asks ranked; honor 7-item protect-list (no edits to (a−m) contrast / 6-callsite hedge / §6.2.3 reframe / Δem(b)≥0 clause / §1.5(1) hedge / §5.3 disclosure / §4.7 boundary case); one-sentence (a−m) design-pattern append in §6.2.1 | EDIT-light (4 framing-sharpening edits + 1 new §8.4 section + 1 design-pattern append + v7 changelog); 0 REBUT; 4 DEFER (bridge / spectrum / random-K=8 / cross-arch as future-work items with GPU-hour estimates) |
+| Round | Persona | Decision | Tier signal | Major themes |
+|---|---|---|---|---|
+| 1 | Methodology | Borderline reject for EMNLP/NeurIPS Main; accept for Findings with major revisions | 3 CRIT + 10 MAJOR + 10 MIN | Post-hoc framework framed as prospective (CRIT-1); abstract overclaim of "uniquely passes free-lunch" (CRIT-2); embedded changelog + task IDs + lab-log §4.6 narration (CRIT-3 paper-as-experiment-log) |
+| 2 | Writing | Borderline accept with major revision on writing axis | 3 CRIT + 9 MAJOR + 11 MIN | Title sub-line metadata residue (CRIT-W1); abstract 680 words × 3 paragraphs vs ≤250 venue norm (CRIT-W2); §6.6 5-arrow cross-reference chain substitutes references for argument (CRIT-W3) |
+| 3 | Novelty | Borderline accept on novelty axis | 3 CRIT + 9 MAJOR; recommended venue = EMNLP Main if CRITs fixed, otherwise Findings | "Uniquely passes" reviewer-trap-vulnerable (CRIT-N1); ×12.7 auxiliary observation contaminates multiplicity-robust mitigation headline in abstract (CRIT-N2); "이론적 기여" overclaims (CRIT-N3 → relabel to 통합 framework). Substantive bar-raiser-grade ask: single-central-contribution restructure (MAJ-N1) |
+| 4 | Aggressive | **REJECT for Main; borderline Findings only conditional on FATAL surfacing** | 4 FATAL + 9 MAJOR + 10 MIN | FATAL-A single-architecture overclaim of central contribution; FATAL-B Δdf 1/5 CI-clean vs Δem(b) headline pivot (anchoring task → side-effect marketing); FATAL-C framework prospective leg tests K=1, deployed at K=8; FATAL-D Telea inpaint texture confound |
+| 5 | Bar Raiser | **Borderline Findings → weak Findings; not top decile** unless one-question answered | Top-decile readiness 2/6 → after R5 edits 5/6 + 1/6 partial | One-question: "Compress into one sentence — which of your six claims survives as thesis?" Substantive intervention: elevate **(a − m) paired-inpaint as generalisable design pattern** to thesis; demote E6 to *worked example* |
 
 ## Major themes addressed across rounds
 
-1. **Methodology audit (R1)** — C-form direction-follow definition, M2 18-variant preservation analysis, canonical CSV traceability. Settled in §3.2 + §B + canonical evidence files at `docs/insights/_data/`.
-2. **Korean / English technical-term register (R2)** — Korean prose with English technical terms (no forced translations). Established in user MEMORY + applied across all subsequent rounds.
-3. **Positioning relative to prior work (R3)** — VLMBias / typographic attack literature / activation steering literature now properly differentiated. §2 substantially expanded; 4 references added; §1.5 (1) 7-axis hedge stack delivered.
-4. **Strict free-lunch as formal criterion (R3 + R4)** — 4-clause definition (Δdf < 0 ∧ Δem(anchored) ≥ 0 ∧ Δem(non-anchored) ≥ 0 ∧ Δ(held-out capability macro) ≥ −0.5 pp); contrasted with Chand et al. 2025 LM-debiasing negative result; defended against R4 framing as "celebration criterion" → load-bearing screening rule.
-5. **Single-model case study scope hedge (R4)** — E6 mitigation chain is N=1 model. Propagated across 6 callsites (abstract / §1.3 / §1.5 (5) / §6.6 / §8.1 / §8.2). Multi-model behavioral + mechanism panels (§3-§5) vs single-model E6 (§6-§7) panel-scope split made explicit.
-6. **§6.3 b-arm em +8.8 pp alternative explanations (R4)** — Insight 1.5 enumerates Alt-1 (general regularization) + Alt-2 (numeric mode-collapse); POPE pinned-to-zero as partial signal weakening Alt-1 only; random-K=8 baseline DEFER.
-7. **Multiple-comparisons + bootstrap CI (R4)** — §6.2.3 InfoVQA Δdf=−0.7 inconclusive fence; §7 Bonferroni-6 post-hoc check showing HallusionBench / POPE conclusions robust; full bootstrap CI on Table 6 DEFER.
-8. **Predict-then-verify chain elevation (R5)** — §5.2 → §6.4 chain framed as *theoretical contribution* across 4 callsites (abstract / §1.3 / §1.5 (4a) / §8.1).
-9. **Forward-looking bridge experiment (R5)** — γ-β residual-stream amplitude on Qwen3-VL-Thinking traces named as the elevating experiment; new §8.4 후속 작업 section with cheap/clean form, positive/negative implications, GPU-hour estimates.
+- **CRIT-3 paper-as-experiment-log** (Round 1) → CHANGELOG.md extraction, task-ID stripping, generator-script citation removal, §1.5 6→4 contributions, scope-hedge consolidation. Round 2 follow-up: title sub-line removal, abstract 680→290 words, §6.6 cross-reference chain refactor, §4.6 lab-log rewrite. Round 3 follow-up: §1.5 restructured to 1 central + 3 supporting + 1 auxiliary. Round 5 follow-up: §1.5 + Abstract + §8.1 rewritten with **thesis-first** structure.
+- **CRIT-1 / FATAL-C K=1 vs K=8 partial falsification of universal-K assumption** (Rounds 1, 4) → §5.4 framework labelled "사후 synthesis"; §4.6 verification leg labelled "partially prospective at K=1; deploy K=8 partial-falsifies universal-K". Propagated across Abstract / §1.3 / §1.5 / §5.4 / §8.1.
+- **FATAL-B Δdf 1/5 CI-clean vs Δem(b) 5/5 Bonferroni-clean** (Round 4) → two-clause separation across Abstract / §1.5 / §6.2.3 / §8.1. *Anchoring effect* clause (single-dataset CI-strong) and *capability-side multiplicity-robust headline* clause (5/5 Bonferroni-clean) now presented as equal-weight but non-equivalent.
+- **FATAL-A single-architecture case-study scope** (Round 4) → case-study qualifier inserted directly into E6 noun phrase at Abstract + §1.5 + §8.1 — no longer relies on §3.3 / §8.2 hedge alone.
+- **FATAL-D Telea inpaint texture confound** (Round 4) → acknowledged in §6.2.1 Insight; (m − m') falsifier deferred to §8.4 item 7.
+- **CRIT-N1 "uniquely passes" overclaim** (Round 3) → softened to "5-baseline panel 위 4-clause free-lunch 통과 후보"; ITI multi-head trap acknowledged; tuning-effort asymmetry note added in §6.5.
+- **Bar-raiser one-question** (Round 5) → Option A adopted: design pattern is thesis, E6 is worked example. Thesis sentence verbatim at Abstract line 9, §1.5 line 39, §8.1 line 464. §8.1 Implications paragraph added with three field-level questions (cross-bias-class transfer, spectral K-prediction, cross-architecture transfer).
 
-## Outstanding DEFERred items (consolidated R1-R5, mapped to §8.4 priority)
+## Outstanding (DEFERred) items requiring future work
 
-| # | Item | Origin | Estimate | §8.4 priority |
-|---:|---|---|---|---|
-| 1 | **γ-β residual-stream bridge experiment (Qwen3-VL-Thinking trace amplitude on K=8 subspace)** | R5 bar-raiser signature ask | cheap ~2 H100-day, clean ~1 H200-week | §8.4 item 1 (lead — elevating) |
-| 2 | Eigenvalue spectrum of `D[:, L=26, :]` rank-8 elbow check | R5 bar-raiser secondary | ~4 H100-hour | §8.4 item 2 |
-| 3 | Random-K=8 subspace baseline (§6.3 Alt-1 falsification) | R4 CRIT-3 + R5 secondary | ~2 H100-day | §8.4 item 3 |
-| 4 | Cross-architecture E6 replication (3 archetypes) | R4 CRIT-1 + R5 carryover | ~30 H200-day | §8.4 item 4 |
-| 5 | CAA / ITI empirical Table 7 rows | R4 MAJ-5 | ~4-8 H200-hour + 1-2 day | §8.4 item 5 |
-| 6 | §6.2.3 paired-bootstrap CI on Table 6 (5 cells) | R4 MAJ-4 | ~1 day | §8.4 item 5 |
-| 7 | §A.5 27-cell pilot grid 4-metric heatmap aggregation | R4 CRIT-2 | ~1 day (existing data) | §8.4 deferred (accepted limitation) |
-| 8 | Bonferroni-20 correction on Table 6 paired-test family | R4 MAJ-6 | trivial post-CI | §8.4 item 5 |
-| 9 | ~~OneVision E1d analyzer fix (Phase E)~~ ✅ closed 2026-05-10 (P4-12) | R4 carryover from earlier rounds | 1-2 day → done | §5.2 / §5.3 / §E.2 통합 (single-layer 5/5 null 확장 검증) |
-| 10 | Pre-registration registry document on OSF / AsPredicted | R4 MAJ-6 | not retroactive | future submissions |
-| 11 | Paraphrase robustness (3-5 prompt variants × bootstrap CI) | R1-R4 carryover | 1-2 H200-day | §8.4 item 6 |
-| 12 | Closed-source defuse (GPT-4o / Gemini 2.5, ~500 sample) | R1-R4 carryover | 1-2 day | §8.4 item 6 |
-| 13 | Human baseline (50 Prolific subjects on 1-2 conditions) | R1-R4 carryover | longer-term | §8.4 item 6 |
-| 14 | E4 generalization to SigLIP-Gemma early / Qwen-ViT late archetypes | R1-R4 carryover | ~1 H200-week per archetype | §8.4 deferred |
-| 15 | γ-β cross-architecture replication (other Thinking-mode VLM pairs) | R4 carryover | ~1 H200-week per pair | §8.4 item 1 sub-route |
-| 16 | Encoder-family bridge promotion to top-line contribution | R5 bar-raiser secondary | prose-only (camera-ready) | camera-ready editor |
-| 17 | §5.2 multi-layer redundancy formal definition | R5 bar-raiser axis 3/5 | longer-term theoretical project | future submissions |
+Logged in `§8.4 후속 작업` (9 items as of final state):
 
-## Bar-raiser signature ask (verbatim)
+1. Random-K=8 baseline (FATAL-A from Round 4, MAJ-N6 from Round 3 tuning-effort asymmetry).
+2. Cross-architecture E6 instantiation (FATAL-A single-architecture scope; bar-raiser top-decile checkpoint).
+3. Pre-registered §4.6 cell for K=1 prospective verification (FATAL-C operative parameterisation gap).
+4. CAA-at-K=1 + ITI multi-head empirical rows (CRIT-N1 + Round-4 attack 6).
+5. ×12.7 paired-bootstrap CI (CRIT-N2 + Round-4 attack on ratio).
+6. (m − m') Telea-residue falsifier — pixel-statistics-matched inpaint baseline (FATAL-D).
+7. Spectral K-prediction analysis — Eigenvalue spectrum as predictor of operative K (§8.1 Implications + Round-4 MAJ-7).
+8. Bonferroni-540 free recompute over 27-cell grid (Round-4 MAJ-1 selection-rule multiplicity).
+9. Dyslexify + E6 composition test (MAJ-N8 Round 3).
 
-> *"Does the (a − m) K=8 subspace amplitude grow over Thinking-mode trace generation, and does that growth quantitatively predict the ×12.7 correct-base amplification — measured by projecting the residual stream of Qwen3-VL-Thinking γ-β traces onto V_K[L=26] (cheap form, reuse OneVision subspace as instrument) or onto Qwen3-VL-Instruct's own calibrated subspace (clean form)?"*
+## Bar-raiser signature ask (verbatim from Round 5 review)
 
-— `docs/paper/reviews/round5_bar_raiser.md`, line 84.
+> *"If you had to compress this paper into one sentence that a non-expert reader carries away three years from now, what is it? Then: which one of your six numbered claims survives as the thesis, and which collapse into supporting evidence for it?"*
 
-## Diff stat (initial → final)
+**Answer adopted (Option A — full)**:
 
-- **Lines:** initial 516 (start of loop, post-Phase-4 commit `d8710b2`) → 581 (post-R4) → **604 (post-R5)** = **+88 net** across 5 rounds.
-- **Sections substantially rewritten:**
-  - §2 *Activation steering and concept erasure* paragraph **newly added** (R3).
-  - §6.2.3 strict free-lunch 4-clause formal definition **newly added** (R3).
-  - §6.3 Insight 1.5 (b-arm em alternative explanations) **newly added** (R4).
-  - §A.4 FLUX seed reproducibility **newly added** (R4).
-  - §A.5 27-cell pilot grid cell-label enumeration **newly added** (R4).
-  - §7 *Multiple-comparisons 보정* paragraph **newly added** (R4).
-  - §8.4 후속 작업 (load-bearing follow-up) **newly added** (R5, 6 ranked items).
-- **Sections substantially modified:** Abstract (R1 + R2 + R3 + R4 + R5), §1.3 (R3 + R4 + R5), §1.5 (R3 split (4)→(4a)/(4b) + R4 hedges + R5 (4a) sharpening), §6.2.2 (R4 deal-breaker rule + R5 §A.5 pointer), §6.2.3 (R3 + R4 신뢰구간 caveat), §6.5 (R3 CAA/ITI Note + R4 panel-scope qualifier), §6.6 (R4 single-model statement), §8.1 (R5 predict-then-verify framing), §8.2 (R4 deferred-list expansion).
-- **Tables modified:** Tables 1-8 + A.5 + E.1 + E.2 — most R1 / R2 audits + R4 number consistency checks confirmed canonical against `_data/`. No metric numbers changed in R5.
-- **Figures embedded:** 16 inline figure embeds preserved across all rounds. None added or removed in R5.
-- **References added across rounds:** Belrose et al. 2023 (LEACE), Li et al. 2023 (ITI), Panickssery et al. 2024 (CAA), Chand et al. 2025 (No Free Lunch), Hufe et al. 2025 (Dyslexify), Lou and Sun 2024, Wang et al. 2025a (LRM judging bias), Hagendorff 2023 — total 8 added across R3-R5.
-- **Changelog entries:** v3 (initial), v4 (R2), v5 (R3), v6 (R4), v7 (R5).
+> **Vision-modality bias의 deployable mitigation은 causal pathway를 confounding scene variance로부터 분리하는 paired-inpaint calibration contrast 위에 구축할 수 있으며, 본 논문은 이 design pattern을 cross-modal numerical anchoring 위에 4-clause free-lunch worked example로 instantiate한다.**
+
+Thesis sentence rehearsed verbatim at Abstract (line 9), §1.5 (line 39), §8.1 종합 (line 464). E6 demoted from central contribution to *worked example / proof of construction*; (a − m) paired-inpaint elevated from "subordinate calibration substrate" to **central methodological contribution**.
+
+## Diff stat
+
+- **Lines** 834 → 837 (+3 net; 119 insertions / 116 deletions)
+- **Sections substantially rewritten**:
+  - **Title block** — sub-line metadata stripped (R2)
+  - **Abstract** — full rewrite, 680 → ~360 words (R2 compression, R3 ×12.7 drop, R4 scope-honesty insertion, R5 thesis-first restructure)
+  - **§1.3** — partial rewrite for §5.4 post-hoc relabel + partial-prospective framing (R1, R4)
+  - **§1.4** — compressed to ≤3-line forward-pointer (R2 partial, R5 full)
+  - **§1.5** — three rewrites: R1 6→4 contributions; R3 single-central restructure (1 + 3 + 1); R5 design-pattern-as-thesis with E6 as worked example
+  - **§4.6** — Lab-log narration → claim → evidence triple (R1)
+  - **§5.4** — "이론적 기여" → "통합 framework"; "predict-then-verify" → "사후 synthesis + partially prospective at K=1" (R1, R3, R4)
+  - **§6.2.1** — Telea-residue confound caveat added; Insight on (a − m) as generalisable design pattern (R3, R4, R5)
+  - **§6.5** — "Uniquely passes" softened; ITI multi-head trap acknowledged; tuning-effort asymmetry note (R3)
+  - **§6.6** — 5-arrow cross-reference chain + duplicate Summary block refactored to two paragraphs (R2)
+  - **§8.1 종합** — thesis-first opening + 3-layer evidence stack + new Implications paragraph (R5)
+  - **§8.4 후속 작업** — extended from 6 → 9 items across deferred FATAL/MAJOR (R4, R5)
+- **Tables modified**: Table 6 caption (R2), Table 8 caption (R3 softening), Table 9 caption (R2 STRICT_FREE_LUNCH terminology fix)
+- **Figures unchanged / added / removed**: 16 embedded figures intact; **Figure 3 designated canonical figure** (R5) — captures cross-model + cross-dataset (a − m) digit-pixel causality in one panel; no new figures created.
+- **CHANGELOG.md** moved out of body to `docs/paper/CHANGELOG.md` (separate file, gitignored — local-only); v9–v11 entries logged.
 
 ## Final tier verdict
 
-**Solid Findings, top of band — borderline / weak-accept Main contingent on §8.4 item 1 (bridge experiment) landing positive in next revision.**
+**Bar-raiser (Round 5) post-edit**: **Findings-tier weak-to-mid accept**; **Main-tier conditional on cross-architecture E6 instantiation (§8.4 item 2)**. Top-decile-readiness checklist moved from 2/6 met (pre-R5) to **5/6 met + 1/6 partial** (post-R5). The remaining partial — *single most-important figure captures contribution at a glance* — is closed for the thesis (Figure 3 designated) but not for the worked example's quantitative summary (Table 7 carries it alone; new figure deferred to camera-ready if needed).
 
-This anchor converges across three independent assessments:
-- R4 author honest verdict: *"closer to strong Findings than weak-accept Main."*
-- R5 bar-raiser tier verdict: *"Solid Findings (top of band) — weak accept Findings without hesitation; borderline Main with a clear note that the bridge analysis is what separates this paper from the upper half of accepted Main."*
-- R5 author honest verdict (final): same as bar-raiser's anchor.
+The four prior rounds substantially closed the user's central concern that the paper reads as an experiment-log dump. After R5, the paper now has:
 
-The 5-year most-citable finding the loop converged on (per R5 bar-raiser): **"Cross-modal anchor signal is multi-layer redundant in VLM residual streams, predicting and verifying that single-direction mitigation methods fail across datasets — motivating multi-direction subspace projection."** This is the §5.2 → §6.4 predict-then-verify chain, now framed across 4 callsites as the paper's *이론적* contribution.
+- **A single rehearsed thesis sentence** (Abstract / §1.5 / §8.1).
+- **A clear contribution-hierarchy** (design pattern central; E6 worked example; three supporting findings as evidence licensing the design pattern; γ-β as separate auxiliary observation).
+- **Scope-honest qualifiers** at every claim surface (single-architecture, partially-prospective, single-dataset-CI-clean for Δdf, Bonferroni-clean for Δem(b)).
+- **A field-level Implications paragraph** that asks three questions the field will care about beyond this paper.
 
 ## Recommendation for next pass
 
-**If the goal is Findings acceptance:** the paper after Round 5 is *publishable as-is* per the bar-raiser's "weak accept Findings without hesitation" verdict. The 4 DEFERred load-bearing items (bridge experiment / paired-bootstrap CI / CAA-ITI rows / cross-arch E6) are honest deferrals with explicit GPU-hour estimates; reviewers who accept transparency about deferred work should clear Findings.
-
-**If the goal is Main acceptance:** the *single highest-leverage next action* is **§8.4 item 1 — the γ-β residual-stream bridge experiment in cheap form** (~2 H100-day). Bar-raiser explicitly named this as the experiment that would tip the verdict. Cheap form is sufficient (reuses existing OneVision K=8 subspace as measurement instrument); clean form is preferred but not required. Positive outcome interlocks §4.6 + §5.2 + §6.2 into one mechanism-grounded chain. Negative outcome properly fences §4.6 as behavioral existence proof. Either resolves the ambiguity the paper currently leaves open.
-
-**Secondary actions, ranked by cost-effectiveness:** §8.4 item 2 (eigenvalue spectrum, ~4 H100-hour, converts K=8 from grid-search artifact to data-property prediction) and §8.4 item 3 (random-K=8 baseline, ~2 H100-day, head-to-head Alt-1 falsification for §6.3) are the cheapest available rigor improvements on the entire DEFER list.
-
-**Tertiary action:** Cross-architecture E6 replication (§8.4 item 4, ~30 H200-day) is the most expensive but converts CRIT-1 from "single-model case study" to "transferable recipe." If §8.4 item 2 lands rank-8 elbow positive, item 4 becomes "spectrum-predicts-cell" rather than "brute-force re-tune" — substantially elevated as a theoretical contribution.
-
-**Camera-ready / venue decisions:** R5 bar-raiser secondary (encoder-family promotion to top-line contribution) + Δem(non-anchored) ≥ 0 clause renaming (if any future reviewer pushes back) are camera-ready discretion items. R4 MAJ-6 pre-registration registry is non-retroactive; reserved for future submissions.
-
----
-
-*End of paper review loop. 5 rounds × 10 steps complete. Next iteration is the bridge experiment, not another review pass.*
+1. **Camera-ready compute** (≤ 1 H100-week each):
+   - §8.4 item 2 (second-architecture E6 calibration + 5-dataset evaluation) — single highest-leverage edit; promotes paper from Findings to Main.
+   - §8.4 item 5 (×12.7 paired-bootstrap CI on Qwen3-VL γ-β) — closes Round 3 + Round 4 statistical residue.
+   - §8.4 item 8 (Bonferroni-540 free recompute over 27-cell grid) — fully resolves Round-4 MAJ-1.
+2. **No-compute polish**:
+   - Sweep paper for any remaining inline canonical-source citations (`docs/insights/...`) — should now be in Reproducibility appendix only.
+   - Sanity-check that Abstract numbers exactly match §6.2.3 / §7 tables.
+3. **Optional Figure 7 plan** (camera-ready only): single 2×5 panel showing per-dataset Δdf + Δem(b) for E6, replacing Table 7's role as quantitative summary; would close last partial in top-decile checklist.
+4. **PR strategy**: open PR `paper-review-loop-v2 → master`. User merges after review per the project's PR-only workflow rule.
