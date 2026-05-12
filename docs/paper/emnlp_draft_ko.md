@@ -366,6 +366,51 @@ Main 모델 `llava-onevision-qwen2-7b-ov`을 **PlotQA + InfoVQA pooled** wrong-b
 
 **Insight 2 (단일 hyperparameter의 의미).** E4가 모델당 `s*` tuning을 한 자릿수 차이로 필요로 한 데 비해 E6는 *단일 (L, K, α)*가 5 dataset에 일반화된다. 이는 (a − m) subspace가 *dataset 간 shared variance direction*을 capture함을 메커니즘적으로 뒷받침 — §5.3의 dataset-dependent attention peak에도 불구하고 *residual-stream representation 측에서는 shared axis가 존재*한다.
 
+#### 6.2.4 Framework verification — layer sweep + K=1 falsification (P4 follow-up, 2026-05-11)
+
+§6.2.3 chosen-cell (L=26, K=8) 결과 자체는 §5.4 framework의 *empirical match*이지만 framework의 두 핵심 prediction — **P3 (late layer = integration site)** 와 **P2 (single-direction failure / multi-direction success)** — 은 chosen-cell 단일 점에서 직접 검증되지 않는다. 본 절은 두 prediction을 OneVision Main 위에서 같은 calibration scope (PlotQA + InfoVQA pooled n=5,000) 와 같은 (a − m) subspace 위에서 직접 test한다.
+
+**Method.** 5-dataset (TallyQA · PlotQA · InfoVQA · ChartQA · MathVista) × 두 sweep cell 묶음:
+
+- **Layer sweep (P3 test)**: L ∈ {5, 10, 15, 20, 25, 27} × K=8 × α=1.0 — 6 cells, integration site의 layer-depth dependence 직접 측정. L=26 chosen cell은 §6.2.3에 별도 보고; 본 sweep은 그 인접 layer들 (L=25, L=27) + early layers (L=5, 10, 15) + mid (L=20) 을 cover.
+- **K=1 falsification (P2 test)**: L=26 × K=1 × α=1.0 — 1 cell, *동일* L*과 α에서 K만 1 vs 8로 비교 (chosen-cell 대비 multi-direction → single-direction의 직접 ablation).
+
+모든 cell은 동일 SDPA-backed inference로 산출되어 (post-commit 5c2f52b, 2026-05-03), §6.2.3 chosen-cell (eager attention pre-2026-05-03 baseline) 대비 boundary-sample 수준 ~2 % 의 bf16 정밀도 drift가 발생하지만 본 절 내부 Δ 비교에는 영향 없다 (모두 SDPA baseline 위). §6.2.3 chosen-cell 절대 수치는 *별도 reference*로 인용하며 본 figure에 mix하지 않는다 (caveat).
+
+**Inference stability 보조 관찰 (n drop pattern).** Early-layer K=8 projection (특히 L=5) 은 paired-sids 수가 baseline 대비 *현저히 줄어든다* — PlotQA L=5 K=8 paired n=751 vs baseline n=2,306 (67 % drop), 반면 L=10 이후는 ~100 % retention. 원인은 early-layer residual에 K=8 anchor structure가 부재해 projection이 inference 자체를 destabilize (non-numeric / inf 예측 발생, paired filter에서 탈락). 이 *n drop*은 framework P3 의 *negative-direction* 추가 증거 — early layer는 *제거할 통합 구조 자체가 없어* projection이 잡을 게 없을 뿐만 아니라 forward computation 을 disrupt한다.
+
+**Table P4.1.** P3 layer sweep (K=8 × α=1.0) — Δdf paired-bootstrap CI (B=10,000). Bold = 95 % CI excludes 0.
+
+| Layer | TallyQA | PlotQA | InfoVQA | ChartQA | MathVista |
+|---|---:|---:|---:|---:|---:|
+| L=5 | +0.4 [-3.8, +5.1] *(n=235)* | -1.6 [-4.5, +1.3] | 0.0 [-5.2, +5.2] | +2.7 [-4.8, +10.9] | +7.1 [-5.4, +19.6] |
+| L=10 | -0.2 [-1.0, +0.6] | -0.7 [-2.2, +0.8] | -2.5 [-5.9, +0.9] | -3.1 [-7.6, +0.9] | +3.5 [-1.8, +8.8] |
+| L=15 | +0.3 [-0.6, +1.2] | +1.2 [-0.4, +2.7] | +1.8 [-1.4, +5.0] | -0.5 [-5.4, +4.5] | +2.9 [-4.1, +10.0] |
+| L=20 | **-1.1 [-2.0, -0.2]** | **-4.7 [-6.4, -3.0]** | -0.5 [-4.1, +3.2] | -3.6 [-8.9, +1.8] | **-7.7 [-14.1, -0.6]** |
+| L=25 | -0.5 [-1.5, +0.5] | **-3.0 [-4.8, -1.2]** | +0.5 [-3.6, +4.3] | -4.9 [-10.7, +0.5] | -2.4 [-9.4, +4.7] |
+| **L=26** *(§6.2.3 ref, eager)* | -0.3 [-1.3, +0.6] | **-5.2 [-6.9, -3.4]** | -0.7 [-4.7, +3.4] | -4.0 [-9.8, +1.8] | -4.1 [-11.8, +3.5] |
+| L=27 | +0.4 [-0.6, +1.4] | -0.7 [-2.2, +0.8] | +0.9 [-2.7, +4.5] | 0.0 [-5.4, +5.4] | -0.5 [-7.6, +6.6] |
+
+**Table P4.2.** P2 K=1 falsification at L=26 — same calibration, same α. **K=1 fails to reach the K=8 effect on every dataset**.
+
+| Dataset | n_paired | K=1 Δdf [95 % CI] | K=8 Δdf [95 % CI] (§6.2.3 ref) | Sign-flip? |
+|---|---:|---:|---:|---|
+| **TallyQA** | 4,975 | **+1.4 [+0.5, +2.2]** sig **BACKFIRE** | -0.3 [-1.3, +0.6] ns | **✓ Sign flip** |
+| PlotQA | 2,306 | -0.4 [-1.7, +0.9] ns | **-5.2 [-6.9, -3.4]** sig | (K=1 null vs K=8 sig) |
+| InfoVQA | 443 | -1.4 [-4.5, +1.8] ns | -0.7 [-4.7, +3.4] ns | (both ns) |
+| ChartQA | 224 | -2.7 [-6.7, +1.3] ns | -4.0 [-9.8, +1.8] ns | (both ns, same sign) |
+| MathVista | 170 | +5.3 [-2.4, +12.9] ns | -4.1 [-11.8, +3.5] ns | (sign-flip ns) |
+
+**Figure 13.** Layer sweep Δdf with K=8 line (blue, shaded 95 % CI) + K=1 marker at L=26 (red square). One sub-panel per dataset. Reference: `docs/figures/p4_layer_sweep_delta_df.png`.
+
+**P3 reading (late-layer specificity).** PlotQA (highest power, n=2,306, K=8 calibration scope) shows the cleanest verification — L=5/L=10/L=15 K=8 Δdf 모두 CI overlap 0 (point estimates ±1.6 pp), L=20 K=8 **-4.7 pp [-6.4, -3.0]** + L=25 K=8 **-3.0 pp [-4.8, -1.2]** 모두 **excludes 0**, §6.2.3 chosen-cell L=26 -5.2 pp 와 같은 방향. *L=27은 점추정 -0.7 pp [-2.2, +0.8] ns로 다시 null* — peak는 *L=20-26 좁은 plateau*, L=27은 "too late" (답안 token 결정 후 redirect 불가) 라는 §5.4 Prediction 3 의 *결정 직전 통합 site* 해석과 일관 (즉 framework P3 의 "early null + late significant" 만이 아니라 "very late null"까지 함께 verify). **TallyQA n=4,978 에서도 동일 패턴**: L=10 K=8 -0.2 pp ns + L=15 K=8 +0.3 pp ns (early null), L=20 K=8 **-1.1 pp [-2.0, -0.2]** *(sig)* (mid-late integration onset), L=25 K=8 -0.5 pp ns + L=27 K=8 +0.4 pp ns (다시 redirect 불가) — PlotQA 보다 작은 magnitude 는 TallyQA 의 chosen-cell L=26 baseline Δdf 자체가 floor 수준 (§6.2.3 -0.3 ns) 인 것과 일관 (anchor pull baseline 이 작으면 mitigation 도 작음); plateau 가 PlotQA L=20-25 vs TallyQA L=20 single-peak 로 좁아진 것은 같은 floor 효과의 다른 측면이다. MathVista n=170 에서도 L=20 -7.7 pp [-14.1, -0.6] sig. *Anchor signal 통합은 mid-stack residual layer L≈20 부터 시작되어 late layer L=25-26 근방에서 plateau, L=27 이후 redirect-불가*라는 §5.4 P3 의 직접 verification — sharp peak at L=20-26 in 28-layer Qwen2 backbone, **2/5 high-power datasets (PlotQA n=2306 + TallyQA n=4978) 에서 sig 재현**. (ChartQA · InfoVQA 작은 n=224, 443은 개별 cell sig 아니지만 layer trend는 일관.)
+
+**P2 reading (single-direction fails — and backfires).** 두 가지 OneVision-internal evidence: (i) **PlotQA n=2,306 에서 K=1 Δdf = -0.4 pp [-1.7, +0.9] *ns*** — 동일 L=26 + α=1.0 위에서 *K만* 1로 줄이면 chosen-cell K=8 의 -5.2 pp 효과가 사라진다 (gap 4.85 pp ≈ 4.4σ, eager→SDPA baseline drift ~±1 pp 5× 압도); (ii) **TallyQA n=4,975 에서 K=1 Δdf = +1.4 pp [+0.5, +2.2] sig BACKFIRE** — K=1 은 단순 fail이 아니라 *anchor pull 을 증폭*, K=8 chosen (-0.3 ns) 과 명확한 sign-flip. 본 sign-flip 은 §6.4 의 LEACE rank-1 ChartQA +56 % 역행 (5-mech panel) 패턴이 *OneVision-internal* 위에서도 재현됨을 보이며, **single-direction subspace 는 dataset 마다 *다른 방향* 에 정렬되어 한 dataset 에서 보정한 direction 이 다른 dataset 에서 *역효과*를 낼 수 있다**는 §5.4 P2 의 직접 증거. *§6.4 cross-architecture LEACE 역행 + 본 절 OneVision-internal K=1 역행 두 angle 이 모두 single-direction failure 의 predict-then-verify chain 을 강화*한다.
+
+**Caveat — Δem(b) all-layer positive (§6.3 Insight 1.5 reaffirmed).** Layer sweep Δem(b) 는 모든 layer (L=5, L=10, L=15 포함) 에서 positive (PlotQA L=5 K=8 Δem(b) +2.3 pp [+1.2, +3.5] sig 등) — *anchor signal integration site* 만에 국한되지 않음을 확인. 본 결과는 §6.3 Insight 1.5 에서 사전 명시한 **Alt-1 (general regularization)** 가설을 *falsify하지 않으며*, K=8 random-subspace baseline (§8.4 후속 작업 3) 의 head-to-head 비교가 유일한 결정적 분리이다. P3 의 *Δdf* 기반 verification 은 본 caveat 와 독립이다 — anchor-pull 감소는 late-layer 에서만 sig, generic regularization 신호는 모든 layer 에서 sig 라는 *분리*가 오히려 두 효과의 distinct mechanism 을 시사한다.
+
+**연계.** 본 P4 verification 은 §5.4 Predictions 2 + 3 의 *predict-then-verify* 연계를 강화한다 — Prediction 2 는 §6.4 LEACE cross-dataset (5-model 메커니즘 panel 위) + 본 절 K=1 (OneVision Main 위) 의 두 angle 에서 verified; Prediction 3 은 §6.2.3 chosen-cell 점 위치 + 본 절 layer sweep 의 *shape* 으로 verified. Source: `docs/insights/_data/p4_layer_sweep_per_cell_ci.csv` (full 7-cell × 5-dataset table), `docs/insights/_data/p4_layer_sweep_bootstrap_draws.npz` (raw B=10,000 draws), generator `scripts/aggregate_e6_layer_sweep_p4.py`, sweep launcher `scripts/_p4_layer_sweep_K1_followup.sh`.
+
 ### 6.3 왜 non-anchored arm에서도 em이 오르는가
 
 b-arm은 `target_only` — 단일 이미지 + 질문, 두 번째 anchor 이미지 *없음*. Projection은 anchor 유무와 무관하게 모든 forward에서 작동한다 (universal projection — input이 anchor를 포함하는지 알지 못함). 첫 해석 — "그러므로 projection은 *오직* anchor 제거 연산일 *수 없다*" — 은 옳다.

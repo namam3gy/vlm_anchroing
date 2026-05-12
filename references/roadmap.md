@@ -50,6 +50,67 @@ Predictions are written `pred_b / pred_a / pred_m / pred_d`; ground truth is
 
 ## 3. Status snapshot — where we are (2026-05-09 — 5-round paper review loop complete)
 
+### 3.0d Post-§5.4-framework-verification state (2026-05-12 AM — §5.4 framework P2 + P3 directly verified on OneVision Main)
+
+PR #26 (merged 2026-05-11) lifted the routing-vs-integration framework from §6.6
+to §5.4 so §6.1 / §6.2 read as predict-then-verify of P1 (two mitigation sites).
+But P2 (single-direction failure) and P3 (late-layer integration site) were
+asserted in §5.4 without direct data-grounding inside the paper — only §6.4
+LEACE rank-1 ChartQA backfire on 5-mech panel (P2, cross-architecture) and
+§6.2.3 chosen-cell L=26 K=8 single point (P3, no sweep). User flagged as
+"말로만 cover".
+
+P4 follow-up (PR #39, branch `worktree-paper-section6-2-4-p4-layer-sweep`)
+runs the direct verification on OneVision Main, same calibration scope:
+
+- **P3 — Late-layer integration site (layer sweep K=8 α=1.0)**:
+  PlotQA n=2,306 → L=5/10/15 null (point ±1.6 pp), **L=20 -4.7 [-6.4, -3.0] sig
+  + L=25 -3.0 [-4.8, -1.2] sig**, L=27 -0.7 [-2.2, +0.8] ns (sharp peak L=20-26
+  plateau, decision-immediate-not-too-late). TallyQA n=4,978 mirrors with
+  **L=20 -1.1 [-2.0, -0.2] sig** single-peak (smaller magnitude — floor baseline).
+  MathVista L=20 -7.7 [-14.1, -0.6] sig.
+
+- **P2 — Single-direction failure (K=1 vs K=8 at L=26)**:
+  **TallyQA K=1 +1.4 [+0.5, +2.2] sig BACKFIRE** vs K=8 chosen -0.3 ns —
+  sign-flip mirror of §6.4 LEACE rank-1 ChartQA +56 % backfire on OneVision-
+  internal. PlotQA K=1 -0.4 [-1.7, +0.9] ns vs K=8 chosen -5.2 sig (gap
+  4.85 pp ≈ 4.4σ, dwarfs eager→SDPA drift ~1 pp by 5×). Two-angle P2
+  verification: cross-architecture (§6.4) + OneVision-internal (§6.2.4).
+
+- **Unexpected Δem(b) all-layer positive**. Every cell on every dataset shows
+  sig positive Δem(b) including L=5/L=10 K=8 (where Δdf is null). K=8 subspace
+  doing two things: anchor reduction (late-layer specific) + general
+  regularization (all-layer). §6.3 Insight 1.5 Alt-1 hypothesis **reaffirmed
+  but not falsified** — random-K=8 baseline (Phase 5 P1-5, deferred) remains
+  the definitive falsifier.
+
+- **Methodology drift caveat (eager → SDPA, commit `5c2f52b` 2026-05-03)**:
+  ~2 % boundary-sample divergence between §6.2.3 chosen-cell (eager) and P4
+  sweep (SDPA). P4 internally self-consistent; §6.2.3 numbers cited as separate
+  reference, not mixed in P4 figure. Drift bounded ~1 pp upper, 5× smaller
+  than P2 gap.
+
+- **L=5 inference destabilization** (TallyQA L=5 K=8 paired n=235/5,000 =
+  95 % drop; PlotQA L=5 K=8 paired n=751/2,306 = 67 % drop). Negative-direction
+  P3 evidence: early layers lack K-dim anchor structure + K=8 projection
+  disrupts forward computation.
+
+Lands paper §6.2.4 (new sub-section) + Table P4.1 + Table P4.2 + Figure 13.
+Full evidence: [`docs/insights/P4-framework-verification-evidence.md`](../docs/insights/P4-framework-verification-evidence.md).
+Experiment writeup: [`docs/experiments/P4-framework-verification.md`](../docs/experiments/P4-framework-verification.md).
+Total GPU: ~12.5 H200-hour wall, 2 pod-death recoveries.
+
+**§5.4 framework verification status**:
+- P1 (two mitigation sites) ✓ (§6.1 E4 + §6.2 E6, existing)
+- **P2 (single-direction failure) ✓✓** (§6.4 cross-architecture + §6.2.4 OneVision-internal)
+- **P3 (late-layer integration site) ✓** (§6.2.4 layer sweep, verified on PlotQA + TallyQA)
+- P4 (projection vs broad ablation) ✓ (§7 capability preservation, existing)
+
+**Tier impact**: P3 layer-sweep verification + P2 OneVision-internal backfire
+strengthen the §5.4 framework's predict-then-verify chain from one anchor
+(§6.4 LEACE) to a multi-anchor structure. Tier stays at *Solid Findings, top
+of band*; P0-2 eigenvalue spectrum (Phase 5) remains the tier-shifter to Main.
+
 ### 3.0c Post-bridge state (2026-05-10 — Solid Findings, top of band; bridge PARTIALLY RESCUED at K=1 after re-calibration)
 
 P0-1 γ-β residual-stream bridge experiment shipped end-to-end with
@@ -421,6 +482,7 @@ gt range (no [0,8] restriction).
 | **E6 (historical) — Tally-only N=5000 calibration, gt ∈ [0,8] eval** | Subspace L31_K04_α=1.0 clears 4-dataset selection rule. df −46% to −56% on TallyQA/ChartQA/VQAv2/MathVista; em +0.9 to +3.3 pp. Caveat: gt ∈ [0,8] restriction made result look like partial solution. | ✅ landed 2026-05-01 — historical baseline (superseded) |
 | **E6 Phase 1 — Pilot grid + recalibration on PlotQA + InfoVQA pooled, full gt range, 5-dataset** | New calibration target: PlotQA+InfoVQA pooled n5k. **27-cell pilot grid** (L∈{25,26,27} × K∈{2,4,8} × α∈{0.5,1.0,2.0}) on OneVision Main. Aggregator `scripts/analyze_e6_pilot_cells.py` with em-drop dealbreaker rule + wrong-base baseline filter. | ✅ shipped 2026-05-03 — chosen cell **L=26 K=8 α=1.0** |
 | **E6 Stage 4-final eval (chosen cell × 5 datasets)** | Apply L=26 K=8 α=1.0 to OneVision on 5-dataset full gt range, n=5000 wrong-base subset per dataset. Compare baseline vs mitigation arm directly (same predictions.jsonl, two cells). Δ-table generator: `scripts/build_e6_stage4_summary.py`. | ✅ shipped 2026-05-03 (commit `9f9dfa0`). Paired wrong-base avg Δdf=-2.9pp, **Δem(a)=+3.9pp benefit, Δem(b)=+8.8pp recovery → free-lunch** (paper task #38; earlier "-2.4pp em(a) cost" framing was a hand-copy error, retracted 2026-05-04). |
+| **E6 P4 follow-up — §5.4 framework verification (layer sweep K=8 + K=1 falsification)** | 7-cell × 5-dataset paired-bootstrap sweep on OneVision Main, same calibration scope. Cells: L∈{5,10,15,20,25,27}×K=8×α=1.0 (P3 layer sweep) + L=26×K=1×α=1.0 (P2 single-direction falsification). Generator `scripts/aggregate_e6_layer_sweep_p4.py`, launcher `scripts/_p4_layer_sweep_K1_followup.sh`. | ✅ shipped 2026-05-12 (PR #39, branch `worktree-paper-section6-2-4-p4-layer-sweep`). **Headlines**: (P3) PlotQA L=5/10/15 null + L=20 -4.7 [-6.4, -3.0] sig + L=25 -3.0 [-4.8, -1.2] sig + L=27 -0.7 ns (sharp peak L=20-26 plateau); TallyQA L=20 -1.1 [-2.0, -0.2] sig single-peak. (P2) TallyQA K=1 +1.4 [+0.5, +2.2] sig BACKFIRE vs K=8 -0.3 ns (sign-flip, OneVision-internal mirror of §6.4 LEACE rank-1 ChartQA reversal); PlotQA K=1 -0.4 ns vs K=8 chosen -5.2 sig gap 4.85 pp = 4.4σ. **Caveat**: Δem(b) all-layer positive on every dataset incl L=5 — §6.3 Insight 1.5 Alt-1 (general regularization) reaffirmed but not falsified, random-K=8 baseline (Phase 5 P1-5) remains the resolution. **Drift**: eager→SDPA precision shift (commit `5c2f52b` 2026-05-03) ~2 % boundary samples — P4 internally consistent, §6.2.3 cited as separate ref. Full evidence `docs/insights/P4-framework-verification-evidence.md` + experiment writeup `docs/experiments/P4-framework-verification.md`. Lands paper §6.2.4 (new sub-section, Table P4.1 + P4.2 + Figure 13). |
 | **E6 Pilot validation (2026-05-01, llava n=200, historical)** | Existing Tally-calibrated subspace tested on PlotQA + InfoVQA pilots: PlotQA gt∈[1,8] Δdf −60%, em +3.85pp; InfoVQA gt∈[1,8] Δdf −24%, em +1.09pp. | ✅ historical |
 
 ### 6.6 §8 — Future work (scope only)
@@ -504,7 +566,7 @@ contingent on P0-1 bridge experiment.
 | **P0** | P0-2 | Eigenvalue spectrum of `D[:, L=26, :]` rank-8 elbow check | §6.4 + new figure | ~4 H100-hour | Theoretical contribution upgrade if elbow clean. |
 | ~~**P1**~~ | ~~P1-3~~ | ~~Paired-bootstrap CI on §6.2.3 Table 6 (B=10,000)~~ | ~~`scripts/build_e6_stage4_summary.py` extension~~ | ✅ landed 2026-05-10 (branch `worktree-paper+p1-defense-r4`) | Closes R4 MAJ-4 + R4 MAJ-6 (Bonferroni-20). New script `scripts/build_e6_stage4_bootstrap_ci.py`; canonical CSV/MD `docs/insights/_data/stage4_final_per_dataset_ci.{csv,md}` + raw draws `_data/stage4_final_bootstrap_draws.npz`; insight `docs/insights/E6-stage4-paired-bootstrap-ci.md`. Δem(b) sign-clean 5/5 under Bonferroni-20; Δdf(a) sign-clean 1/5 (PlotQA only); InfoVQA Δdf 95 % CI [−4.7, +3.4] confirms inconclusive fence with paper's prior paired-Wilson estimate (~10 % within actual half-width 0.0406). |
 | **P1** | P1-4 | CAA at K=1 + ITI at attention-head — actual Table 7 rows | §6.5 + new evidence doc | ~3 H200-day | Closes R4 MAJ-5 (structural Note → empirical). |
-| **P1** | P1-5 | Random-K=8 baseline for §6.3 (Alt-1 falsification) | §6.3 Insight 1.5 | ~2 H100-day | Closes R4 CRIT-3. |
+| **P1** | P1-5 | Random-K=8 baseline for §6.3 (Alt-1 falsification) — *priority elevated 2026-05-12*: P4 follow-up (PR #39) verified Δem(b) is **all-layer positive** (including L=5 K=8 cells where Δdf is null), reaffirming Alt-1 hypothesis without falsifying it. Random-K=8 is now the only path to anchor-specificity attribution of §6.3 Insight 1 b-arm em gain. | §6.3 Insight 1.5 + §6.2.4 caveat | ~2 H100-day | Closes R4 CRIT-3. |
 | ~~**P1**~~ | ~~P1-6~~ | ~~§A.5 27-cell pilot grid 4-metric heatmap aggregation~~ | ~~§A.5 + new canonical CSV~~ | ✅ landed 2026-05-10 (branch `worktree-paper+p1-defense-r4`) | Closes R4 CRIT-2 (cherry-pick concern). New script `scripts/aggregate_e6_pilot_grid.py`; canonical CSV `docs/insights/_data/E6_pilot_grid_27cells.csv` + `_selection_replay.md`; figures `docs/figures/E6_pilot_grid_{plotqa,infographicvqa}_heatmap.png`; insight `docs/insights/E6-pilot-grid-aggregation.md`. Em-deal-breaker rule non-binding on the grid (no cell rejected); chosen cell #17 ranks first by combined `|Δdf(a)|` under the same ex ante rule. |
 | **P2** | P2-7 | E6 cross-architecture replication on Qwen2.5-VL-7B (different encoder archetype) | §6.6 + §1.4 framing | ~10 H200-day | Partial close of R4 CRIT-1 (N=1 → N=2). |
 | **P3** | P3-8 | Paraphrase robustness (5 prompts × 5 datasets) | §A.X + §8.2 | ~3 H200-day | Defuses single-prompt critique. |
@@ -597,6 +659,32 @@ contingent on P0-1 bridge experiment.
   `predictions.jsonl` only.
 
 ## 10. Changelog
+
+- **2026-05-12 AM (P4 — §5.4 framework verification via layer sweep + K=1 falsification, OneVision Main).**
+  §5.4 routing-vs-integration framework predictions P2 (single-direction failure) +
+  P3 (late-layer integration site) were not directly tested in the prior chosen-cell
+  §6.2.3. P4 follow-up: 7 cells × 5 datasets paired-bootstrap sweep on
+  `llava-onevision-qwen2-7b-ov`, same calibration scope (PlotQA + InfoVQA pooled n=5,000),
+  same (a−m) K=16 subspace. Cells: L ∈ {5, 10, 15, 20, 25, 27} × K=8 × α=1.0
+  (P3 layer sweep) + L=26 × K=1 × α=1.0 (P2 single-direction falsification).
+  **Results**: (P3) PlotQA n=2,306 shows clean late-layer specificity — L=5/L=10/L=15
+  null (point estimates ±1.6 pp), **L=20 -4.7 [-6.4, -3.0] sig + L=25 -3.0 [-4.8, -1.2] sig**,
+  L=27 -0.7 [-2.2, +0.8] ns (peak at L=20-26 plateau, L=27 "too late"); TallyQA n=4,978
+  mirrors with **L=20 -1.1 [-2.0, -0.2] sig** (smaller magnitude — baseline floor).
+  (P2) **TallyQA K=1 +1.4 [+0.5, +2.2] sig BACKFIRE** (n=4,975) — sign-flip vs §6.2.3
+  chosen-cell K=8 -0.3 ns; PlotQA K=1 -0.4 [-1.7, +0.9] ns vs K=8 chosen -5.2 sig
+  (gap 4.85 pp ≈ 4.4σ). OneVision-internal verification of single-direction failure,
+  mirrors §6.4 LEACE rank-1 ChartQA +56 % backfire (5-mech panel). **Caveats**: (a)
+  eager→SDPA precision drift ~2 % boundary-sample divergence between §6.2.3 chosen-cell
+  (eager) and P4 sweep (SDPA post-commit 5c2f52b); P4 sweep methodologically self-consistent
+  but §6.2.3 chosen-cell numbers referenced separately; (b) Δem(b) all-layer positive on
+  all 5 datasets (L=5/L=10 K=8 included), §6.3 Insight 1.5 Alt-1 (general regularization)
+  unfalsified — random-K=8 baseline (§8.4 #3) remains the definitive falsifier. Lands
+  paper §6.2.4 (new sub-section with Table P4.1 cross-dataset layer sweep + Table P4.2
+  K=1 vs K=8 + Figure 13). Source: `outputs/e6_steering/llava-onevision-qwen2-7b-ov/
+  sweep_subspace_<ds>_..._p4_layer_sweep_K1_{layers_K8,L26_K1}/predictions.jsonl`,
+  generator `scripts/aggregate_e6_layer_sweep_p4.py`, launcher
+  `scripts/_p4_layer_sweep_K1_followup.sh`. Total GPU: ~12.5 H200-hour wall. PR #39.
 
 - **2026-05-11 late-PM (§4.5 ×12.7 ratio paired-bootstrap CI landed — §8.4 item 9 closure).** `scripts/bootstrap_x12_7_paired_ci.py` runs paired bootstrap (sid-level resample × arm-conditional `base_correct` filter, B = 10,000, seed = 42) on Qwen3-VL-8B Instruct vs Thinking MathVista γ-β predictions (n = 365 paired sids). **Headline: ratio T/I = ×12.69, 95 % CI [×6.23, ×56.31]**; per-arm CIs: instruct df(a) correct CI [0.0042, 0.0413] (5/238), thinking df(a) correct CI [0.2085, 0.3286] (56/210). Lower bound × 6.23 separates from 1 even under the right-skewed percentile distribution induced by the sparse instruct numerator (74/10,000 resamples drew instruct numerator = 0; excluded from ratio CI). Point estimate × 12.69 sits well inside the CI. Edits: `docs/paper/emnlp_draft_ko.md` §4.5 prose (CI inline replaces "CI 미산출") + §8.4 item 9 marked ✅ resolved with linked artifact; `docs/insights/E5e-mathvista-reasoning-evidence.md` TL;DR / §5 detailed-claim / §6 Caveats table — all with the same CI. Data canonical: `docs/insights/_data/qwen3vl_x12_7_paired_ci.{csv,json}`. Closes round-1 MAJOR-6 / round-4 MAJ-7 rigor requirement. PR `worktree-paper-x12.7-paired-ci → master`.
 - **2026-05-11 late (§A.5 / §C.3 forward-pointer cleanup — R5 protect-list 외 잔여 decorative pointer 솎기).** `docs/paper/emnlp_draft_ko.md`: 5 decorative `부록 §A.5` forward-pointer prune (L89 §3.3 per-cell n table promise / L103 §4.1 Table 2 aggregator detail / L171 §4.2 Insight 3 second InfoVQA pointer consolidate / L284 §7.4 Table 6 reproducibility pointer / L737 §D.2.2 appendix-to-appendix decoration) + L480 §8.4 item 8 redundant tail pointer 제거. §A.5 본문 실제 내용 (canonical-source pointer 2 bullet + 27-cell pilot grid 표) 과 대조해보면 pruned pointer 5건은 §A.5 안에 *존재하지 않는* 내용 (per-cell n 표, aggregator 설명, Table 6 reproducibility, D.2.2 reproducibility) 을 promise하는 stale pointer였음. R5 bar-raiser don't-touch protect-list (§6.2.3 reframing 5 callsite L331×2 + L337 + L339 + L359 + L361×2) 와 §4.2 Insight 3 first source pointer (L171), §C.3 sole nav pointer (L128) 는 유지. sections/06_confidence.md L73 (§C.3 +0.215 wrong-correct nav) + sections/07_mechanism_mitigation.md L257 (§6.2.2 cherry-pick disclosure) + L283 (Figure 7 caption) 도 protect-list-adjacent로 유지. 검증: `grep -c "§A\.5"` 11 → 6, `grep -c "§C\.3"` 1 → 1; body §1–§8 inline `docs/insights/` citation guard 통과 (1 match = Figure 7 `_data/*.csv` reference, evidence file 아님). diff 6 ins / 6 del.
