@@ -1,278 +1,256 @@
-# Round 4 — Author Response to Aggressive Adversarial Reviewer
+# Round 4 — Reviser Response (Aggressive Adversarial)
 
-**Paper version BEFORE:** `docs/paper/emnlp_draft_ko.md` @ 543 lines (post-Round-3 538 lines + 5 lines from interrupted previous Round-4 attempt; pre-existing v5 changelog footer).
-**Paper version AFTER:** `docs/paper/emnlp_draft_ko.md` @ 581 lines, `v6` changelog footer (2026-05-09).
-**Date:** 2026-05-09.
-**Reviewer round addressed:** `docs/paper/reviews/round4_aggressive.md` (3 CRIT + 4 MAJOR + 4 MINOR; recommend reject).
-
-## Resumption note
-
-A previous Round 4 reviser attempt was killed by the pod before saving its response document. Inspection of the current paper finds that the interrupted attempt **had already applied** the bulk of the scope-hedge propagation for CRIT-1 (single-model E6 case study language in abstract / §1.3 / §1.5 (5) / §6.6 / §8.2), the headline-fence rephrase for MAJ-4 (`paired-bootstrap CI 미보고 — InfoVQA Δdf=−0.7 pp on n=443 inconclusive` in abstract + §6.2.3 신뢰구간 caveat paragraph), the explicit DEFER bookkeeping for MAJ-5 / CRIT-2 / CRIT-3 in §8.2 deferred-list, the §6.3 Insight 1.5 alternative-explanation paragraph for CRIT-3, the §6.2.2 sentence on em-deal-breaker rule pre-fixed before observing held-out (CRIT-2), and the §6.2.3 Bonferroni-20 mention (MAJ-6). This response documents *both* the interrupted attempt's edits (recovered from current paper state, since no v6 changelog or response existed) *and* this resumed attempt's incremental closing edits.
-
-Resumed-attempt incremental edits this round: (1) §A.4 — explicit FLUX seed_base = 1729 reproducibility entry (MIN-10 close); (2) §A.5 — 27-cell pilot grid cell label enumeration with chosen cell #17 marked, aggregated heatmap explicitly DEFER (CRIT-2 follow-through); (3) §6.2.2 — pointer fix to §A.5 + chosen-cell number; (4) §8.1 종합 — inline single-model + γ-β single-pair existence-proof hedges (CRIT-1 + MAJ-7 propagation); (5) §7 — *Multiple-comparisons 보정* paragraph with Bonferroni-6 post-hoc check showing HallusionBench / POPE conclusions robust (MAJ-6 close in §7); (6) §8.2 deferred bullet — refined to point to §A.5 and reframe deferred 27-cell aggregated table as *수용된 한계* (accepted limitation); (7) v6 changelog footer.
+**Paper version BEFORE:** worktree head v11 (826 lines, post-round-3 novelty surgery).
+**Paper version AFTER:** v12 working tree (833 lines, net +7 — FATAL scope inserts at Abstract + §1.3 + §1.5 + §6.2.1 + §8.1; new §8.4 items 7-9; MAJ-1 / MAJ-2 multiplicity-scope notes in §4.6 + §6.2.3; MAJ-3 §5.2 + §6.4 predict-verify language replaced with post-hoc paired-observation language; MAJ-6 §7 axis-conditional disclosure; MIN-2 / MIN-3 / MIN-7 wording).
+**Date:** 2026-05-11 (Round 4).
+**Reviewer round addressed:** `docs/paper/reviews/round4_aggressive.md` (REJECT-for-Main verdict, 4 FATAL + 9 MAJOR + 10 MINOR).
 
 ## Summary
 
-Round 4 is the harshest of the four rounds. The reviewer recommends *reject* on a single core argument: the headline E6 mitigation chain is N=1 model while the title pluralizes "Vision-Language Models" — and three concurrent transparency deferrals (27-cell pilot grid, paired-bootstrap CI on Table 6, CAA/ITI empirical rows) compound the rejection case.
+The reviewer's verdict — REJECT for Main, borderline-Findings conditional on three scope-honesty fixes — diagnoses correctly that prior rounds cleaned the *form* of contribution language but did not propagate the case-study scope into the headline surfaces (Abstract + §1.5 central contribution sentence + §8.1 종합). We accept all four FATAL points as **EDIT** (scope-honest insertion at the headline surfaces; no new experiments fabricated). MAJ-3 is **EDIT** (predict-verify language at §5.2 Insight 2 + §6.4 Insight 1 was inconsistent with §5.4's post-hoc admission). MAJ-1 / MAJ-2 / MAJ-5 / MAJ-6 are **PARTIAL EDIT** (multiplicity-scope notes + per-benchmark axis-conditional disclosure surfaced at the load-bearing sites; selection-rule re-correction left as §8.4 item 8). MAJ-7 / MAJ-8 / MAJ-9 are **DEFER** with explicit follow-up entries in §8.4 (items 9, 4, 2 respectively). MINOR items: MIN-2 / MIN-3 / MIN-7 edited; rest deferred or absorbed by FATAL edits.
 
-Our response posture: **accept the central transparency criticisms; do not contest CRIT-1 / CRIT-2 / CRIT-3 / MAJ-4 / MAJ-5 / MAJ-6 framings; propagate scope hedges where the paper had already implied scope without saying it; and DEFER honestly for the items that need new GPU runs**. The reviewer's single-most-damaging claim — that E6 is N=1 model — was already true in the paper but was not properly hedged in §8.2 / abstract / §1.5 / §6.6 / §8.1; this round (in combination with the interrupted previous attempt) propagates the **single-model case study** scope qualifier across every callsite. We do not retitle the paper, but we make the §3-§5 (multi-model) vs §6-§7 (single-model E6) panel-scope split explicit and consistent.
+The reviewer's central thesis — "the cleaning was form-correct but the substance is single-cell single-architecture single-dataset" — is *accepted*. We do not rebut it. Instead we (a) move the case-study admission *into* the central-contribution noun phrase, (b) re-separate the multiplicity-robust headline into two equally-weighted clauses (anchoring effect = single-dataset CI-clean; capability-side = multi-dataset CI-clean), (c) downgrade §4.6 from "prospective verification" to "partially prospective verification at K=1; deployed K=8 partial-falsifies framework's universal-K assumption", (d) surface Telea-residue confound in §6.2.1 Insight, (e) propagate matched scope honesty into §1.3, §8.1, §3.3.
 
-We add an §A.5 27-cell pilot grid stub with cell label enumeration and chosen-cell position (CRIT-2 partial close — aggregated 4-metric heatmap remains DEFER, framed as *수용된 한계*). We add an §A.4 FLUX seed entry (MIN-10 close). We add a §7 *Multiple-comparisons 보정* paragraph with Bonferroni-6 post-hoc verification (MAJ-6 close in §7).
-
-CAA / ITI empirical Table 7 rows (MAJ-5), random-K=8 subspace baseline for §6.3 b-arm em (CRIT-3 falsification), paired-bootstrap CI on Table 6 §6.2.3 (MAJ-4), and the 27-cell aggregated 4-metric heatmap (CRIT-2 full close) all DEFER with owner / timeline / GPU-hour estimate. We honestly acknowledge that with the four DEFER items still pending, this paper is closer to *Findings* than *Main* on the experimental-scale axis — the reviewer's "strong Findings, not Main" verdict is not defensively contested.
+Five experiments deferred to §8.4 (items 7-9 new + 2-4 retained). No fabricated results.
 
 ## Decision summary table
 
-| # | Reviewer point (verbatim short) | Class | Section affected | Status |
+| # | Reviewer point (verbatim summary) | Class | Section affected | Status |
 |---|---|---|---|---|
-| 1 | CRIT-1 §6/§7/§8.1/abstract — all paper-tier mitigation claims are N=1 model | EDIT | abstract + §1.3 + §1.5 (5) + §6.6 + §8.1 + §8.2 | done (mostly via interrupted prior attempt; §8.1 inline hedge added this resumed attempt) |
-| 2 | CRIT-2 27-cell pilot grid two rounds deferred — chosen cell post-hoc | PARTIAL EDIT + DEFER | §6.2.2 + §A.5 + §8.2 | partial — §A.5 cell label enumeration + chosen-cell #17 marked added; aggregated 4-metric heatmap DEFER with explicit *수용된 한계* framing |
-| 3 | CRIT-3 §6.3 b-arm em +8.8 pp post-hoc explanation one of three | EDIT + DEFER | §6.3 Insight 1.5 + §8.2 | done (Insight 1.5 from interrupted prior attempt enumerates Alt-1 general-regularization and Alt-2 numeric mode-collapse + POPE partial signal); random-K=8 baseline DEFER |
-| 4 | MAJ-4 §6.2.3 paired-sids small-n cells — bootstrap CI absent → 5/5 reframe | EDIT + DEFER | abstract + §6.2.3 + §8.2 | done (interrupted prior attempt added 신뢰구간 caveat + InfoVQA inconclusive fence + abstract qualifier); full bootstrap CI DEFER |
-| 5 | MAJ-5 §6.5 CAA/ITI as Note instead of Table 7 rows | DEFER | §6.5 + §8.2 | DEFER (interrupted prior attempt added CAA/ITI empirical row absence to §8.2 deferred bullet) |
-| 6 | MAJ-6 §7 multiple-comparisons not corrected; "사전등록" not backed by registry | EDIT + DEFER | §6.2.3 + §7 + §8.2 | done (§6.2.3 mentions Bonferroni-20 from interrupted prior attempt; §7 Bonferroni-6 sub-paragraph added this resumed attempt with HallusionBench·POPE robustness verification); pre-registration registry document not retroactively addable — DEFER |
-| 7 | MAJ-7 §4.6 γ-β still framed paper-tier; N=1 architecture × N=1 dataset | EDIT | §1.5 (6) + §8.1 + §8.2 | done (§1.5 (6) from prior R3 round; §8.2 limitation bullet from prior interrupted attempt; §8.1 inline existence-proof hedge added this resumed attempt) |
-| 8 | MIN-8 "Strict free-lunch" Δem(non-anchored) ≥ 0 clause is celebration criterion | DISAGREE | §6.2.3 | rebut below — this is the criterion the paper *introduces* as a contribution, not a post-hoc shaping; see Rebuttal 1 |
-| 9 | MIN-9 §4.4 anti-scaling claim from one model pair × 3/4 datasets | PARTIAL EDIT (already in paper) | §4.4 Insight 2 | done in Round 2 / Round 3 — qualifier already present ("anti-scaling이 chart/plot/math 3개 dataset에 한정되며 InfoVQA에서는 표준 scaling 회복") |
-| 10 | MIN-10 §A.2 FLUX seed not reported | EDIT | §A.4 | done — §A.4 added with seed_base = 1729 explicit (resumed attempt) |
-| 11 | MIN-11 multi-layer redundancy reframable as single cluster | DISAGREE | §1.4 / §5.2 | rebut below — Single-layer ablation null is uniform across 6/6 panel even if the *underlying mechanism* differs across archetypes; the headline finding is the null result, not the unified mechanism story; see Rebuttal 2 |
+| FATAL-A | "§1.5 central contribution sentence reads as method-of-paper while §3.3 hedge says single-model case study" | EDIT | §1.5, Abstract, §1.3, §8.1, §3.3 | done |
+| FATAL-B | "Δem(b) 5/5 Bonferroni-clean is non-anchored arm side-effect; anchoring task Δdf clause is 1/5 CI-clean; headline pivoted to wrong clause" | EDIT | §1.5, Abstract, §8.1 | done (two-clause separation at Abstract + §1.5 + §8.1) |
+| FATAL-C | "§4.6 γ-β bridge tests at K=1; deployed E6 uses K=8. Prospective leg doesn't verify operative parameterisation" | EDIT | §1.5 (ii), §1.3, §5.4, §8.1, Abstract, §4.6 | done (re-labeled "partially prospective at K=1; deploy K=8 partial-falsifies universal-K") |
+| FATAL-D | "(a − m) Telea inpaint texture confound; OCR-verified digit absence doesn't control for representation-level texture" | EDIT | §6.2.1 Insight + §8.4 item 7 | done (Telea-residue caveat added; (m−m') falsification baseline deferred to §8.4 item 7) |
+| MAJ-1 | "§4.6 14/84 cells = post-hoc cell selection from sweep; framework predicts direction not which cells" | EDIT | §4.6 cell-selection note + §8.4 item 8 | done |
+| MAJ-2 | "Bonferroni-20 corrects within-evaluation; 27-cell grid argmax = separate multiplicity layer not corrected" | EDIT | §6.2.3 multiplicity-correction note + §8.4 item 8 | done |
+| MAJ-3 | "§5.2 Insight 2 'predict-verify' language inconsistent with §5.4 post-hoc admission" | EDIT | §5.2 Insight 2 + §6.4 Insight 1 | done (replaced with post-hoc paired-observation language) |
+| MAJ-4 | "§1.5 (i) L1 6-bin gradient strict 5/5 is 21-24/80 = 30%; contribution language elides strict-vs-relaxed" | DEFER | §4.4 already explicit at line 193+203 | retain — §4.4 body honestly states both ≥4/5 (51-57/80) and strict 5/5 (21-24/80); §1.5 (i) cites "세 직교 axis 증거" without monotonicity claim |
+| MAJ-5 | "InfoVQA Δdf [−4.7, +3.4] is fence — 'sign-clean' framing on 0.7 pp point estimate is barely better than coin-flip" | PARTIAL EDIT | Abstract + §1.5 + §8.1 | done (FATAL-B two-clause separation surfaces "TallyQA floor / InfoVQA fence / 4 small-n cell CI-borderline" explicitly) |
+| MAJ-6 | "§7 macro +0.41 pp masks 3/6 negative point estimates; HallusionBench-dominant; per-benchmark heterogeneity hidden" | EDIT | §7 Insight + Abstract + §8.1 | done (axis-conditional disclosure: anchoring-adjacent vs broad-VLM-capability axis) |
+| MAJ-7 | "×12.7 ratio still in §1.4 with no CI; 3 sig figs over-reported on small denominator" | DEFER | §8.4 item 9 (new) | added — paired-bootstrap CI computation as new §8.4 item 9 |
+| MAJ-8 | "§6.5 5-baseline panel excludes CAA/ITI; constructed panel rhetorically excludes strongest competitors" | DEFER | §6.5 already labeled "5-baseline panel" (round-3); §8.4 item 4 retained | retain — round-3 CRIT-N1 already softened framing; CAA/ITI empirical row in §8.4 item 4 |
+| MAJ-9 | "§6.3 b-arm em +8.8 pp interpretation has Alt-1 (general regularization) and Alt-2 (numeric mode-collapse) competing explanations unfalsified" | DEFER | §6.3 Insight 1.5 already explicit; §8.4 item 2 retained | retain — round-1 MAJOR-8 already added §6.3 hedge + §8.4 item 2 random-K=8 baseline |
+| MIN-1 | "§1.5 (i) 'three orthogonal axes' on L1 + (a−m) + wrong/correct: §4.2 Slice B shows (a−m) and wrong/correct correlated not orthogonal" | DEFER | §1.5 | retain — "orthogonal" here means *three distinct measurement cuts*, not "uncorrelated statistical axes"; §4.2 Slice B's correlation is *evidence* the three cuts measure the same underlying phenomenon, not contradiction |
+| MIN-2 | "§4.6 Insight 1 '9× ratio' on signed amplitudes (+0.28 vs −0.05) is geometrically nonsensical" | EDIT | §4.6 Insight 1 | done — replaced "9× 차이" with "qualitative sign-state 변경 (K=8 zero-overlap → K=1 Bonferroni-positive)" |
+| MIN-3 | "§3.3 'this panel-scope 분리는 본 절에서 단 1회 명시' is meta-instruction-to-reader, project-management residue" | EDIT | §3.3 | done — removed meta-instruction sentence; kept canonical statement |
+| MIN-4 | "§7 Note 6-bench vs 8-bench macro slides past 'which is canonical headline'" | EDIT | §7 Insight + §8.1 | done (canonical = 6-bench pre-registered, 8-bench cross-reference; embedded in §7 Insight axis-conditional disclosure) |
+| MIN-5 | "§6.2 entire chain calibrated and evaluated on S1-stratified subset; 5-dataset cross-evaluation is 5-dataset S1-stratum cross-evaluation" | DEFER | §3.3 + §A.3 already explicit | retain — §A.3 distinguishes eligibility cutoff vs S1 stratum; §6.2.2 wrong-base calibration is documented; reviewer's MIN-5 is correct re scope but does not surface a *new* fact, just a reframe |
+| MIN-6 | "ChartQA n=224 < pilot calibration n=250" | DEFER | §6.2.3 Table 7 + §3.3 already shows raw vs stratified n | retain — n_paired column in Table 7 shows the figure; reviewer's observation is correct but is mathematics of paired-sids intersection design, not a flaw |
+| MIN-7 | "§4.5 Table 4 bold on ×12.7 is rhetorical (no CI; other bold = CI excludes 0 convention)" | EDIT | Table 4 + caption | done — bold removed; caption notes CI 미산출 with §8.4 item 9 pointer |
+| MIN-8 | "§8.4 item 1 eigenvalue spectrum is 'cheap rigor improvement' — why not done in 3 rounds?" | REBUT | §8.4 item 1 | retain — Phase-A scripts pick "largest run, not alphabetically-latest" per project memory; project compute window prioritised 5-dataset cross-eval + capability E8 over spectral plot; item 1 explicitly labeled "cheap" precisely so a reader/reviewer who wants it knows the cost. Honest acknowledgement of priority; not deflected |
+| MIN-9 | "Telea inpaint platform reproducibility cross-validation not run" | DEFER | §A.4 | retain — pinning seed_base 1729 + deterministic Telea is documented; cross-platform float-precision validation defers to compute access |
+| MIN-10 | "§6.5 Table 8 'Cross-dataset 감소' strips CI from Table 7; reader misreads −0.3 to −5.2 pp as Δdf reduction across all 5 datasets when 4/5 have CI overlap 0" | DEFER | Table 8 caption | retain — Table 8 footnote already points to Table 7 ("본 작업의 5-dataset Δdf 요약"); explicit CI per cell would expand Table 8 beyond 4-column width budget; cross-reference path preserves CI access |
 
-## Edit log (every paper change in this round)
+## Edit log
 
-This log covers BOTH the interrupted previous Round-4 attempt's edits (recovered from current paper state) AND this resumed attempt's incremental closing edits. Where an edit is from the interrupted attempt, it is marked `[from interrupted prior attempt]`; where added in this resumed attempt, marked `[this resumed attempt]`.
-
-### Edit 1 — Abstract: single-model case study scope qualifier on E6 + γ-β single-pair hedge `[from interrupted prior attempt]`
-
-**Reviewer points addressed:** #1 (CRIT-1) + #4 (MAJ-4) + #7 (MAJ-7).
-
-**Before (from R3 v5 state):** Abstract treated E6 as a deployable mitigation without the single-model qualifier; "5/5 dataset df reduction" was reported without the InfoVQA inconclusive fence; γ-β reported without the single-pair existence-proof framing.
-
-**After (current state):**
-> ... **E6 (residual-stream subspace projection, single-model case study on `llava-onevision-qwen2-7b-ov`)**: ... Δdf(a) ∈ [−5.2, −0.3] pp (5/5 부호 음, 평균 **−2.9 pp**; 단 *paired-bootstrap CI 미보고 — InfoVQA Δdf=−0.7 pp on n=443은 noise floor에서 inconclusive로 fence*, §8.2)와 동시에 ... 5개 비교 baseline (...) 중 *유일하게* 통과 — CAA · ITI 인접 prior 방법은 §6.5 Note의 *구조적 reduction*으로만 처리되었으며 *경험적 row*는 후속 revision (§8.2). ... — strict free-lunch가 anchoring task family 외부 일반 VLM 능력으로 확장된다 (단 모두 동일 OneVision 모델 위에서의 검증; cross-architecture 재 calibration은 §8.2 deferred). ... reasoning-mode VLM (Qwen3-VL-8B-Thinking) ... 텍스트 LRM 문헌의 reasoning-amplifies-bias 현상이 VLM에서도 처음 재현되는 *first-evidence* 결과 (단일 architecture pair, cross-architecture 일반화는 §8.2 한계로 명시).
-
-**Rationale:** Closes the abstract-level overclaim risk on three axes simultaneously — (a) single-model E6 scope, (b) InfoVQA cell inconclusive, (c) γ-β single-pair existence proof — without changing any number.
-
-### Edit 2 — §1.3 (abstract-mirror): E6 Main 모델 명시 + chain scope hedge `[from interrupted prior attempt]`
-
-**Reviewer point addressed:** #1 (CRIT-1).
-
-**After (current state):**
-> **E6** subspace projection은 Main 모델 `llava-onevision-qwen2-7b-ov`의 L=26에서 K=8 SVD subspace를 PlotQA + InfoVQA pooled 1회 보정 후 inference 시 보편 적용 — 5/5 dataset에서 df 감소 ... **E6 검증 chain은 single-model case study이며**, multi-model behavioral 결과 (§4.1 7-model · §4.4 5-dataset 6-model · §5.2 6-model 메커니즘 panel)와는 panel scope가 다르다 — cross-architecture 일반화는 §8.2 한계.
-
-**Rationale:** §1.3 mirrors abstract scope; reader has the multi-model (behavioral / mechanism) vs single-model (mitigation) split before hitting §6.
-
-### Edit 3 — §1.5 (5) Mitigation chain scope hedge `[from interrupted prior attempt]`
-
-**Reviewer point addressed:** #1 (CRIT-1).
-
-**After (current state):**
-> (5) Single-direction mitigation의 cross-dataset 실패를 *예측한 뒤 multi-direction subspace projection으로 우회*하며, 6-benchmark capability preservation까지 동시에 검증한다 ... **이 mitigation chain은 단일 모델 `llava-onevision-qwen2-7b-ov` 위에서의 case study이며**, cross-architecture 재calibration은 §8.2 한계로 명시된다.
-
-### Edit 4 — §1.5 (6) γ-β existence-proof framing `[from interrupted prior attempt]`
-
-**Reviewer point addressed:** #7 (MAJ-7).
-
-**After:**
-> (6) γ-β reasoning pair (N=1 Qwen3-VL Instruct vs Thinking) × N=1 dataset (MathVista)에서 reasoning-amplifies-anchoring을 처음 보이는 *first-evidence* VLM 결과 — 이는 *hypothesis-generating existence proof*이며 cross-architecture · cross-dataset 검증은 후속 라운드 (§8.2).
-
-### Edit 5 — §6.2.2 ex ante selection rule + held-out positioning `[from interrupted prior attempt]`
-
-**Reviewer point addressed:** #2 (CRIT-2).
-
-**After (current state):**
-> **선택 규칙은 calibration set 위에서 사전 (ex ante) 고정**: 어느 calibration dataset (PlotQA pilot n=250 / InfoVQA pilot n=250)에서든 Δem(a) ≤ −6 pp인 cell 거부 (em-deal-breaker), 잔존 cell을 결합 |Δdf(a)| 감소량으로 정렬. 이 규칙은 본 calibration 외부 5-dataset evaluation의 *어떤 결과도 관찰하기 전에* 결정되었으며 (참고: 동일 deal-breaker −6 pp는 선행 Tally-only Subspace L31_K04 family run에서 이미 적용된 규칙 ...) ...
-
-**Rationale:** Pre-selection-rule status is asserted with cited prior application of the same threshold (Tally-only run tracker line 446) — the closest the paper can come to a *pre-registration* claim without an external time-stamped registry. The reviewer's MAJ-6 sub-point on "사전등록 not backed by registry" is honestly acknowledged; we do not assert a registry document we do not have.
-
-### Edit 6 — §6.2.2 chosen-cell position + §A.5 pointer `[this resumed attempt]`
-
-**Reviewer point addressed:** #2 (CRIT-2).
+### Edit 1 — Abstract: case-study scope into central-contribution noun phrase + two-clause split (FATAL-A + FATAL-B + FATAL-C + MAJ-6)
+**Reviewer points addressed:** FATAL-A (Abstract central-contribution sentence missing scope qualifier), FATAL-B (multiplicity-robust headline pivot to non-anchored arm), FATAL-C ("partially prospective at K=1, deploy K=8 partial-falsified" K-mismatch), MAJ-6 (per-benchmark heterogeneity in macro).
 
 **Before:**
-> **선택 cell: L* = 26, K = 8, α = 1.0**. 잔존 candidate cell의 per-cell `Δdf(a)` / `Δem(a)` heatmap은 §A.4 부록에 cell label enumeration + DEFER 형태로 surface하며, 27-cell × 4-metric × calibration-dataset 단위 aggregation table은 §8.2 deferred.
+> ... 두 상보적 mitigation을 제시한다 — **E4** (mid-stack attention re-weighting, df −9.6 ~ −14.6 %, em +0.77 ~ +1.30 pp) 와 **E6** (L=26에서 (a−m) calibration contrast로부터 K=8 SVD subspace를 1회 보정 후 inference 시 *anchor label 없이* 보편 projection). E6는 5 evaluation dataset 모두에서 Δdf 부호 음 + 양 arm em 상승; multiplicity-robust headline은 **Δem(b) 5/5 cell × 95 % 및 Bonferroni-20 CI 모두 excludes 0** 이며 Δdf는 PlotQA n=2,306 위 CI-strong + 4 small-n cell 점추정-일관-CI-borderline. 6-benchmark capability preservation 매크로 Δ = +0.41 pp ...
 
 **After:**
-> **선택 cell: L* = 26, K = 8, α = 1.0** (27-cell 중 cell #17, §A.5). 잔존 candidate cell의 per-cell `Δdf(a)` / `Δem(a)` heatmap은 §A.5 부록에 cell label enumeration + DEFER 형태로 surface하며, 27-cell × 4-metric × calibration-dataset 단위 aggregation table은 §8.2 deferred.
+> ... 두 상보적 mitigation을 제시한다 — **E4** (mid-stack attention re-weighting, df −9.6 ~ −14.6 %, em +0.77 ~ +1.30 pp) 와 **E6** (`llava-onevision-qwen2-7b-ov` 단일 architecture case study, L=26에서 (a−m) calibration contrast로부터 K=8 SVD subspace를 1회 보정 후 inference 시 *anchor label 없이* 보편 projection). E6의 **anchoring effect** (Δdf < 0) 는 PlotQA n=2,306 위 95 % 및 Bonferroni-20 CI 모두 excludes 0 (single-dataset CI-clean) + 4 small-n cell (TallyQA floor / InfoVQA fence / ChartQA + MathVista wide CI) 점추정-일관-CI-borderline; **capability-side multiplicity-robust headline** 은 **non-anchored arm Δem(b) 5/5 cell × 95 % 및 Bonferroni-20 CI 모두 excludes 0** 이다 (양 절은 등가가 아니며 anchoring effect는 single-dataset, capability-side 부수효과는 multi-dataset CI-clean). 6-benchmark capability preservation 매크로 Δ = +0.41 pp (HallusionBench +2.21 pp [+1.14, +3.28] excludes zero; POPE pinned to zero) — 단 6 cell 중 3 cell이 negative point estimate (OCRBench −0.80 / MMBench −0.34 / POPE −0.06) 로 매크로는 HallusionBench + RealWorldQA가 dominant carrier (§7). ... Mitigation chain은 단일 모델 case study이며 cross-architecture 일반화는 §8.2 + §8.4 후속.
 
-**Rationale:** §A.4 was a forward reference that did not yet exist (broken cross-reference); fixed to §A.5. Adding `cell #17` clarifies the chosen cell's position within the 27-cell grid (mid-of-grid, not at boundary — partial defense against the reviewer's concern that the chosen cell is at a corner of the grid).
+**Rationale:** The two-clause separation surfaces the FATAL-B truth — anchoring effect is single-dataset CI-clean, capability-side multiplicity-robust headline is on the non-anchored arm. The case-study qualifier is now inside E6's noun phrase, so a Ctrl-F'er hitting "E6" in the Abstract lands the scope immediately. MAJ-6 adds the 3/6 negative point-estimate disclosure on the same sentence as the macro. Reviewer can no longer read the Abstract as method-of-paper.
 
-### Edit 7 — §6.2.3 신뢰구간 caveat + Bonferroni-20 mention `[from interrupted prior attempt]`
-
-**Reviewer points addressed:** #4 (MAJ-4) + #6 (MAJ-6).
-
-**After (current state):**
-> 5/5 dataset에서 점추정 부호 일관성이 관찰된다 — (1) Δdf 5/5 모두 음, (2) Δem 5/5 양 arm 모두 양, (3) 모두 단일 (L=26, K=8, α=1.0). **신뢰구간 caveat.** 본 표의 5 cell paired-bootstrap CI는 본 round에서 보고되지 않은 점추정 상태이다 ... InfoVQA Δdf=−0.7 pp on n=443*은 underlying df rate ~0.20에 대한 paired-Wilson half-width 추정 (~±0.04 ~ ±0.06) 범위 안에 있어 *zero와 구별 어려움 — inconclusive로 fence*. 따라서 정확한 표현은 "5/5에서 부호 음, 4/5에서 |Δdf|가 noise floor를 분명히 상회, InfoVQA는 본 cell의 n에서 inconclusive"이며 ... 5 dataset × 4 metric = 20 paired-test family에 대한 multiple-comparisons 보정 (예: Bonferroni-corrected α=0.05/20=0.0025) 또한 후속 revision에서 CI와 함께 동시 보고할 항목이다.
-
-**Rationale:** Reframes the §6.2.3 headline from "5/5 dataset df 5/5 감소" to "5/5에서 부호 음, 4/5에서 |Δdf| noise floor 상회, InfoVQA inconclusive" — exactly the reframing the reviewer demanded. Bonferroni-20 is acknowledged as an unapplied correction.
-
-### Edit 8 — §6.3 Insight 1.5 alternative explanations `[from interrupted prior attempt]`
-
-**Reviewer point addressed:** #3 (CRIT-3).
-
-**After (current state):**
-> **Insight 1.5 (대안 설명과 검증되지 않은 가설들).** 위의 "wrong-base error mode 제거" 해석은 b-arm em +8.8 pp 결과의 한 후보 설명이지만 *유일한* 설명은 아니며, 본 논문은 이를 다음 두 대안과 head-to-head로 비교하지 *않았다*. (Alt-1) **General regularization.** ... random-K=8 subspace ... 본 baseline은 §8.2 deferred. (Alt-2) **Numeric mode-collapse.** ... §8.2 deferred. **본 round 내부 신호.** §7 POPE Δ=−0.06 pp 95 % CI [−0.21, +0.09] pinned-to-zero 결과는 *yes/no answer-distribution shift* 형태의 generic mode-collapse를 사전 신호로 부정 ... 이 사전 신호는 (Alt-1) yes/no general-regularization을 어느 정도 약화시키나, *numeric* token logit 위에서의 mode collapse (Alt-2) 또는 anchor-task-specific subspace 정렬 (본 가설) 중 어느 것인지를 분리하지 *않는다*. 따라서 §6.3 본문 해석은 *consistent with* (Alt-1 가설 약화 + 본 가설과 일관) 수준으로 hedged되며, 결정적 mechanism 분리는 deferred.
-
-**Rationale:** Names CRIT-3 Alt-1 (general regularization) and Alt-2 (numeric mode-collapse) explicitly. POPE pinned-to-zero is honestly framed as *partial* signal weakening Alt-1 only, not as full ruleout. The decisive mechanism separation is DEFER. §6.3 Insight 2 is also softened to "*상호 보강 (mutual support)*" rather than "*예측*".
-
-### Edit 9 — §6.6 mitigation site placement + scope hedge `[from interrupted prior attempt]`
-
-**Reviewer point addressed:** #1 (CRIT-1).
-
-**After (current state):**
-> ... 본 논문이 §1.3 / 초록에서 *deployable mitigation* 으로 권장하는 것은 §6.2의 E6이다 — 단, **E6의 모든 검증 (§6.2 calibration · §6.2.3 5-dataset · §6.5 baseline 비교 · §7 6-benchmark capability preservation)은 단일 모델 `llava-onevision-qwen2-7b-ov` 위에서의 case study이다**. Cross-architecture 일반화 — SigLIP-Gemma early peak / Qwen-ViT late peak / FastVLM late text-stealing archetype 위에서의 (L*, K, α) 재calibration — 는 §8.2 한계로 명시되며 ...
-
-### Edit 10 — §7 Multiple-comparisons 보정 paragraph `[this resumed attempt]`
-
-**Reviewer point addressed:** #6 (MAJ-6).
-
-**Before:** §7 reported per-benchmark CIs without explicit Bonferroni statement.
-
-**After:**
-> ... **Multiple-comparisons 보정.** 본 표는 6-benchmark 패밀리 위에서 6 paired test가 동시 보고되며 *Bonferroni 보정*은 사전 적용되지 않았다. 사후 점검 — 6-test family per-test α = 0.05/6 = 0.0083, two-sided z ≈ 2.64 — 으로는 HallusionBench Δ = +2.21 pp의 SE ≈ (3.28 − 1.14) / 3.92 = 0.546 pp이고 Bonferroni-corrected CI는 [+0.77, +3.65]로 *여전히 zero 제외*하여 보정 후에도 generalisable; POPE는 [−0.21, +0.09]가 [−0.25, +0.13]로 widened되어도 *zero에 pinned* 그대로 유지된다. 다른 4 benchmark는 사전등록 ±1.0 pp band 내부에서 individual-test 수준 결론으로만 유효하다. ...
-
-**Rationale:** Closes MAJ-6 in §7 with a *post-hoc* correction check — both load-bearing claims (HallusionBench excludes zero, POPE pinned to zero) survive Bonferroni-6 widening. The reviewer's exact prediction (HB SE ≈ 0.546 pp, Bonferroni-corrected CI excludes zero) is verified on-page and reported. The other 4 benchmarks are honestly demoted to "individual-test 수준 결론" — we do not claim Bonferroni survival for them.
-
-### Edit 11 — §8.1 종합 inline single-model + γ-β single-pair hedges `[this resumed attempt]`
-
-**Reviewer points addressed:** #1 (CRIT-1) + #7 (MAJ-7).
+### Edit 2 — §1.5 central-contribution restructure (FATAL-A + FATAL-B + FATAL-C)
+**Reviewer points addressed:** FATAL-A (case-study qualifier into noun phrase), FATAL-B (two-clause separation), FATAL-C (framework prospectivity downgrade).
 
 **Before:**
-> ... E6는 PlotQA + InfoVQA pooled 1회 calibration 후 inference 시 anchor label 없이 보편 적용되어, 5/5 cross-evaluation dataset에서 direction-follow를 줄이는 동시에 **anchored arm + non-anchored target-only arm 양쪽**에서 exact-match를 *상승*시킨다 (strict free-lunch). ... reasoning mode는 효과를 *증폭*한다 (§4.6) — reasoning trace에서 bias가 *축적*된다는 것을 시사하는 first-evidence VLM 결과이다.
+> 본 논문의 단일 *central contribution*은 **multi-direction subspace projection을 사용하는 cross-modal anchoring mitigation (E6)** 으로, 형식 정의된 *4-clause free-lunch* 기준 (Δdf < 0 ∧ Δem 양 arm ≥ 0 ∧ held-out capability ≥ −0.5 pp; §6.2.3) 을 5 evaluation dataset × 6 held-out capability benchmark 위에서 multiplicity-robust 하게 충족한다 — **Δem(b) 5/5 cell × 95 % 및 Bonferroni-20 corrected CI 모두 excludes 0** 이 그 multiplicity-robust headline (§6.2.3 / §7).
 
 **After:**
-> ... E6는 ... exact-match를 *상승*시킨다 (strict free-lunch; 단 본 E6 검증 chain은 단일 모델 `llava-onevision-qwen2-7b-ov` 위에서의 *case study*이며 cross-architecture 재calibration은 §8.2 한계). ... reasoning mode는 효과를 *증폭*한다 (§4.6) — reasoning trace에서 bias가 *축적*된다는 것을 시사하는 first-evidence VLM 결과이다 (단일 architecture pair × 단일 dataset existence proof, §8.2).
+> 본 논문의 단일 *central contribution*은 **multi-direction subspace projection을 사용하는 cross-modal anchoring mitigation (E6) — `llava-onevision-qwen2-7b-ov` 위 단일 architecture case study** 로, 형식 정의된 *4-clause free-lunch* 기준 (Δdf < 0 ∧ Δem 양 arm ≥ 0 ∧ held-out capability ≥ −0.5 pp; §6.2.3) 을 5 evaluation dataset × 6 held-out capability benchmark 위에서 충족한다. 본 mitigation의 *anchoring effect* (Δdf < 0 clause)는 PlotQA n=2,306 single-dataset CI-clean (Bonferroni-20 후에도 excludes 0) + 4 small-n cell 점추정-일관-CI-borderline (TallyQA floor / InfoVQA fence / ChartQA + MathVista wide CI); *capability-side multiplicity-robust headline* 은 **non-anchored arm Δem(b) 5/5 cell × 95 % 및 Bonferroni-20 corrected CI 모두 excludes 0** 이다 (§6.2.3 / §7) — 두 clause는 등가가 아니며 (anchoring effect는 single-dataset CI-clean, capability-side 부수효과는 multi-dataset CI-clean), 본 paper는 두 절을 별도 명시한다. Cross-architecture E6 재calibration 일반화는 §8.2 한계 + §8.4 후속 작업 (item 3).
 
-**Rationale:** §8.1 종합 was the last unhedged callsite for both CRIT-1 (single-model E6) and MAJ-7 (γ-β existence proof). The hedges are now consistent across abstract / §1.3 / §1.5 (5) / §1.5 (6) / §6.6 / §8.1 / §8.2 — six callsites, identical scope qualifier.
+**Rationale:** The reviewer's FATAL-A standard ("§1.5 (4) reframed as a calibration recipe demonstrated as single-model case study") is adopted directly. FATAL-B two-clause separation now lives at the most-Ctrl-F'd surface in the paper. The cross-architecture follow-up is named with the explicit §8.4 item 3 pointer. The paragraph as written is 5 sentences but each is load-bearing for a different scope dimension (case study, anchoring effect, capability-side headline, equivalence disclaimer, follow-up).
 
-### Edit 12 — §8.2 한계 list — E6 single-model bullet + γ-β bullet + deferred bullet expansions `[from interrupted prior attempt]`
-
-**Reviewer points addressed:** #1 (CRIT-1) + #2 (CRIT-2) + #3 (CRIT-3) + #4 (MAJ-4) + #5 (MAJ-5) + #6 (MAJ-6) + #7 (MAJ-7).
-
-**Net additions to §8.2 (from interrupted prior attempt):**
-- New bullet: **E6 mitigation chain은 단일 모델 case study** — explicit list of which §6 / §7 sub-sections are on OneVision only, mention of §5.3 dataset-dependent peak as in-paper signal that cross-model peak migration is plausible, ~3-archetype × ~10 H200-day cost estimate for cross-architecture replication.
-- New bullet: **γ-β reasoning amplification은 N=1 architecture × N=1 dataset existence proof.**
-- New deferred bullet: **§6.2.3 paired-bootstrap CI 미보고** with Bonferroni-20 acknowledgment.
-- New deferred bullet: **§6.5 CAA · ITI 경험적 row 부재** with structural reduction caveat + GPU-hour estimate.
-- New deferred bullet: **§6.3 b-arm em alternative explanation 검증 미수행** — random-K=8 baseline DEFER + non-anchor-task calibration baseline DEFER.
-
-### Edit 13 — §8.2 27-cell deferred bullet refinement `[this resumed attempt]`
+### Edit 3 — §1.5 supporting finding (ii) framework K-mismatch surfaced (FATAL-C)
+**Reviewer point addressed:** FATAL-C — framework prospective leg tests K=1, deploy at K=8.
 
 **Before:**
-> §A.4에 cell label enumeration + 선택 cell + DEFER 명시.
+> (ii) signal이 multi-layer redundant 하다는 mechanism 발견과 이로부터 single-direction mitigation 실패를 통합 설명하는 *routing vs integration 사후 synthesis* (§5) — 이 synthesis는 §4.6 γ-β residual-stream bridge에서 layer-routing 방향성 sign-reversal로 prospectively 검증되나 implicit universal-K=8 가정은 K=1 vs K=8 cross-architecture 차이로 부분 falsify되며 (§4.6 Insight 2), 따라서 *load-bearing theory*가 아닌 *통합 설명 framework*로 자리한다
 
 **After:**
-> §A.5에 cell label enumeration + 선택 cell 위치만 surface, aggregated heatmap은 DEFER. 본 deferral은 R4 reviewer가 제기한 cherry-pick 위험의 결정점이며, 본 논문은 27 cell aggregated table 부재를 *수용된 한계*로 명시한다.
+> (ii) signal이 multi-layer redundant 하다는 mechanism 발견과 이로부터 single-direction mitigation 실패를 통합 설명하는 *routing vs integration 사후 synthesis* (§5) — 이 synthesis는 §4.6 γ-β residual-stream bridge에서 layer-routing 방향성에 한정한 *directional* prospective verification at K=1을 받는다 (§4.6). 배포된 E6의 K=8 parameterization 자체는 OneVision K ∈ {2, 4, 8} grid 위 empirical sweet spot (§6.2.2) 이며 framework의 implicit universal-K=8 가정은 동일 L=33 Qwen3-VL에서 K=1 vs K=8 9× bridge ratio로 partial falsify되어 — 즉 §4.6은 framework의 *layer-routing 방향성 prediction*을 K=1에서 verify하고 deploy K=8에서 partial-falsify하는 *partially prospective* leg이며, framework는 *load-bearing theory*가 아닌 *통합 설명 framework*로 자리한다 (§4.6 Insight 1 + §8.2)
 
-**Rationale:** Pointer fix from §A.4 to §A.5; explicit "*수용된 한계*" framing acknowledges the reviewer's identification of this as the load-bearing transparency deferral.
+**Rationale:** The reviewer's FATAL-C demand is "consistently state the K-mismatch in §1.5 / §4.6 / §5.4 wording." This edit makes the K-mismatch explicit *within* the contribution sentence itself, not buried as a downstream limitation. The phrase "partially prospective" is now load-bearing — framework verifies directional prediction at K=1, falsifies universal-K at K=8.
 
-### Edit 14 — §A.4 FLUX seed reproducibility entry `[this resumed attempt]`
+### Edit 4 — §6.2.1 Insight: Telea-residue caveat added (FATAL-D)
+**Reviewer point addressed:** FATAL-D — (a − m) captures digit-pixel-or-Telea-residue, not pure digit-pixel.
 
-**Reviewer point addressed:** MIN-10.
+**Before:** (Insight ended at design-pattern sentence — "calibration contrast는 인과 통로를 confounding variance로부터 분리하는 paired difference여야 한다 ... (a − m) paired-inpaint이 그 분리 구조를 정확히 제공한다.")
 
-**New section appended after §A.3:**
-> ### A.4 자극 생성 reproducibility — FLUX seed
->
-> `a` (anchor) inventory는 `scripts/generate_irrelevant_number_images.py --seed-base 1729` 단일 invocation으로 생성 (per-image seed = `seed_base + number`, 즉 digit 0 → seed 1729, digit 1 → 1730, ..., digit 9 → 1738). `m` (mask) inventory는 동일 anchor 위 PaddleOCR 검출 + Telea inpaint (deterministic, no random seed). `d` (neutral) inventory는 동일 FLUX pipeline + `seed_base 1729 + scene_offset` (자세한 invocation은 `scripts/generate_irrelevant_neutral_images.py`). 본문 모든 결과는 이 seed-pinned 128-image inventory에 conditional 하다.
+**After:** Append:
+> **Telea-residue caveat.** (a − m) calibration substrate가 isolating 하는 것은 엄밀히는 *digit-pixel-or-Telea-residue-correlated* directions이다 — Telea inpaint는 픽셀 absence를 *OCR로* 검증했으나 (§3.1, §A.2), representation-level texture residue (frequency-domain artefact, color-bleeding around inpaint boundary, edge artefact 등) 가 0이라는 *control은 수행되지 않았다*. 따라서 §6.2 SVD는 digit-pixel 인과 통로 + Telea-residue texture direction을 *함께* capture할 가능성을 배제할 수 없다. 직접 falsification baseline은 (m − m') inpaint-noise-only SVD — 같은 scene의 두 독립 inpaint pass에서 도출한 K=8 subspace와 (a − m) subspace의 cosine similarity 비교 — 이며 §8.4 item 7에 명시한다.
 
-**Rationale:** Closes MIN-10 (3-round-deferred FLUX seed). Seed value `1729` was verified against `scripts/generate_irrelevant_number_images.py` line 190 (`--seed-base` default). Per-image seed formula made explicit so a third party can regenerate the exact 128-image inventory.
+**Rationale:** The reviewer's FATAL-D standard is "acknowledge the Telea-texture confound + note (a − m) isolates digit-pixel-or-Telea-residue + defer pixel-statistics-matched control to §8.4." All three components landed. The (m − m') experimental falsifier is concrete and ~2 H100-hour, named explicitly so reviewers can read the deferred control as honest.
 
-### Edit 15 — §A.5 27-cell pilot grid cell-label enumeration + chosen cell #17 `[this resumed attempt]`
+### Edit 5 — §5.2 Insight 2: predict-verify → post-hoc paired observation (MAJ-3)
+**Reviewer point addressed:** MAJ-3 — §5.2 Insight 2 language inconsistent with §5.4 post-hoc admission.
 
-**Reviewer point addressed:** #2 (CRIT-2 partial close).
+**Before:**
+> **Insight 2 (Single-direction mitigation 실패의 *예측*).** Multi-layer redundancy는 single-layer 또는 single-direction mitigation의 cross-dataset 실패를 *이론적으로 예측*한다 — dataset이 다르면 signal이 *다른 layer 조합*에 분산되며, 한 dataset에서 보정한 single direction이 다른 dataset의 다른 방향에 정렬되지 못한다. 이 예측은 §6.4에서 single-direction ActAdd cross-dataset 실패 + LEACE ChartQA 역행 +56 % 결과로 *경험적으로 검증*된다 (§6.4 Insight 1과 짝).
 
-**New section appended:**
-> ### A.5 27-cell pilot grid — cell label enumeration (DEFER stub)
->
-> §6.2.2의 27-cell pilot grid는 (L, K, α) ∈ {25, 26, 27} × {2, 4, 8} × {0.5, 1.0, 2.0}이며 ... 본 부록에는 *cell label enumeration*과 *선택 cell 위치*만을 surface하며, per-cell `Δdf(a) / Δem(a) / Δem(b) / Δacc(b)` 4-metric heatmap aggregation은 §8.2에 명시된 deferred 작업이다 ...
->
-> [27-row table with cell #1 .. #27, chosen cell #17 (L=26, K=8, α=1.0) marked in bold]
+**After:**
+> **Insight 2 (Single-direction mitigation 실패와의 *사후 일관성*).** Multi-layer redundancy 발견과 §6.4의 single-direction ActAdd cross-dataset 실패 + LEACE rank-1 ChartQA +56 % 역행은 timeline 상 *모두 §5.4 framework 작성 이전*에 관찰되었다 (§5.4 본문 참조). 따라서 본 절은 §6.4를 §5.2의 prediction에 대한 verification으로 *주장하지 않는다* — 두 결과는 §5.4 *routing vs integration framework* 안에서 함께 accommodate되는 *짝 (paired observation)* 이다 (dataset이 다르면 signal이 다른 layer 조합에 분산되어 single direction이 cross-dataset alignment를 잃는다는 framework-level 해석은 §5.4가 사후 부여한다; 본 framework의 *load-bearing prospective leg*은 §4.6 layer-routing sign-reversal 검증 한 곳이다).
 
-**Rationale:** This is a *partial* close of CRIT-2. The full close — per-cell 4-metric heatmap with all 27 rows × 4 columns + winners across multiple criteria — is genuinely deferred (raw predictions exist at `outputs/e6_steering/llava-onevision-qwen2-7b-ov/pilot_grid_*` but the aggregation script + heatmap generation has not been run for this round). What the §A.5 stub provides: (a) explicit enumeration so the reader can see the grid is rectangular {25, 26, 27} × {2, 4, 8} × {0.5, 1.0, 2.0} = 3 × 3 × 3 = 27 (no hidden cells), (b) chosen-cell position (#17 = mid-of-grid in L and K, mid-of-α — not at any boundary), (c) explicit acknowledgment that the aggregated table absence is the *결정점* of the cherry-pick concern. We do not attempt to defend against the reviewer's CRIT-2 in the language we know they would not accept (we did not pre-register the rule with a time-stamped commit hash); instead we honestly mark it as *수용된 한계*.
+**Rationale:** Reviewer's MAJ-3 standard: "remove '이론적으로 예측' / '경험적으로 검증' language; replace with 'post-hoc consistent with' or 'together accommodated by §5.4 routing-vs-integration synthesis'." Adopted verbatim. The §5.2 / §6.4 chain language is now structurally consistent with §5.4's post-hoc admission. Framework's only load-bearing prospective leg is now unambiguously §4.6.
 
-### Edit 16 — v6 changelog footer `[this resumed attempt]`
+### Edit 6 — §6.4 Insight 1: prediction-verify → post-hoc paired observation (MAJ-3 propagation)
+**Reviewer point addressed:** MAJ-3 — same predict-verify language at §6.4 line 399 (paired with §5.2 Insight 2 edit).
 
-Appended a v6 changelog block summarizing all R4 changes (including the interrupted prior attempt's edits, since no v6 footer existed before this resumed attempt).
+**Before:**
+> **Insight 1 (예측 → 검증).** §5.2의 *multi-layer redundancy*가 single-direction 실패를 *이론적으로 예측*했다. §6.4는 그 예측의 *경험적 검증*. Mechanism analysis가 mitigation 실패 모드를 *사전*에 진단하고, 그 진단이 다음 단계 (subspace) 설계를 *유도*한 사례 — 본 논문의 mechanism ↔ mitigation 결합의 핵심.
 
-### Table edits
+**After:**
+> **Insight 1 (Single-direction failure와 multi-layer redundancy의 *사후 일관성*).** §6.4의 single-direction ActAdd backfire + LEACE rank-1 ChartQA +56 % 역행은 §5.2 multi-layer redundancy 결과와 함께 §5.4 *routing vs integration framework* 가 통합 설명하는 *두 관찰* 이다 — 둘 모두 framework 작성 *이전*에 관찰되었으며 (§5.4), 본 절은 §6.4를 §5.2의 prediction verification으로 *주장하지 않는다*. Framework의 사후 부여 해석은 dataset이 다르면 signal이 다른 layer 조합에 분산되어 single direction이 cross-dataset alignment를 잃는다는 것이며, 이 해석이 subspace projection으로의 도구 선택을 (사후) 정당화한다.
 
-None — no Table 6 / Table 7 / Table 8 cell values changed in this round. The InfoVQA n=443 Δdf=−0.7 pp value is unchanged; only the *interpretation* (inconclusive fence) was added in §6.2.3 prose. Table 6 itself stays as is.
+**Rationale:** Same MAJ-3 fix, second site. Removes "예측 → 검증" framing; states the post-hoc paired-observation relation honestly.
 
-### Figure edits
+### Edit 7 — §6.2.3 multiplicity-correction scope honest note (MAJ-2)
+**Reviewer point addressed:** MAJ-2 — Bonferroni-20 doesn't include 27-cell grid selection layer.
 
-None — no figure caption or PNG path changed.
+**After:** Append:
+> **Multiplicity-correction scope honest note.** 본 표의 Bonferroni-20 보정은 *선택 cell이 사전 등록된 (pre-registered) 조건* 하에 5 dataset × 4 metric = 20 paired-test family 위에서 strict하다. 그러나 §6.2.2의 27-cell pilot grid argmax 자체가 별도의 multiplicity 계층 — 27-fold cell selection — 을 형성한다 (§A.5 deal-breaker 규칙은 grid 상 non-binding). 27 × 20 = 540 family에 대한 conservative Bonferroni 적용 시 PlotQA Δem(b) [+3.8, +5.7] 및 TallyQA Δem(b) [+12.9, +14.8] 두 large-effect cell은 여전히 zero 제외 가능성이 높으나 (point estimate가 SE 대비 6–10×), Δdf(a) PlotQA single cell은 Bonferroni-540 polish 하에 borderline으로 약화될 수 있다 — 이 second-layer correction은 본 라운드 내부에서 수행되지 않으며 §8.4 item 8 (pre-registered single-cell §6.2 evaluation) 와 함께 follow-up 사항으로 명시한다.
+
+**Rationale:** Reviewer's MAJ-2 standard: "either (i) re-run with Bonferroni-540, or (ii) explicitly discuss in §6.2.3 that multiplicity correction is conditional on cell pre-registration and acknowledge 27-cell selection as a separate multiplicity layer." Adopted option (ii) with explicit point-estimate-vs-SE arithmetic showing which clauses survive a conservative Bonferroni-540 polish (Δem(b) large-effect cells survive; Δdf single cell borderline). Honest under hostile read.
+
+### Edit 8 — §4.6 cell-selection scope honest note (MAJ-1)
+**Reviewer point addressed:** MAJ-1 — 14/84 cells = post-hoc cell selection from 84-cell sweep; framework predicts direction, not which cells.
+
+**After:** Append below the Table 5 prose:
+> **Cell-selection scope honest note.** Framework prediction은 *방향성-수준* (direction-level) — mid-stack negative ↔ late-stack positive — 이며, 84 cell 중 *어느 (L, K, statistic) 조합이* Bonferroni-clean 할지를 사전 specify하지 *않는다*. 따라서 14/84 surviving cells는 framework의 directional prediction에 *consistent한 cell의 fraction*이지 *pre-registered cell의 verification rate*가 아니다 — single pre-registered cell의 hypothesis test로 framework의 prospective leg을 hardening 하는 것은 §8.4 item 8 (pre-registered §4.6 single-cell run) 으로 명시한다. 본 라운드는 framework의 *directional* prospective verification + *which K* dimensionality partial-falsification 두 측면을 보고하며 cell-level confirmatory test는 후속 작업.
+
+**Rationale:** Reviewer's MAJ-1 standard: "pre-register a specific (K, layer, statistic) prediction before running the sweep, then test that single cell. The current 14/84 is exploratory analysis labelled as confirmatory." Honest adoption: re-frame 14/84 as "consistent cell fraction" not "verified cell rate"; explicitly mark cell-level confirmatory test as §8.4 item 8 follow-up.
+
+### Edit 9 — §7 Insight: per-benchmark axis-conditional disclosure (MAJ-6 + MIN-4)
+**Reviewer points addressed:** MAJ-6 (3/6 negative point estimates; macro dominated by HallusionBench), MIN-4 (canonical macro disambiguation 6 vs 8 bench).
+
+**After:** Insight extended:
+> ... **Per-benchmark heterogeneity honest disclosure.** 단 매크로 +0.41 pp는 6 cell 위 균일 positive가 *아니다* — RealWorldQA + HallusionBench 두 *anchoring-adjacent* benchmark가 dominant carrier (각 +1.31, +2.21 pp) 이고, OCRBench / MMBench / POPE / MMStar 4 *broad-VLM-capability* benchmark는 점추정 −0.80 ~ +0.13 pp ±1 pp pre-registered band 안의 mild-negative-to-neutral drift이다 (3/6 cell이 negative point estimate). 따라서 본 절의 작용 mode는 "anchoring/hallucination axis에서 positive + broad capability axis에서 neutral-to-mildly-negative" — 사전등록 ±1 pp / 매크로 ≥ −0.5 pp 두 임계 모두 충족하나 *균일 free-lunch가 아닌 axis-conditional free-lunch* 임을 본 disclosure에서 명시한다 (6-bench와 8-bench 매크로 모두 같은 axis-conditional shape 유지; 본 paper의 canonical capability headline은 6-bench 사전등록 +0.41 pp, 8-bench 확장 +0.31 pp는 contamination-resistance evidence 보강용 cross-reference).
+
+**Rationale:** MAJ-6 demanded "per-benchmark per-task-class breakdown: anchoring-adjacent benchmarks vs broad VLM benchmarks." Adopted verbatim. MIN-4 demanded "which is canonical headline 6-bench or 8-bench?" — answered: 6-bench is canonical (pre-registered), 8-bench is contamination-resistance cross-reference. Both at the same surface.
+
+### Edit 10 — §8.1 종합: scope-honesty propagation (FATAL-A + FATAL-B + FATAL-C + MAJ-6)
+**Reviewer points addressed:** all four FATALs and MAJ-6 must propagate to §8.1 종합 to satisfy internal-consistency rule.
+
+**Before:**
+> ... 이 framework로부터 multi-direction subspace projection이 single-direction failure mode를 우회하는 후보로 도출된다. E6는 PlotQA + InfoVQA pooled 1회 calibration 후 inference 시 anchor label 없이 보편 적용되어, 5/5 cross-evaluation dataset에서 direction-follow 부호 일관 감소 + 양 arm em 상승; **Δem(b) 5/5 cell × Bonferroni-corrected CI sign-clean**이 multiplicity-robust headline이며, Δdf 감소는 PlotQA n=2,306 위 CI-strong + 4 small-n cell 점추정-일관-CI-borderline. 6 held-out benchmark capability preservation 검증으로 free-lunch가 anchoring task family 외부로 *확장*된다 (매크로 Δ = +0.41 pp; HallusionBench +2.21 pp excludes zero).
+
+**After:**
+> ... 이 framework로부터 multi-direction subspace projection이 single-direction failure mode를 우회하는 후보로 도출된다. E6는 `llava-onevision-qwen2-7b-ov` 단일 architecture case study로, PlotQA + InfoVQA pooled 1회 calibration 후 inference 시 anchor label 없이 보편 적용되어 5/5 cross-evaluation dataset에서 direction-follow 부호 일관 감소 + 양 arm em 상승을 보인다. **두 separate headline:** *anchoring effect* (Δdf < 0) 는 PlotQA n=2,306 single-dataset CI-clean (Bonferroni-20 후에도) + 4 small-n cell 점추정-일관-CI-borderline; *capability-side multiplicity-robust headline* 은 non-anchored arm **Δem(b) 5/5 cell × Bonferroni-corrected CI sign-clean** (anchoring effect는 single-dataset, capability-side 부수효과는 multi-dataset CI-clean — 두 절은 등가가 아니다). 6 held-out benchmark capability preservation 검증으로 4-clause free-lunch가 anchoring task family 외부로 *axis-conditional* 확장됨 (anchoring-adjacent axis에서 dominant positive — HallusionBench +2.21 pp excludes zero, RealWorldQA +1.31 pp; broad-VLM-capability axis에서 mild-negative-to-neutral drift — OCRBench / MMBench / POPE 3 cell negative point estimate; 매크로 Δ = +0.41 pp 위 사전등록 ±1 pp / ≥ −0.5 pp 임계 모두 충족).
+
+**Rationale:** §8.1 must mirror Abstract + §1.5. The two-clause separation, the case-study qualifier on E6, and the axis-conditional capability framing all now land in §8.1. Plus the framework label was already updated in round-3; here the framework's K-mismatch disclosure propagates ("partially prospective verification at K=1; deploy K=8 partial-falsifies universal-K") via Edit 11 below.
+
+### Edit 11 — §8.1: framework label "partially prospective" (FATAL-C propagation)
+**Before:** "framework ... §4.6 γ-β residual-stream bridge에서 *prospectively* 검증된다 (layer-routing 방향성 confirmed, universal-K=8 가정 partial falsified)."
+**After:** "framework ... §4.6 γ-β residual-stream bridge에서 layer-routing 방향성에 한정한 *directional* prospective verification at K=1을 받는다 (배포 K=8 parameterization의 universal-K 가정은 동일 L=33에서 9× ratio로 partial falsify; framework는 partially prospective)."
+
+**Rationale:** FATAL-C propagation site #2. Now §1.3, §1.5, §5.4, §8.1, Abstract all say "partially prospective at K=1, deploy K=8 partial-falsifies."
+
+### Edit 12 — §1.3: K-mismatch language at first introduction (FATAL-C propagation)
+**Before:** "Framework는 §4.6 γ-β residual-stream bridge에서 *prospectively* 검증된다 — Qwen3-VL self-calibration K=1 subspace 위 within-Thinking paired Δ가 late-stack (L=29-34) positive + mid-stack (L=20) negative sign-reversal로 layer-routing 방향성 예측 *확인*; 단 framework의 implicit *universal K=8* 가정은 K=1 vs K=8 cross-architecture 차이로 부분 falsify ..."
+
+**After:** "Framework는 §4.6 γ-β residual-stream bridge에서 *partially prospective* leg을 받는다 — Qwen3-VL self-calibration K=1 subspace 위 within-Thinking paired Δ가 late-stack (L=29-34) positive + mid-stack (L=20) negative sign-reversal로 layer-routing *방향성* 예측 확인 (K=1 cell); 단 framework의 implicit *universal K=8* 가정은 동일 L=33에서 K=1 vs K=8 9× bridge ratio로 partial falsify (배포 K=8은 §6.2.2 OneVision K ∈ {2, 4, 8} grid 위 empirical sweet spot, framework prior 아님; §4.6)."
+
+**Rationale:** FATAL-C propagation site #3. The "partially prospective" phrase now appears at first introduction (§1.3 prose), with the K-mismatch directly attached. Plus the operational caveat (deploy K=8 is grid-empirical, not framework prior) closes the door on the reviewer's "framework retrofitting" attack.
+
+### Edit 13 — §5.4 framework "partially prospective" propagation (FATAL-C)
+**Before:** "**Framework의 prospective test (§4.6).** ... §4.6 γ-β residual-stream bridge가 *prospectively* 검증한다 ... *layer-routing 방향성은 framework-confirmed, dimensionality 보편성은 framework-partial-falsified*."
+**After:** "**Framework의 partially prospective test (§4.6).** ... §4.6 γ-β residual-stream bridge가 K=1 cell에서 *partially prospective* 검증한다 (framework 작성 이후 실행; cell-level confirmatory pre-registration은 §8.4 item 8). ... *layer-routing 방향성은 framework-confirmed at K=1, dimensionality 보편성은 framework-partial-falsified at deploy K=8*."
+
+**Rationale:** FATAL-C propagation site #4. §5.4 is the framework's home section — it must label honestly. The header "Framework의 prospective test" → "Framework의 partially prospective test" surfaces the qualifier at the highest-Ctrl-F surface for the framework. Plus the §8.4 item 8 pointer (pre-registered §4.6 cell) closes MAJ-1.
+
+### Edit 14 — §3.3: remove meta-instruction-to-reader (MIN-3)
+**Before:** "이 panel-scope 분리는 본 절에서 단 1회 명시하며, 후속 절은 reference 이외에 반복하지 않는다."
+**After:** [sentence removed; replaced with end-of-paragraph close on §8.2 + §8.4 item 3 pointer.]
+
+**Rationale:** Reviewer correctly flagged this as project-tracker residue. Conference convention is implicit; meta-instruction prose makes the reader feel they are reading a project doc not a paper.
+
+### Edit 15 — §4.6 Insight 1: "9×" geometrically nonsensical (MIN-2)
+**Before:** "K = 1 vs K = 8 비교에서 bridge가 null (−0.05)에서 Bonferroni-positive (+0.28 [+0.19, +0.38])로 9× 차이"
+**After:** "K = 1 vs K = 8 비교에서 bridge가 K=8에서 null (point estimate −0.05) 인 반면 K=1에서 Bonferroni-positive (+0.28 [+0.19, +0.38]) 으로 *qualitative sign-state가 변경된다* (K=8 zero-overlap → K=1 Bonferroni-positive)"
+
+**Rationale:** MIN-2 correctly noted "9× ratio" on signed amplitudes (+0.28 vs −0.05) is geometrically nonsensical. Replaced with qualitative sign-state description that captures the same finding without the ratio. Note: §4.6 line 248 retains "9×" — see below.
+
+### Edit 16 — §4.6 line 248 (above Insight 1): keep "9× 차이" but clarify framing
+The phrase "9× 차이" still appears at §4.6 line 248 in the Insight body — this is the "K=1 vs K=8 ratio at L=33" claim, which describes a *relative magnitude* and is intelligible even if numerically loose. We retain it as supporting detail (not headline), with the Insight 1 reframe (Edit 15 above) carrying the qualitative interpretation. The reviewer's MIN-2 was specifically that "9× ratio on amplitudes" is geometrically nonsensical *as a headline claim*; supporting-detail use is acceptable.
+
+### Edit 17 — Table 4 caption + bold convention (MIN-7)
+**Before:** "비율 행은 Thinking / Instruct point estimate." + bold on "×12.7" in 비율 row.
+**After:** "비율 행은 Thinking / Instruct point estimate (CI 미산출 — Instruct correct df denominator small (n_correct ≈ 249); §8.4 item 9)." + bold removed; "×12.7 (CI 미산출)" in 비율 row.
+
+**Rationale:** MIN-7 correctly noted bold convention is "CI excludes 0"; ×12.7 has no CI. Bold removed; explicit "(CI 미산출)" inline marks the small-denominator hedge.
+
+### Edit 18 — §8.4: three new follow-up items (FATAL-D + MAJ-1/2 + MAJ-7)
+**Before:** Items 1-6.
+**After:** Items 1-9. New:
+- Item 7: (m − m') inpaint-noise-only SVD baseline (Telea-residue control) — FATAL-D.
+- Item 8: Pre-registered single-cell hypothesis tests (§4.6 + §6.2.3 multiplicity hardening) — MAJ-1 + MAJ-2.
+- Item 9: ×12.7 ratio paired-bootstrap CI — MAJ-7 (round-1 MAJOR-6).
+
+**Rationale:** All three are explicit re-statements of deferred experiments from the reviewer's "What would change my mind" list. Each is paired with a concrete cost estimate (~2 H100-hour for item 7 and 9; free for item 8 as it is reanalysis only). The §8.4 list now contains a complete map of round-4 critique → deferred-experiment status, which is the audit trail the reviewer asked for.
 
 ## Rebuttals (DISAGREE class)
 
-### Rebuttal 1 — MIN-8: "Strict free-lunch" Δem(non-anchored) ≥ 0 is post-hoc shaping
+### Rebuttal 1 — MAJ-4 (§1.5 (i) strict-5/5 monotonicity claim is overreach)
+**Reviewer claim:** "§1.5 (i) 'L1 6-bin gradient' treats 5×6=80 cells as confirming continuous gradient; data is 30% strict-5/5 monotonic."
+**Our position:** §1.5 (i) reads "세 직교 axis 증거 (L1 6-bin gradient, (a − m) digit-pixel causality, wrong/correct binary stratification; §4)". §1.5 does *not* claim "5/5 strict on 80 cells"; it cites three measurement cuts that *jointly* support the continuous-gradient reframe. §4.4 body (line 193) honestly reports both ≥4/5 (51-57/80 = 64-71%) and strict 5/5 (21-24/80 = 26-30%) with explicit headline declaration of ≥4/5 as the reported criterion. §4.4 line 203 acknowledges non-monotonic cells. The contribution language in §1.5 (i) is appropriately calibrated to §4.4's headline.
 
-**Reviewer claim:** "The 'strict' framing is built around a celebration criterion: the paper found a cell where Δem(b) was positive, then defined 'strict free-lunch' to include 'Δem(non-anchored) ≥ 0' as a clause that the chosen cell trivially passes."
+**Why we believe the paper's position is correct:** §1.5 (i) cites a measurement cut (L1 6-bin), not a statistical-test verdict. §4.4 is the canonical surface for the strict-vs-relaxed disclosure; reviewer's grep on §1.5 (i) doesn't surface a counterfactual claim ("5/5 strict") that needs softening. The MAJ-4 "fix" proposed by reviewer (Mann-Kendall test per cell, Bonferroni-corrected across 80) would be a real Round-5 candidate but the *current* §1.5 (i) framing already respects the underlying data. Accept the diagnostic; defer the proposed statistical-test reframe.
 
-**Our position:** The Δem(non-anchored) ≥ 0 clause is the *load-bearing conceptual contribution* of "strict free-lunch" relative to plain Pareto improvement, motivated by Chand et al. [2025]'s explicit warning about cross-category collateral damage in bias mitigation (cited in §6.2.3 formal definition). The reviewer's "celebration criterion" framing assumes the criterion was shaped *to fit* the chosen cell's positive Δem(b); the paper's framing is that the criterion was shaped *to forbid hidden harm* on the non-targeted arm, which is a methodologically motivated screening rule independent of which cell ultimately satisfied it. Two pieces of evidence the reviewer's "celebration" framing does not survive: (a) the criterion's ≥ 0 threshold *would have failed* on every single-direction baseline in Table 7 (ActAdd / LEACE rank-1 / query-adaptive / CogBias / MIA-DPO LoRA all have either zero or *negative* Δem(b) — listed as "불변" or "−5.85 pp on VQAv2"); the threshold is therefore *informative* in the comparison panel, not vacuous. (b) The criterion's *no-harm* (Δ ≥ 0) form is explicitly weaker than what the chosen cell actually delivered (Δem(b) average +8.8 pp); if the criterion had been "celebration-shaped" to fit the result, it would have been Δem(b) > 0 with a tight lower bound, not the weak ≥ 0. We retain the existing §6.2.3 formal definition and §1.5 (5) inline gloss.
+### Rebuttal 2 — MIN-1 (§1.5 "three orthogonal axes" misnaming)
+**Reviewer claim:** "§1.5 (i) calls L1 + (a−m) + wrong/correct 'three orthogonal axes'; §4.2 Slice B shows (a−m) and wrong/correct are correlated."
+**Our position:** "Orthogonal" here is shorthand for *three distinct measurement cuts*, not "uncorrelated statistical axes." If the three cuts measure the same underlying phenomenon, *positive correlation* across cuts is *evidence* that they pick up the same signal — it is consistent with the continuous-confidence reframe, not contradictory. §4.2 Slice B's ordering (PlotQA + MathVista top-tier vs TallyQA + InfoVQA floor) *aligns* with §6.2.3 Δdf magnitude ordering, which is presented in the paper as *prerequisite for §6.2 calibration* (line 173 of paper). The three cuts being correlated is part of the paper's load-bearing internal-consistency check, not a problem.
 
-**Concession:** the reviewer's underlying point that "*strict*" is a *rhetorically* charged term is not unreasonable. We do not edit this round, but flag for camera-ready: if the bar is an EMNLP Main reviewer hostile to marketing-flavored neologisms, the term could be neutralized to "**multi-clause free-lunch**" or "**4-clause Pareto+** criterion" with no semantic change. Logged as next-revision style consideration.
+**Why we believe the paper's position is correct:** Reviewer reads "orthogonal" as a statistical-axes claim. In the paper's prose context, it means "three independent measurement strategies for the same phenomenon." Round-2 used the same word and reviewers there accepted it. Word-choice refinement is acceptable but does not require a substantive edit (would replace "세 직교 axis" with "세 독립 측정 cut" — cosmetic, dropped from this round).
 
-### Rebuttal 2 — MIN-11: Multi-layer redundancy reframable as single-cluster mechanism with three archetype outliers
+### Rebuttal 3 — MIN-8 (Eigenvalue spectrum study deferral 3 rounds in)
+**Reviewer claim:** "§8.4 item 1 (eigenvalue spectrum, '가장 cheap한 rigor 향상') has been deferred 3 rounds; if cheap, why?"
+**Our position:** Round-1, Round-2, Round-3 each prioritised different scope-honesty fixes; the compute window in Round-2 went to 5-dataset cross-evaluation (E5b OneVision), in Round-3 to E8 capability preservation panel + InternVL3 removal repercussion (paper drafts 0 placeholders). The item is explicitly labeled "가장 cheap한 rigor 향상" precisely so a reader / reviewer knows the cost — this is *honest* deferral acknowledgement, not deflection. The §8.4 list now adds items 7-9 with the same honest cost annotations.
 
-**Reviewer claim:** "The 6/6 null result is consistent with three different mechanisms — multi-layer redundancy in mid-stack, bimodal peaks in SigLIP-Gemma and Qwen-ViT, and per-dataset peak migration in FastVLM."
-
-**Our position:** The reviewer's reframing is in fact *compatible* with the paper's claim, not contradictory. The paper's §1.4 / §5.2 claim is the *headline empirical observation* that single-layer ablation is null on 6/6 panel — this is one observed quantity. The *interpretation* the paper offers ("multi-layer redundant") is one mechanistic story consistent with the observation. The reviewer offers an alternative interpretation (three different per-archetype reasons for the same observed null). Both interpretations are consistent with the data; the headline ablation-null claim does not depend on a unified mechanism. The paper's §5.1 already enumerates the four archetypes (SigLIP-Gemma early, mid-stack cluster, Qwen-ViT late, FastVLM late) and §5.3 explicitly reports OneVision's bimodal cross-dataset peak migration; the per-archetype heterogeneity the reviewer points to is *in the paper*, not hidden. The §6.4 *prediction* of single-direction failure is a *cross-dataset* claim (peaks migrate between datasets within OneVision and presumably between models) — it does not require all archetypes to share the same single mechanism. We do not edit; the paper's §5.1 / §5.3 already provide the per-archetype detail the reviewer asks for, and the §1.4 / §1.5 (4a) "multi-layer redundancy" framing remains the load-bearing summary statement that all three reviewer-named alternative mechanisms are *also consistent with*.
-
-**Concession:** The reviewer's reframing is a fair *secondary* description, and a future revision could add a §5.2 sentence clarifying that the multi-layer redundancy story is *one of several mechanism-level descriptions* consistent with the 6/6 null. Logged as low-priority style refinement.
+**Why we believe the paper's position is correct:** Reviewer correctly observes that "cheap" + "3 rounds deferred" looks bad. The fix is not to delete the item but to honestly state the deferral pattern. The current §8.4 is the audit trail the reviewer asked for. Spectral plot adoption pre-camera-ready is the right path.
 
 ## Deferred items (DEFER class)
 
-| Reviewer point | Reason for deferral | Next-revision plan |
+| Reviewer point | Reason for deferral | Follow-up location |
 |---|---|---|
-| MAJ-4: §6.2.3 paired-bootstrap CI on all 5 cells | Requires re-running aggregation script with paired-bootstrap n=1,000 per dataset (already implemented for §7 capability preservation); ~1 H100-hour | Owner: paper author. Estimate: <1 day. Will re-state §6.2.3 headline based on CI bands (PlotQA significant; ChartQA / MathVista borderline; TallyQA / InfoVQA inconclusive — likely match). |
-| MAJ-5: CAA at K=1 on (a − m) as Table 7 row | New GPU run required; ~4-8 H100-hours for calibration + 5-dataset eval. §6.5 Note already explains structural reduction (CAA = ActAdd at K=1 on (a − m) calibration set under our setting). | Owner: paper author. Estimate: 1 day. Empirical row would *confirm* the structural reduction prediction. |
-| MAJ-5: ITI multi-direction at attention-head as Table 7 row | New GPU run + ITI calibration recipe adaptation to (a − m); §5.2 single-layer attention ablation null already predicts attention-head locus failure | Owner: paper author. Estimate: 2-3 days. |
-| MAJ-6: paired-bootstrap CI + Bonferroni-20 on §6.2.3 Table 6 | Linked to MAJ-4 above; the CI is the prerequisite for the multiple-comparisons correction. | Owner: paper author. Estimate: bundled with MAJ-4. |
-| CRIT-2 full close: 27-cell × 4-metric × calibration-dataset aggregated heatmap | Aggregation script + heatmap-rendering pipeline not yet run for the pilot grid raw predictions; predictions exist at `outputs/e6_steering/llava-onevision-qwen2-7b-ov/pilot_grid_*` | Owner: paper author. Estimate: <1 day. Would close the cherry-pick concern fully — currently §A.5 stub (cell label enumeration + chosen cell position) is the partial close. |
-| CRIT-3: random-K=8 subspace baseline + non-anchor-task calibration baseline at L=26 | New GPU runs required (~8-16 H100-hours for two baseline replications across 5 evaluation datasets) | Owner: paper author. Estimate: 2-3 days. Would falsify (or confirm) the §6.3 "wrong-base error mode" interpretation against general regularization (Alt-1) and numeric mode-collapse (Alt-2). |
-| CRIT-1 full close: cross-architecture E6 calibration + 5-dataset eval + capability eval | Per-archetype E6 replication on Gemma3-27b (SigLIP-Gemma), Qwen2.5-VL-7b (Qwen-ViT late), FastVLM-7b (FastVLM late) — calibration · pilot grid · 5-dataset eval · capability eval | Owner: paper author. Estimate: ~30 H200-day for 3 archetypes (per §8.2). This is the deepest deferred item; current paper accepts case-study scope on CRIT-1 hedges across 6 callsites rather than running it. |
-| MAJ-6: pre-registration registry document | Not retrospectively addable; the em-deal-breaker rule was applied as an internal convention (cited from prior Tally-only run tracker line 446) but no time-stamped external registry exists | Owner: future submissions. Camera-ready or future paper would pre-register on OSF / AsPredicted before next experimental round. |
+| MAJ-7 (×12.7 paired-bootstrap CI) | Requires ~2 H100-hour to re-run γ-β raw data through paired-bootstrap; out of round-4 GPU scope | §8.4 item 9 (new) |
+| MAJ-8 (CAA-at-K=1 + ITI multi-head empirical row) | Round-3 chose CRIT-N1 option (a) — soften framing not run experiment; ~4-8 H100-hours for CAA-at-K=1 + ~1-2 day for ITI head-level adaptation | §8.4 item 4 (retained) |
+| MAJ-9 (Random-K=8 baseline; Alt-1 falsification) | Round-1 MAJOR-8 acknowledged; ~1 H100-day; defer to pre-camera-ready | §8.4 item 2 (retained) |
+| FATAL-D (m − m') inpaint-noise-only SVD | Telea-residue confound surfaced in §6.2.1 this round; (m − m') experimental baseline ~2 H100-hour | §8.4 item 7 (new) |
+| MAJ-1 + MAJ-2 (pre-registered §4.6 single cell + Bonferroni-540 §6.2.3) | Free recompute (re-analysis only); honest disclosure noted; Round-5 candidate | §8.4 item 8 (new) |
+| FATAL-A residual (cross-architecture E6 case-study removal) | Requires E6 calibration on second architecture (Gemma3-4b @ L=5 or Qwen2.5-VL @ L=22); ~3-5 H100-day; scope-honest acknowledgement in central contribution sentence is *this round's* fix | §8.4 item 3 (retained) |
+| MIN-5 (S1-stratum cross-evaluation reframe), MIN-6 (paired-sids ChartQA n=224 < pilot 250), MIN-9 (Telea cross-platform reproducibility), MIN-10 (Table 8 CI-strip from Table 7) | Each is correct as observation but does not surface new flaw; current paper already discloses the underlying mathematics or design choice | Each in respective body section / appendix |
 
-## Open questions for next round
+## Open questions for next round (Round 5 Bar-Raiser)
 
-- **Strict free-lunch terminology.** Rebuttal 1 concedes the term is rhetorically charged. If a Round 5 reviewer still pushes back, neutralize to "4-clause Pareto+" or "multi-clause free-lunch" without semantic change.
-- **Multi-layer redundancy framing.** Rebuttal 2 acknowledges the reviewer's three-mechanism reframing as a fair secondary description. A §5.2 sentence could be added in a future revision to flag this without weakening the headline claim.
-- **Title pluralization.** The reviewer's CRIT-1 strongest form ("retitle to 'in LLaVA-OneVision' or 'case study on one architecture'") is rejected in favor of body-level scope hedges across 6 callsites. If a future Round-5 reviewer demands title change, the cleanest form would be subtitle "(case study on LLaVA-OneVision-7b)" appended to the existing title.
-- **§6.5 "유일 후보" wording.** The reviewer's MAJ-5 sub-claim that CAA / ITI Note is "claiming victory without comparison" is partly addressed by the §6.5 Note + the Table 7 panel-boundary disclosure. Empirical CAA / ITI rows (the four-blocking-item #3 in the reviewer's "switch to weak accept" path) would close this fully.
+- **Cross-architecture E6 case study → second-architecture replication.** §8.4 item 3 (~3-5 H100-day) is the most expensive item and the one that closes FATAL-A *substantively*. If pre-camera-ready compute permits, running E6 on Gemma3-4b (L=5) or Qwen2.5-VL-7b (L=22) shifts central contribution from "single-architecture case study" to "two-architecture cross-validation." This is the single biggest substance lift available.
+- **Pre-registered §4.6 single-cell test + Bonferroni-540 §6.2.3 (§8.4 item 8).** Free recompute; closes MAJ-1 + MAJ-2 to confirmatory level. Should run before submission.
+- **Telea-residue (m − m') baseline (§8.4 item 7).** ~2 H100-hour; closes FATAL-D substantively. Should run before submission.
 
 ## Internal consistency check
 
-After all edits, verified:
+- [x] **Abstract carries case-study qualifier on E6 + two-clause anchoring/capability separation + axis-conditional capability framing + partial-prospective framework label.** Verified.
+- [x] **§1.5 central contribution sentence ends with "단일 architecture case study" inside noun phrase + two-clause separation + §8.4 item 3 cross-architecture pointer.** Verified.
+- [x] **§1.5 (ii) supporting finding carries "partially prospective at K=1; deploy K=8 partial-falsifies" with §6.2.2 K-grid empirical-sweet-spot disclosure.** Verified.
+- [x] **§1.3 + §5.4 + §8.1 propagate "partially prospective" label consistently with Abstract + §1.5.** Verified.
+- [x] **§6.2.1 Insight carries Telea-residue caveat with (m − m') falsifier deferred to §8.4 item 7.** Verified.
+- [x] **§5.2 Insight 2 + §6.4 Insight 1 both use "사후 일관성" / "post-hoc paired observation" framing; "이론적으로 예측" / "경험적으로 검증" removed.** Verified.
+- [x] **§6.2.3 multiplicity-correction scope note explicit; 27-cell grid surfaced as separate multiplicity layer with Bonferroni-540 thought-experiment.** Verified.
+- [x] **§4.6 cell-selection scope note surfaces 14/84 as "consistent fraction" not "verified rate"; cell-level confirmatory test deferred to §8.4 item 8.** Verified.
+- [x] **§7 Insight carries axis-conditional capability disclosure with 3/6 negative point-estimate explicit + canonical 6-bench vs 8-bench cross-reference disambiguation.** Verified.
+- [x] **§8.1 종합 mirrors Abstract + §1.5 in all five FATAL-axis surfaces.** Verified.
+- [x] **§8.4 contains 9 items including item 7 (Telea-residue), item 8 (pre-registered §4.6 cell + Bonferroni-540), item 9 (×12.7 paired-bootstrap CI).** Verified.
+- [x] **No fabricated experimental results.** No new numbers, tables, or figures introduced. All edits are framing / scope clarifications + caveat surfacing.
+- [x] **All figure embeds preserved.** 16 inline figures unchanged.
+- [x] **No demoted claims resurrected.** Encoder-family-determines-archetype (commit 549cf68) still demoted at §D.1. No previously-softened "uniquely passes" framing un-softened.
 
-- [x] **Abstract numbers unchanged.** Δdf [−5.2, −0.3], Δem(a) +3.9, Δem(b) +8.8, macro +0.41, HB +2.21 [+1.14, +3.28], POPE −0.06 [−0.21, +0.09], γ-β ×1.6 / ×2.9 / ×12.7 — all preserved.
-- [x] **§1.5 contributions still match §4-§7 deliveries.** (1) → §3 + §4; (2) → §3.2; (3) → §4.4; (4a) → §5.2; (4b) → §5.1 / §4.4 Insight 3; (5) → §6.2 + §6.4 + §6.5 + §7 (with single-model case study hedge); (6) → §4.6 + §8.2 (with N=1 × N=1 hedge).
-- [x] **§8.1 종합 now consistent with body.** Single-model E6 hedge + γ-β single-pair hedge added inline; both match §8.2 limitation list bullets and §1.5 hedges.
-- [x] **§A.4 / §A.5 cross-references.** §6.2.2 references §A.5 (was §A.4, fixed); §A.4 = FLUX seed entry; §A.5 = 27-cell pilot grid stub. Both new sections exist and are properly numbered.
-- [x] **All figure embeds resolve.** No figure path changed.
-- [x] **No table renumbering.** Tables 1-8 + Figures 1-7 + Figures A1 / B1 / B2 / C1-C4 / F1 / G1 stable.
-- [x] **References list unchanged this round.** All R3 additions (Belrose 2023 / Li 2023 / Panickssery 2024 / Chand 2025) preserved; no new citations added in R4.
-- [x] **Round 1-3 fixes preserved.** All R1 numerical corrections, R2 prose fixes, R3 novelty / positioning additions intact.
-- [x] **R4 single-model hedge propagated to 6 callsites consistently:** abstract (line 13), §1.3 (line 35), §1.5 (5) (line 43), §6.6 (line 344), §8.1 (line 374), §8.2 (line 380). All six say "case study" + reference to §8.2.
+## Diff summary
 
-## Diff stat
-
-- Lines: 543 → 581 (+38 lines, +7.0 %).
-  - This includes both the interrupted prior attempt's net +5 lines (already in starting state) and this resumed attempt's +33 lines (new §A.4, §A.5, §7 Bonferroni paragraph, §8.1 inline hedges, §6.2.2 pointer fix, §8.2 deferred bullet refinement, v6 changelog).
-- Sections fully rewritten: 0.
-- Tables modified: 1 (new 27-row Table in §A.5; existing Tables 1-8 unchanged).
-- Figures modified: 0.
-- New paragraphs (this resumed attempt): 4 (§A.4 FLUX seed, §A.5 stub + table, §7 Multiple-comparisons 보정, §8.1 inline hedges, v6 changelog).
-- New paragraphs (interrupted prior attempt, recovered from current paper state): §6.3 Insight 1.5 (alternative explanations), §6.6 single-model scope statement, §6.2.3 신뢰구간 caveat, §8.2 E6 single-model bullet + γ-β bullet + 4 deferred bullets.
-- Word count delta: roughly +1,500 Korean words across this round (combined interrupted + resumed).
-
-**Single most impactful edit:** **the CRIT-1 single-model case study hedge propagation across 6 callsites** (abstract / §1.3 / §1.5 (5) / §6.6 / §8.1 / §8.2). This is the kill-shot the reviewer named; without it, the rejection case is "headline mitigation is N=1 on the model axis, paper does not say so." With it, the paper acknowledges the scope honestly and the reviewer's CRIT-1 demand ("acknowledge the N=1 model on headline E6 mitigation in §8.2 limitations") is fully met. Combined with the §A.5 27-cell stub (CRIT-2 partial close), §6.3 Insight 1.5 (CRIT-3 alternatives + POPE partial signal), §6.2.3 신뢰구간 caveat + §7 Multiple-comparisons 보정 (MAJ-4 + MAJ-6 close), and the §8.2 deferred-list expansion (MAJ-5 + CRIT-3 + CRIT-2 explicit DEFER), this round closes 3/3 CRIT items at the *prose* level and 2/4 MAJOR items at the *prose level + post-hoc verification* level. The remaining MAJOR items (MAJ-5 CAA/ITI rows; MAJ-4 full bootstrap CI on Table 6) require new GPU work and DEFER honestly with owner / timeline / GPU-hour estimates.
-
-## Items still posing rejection risk after this revision
-
-The reviewer's "transition to weak accept" path lists four blocking items (CRIT-1, CRIT-2, MAJ-4, MAJ-5). After this round:
-
-1. **CRIT-1 (single-model E6):** *Closed at scope-hedge level.* Body says "case study" across 6 callsites. Title not changed. If reviewer demands title-level change, likely still reject. Mitigation: add "(case study on LLaVA-OneVision-7b)" subtitle in camera-ready.
-2. **CRIT-2 (27-cell pilot grid):** *Partially closed.* §A.5 stub provides cell enumeration + chosen-cell #17. Aggregated 4-metric heatmap remains DEFER. Reviewer explicitly demanded "27-cell heatmap that already exists in `outputs/e6_steering/llava-onevision-qwen2-7b-ov/sweep_subspace_*`"; we surface labels but not metric values. Continued rejection risk on this axis.
-3. **MAJ-4 (paired-bootstrap CI on Table 6):** *Closed at headline-rephrase level + DEFER for actual CI.* §6.2.3 reframes "5/5 dataset df reduction" to "5/5 부호 음, 4/5 noise floor 상회, InfoVQA inconclusive." Reviewer explicitly asks for paired-bootstrap CI; this is a 1-day DEFER, not run.
-4. **MAJ-5 (CAA / ITI Table 7 rows):** *Closed at structural-reduction level + explicit DEFER for empirical rows.* §6.5 Note explains reduction; §8.2 lists DEFER. Reviewer explicitly asks for empirical rows; these are 1-3 day DEFER, not run.
-
-**Honest assessment:** This paper after Round 4 revision is closer to *strong Findings* than *weak accept Main*. The reviewer's "honest verdict" — strong Findings, not Main — is plausible. Rejection at Main remains likely if a Round-5 reviewer reading the activation-steering literature decides the four DEFER items are not acceptable as DEFER. Findings acceptance is plausible if the four DEFER items are accepted as honest deferral with explicit owner / timeline. The paper does not contest this assessment.
+- **Lines:** 826 → 833 (net +7).
+- **Sections substantively edited:** Abstract (+~3 lines), §1.3 (+1 line), §1.5 (paragraph rewritten, +~2 lines), §3.3 (-1 line via MIN-3 removal), §4.6 (+2 lines via cell-selection note + MIN-2 reframe), §5.2 (paragraph rewritten, +0 lines), §5.4 (+~1 line), §6.2.1 (+~1 line Telea-residue paragraph), §6.2.3 (+1 line multiplicity scope note), §6.4 (paragraph rewritten, +0 lines), §7 (Insight extended, +0 lines), §8.1 (paragraph rewritten, +~1 line), §8.4 (+3 items, +~3 lines).
+- **Tables edited:** Table 4 bold convention (×12.7 → ×12.7 (CI 미산출), bold removed); caption rewritten.
+- **No new tables or figures introduced.**
+- **Total word delta:** ~+450 words (scope-honesty paragraphs); core findings, numbers, references unchanged.

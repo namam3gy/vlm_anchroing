@@ -1,300 +1,574 @@
 # Round 4 — Aggressive Adversarial Review
 
-**Reviewer persona:** Adversarial. Wants to reject. Attacks every weakness. Hostile PC member who has read the activation-steering literature and the post-Round-3 draft.
-**Paper version reviewed:** `docs/paper/emnlp_draft_ko.md` (538 lines, post-Round-3 revision, footer changelog `v5`).
-**Date:** 2026-05-09.
-**Prior rounds:** round1_methodology + response, round2_writing + response, round3_novelty + response.
-**Posture:** Three constructive rounds covered surface-level critiques. My job is to attack what survived. Round-1 fixed numbers, Round-2 fixed prose, Round-3 fixed novelty positioning. None of them attacked the *load-bearing experimental design* of the headline mitigation chain.
+**Reviewer persona:** Adversarial. Wants to reject. Attacks every weakness that survived three constructive rounds. Hostile PC member with mechanism-interpretability + steering-vector + EMNLP-Main calibration.
+**Paper version reviewed:** `docs/paper/emnlp_draft_ko.md` @ 826 lines (post Round-1 methodology + Round-2 writing + Round-3 novelty surgery, v11).
+**Date:** 2026-05-11.
+**Prior rounds:** round1_methodology + response (CRIT-1 framework prospectivity, CRIT-2 abstract free-lunch overclaim, CRIT-3 experiment-log surgery, MAJ-1..MAJ-10), round2_writing + response (CRIT-W1/W2/W3 title-strip + Abstract compress + §6.6 chain), round3_novelty + response (CRIT-N1/N2/N3 + MAJ-N1 single-central-contribution restructure).
+**Posture:** Three constructive rounds genuinely improved the form. They did not test the substance under hostile probing. The question I am answering is: *if I am a PC member who reads to reject, can I find a kill shot?* The answer is yes — three of them.
 
-## Recommendation
+---
 
-**Recommend reject.** The single most damaging issue is: **every paper-tier mitigation claim — E6 calibration, the 27-cell hyperparameter selection, the 5-dataset cross-evaluation, the strict-free-lunch criterion verification, and the 6-benchmark capability preservation — is on a single model (`llava-onevision-qwen2-7b-ov`). The title says "Vision-Language Models" plural, the abstract says "deployable", and §1.3 / §1.5 (5) imply universality, but the N is 1. The paper acknowledges "Mid-stack cluster 단일" for E4 in §8.2 but never lists "headline E6 mitigation N=1 model" as a limitation.** This is a transparency failure that survives three review rounds because Rounds 1–3 each verified their own axis (numbers / prose / positioning) and never asked "for how many models does this generalize?"
+## Decision
 
-## Strengths begrudgingly acknowledged
+**REJECT for EMNLP / NeurIPS Main. Borderline-acceptable for EMNLP Findings only after the FATAL items below are surfaced honestly in §1 / Abstract; otherwise reject for Findings as well on transparency grounds.**
 
-1. **The (a − m) paired-inpaint contrast design (§6.2.1 Insight) is genuinely clean.** Same scene, digit pixel removed, captures digit-pixel-specific variance with generic distraction auto-subtracted. I cannot find a way to attack the design itself; it is the strongest single methodological move in the paper.
-2. **§5.2 → §6.4 prediction-then-verify chain is tight.** Single-layer ablation null → multi-layer redundancy → single-direction mitigation will fail cross-dataset → empirically verified +56 % LEACE backfire on ChartQA. This is a genuine mechanism-grounded prediction with empirical follow-through, and Rounds 1–3 verified the numbers.
-3. **§4.5 L1 monotonicity panel-mean numbers** (43/85 cross_entropy, 51/85 log_prob_sum, +15.6 / +19.1 pp Q4-Q1 gap) survived Round 1's table-by-table audit and are the kind of reproducible finding that a Findings-tier paper rests on.
+The single most damaging issue: **the paper sells a "deployable" *4-clause free-lunch* mitigation (E6) whose Δdf headline survives multiplicity correction on exactly 1/5 datasets (PlotQA n=2,306) — 4/5 cells fail their own bootstrap CI test, three of them on n ≤ 443 — and the entire mitigation chain (calibration, hyperparameter selection, evaluation, capability preservation) is run on a single architecture (`llava-onevision-qwen2-7b-ov`). The §1.5 "central contribution" is therefore ONE point in a (model × dataset × hyperparameter) space whose generalization to either neighbouring axis is structurally unverified.** Round-1 surfaced part of this (CRIT-2 → Δem(b) Bonferroni-clean is the multiplicity-robust headline); Round-2/Round-3 left the reframe in place but did not address the underlying single-architecture single-headline-cell problem. Add to this the §4.6 framework "prospective verification" which tests at K=1 the framework that was operationalised at K=8 (i.e. tests a *different* dimensionality than the one the framework's paper-§6 instantiation uses), and the residual experiment-log signature is that **the strongest cleaned-up version of this paper still rests on a chain of single cells that each survive their own narrow test but do not interlock**.
 
-I will not attack these. Save the fire for the rest.
+What three rounds of constructive review papered over but did not fix:
 
-## Critical attacks (any one of these justifies rejection)
+1. **(FATAL-A)** N=1 model on the headline mitigation is *acknowledged* in §3.3 panel-scope hedge but the Abstract / §1.5 contribution sentence still reads as a method-of-the-paper. The §3.3 disclaimer ("once") is form-correct but the headline does not honour it.
+2. **(FATAL-B)** Δdf "5/5 sign-clean" headline collapses to "1/5 CI-clean" under the paper's own paired-bootstrap procedure. The §1.5 (4) prose pivots to *Δem(b) Bonferroni-clean* — but the 4-clause free-lunch criterion's *Δdf < 0 clause* is the one that matters for the *anchoring mitigation* claim, and it is 1/5 CI-clean.
+3. **(FATAL-C)** §4.6 γ-β bridge is positioned as the framework's *prospective* test, but it tests the framework at K=1 (different from K=8 used in §6) and concludes "qualitative bridge / quantitative interlock deferred" while implicitly partial-falsifying the universal-K=8 assumption that the paper *actually deployed*. This is not prospective verification — it is *partial post-hoc rescue at a different point* of the framework's parameter space.
 
-### CRIT-1. **§6 / §7 / §8.1 / abstract — all paper-tier mitigation claims are N=1 model.**
+If any one of these were addressed by surfacing it as a hedged limitation tied to the *contribution sentence*, this paper sits at borderline-Findings. As currently written, the §1.5 central contribution sentence is structurally at variance with the §6.2.3 Δdf 1/5 reality and the §3.3 N=1 reality. **Reject.**
 
-Section after section, the deployable mitigation rests on `llava-onevision-qwen2-7b-ov`:
-- §6.2.2: "Main 모델 `llava-onevision-qwen2-7b-ov`을 PlotQA + InfoVQA pooled wrong-base set (N=5,000)으로 calibrate."
-- §6.2.2: "27-cell pilot grid... **선택 cell: L* = 26, K = 8, α = 1.0**." All 27 cells on the same model.
-- §6.2.3 Table 6: 5 datasets × 1 model.
-- §7 Table 8: 6 benchmarks × 1 model.
-- §8.1 종합: "5/5 cross-evaluation dataset에서 direction-follow를 줄이는 동시에..." — "5/5" refers to *datasets*, not models. The implicit "deployable mitigation" recommendation is across all VLMs.
+---
 
-The title says **Vision-Language Models** (plural). The abstract says "*배포 가능한* subspace projection mitigation." §1.3 says "**E6 (residual-stream subspace projection, deployable)**". §1.5 (5) "Single-direction mitigation의 cross-dataset 실패를 *예측한 뒤 multi-direction subspace projection으로 우회*하며" implies the mitigation generalizes. §8.2 limitation list includes:
-- "단일 prompt." (paraphrase)
-- "Open-weight 모델만." (closed-weight defuse)
-- "Human baseline 부재."
-- "Mid-stack cluster 단일." — *for E4* (3 mid-stack models)
-- "γ-β N=1 reasoning pair."
+## Recommended action by the area chair
 
-It does NOT include "Headline E6 mitigation N=1 model." A reviewer sees "Mid-stack cluster 단일" called out for the *demo* mitigation E4 but no comparable hedge for the *deployable* mitigation E6 even though E6 is N=1 and E4 is N=3.
+**Reject for Main. Accept for Findings only conditional on:**
 
-Why this is paper-killing rather than revision-required: the §6.4 *predict→verify* argument explicitly invokes single-direction methods failing because "per-dataset mean-anchor direction은 측정 가능하게 다른 곳을 가리킨다." The same argument applies between *models*: the mid-stack cluster's L=14–16 peak vs Qwen-ViT's L=22/28 peak vs SigLIP-Gemma's L=5/42 peak (§5.1) means the L=26 hyperparameter chosen for OneVision *cannot* be the right choice for any other archetype's residual stream geometry. The paper's own §5.3 says OneVision peak is dataset-dependent (L=27 on Plot/Tally vs L=14 on Info/VQAv2). If even *within OneVision* the peak migrates by 13 layers across datasets, the L=26 + K=8 + α=1.0 cell *cannot* be expected to work on Gemma3-27b or Qwen2.5-VL-7b without re-tuning. The paper has shipped a single-model proof-of-concept and called it deployable. A hostile reviewer would write: "The deployable mitigation in this paper is a single-model finding; the cross-VLM generalization claim implicit in the title and §1.5 is unsupported."
+- (a) Abstract's "central contribution" sentence rewritten so the *single-model case study* register propagates into the contribution language, not just §3.3.
+- (b) §1.5 (4) Δem(b) headline disambiguated — the *anchoring task Δdf* (the criterion's first clause) is 1/5 CI-clean; the Δem(b) (the criterion's third clause) is 5/5 Bonferroni-clean. These are not the same thing and the body / abstract continue to slide between them.
+- (c) §6.5 "유일 cell" / "권장 — 4-clause 동시 충족" verdict cell stripped of headline status until either CAA-at-K=1 (~1 H100-day per §8.4 item 4) or random-K=8 (~1 H100-day per §8.4 item 2) is run. As-currently-positioned, both gating baselines are deferred, and the paper still ships the verdict.
 
-### CRIT-2. **§6.2.2 27-cell pilot grid — two rounds of reviewers asked, two rounds of authors deferred. The chosen cell is post-hoc selected on a hidden grid.**
+These are not new experiments; they are honest framing of what the paper actually demonstrates.
 
-Round 1 (should-fix #4): "27-cell pilot grid appendix table — only the chosen cell is shown in body, 26 rejected cells deferred to appendix... Owners + estimates per Round-1 response document. Estimate: 1–2 days."
+---
 
-Round 1 response: DEFER.
+## Stress-test verdict — what survived three rounds, and does it hold under aggressive read?
 
-Round 3 (no separate flag, but the comparison-baseline gap in §6.5 is the related concern about cherry-picking).
+| Surviving claim (what Rounds 1-3 left in place) | Section | Holds under aggressive read? | Reasoning |
+|---|---|---|---|
+| Multi-layer redundancy (single-layer 5/5 null on mech panel + OneVision 5/5 null) | §5.2, §5.3 | **Yes (substantively)** | Lab-grade evidence; OneVision extension is a real cross-validation. *But*: §5.2 Insight 2 "single-layer null *predicts* single-direction failure" overreaches — see MAJ-3. |
+| (a − m) digit-pixel paired-inpaint design | §6.2.1 Insight | **Yes (design)** | Genuinely clean isolation if Telea-inpaint counterfactual is exact. *But*: the inpainting confound (FATAL-D below) is not surfaced. |
+| L1 6-bin gradient (continuous-confidence reframe of wrong/correct asymmetry) | §4.4 | **Partially** | 51-57/80 strict-monotonic is real; *fully* strict 5/5 only 21-24/80 — body has the hedge but the §1.5 "세 직교 axis 증거" prose smears point-estimate sign with strict monotonicity. |
+| 6-benchmark capability preservation macro Δ +0.41 pp | §7 | **Yes (single-arch)** | Numbers reproduce. *But* macro-Δ averaging across benchmark types disguises the OCRBench/MMBench 1-2 pp drops that are within the paper's own ±1 pp band but cluster on the negative side of zero (3/6 negative point estimates). |
+| Δem(b) 5/5 Bonferroni-clean | §6.2.3, Abstract | **Yes (numerically) / No (interpretation)** | Numbers are CI-clean. The interpretation as *"4-clause free-lunch passed"* slides from "Δem(b) clean" to "free-lunch passed" — the criterion has 4 clauses, only one is multiplicity-robust. |
+| Δdf 5/5 sign-clean | §6.2.3, body | **No (in headline form)** | Sign-clean ≠ CI-clean; 1/5 CI-clean. Round 1 CRIT-2 surfaced this in §6.2.3 self-reframe; Abstract still leads with 5/5 sign-clean framing. |
+| §5.4 framework (post-hoc synthesis labeled honestly post-Round-1) | §5.4 | **Surface honesty / substance trouble** | Round 1 forced "사후 synthesis" relabel — good. *But* §1.5 (3) supporting finding still puts the framework on the load-bearing path between §5.2 mechanism and §6.2 mitigation, while the framework's only prospective leg (§4.6) operates at K=1 and the deployed mitigation at K=8 — i.e., the framework's "prospective verification" doesn't verify the *operative* parameterisation. See FATAL-C. |
+| γ-β reasoning amplification (auxiliary, ×12.7 ratio) | §4.5, §1.5 aux | **No (substance)** | N=1 architecture × N=1 dataset × no CI on a 3-sig-fig ratio computed from 0.021/0.267 with denominator 249/385 (i.e., post-stratification ≤200 numeric pairs per arm). Round 1 MAJOR-6 asked for paired-bootstrap CI; deferred. ×12.7 is unfit for any conference reporting. |
+| 27-cell pilot grid winner cell #17 vs runner-up #8 within-1-SE disclosure | §6.2.2 | **Surface honesty / substance trouble** | Round 1 MAJOR-10 forced the 1.2 pp gap surfaced. *But*: the within-1-SE language treats the 27-cell *grid* as the only multiple-comparisons family; the *Bonferroni-20 across 5 datasets × 4 metrics* in §6.2.3 *does not* correct for the 27-cell grid selection. See MAJ-2. |
+| 4-clause free-lunch criterion as positive cross-axis result vs Chand et al. | §2 + §6.2.3 + §6.5 | **Yes (positioning) / No (load-bearing)** | The criterion is well-defined and Chand et al. positioning is correct. *But* the criterion's first clause (Δdf < 0) is 1/5 CI-clean — the cross-axis "VLM × continuous numerical regression × inference-time activation projection achieves 4-clause" claim is *overall point-estimate-consistent + Δem(b) clean + Δdf single-dataset clean*, which is a much weaker positive than the paper's positioning carries. |
 
-Round 3 response: still deferred. Paper §8.2 deferred list:
-> "**§6.2.2 27-cell pilot grid 부록.** 선택 규칙 (em-deal-breaker ≤ −6 pp)은 본문에 명시되어 있으나, 거부된 26 cell의 per-cell `Δdf(a)` / `Δem(a)` heatmap은 후속 부록에 추가."
+Bottom line on stress-test: 4-5 of the surviving claims hold up substantively; 3-4 hold only as written but contain unresolved kill points the constructive rounds didn't reach.
 
-Three problems:
-1. **The "em-deal-breaker ≤ −6 pp" rule is not pre-registered.** §6.2.2 uses the past tense ("rejected"). Was the −6 pp threshold set *before* observing the 27 cells, or *after*? In the absence of a pre-registration document or commit hash, a hostile reviewer assumes post-hoc.
-2. **27 cells × 4 metrics (Δdf, Δem(a), Δem(b), Δacc(b)) = 108 observations the paper has not shown.** The chosen cell could be the *only* cell that passes strict free-lunch, or one of 5 that do, or one of 25 with no other cell within 1 pp — the reader cannot tell. The strict-free-lunch claim's Bayesian update from "27 cells produced one survivor" vs "27 cells produced 6 survivors" is qualitatively different.
-3. **The selection criterion "em(a) ≤ −6 pp deal-breaker"** is *anchored arm only*. The strict-free-lunch criterion (defined in §6.2.3) requires four clauses including Δem(b) ≥ 0. So the *selection rule* is weaker than the *evaluation criterion* — i.e., the chosen cell could have failed the Δem(b) ≥ 0 clause and the paper would still have selected it (and presumably called it strict free-lunch failure). That the chosen cell *also* passes Δem(b) ≥ 0 across all 5 datasets is then post-hoc luck or post-hoc filtering. Either way the strict-free-lunch criterion was not what selected the cell.
+---
 
-I am not asking for new experiments. I am asking for the 27-cell heatmap that already exists in `outputs/e6_steering/llava-onevision-qwen2-7b-ov/sweep_subspace_*` (per Round 1 response). Two rounds of reviewers asked; two rounds of authors deferred. That is no longer "deferred" — it is suppression of evidence that bears on the headline claim.
+## Severity-graded attacks
 
-### CRIT-3. **§6.3 b-arm em +8.8 pp — the post-hoc explanation is one of three equally consistent stories.**
+### FATAL (paper must be rejected unless rebuilt)
 
-§6.3 reports b-arm (target_only, no anchor) exact-match rises +8.8 pp on average across 5 datasets after the L=26 / K=8 / α=1.0 hook is applied. The paper's explanation:
-> "(a − m) calibration contrast는 wrong-base 부분집합에서 *digit-anchor arm을 visual-matched no-digit control과 구별하는 모든 variance direction*을 capture한다. 정의상 digit의 representational signature가 포함되지만, *wrong-base의 digit-anchor failure와 co-aligned된 어떤 error mode*도 함께 포함된다. K = 8 leading subspace projection은 둘 다 제거하며, b-arm em 이득은 그 방향들 중 일부가 *target_only arm에서 amplitude가 em을 억제하던 generic wrong-base error mode*를 운반했음을 드러낸다."
+#### **[FATAL-A] §1.5 / Abstract: the central-contribution sentence still reads as a method-of-the-paper claim while the §3.3 hedge says it is a single-model case study. The honest contribution is single-arch existence proof; the framing markets it as method.**
 
-This is a story constructed to explain a positive surprise. Three competing stories the paper has not ruled out:
+Verbatim, §1.5 line 39:
 
-**Alternative 1 — General regularization.** Removing any K=8 dim subspace from a 28-layer / 4096-dim residual stream is, with K/d ≈ 0.002, plausibly a mild regularizer that shifts the answer-token distribution toward the modal correct digit. The paper does not control with a *random K=8 subspace* (e.g., K=8 SVD on the residual stream of a non-anchor calibration set, or K=8 random orthogonal subspace) at L=26. If the b-arm em gain reproduces with random projections, then the (a − m) contrast is not load-bearing for the b-arm gain.
+> 본 논문의 단일 *central contribution*은 **multi-direction subspace projection을 사용하는 cross-modal anchoring mitigation (E6)** 으로 ... 5 evaluation dataset × 6 held-out capability benchmark 위에서 multiplicity-robust 하게 충족한다 ...
 
-**Alternative 2 — Mode-collapse to most-frequent-digit.** Removing 8 dims at L=26 may collapse the answer-token logit distribution toward the dataset-modal answer (0, 1, 2, 3 are all common ground-truths in counting / chart / math VQA). If the b-arm gain is concentrated on the *low-information* questions whose modal answer is correct by chance, this is not "wrong-base error mode debiasing" — it is statistical regression-to-mode. Test: report b-arm em gain decomposed by GT-mode-frequency tertile.
+Abstract (line 9), end:
 
-**Alternative 3 — Implicit hyperparameter overfitting on the deferred 27 cells.** If the L=26 / K=8 / α=1.0 cell was selected (per CRIT-2) on PlotQA + InfoVQA pooled with em-deal-breaker = −6 pp, and the b-arm em was *implicitly observed* during selection, then the chosen cell is selected partly on b-arm em — making the 5-dataset b-arm em gain a partial training-set artifact, not an independent observation. Test: pre-register the cell, then test on held-out datasets. The paper's "1회 보정 후 5 dataset 보편 적용" framing implies pre-registration; the deferred 27-cell grid says it was post-hoc.
+> Mitigation chain은 단일 모델 case study이며 cross-architecture 일반화는 §8.2.
 
-§6.3 Insight 2 says "b-arm 양 결과가 §7 검증의 *사전 신호*였고, §7에서 ... *확인*된다." This is circular: §6.3 explains the b-arm em bonus by appealing to a story; §7 then "confirms" the story by showing the same hook also helps HallusionBench. But HallusionBench helping (Alternative 1: random K=8 helps illusion) is also consistent with general regularization. The mechanism story has *not* been distinguished from the regularization story.
+Two problems compound:
 
-This matters because the **abstract** sells the +8.8 pp b-arm em gain as part of the strict-free-lunch claim ("anchored arm + non-anchored arm 양쪽 모두에서 exact-match 상승"). If the b-arm gain is a regularization artifact, the strict-free-lunch criterion is met for trivial reasons; if it is anchor-mechanism-specific, it is the surprising finding the paper sells. The paper has not run the experiment that distinguishes these.
+1. **The contribution sentence does not contain "case study"** — it says "central contribution" and lists *multi-direction subspace projection mitigation* as the noun. The 11-line sentence ends without scope qualifier; the case-study admission is in the *next* paragraph (Auxiliary observation), structurally separated from the central contribution.
 
-## Major attacks (multiple of these compound to rejection)
+2. **The §3.3 panel-scope hedge** ("Cross-architecture E6 재calibration은 §8.2 후속 작업; 이 panel-scope 분리는 본 절에서 단 1회 명시하며, 후속 절은 reference 이외에 반복하지 않는다") is form-correct, but the "once" rule means the *contribution sentence in §1.5 — the most-cited surface in the paper — does not carry the hedge*. A reader Ctrl-F'ing for "central contribution" in §1.5 finds a method-of-paper claim with no scope qualifier; a different reader Ctrl-F'ing for "single-model" in §3.3 finds the hedge. The §1.5 reader does not necessarily reach §3.3.
 
-### MAJ-4. **§6.2.3 paired-sids small-n cells — Round 1 flagged, Round 1 response DEFER, Rounds 2–3 silent. The "5/5 dataset df reduction" claim does not survive paired-bootstrap CI.**
+3. **The contribution falls apart the moment a different architecture is calibrated.** §5.3 documents OneVision dataset-dependent peak migration L=14 ↔ L=27 *within the same model*. §5.1 documents the mechanism panel cluster split: SigLIP-Gemma early (L=5), mid-stack cluster (L=14), Qwen-ViT late (L=22), FastVLM late (L=17). The §6.2 chosen cell L=26 + K=8 + α=1.0 is calibrated for OneVision Qwen2-backbone with cross-dataset peak around L=27; on Gemma3-4b (peak L=5) or Qwen2.5-VL-7b (peak L=22), L=26 is structurally *not* the integration site. The paper knows this — §8.4 item 3 explicitly defers cross-architecture E6 replication. **A method whose method-of-paper hyperparameter is known not to transfer to other architectures is not a method.** It is a single-model proof-of-concept marketed as a method.
 
-Round 1 (MAJOR-9): "§6.2.3 paired-sids small-denominator cells (n=170 MathVista, n=224 ChartQA) report no CIs. With n=170 paired and the underlying df rate ~0.20, the 95 % bootstrap CI half-width on Δ df is approximately ±0.06."
+What a hostile PC member writes: *"The title is plural ('Vision-Language Models'); the central contribution is N=1. The transparent action is to retitle to 'on LLaVA-OneVision' or to label E6 as 'a calibration recipe to test on each model individually'. Currently the paper is at variance with itself."*
 
-Round 1 response: DEFER ("Owner: paper author. Estimate: <1 day.").
+**Why the constructive rounds missed this**: Round 1 surfaced the issue as MAJOR-1 panel scope; Round 1 reviser response added the §3.3 canonical hedge and removed 4 of the 5 duplicate hedge sentences from later sections. The fix consolidated *form* (one canonical statement) but left the *function* (the central contribution sentence is the most-read surface and does not carry the hedge). Round 3 reviewer reorganised §1.5 from 4 contributions to 1 + 3 supporting + 1 auxiliary — strengthening the headline form *without* tying it to scope.
 
-Round 2 / Round 3: did not re-raise.
+**What would change my mind**: §1.5 (4) reframed as *"central contribution: a calibration recipe for cross-modal anchoring mitigation, demonstrated as a single-model case study on `llava-onevision-qwen2-7b-ov` (Δem(b) Bonferroni-clean across 5 anchor-task datasets and 6 held-out capability benchmarks); cross-architecture transfer is the immediate follow-up question (§8.4)"*. This is honest about scope and preserves the substance.
 
-The paper's Round-3 §8.2 deferred list:
-> "**§6.2.3 small-n cell CI 미보고.** 5/5 paired-sids 표 중 2 cell (n=170 MathVista, n=224 ChartQA)이 점추정 (point estimate)만 보고."
+---
 
-But it is not 2 cells. Look at Table 6:
-- TallyQA n=4,978 → CI plausibly tight, Δdf=−0.3 pp (but is this ≠ 0?)
-- PlotQA n=2,306 → Δdf=−5.2 pp, plausibly significant
-- **InfoVQA n=443 → Δdf=−0.7 pp** — at p ≈ 0.20, half-width on Δ df ≈ ±0.04 (Wilson-style paired). Δdf=−0.7 pp is *within* the CI half-width — i.e., **indistinguishable from zero.**
-- ChartQA n=224 → Δdf=−4.0 pp, half-width ≈ ±0.06; borderline.
-- MathVista n=170 → Δdf=−4.1 pp, half-width ≈ ±0.07; borderline.
+#### **[FATAL-B] §6.2.3 Δdf (the 4-clause free-lunch's *first* clause — the actual *anchoring mitigation* clause) is 1/5 CI-clean. The paper has been re-engineered to lead with Δem(b) Bonferroni-clean as the headline, but Δem(b) is the *non-anchored arm* effect — it is *not* the anchoring-task improvement.**
 
-Realistic claim under bootstrap CI: **PlotQA significant, TallyQA inconclusive (small magnitude), MathVista + ChartQA borderline, InfoVQA noise.** That is 1/5 with strong evidence, 2/5 borderline, 2/5 inconclusive — not the "5/5 dataset df reduction" headline. The paper sells "5/5 dataset에서 다음 세 성질이 동시에 유지된다 — (1) df 5/5 감소" as the §6.2.3 headline (line 299); under paired bootstrap CI this is not defensible.
+Per `docs/insights/_data/stage4_final_per_dataset_ci.md` (canonical source) Sign-clean count table:
 
-Worse: the paper *itself* uses paired bootstrap CI for §7 capability preservation (Round-1 response added the methodology). Why is the same procedure run for §7 (where the threshold is met) and not for §6.2.3 (the headline mitigation result)? The reader's read: cherry-picked statistical rigor.
+| Metric | 95 % CI excludes 0 (matching dir) | Bonferroni-20 CI excludes 0 |
+|---|:---:|:---:|
+| Δ adopt(a) | 2/5 | 2/5 |
+| **Δ df(a)** | **1/5** | **1/5** |
+| Δ em(a) | 3/5 | 2/5 |
+| Δ em(b) | 5/5 | 5/5 |
 
-### MAJ-5. **§6.5 CAA/ITI as a Round-3 Note instead of Table 7 rows — claiming victory without empirical comparison.**
+The 4-clause free-lunch criterion (paper §6.2.3 line 379):
+> *Δdf(anchoring task)* < 0 ∧ *Δem(anchored arm)* ≥ 0 ∧ *Δem(non-anchored arm)* ≥ 0 ∧ *Δ(held-out capability macro)* ≥ −0.5 pp
 
-Round 3 reviewer offered: "either run CAA / ITI as additional Table 7 rows, or add §6.5 footnote explaining the reduction." Round 3 response chose footnote:
-> "*Note (CAA / ITI baseline 처리):* CAA [Panickssery et al., 2024]는 paired-contrast residual-stream steering을 *rank-1*으로 가중 합산하므로 본 비교의 ActAdd 행 ((a − m) calibration의 rank-1 mean-direction 인스턴스)과 *구조적으로 동치*이며 cross-dataset α=1 self-test backfire를 동일하게 상속한다. ITI [Li et al., 2023]는 *attention-head 출력*에서 multi-direction 개입을 수행하므로, §5.2의 *single-layer attention ablation null* + *multi-layer redundancy* 결과가 attention-head 수준 single-locus 개입의 cross-dataset 실패를 사전 예측한다."
+The first clause is *anchoring task Δdf < 0*. CI-clean on 1/5 datasets (PlotQA only). The fourth clause (capability) is met by macro +0.41 pp (HallusionBench excludes zero, POPE pinned). The third clause (Δem(b)) is met 5/5 Bonferroni-20-clean.
 
-The "CAA = ActAdd at K=1 on (a − m)" reduction is hand-wavy:
-1. **CAA** (Panickssery 2024) computes the steering vector as the *mean of paired contrastive activation differences*, then adds α · v to the residual stream. Specifically: `v = mean_i (h_pos[i] − h_neg[i])`, applied as `h ← h + α v`.
-2. **ActAdd** (Turner 2023) computes the steering vector as the *single-pair* difference at one layer, *or* averaged over multiple pairs, then adds with a coefficient.
+**The paper's pivot is to emphasise the third clause as headline.** Verbatim Abstract: *"multiplicity-robust headline은 **Δem(b) 5/5 cell × 95 % 및 Bonferroni-20 CI 모두 excludes 0** 이며 Δdf는 PlotQA n=2,306 위 CI-strong + 4 small-n cell 점추정-일관-CI-borderline."*
 
-The paper's "(a − m) ActAdd row" presumably uses some calibration on (a − m) pairs. CAA's distinguishing characteristic is the *paired* contrast across many examples; ActAdd's original formulation was single-pair. Whether the paper's ActAdd implementation is in fact "CAA at K=1" depends on the implementation details, which the paper does not describe (Round 1 axis B Baselines: "Insufficient hyperparameters. No specific α, layer, K, calibration-set descriptions for any of the 5 baselines"). Round 1 response did not fix this.
+This is structurally a reframe-by-relabelling. The criterion is "4-clause"; the paper's headline pivots to the clause where the data is cleanest, not the clause that defines the *anchoring mitigation* function. **Δem(b) is improvement on the non-anchored arm. Δem(b) > 0 means the projection makes the model better at target_only forward passes — i.e., target_only forward passes that don't have an anchor.** That is *capability preservation on the non-anchored arm*. Calling that the "headline" of an anchoring mitigation sells a side-effect as the deliverable.
 
-So the §6.5 Note's claim "CAA = ActAdd at K=1 on (a − m), structurally equivalent" is a reduction asserted without (a) implementation detail of the ActAdd baseline, or (b) empirical verification that they produce the same Δdf curves. This is "claim victory without comparison." A hostile reviewer who has actually implemented CAA and ActAdd will know the activation spaces, calibration counts, and per-layer aggregations are *different operations* even when the API is similar.
+The actual *anchoring* deliverable is **Δdf(a) < 0**. CI-clean evidence: 1 out of 5 datasets, PlotQA, n=2,306. The 4 small-n cells with Δdf:
+- TallyQA: Δdf = −0.3 pp [−1.3, +0.6] (CI overlaps zero by half its width)
+- InfoVQA: Δdf = −0.7 pp [−4.7, +3.4] (CI half-width 4 pp; "fence" in §6.2.3 prose)
+- ChartQA: Δdf = −4.0 pp [−9.8, +1.8] (CI overlaps zero)
+- MathVista: Δdf = −4.1 pp [−11.8, +3.5] (CI overlaps zero by huge margin)
 
-For ITI the reduction is even weaker. ITI operates on attention-head outputs (per-head direction selection by truth-classifier accuracy). The §6.5 Note says "§5.2 single-layer attention ablation null predicts ITI's failure." But §5.2's ablation *zeros* attention; ITI *adds* a direction to attention output. These are different operations with different mechanisms. §5.2's null-ablation result is consistent with ITI working *or* failing.
+A hostile reviewer's read: "*the anchoring mitigation reduces direction-follow on PlotQA (the calibration domain) and is statistically indistinguishable from no effect on the four held-out evaluation datasets. The headline finding (Δem(b)) is on the non-anchored arm and is a side-effect of the projection. The paper rebrands the side-effect as the headline because the anchoring effect is single-dataset.*"
 
-The right move is to run the rows. Round 3 estimated 4–8 H100-hours for CAA, 1–2 days for ITI. That is not "deferred to next revision" — that is a one-week delay before submission. The paper's headline "**multi-direction subspace projection** is the only candidate that clears strict free-lunch" is a comparative claim made against an incomplete baseline panel.
+**Why the constructive rounds missed this:**
 
-### MAJ-6. **§7 multiple-comparisons correction not applied. "Sub-pre-registration" is asserted but the registry is not cited.**
+Round 1 CRIT-2 explicitly raised the abstract-vs-body §6.2.3 mismatch on the Δdf clause. Round 1 reviser response surfaced "Δem(b) is multiplicity-robust headline" — i.e., conceded the headline pivot. The reviser's edit reframes the abstract to lead with Δem(b). **This is not the fix CRIT-2 asked for** — CRIT-2 asked for the abstract to mirror §6.2.3's self-reframe; the reviser instead lifted §6.2.3's reframe up to the abstract and made it the *new* headline. The reframe was rhetorically smart but moved the headline to the side-effect axis.
 
-§7 Table 8 reports 6 benchmarks. The strict-free-lunch criterion in §6.2.3 requires Δ ≥ −0.5 pp on macro and ≥ −1.0 pp per-benchmark. §7 reports HallusionBench Δ=+2.21 pp 95 % CI [+1.14, +3.28] *excludes zero*; POPE Δ=−0.06 pp 95 % CI [−0.21, +0.09] *pinned to zero*. Both are presented as significance claims.
+Round 3 novelty reviewer noticed (CRIT-N1 verdict) but framed it as "uniquely passes" softening, not as "the headline clause is the *non-anchoring* clause."
 
-Issues:
-1. **No multiple-comparisons correction.** 6 benchmarks × {baseline drift, mitigation effect} = 12 paired tests; just for the mitigation effect direction, 6 tests. Bonferroni at α=0.05 demands per-test α=0.0083, two-sided z≈2.64 instead of 1.96, which on the HB SE of (3.28−1.14)/3.92 = 0.546 pp gives a Bonferroni-corrected CI of [+0.77, +3.65] — still excludes zero, so HB *survives* correction, but the paper does not show this. POPE's CI [−0.21, +0.09] would widen to roughly [−0.25, +0.13] — still pinned to zero, but again the paper does not show. Reviewer will not give the paper the benefit of *not running* the correction even when it would survive.
-2. **The "사전등록" claim is not backed by a registry.** §6.2.3 Strict free-lunch 형식 정의 says "*Δ(held-out capability macro)* ≥ −0.5 pp (사전등록, §7)." §7 says "사전등록 임계: 벤치마크별 Δ ≥ −1.0 pp, 매크로 Δ ≥ −0.5 pp." A pre-registration is a document — OSF, AsPredicted, GitHub commit before the analysis — with a *timestamp* before the result was observed. The paper does not cite such a document. "사전등록" without a registry is just "we picked this threshold." A hostile reviewer reads this as either a misuse of the term *pre-registration* or hidden flexibility.
-3. **Strict free-lunch's "Δ(held-out capability macro) ≥ 0" was tightened to "≥ −0.5 pp" between abstract and §6.2.3.** Abstract says "Δ(held-out capability) ≥ 0." §6.2.3 formal definition says "Δ(held-out capability macro) ≥ −0.5 pp." That is a 0.5 pp loosening. With macro Δ = +0.41 pp, the chosen cell would *fail* the abstract's stricter "≥ 0" only if held-out gain were below 0, but the *form* of the criterion is inconsistent between callsites.
+**What this paper actually demonstrates** (honest reading): On a single-model calibration, a K=8 residual subspace projection at L=26 (a) reduces direction-follow on the calibration-domain dataset (PlotQA) with CI-clean evidence, (b) point-estimate-reduces direction-follow on 4 small-n held-out datasets within a sample-size-bound noise floor, (c) raises target_only exact-match consistently across all 5 datasets (Bonferroni-clean), (d) does not measurably damage 6 held-out capability benchmarks. The *anchoring* claim is single-dataset CI-clean. The *capability-preservation-with-bonus* claim is multi-dataset CI-clean. These are different findings; the paper marketing fuses them under the "free-lunch" idiom and labels the fusion the central contribution.
 
-### MAJ-7. **§4.6 γ-β still presented as paper-tier in §1.5 (6) and §8.1 despite N=1 architecture × N=1 dataset.**
+**What would change my mind**: Either (i) acknowledge in §1.5 (4) that the *anchoring task Δdf clause is single-dataset CI-clean; the multi-dataset CI-clean clause is non-anchored arm em*, or (ii) rerun on full-n cross-evaluation datasets (PlotQA-n=2,306-equivalent for ChartQA / MathVista / InfoVQA) so the small-n CI bands close. Option (ii) is the right scientific move; option (i) is the right rhetorical move.
 
-Round 2 softened the abstract closing from "입증" to "first-evidence VLM 결과 (단일 architecture pair, cross-architecture 일반화는 §8.2 한계로 명시)." Good. But:
-- §1.5 (6) still treats γ-β as a contribution: "(6) γ-β reasoning pair (N=1 Qwen3-VL Instruct vs Thinking)에서 reasoning-amplifies-anchoring을 처음 보이는 *first-evidence* VLM 결과."
-- §8.1 종합 still treats it as a finding: "reasoning mode는 효과를 *증폭*한다 (§4.6) — reasoning trace에서 bias가 *축적*된다는 것을 시사하는 first-evidence VLM 결과이다."
-- §4.6 itself uses MathVista only (one dataset), with Insights 1, 2, 3 each generalizing across H2 asymmetry mechanism, LRM literature alignment, and accuracy trade-off.
+---
 
-The data: 1 architecture pair × 1 dataset × 1 stratum (single-stratum γ-β setup per §G appendix). N=1 in all three of (model, dataset, stratum) is *not* a paper-tier finding; it is an *existence proof* that warrants a workshop paper or a Findings short paper. The §4.6 *Insight 1* claim "메커니즘 결합 — confidence-modulated anchor pull 가설과 일치" rests on this single-cell ratio (×12.7) — and Round 2 softened "직접 입증" to "강하게 뒷받침" but did not remove the framing.
+#### **[FATAL-C] §4.6 γ-β residual-stream bridge is positioned as the framework's "prospective verification" but tests the framework at K=1 while the framework's operational deployment uses K=8. This is not prospective verification — it is partial post-hoc rescue at a different point in the framework's parameter space.**
 
-The §8.2 limitation list says "γ-β N=1 reasoning pair." The paper hedges *for* N=1 but treats the result as a contribution. A hostile reviewer's read: the paper is borrowing tier from §6 (mitigation chain) to elevate γ-β from existence-proof to paper-tier. If §6 is N=1 on the model axis (CRIT-1), then γ-β is the second N=1 finding in the same paper. Two N=1 findings stacked into one Main paper.
+Per the paper §4.6 (line 248) Insight 1:
+> 동일 L = 33 + 동일 data + K = 1 vs K = 8 비교에서 bridge가 null (−0.05)에서 Bonferroni-positive (+0.28 [+0.19, +0.38])로 9× 차이 — §6의 K = 8 OneVision sweet spot이 cross-architecture universal이 아니다.
 
-## Minor attacks (would be revision-required even individually)
+And §1.5 (3) supporting finding (line 39):
+> 이 synthesis는 §4.6 γ-β residual-stream bridge에서 layer-routing 방향성 sign-reversal로 prospectively 검증되나 implicit universal-K=8 가정은 K=1 vs K=8 cross-architecture 차이로 부분 falsify되며 (§4.6 Insight 2), 따라서 *load-bearing theory*가 아닌 *통합 설명 framework*로 자리한다
 
-### MIN-8. **"Strict free-lunch" is a marketing term whose Δem(non-anchored) ≥ 0 clause is suspicious.**
+What §4.6 actually shows:
+- **At K=1**, mid-stack negative ↔ late-stack positive sign-reversal: 14/84 Bonferroni-corrected cells exclude 0.
+- **At K=8 same L=33**: bridge is null (−0.05).
+- **The framework's §6 instantiation uses K=8** at L=26. So the *parameterisation that the framework operationalises in the deployed mitigation* has *null evidence on the prospective leg*.
+- **The 14/84 cells that pass Bonferroni** are 14 of 84 = 16.7 %. With Bonferroni at α=0.05/84 ≈ 0.0006, false-positive rate per cell is 0.0006 — under null we expect 0.05 cells out of 84. 14 is much greater than 0.05. So the *direction* finding survives Bonferroni. *But*: the framework's prediction does not specify *which 14 cells*; the framework predicts *direction*, not *which K × layer cells specifically realise the direction*. So the 14/84 statistic is *post-hoc cell selection* dressed as Bonferroni-clean.
 
-§6.2.3 Strict free-lunch 형식 정의 says:
-> "통상적인 Pareto-improvement 기준은 첫 번째 + 마지막 두 clause만 요구하며 두 번째 *non-anchored arm em* 조항을 가지지 않는다. 이 추가 clause는 bias mitigation의 *cross-category collateral damage* — Chand et al. [2025]가 LM debiasing에서 보고한 *31.5 % 비표적 dimension에서의 부수 손상* — 에 직접 대응하는 screening 기준으로..."
+What this means for the contribution:
 
-Question: why does anchor mitigation require *improving* baseline (no-anchor) accuracy? The motivating cross-category collateral damage from Chand et al. would be addressed by Δem(non-anchored) **≥ 0** (i.e., no harm), not by Δem(non-anchored) > 0. The paper's actual data shows Δem(b) = +8.8 pp average — not "no harm" but positive. The "*strict*" framing is built around a celebration criterion: the paper found a cell where Δem(b) was positive, then defined "strict free-lunch" to include "Δem(non-anchored) ≥ 0" as a clause that the chosen cell trivially passes. The criterion is post-hoc shaped to fit the result.
+1. The framework's *direction* prediction (mid-stack vs late-stack sign-reversal) is verified — but this is also what a generic "residual stream accumulates information" prior predicts. The framework does not make a *unique* prediction here.
+2. The framework's *operational* prediction (K=8 universal sweet spot) is partially falsified. The paper acknowledges this. But the *deployed mitigation* uses K=8.
+3. So the framework's prospective leg (a) confirms the generic prediction at K=1 (where the paper's deployed mitigation does not operate), and (b) *contradicts* the framework's specific prediction at K=8 (where the deployed mitigation does operate).
 
-Compare to the genuine no-harm criterion: Δem(b) ≥ −ε for some pre-registered ε. That would be the operationally meaningful screening rule. The paper's choice — Δem(b) ≥ 0 — is rhetorically stronger and selectively favorable to the chosen cell.
+This is not a prospective verification of the framework. **This is a finding that on a different model the framework's universal-K=8 assumption fails**, recharacterised as "framework's layer-routing prediction confirmed."
 
-### MIN-9. **§4.4 Insight 2 "Anti-scaling" claim from one model pair × 3/4 datasets.**
+§5.4 (line 290) explicitly says this:
+> framework의 implicit *universal K=8 sweet spot* 가정은 부분 falsify — Qwen3-VL은 sv7/sv8 elbow가 1.026 gradual decay라 K=2..7 noise가 K=1 anchor direction을 dilute, 동일 L=33에서 K=1 vs K=8 ratio가 9× — *layer-routing 방향성은 framework-confirmed, dimensionality 보편성은 framework-partial-falsified*. 본 honest disclosure는 framework의 falsifiability를 보장하는 핵심 element이다.
 
-§4.4 Insight 2 says Gemma3-4b > Gemma3-27b on PlotQA, ChartQA, MathVista (anti-scaling, 4B more anchor-pulled than 27B), but reverses on InfoVQA (4B < 27B). Round 2 added the qualifier "anti-scaling이 chart/plot/math 3개 dataset에 한정되며 InfoVQA에서는 표준 scaling 회복."
+The "honest disclosure" is form-correct. But it is positioned as a *strength* of the framework (falsifiable). What the paper does not surface: **the K=8 partial-falsification means the framework's only prospective leg fails the test at the deployed K**. This is much closer to "framework partially falsified at K=8, rescued at K=1" than to "framework prospectively verified."
 
-The data is one model-family pair (Gemma3 4B vs 27B) on 3/4 directional. "Anti-scaling" is a strong term that originated in language modeling (e.g., inverse scaling tasks, McKenzie et al. 2023) where multiple model families show the same trend. Calling 4B-vs-27B-on-3-of-4-datasets "anti-scaling" is inflated. A hostile reviewer:
-- One Gemma3 family-pair is N=1 architecture-pair on the scaling axis.
-- 3/4 directional consistency at N=1 is suggestive, not established.
-- Other model families in the panel (Qwen2.5-VL 7b vs 32b; OneVision 7B alone) are not analyzed for anti-scaling. Why? Either show the cross-family analysis or drop "anti-scaling."
+A hostile reviewer's read: *"The framework's prospective leg verifies the generic part of the prediction (residual stream accumulates information across layers; obvious) and falsifies the specific part (universal K=8); the framework is then re-fit to K=1 on Qwen3-VL while K=8 stays operational on OneVision. This is framework retrofitting, not framework verification."*
 
-### MIN-10. **§A.2 FLUX seed not reported. Round 1 should-fix #9, deferred. Stimulus inventory conditioned on unspecified seed.**
+§4.6 also has Insight 2 (line 250): *"within-Thinking magnitude (+0.5 ~ +0.9 amplitude units, baseline 위 ~0.2 ~ 0.4 % 상대 변화)는 §4.5 Table 4의 correct-base df ratio 큰 폭 증가와 *정량적*으로 정렬되지 않는다 ... *Qualitative bridge established / quantitative interlock deferred* (§8.2)"*. The framework's prospective test fails the quantitative interlock and the paper labels it "qualitative bridge established."
 
-Round 1 noted: "Seeds for FLUX rendering: reported? ... §A.1 reports greedy decoding (no seed needed for inference) but does *not* state seeds for FLUX rendering. The 128-image inventory in §A.2 was generated by `scripts/generate_irrelevant_number_images.py` — what seed? This affects the (a) inventory specifically, which is the load-bearing stimulus for every paper claim."
+**Why the constructive rounds missed this:**
+Round 1 CRIT-1 forced "predict-then-verify chain" reframe to "post-hoc synthesis + prospective leg at §4.6." Round 1 reviser response retained §4.6 as the prospective leg "with K-falsification surfaced." The reviser explicitly chose to keep the §4.6 leg *as* the prospective verification despite the K=1 vs K=8 mismatch. **The reviser papered over the mismatch by relabelling the framework partial-falsification as a strength.**
 
-Round 1 response: "DEFER ... seed lookup pending."
+Round 3 reviewer (CRIT-N3) demanded "이론적 기여" → "통합 설명 framework" relabel. The reviser did this. But the relabel does not address the K=1/K=8 mismatch — it only softens the contribution language. The framework is still on the load-bearing path between §5.2 mechanism and §6.2 mitigation in §1.5 (3) and §8.1.
 
-Round 3 still does not report it. Three rounds of reviewers, no FLUX seed. *Every* paper claim is conditional on this 128-image inventory. A hostile reviewer who tries to reproduce the paper cannot regenerate the inventory.
+**What would change my mind**: Run the §6.2 calibration at K=1 + K=4 + K=12 + K=16 on OneVision (~1 H100-day per K-cell) and report the L=26 × {K} × α=1.0 sweep. If K=8 is the empirical sweet spot among {1, 4, 8, 12, 16} on OneVision, the framework's prediction at K=8 has data behind it. If K=8 is not the empirical sweet spot when broader K is searched, the framework's K=8 instantiation is grid-search-artefact. Currently the OneVision K-grid is K ∈ {2, 4, 8} per §6.2.2 line 347 — three points, K=8 is the largest. The Qwen3-VL bridge sweeps K ∈ {1, 2, 4, 8, 12, 16} and finds K=1 is right. The OneVision grid does not include K=1 or K ≥ 12. **The K=8 sweet spot claim on OneVision is therefore "K=8 is the largest in {2, 4, 8}", not "K=8 is the local optimum in a wide K range."**
 
-### MIN-11. **"다층 중복 (multi-layer redundancy)" reframable as "single-cluster mechanism with three archetype outliers."**
+This is the same kind of grid-coverage-as-optimum issue Round 1 MAJOR-7 surfaced and Round 1 reviser response soft-deferred. Three rounds later, the K=8 sweet spot is still not from a K-grid that includes K=1 or K ≥ 12.
 
-§1.4 abstract: "**single-layer mask ablation은 6-model 메커니즘 panel ... 6/6 null** — signal은 multi-layer redundant이다."
+---
 
-The 6-model panel:
-- gemma4-e4b → SigLIP-Gemma early (L5/42)
-- llava-1.5 → CLIP-ViT mid-stack (L14-16)
-- ConvLLaVA → ConvNeXt mid-stack (L14-16)
-- InternVL3 → InternViT mid-stack (L14-16)
-- qwen2.5-vl → Qwen-ViT late (L22/28)
-- fastvlm → FastVLM late text-stealing (L22)
+#### **[FATAL-D] (a − m) Telea-inpaint counterfactual leaves a texture signature; "digit pixel causality" should read "digit-pixel-or-Telea-residue causality." OCR-verified digit absence does not control for representation-level texture cues.**
 
-That is 3 models in the mid-stack cluster + 3 archetype outliers (1 SigLIP-Gemma early, 1 Qwen-ViT late, 1 FastVLM late). The panel is *not* uniformly multi-layer redundant; it is one cluster of three + three singletons.
+§3.1 + §A.2 + §6.2.1 establish the (a − m) contrast: same scene, OCR-verified digit absence after Telea inpainting. §4.2 line 169 reframes:
+> `adopt(m)`이 양수일 수 있는 원인은 (i) 모델 prediction noise가 우연히 anchor_value와 일치 (~0.5 × P(numeric pair) baseline), (ii) anchor scene background에서 잔존하는 미세한 cue (Telea inpaint이 픽셀 레벨에서 완전 무 잔여 OCR 검증되었으나 representation level에서의 잔여 가능성), ...
 
-The "multi-layer redundancy" framing covers the case where you ablate one layer and signal stays. But the *reason* it stays differs across archetypes:
-- Mid-stack cluster: signal is genuinely distributed across L14-16 layers (multi-layer in the sense of "redundant copies").
-- SigLIP-Gemma early: signal is at L5 *and* L42 — bimodal, not "redundant copies" but two distinct loci.
-- Qwen-ViT late: L22/28 bimodal (verified via cross_dataset_peaks.csv).
-- FastVLM: cross-dataset L17/22/23/27 — peak migration, not redundancy.
+The paper acknowledges (in passing) that representation-level residue is plausible. But the *(a − m) calibration substrate* — the SVD basis for the K=8 subspace projection — is computed from `D[i, L, :] = h(x_i^a, L) − h(x_i^m, L)` and the §6.2.1 Insight makes the design principle explicit:
+> calibration contrast는 인과 통로 (causal pathway) 를 confounding variance로부터 *분리*하는 paired difference여야 한다
 
-A hostile reviewer reframes: "The 6/6 null result is consistent with three different mechanisms — multi-layer redundancy in mid-stack, bimodal peaks in SigLIP-Gemma and Qwen-ViT, and per-dataset peak migration in FastVLM. The paper's 'multi-layer redundancy' framing assumes a single mechanism explains all six." This is not paper-killing, but it weakens §5.2 → §6.4 "predict single-direction failure" because the prediction's mechanism story differs across archetypes.
+If the Telea inpaint residue contains *texture cues distinguishable to the representation* (e.g., frequency-domain artefacts where the digit was blurred out, color-bleeding around the inpaint boundary, edge artefacts), then `D[i, L, :]` captures *(digit content + Telea-residue) − Telea-residue + epsilon*, which is not the *digit-pixel-only* axis the paper claims. The K=8 subspace then includes Telea-residue-related directions. The "digit-pixel causality" claim becomes *digit-pixel-or-Telea-residue* causality.
 
-## Attack-by-axis
+Why this matters for the headline:
+1. **§4.2 Insight 1** (line 171) ties the (a − m) gap magnitude to model anchor pull strength. If the (a − m) gap also reflects how much the model representation distinguishes Telea texture from clean pixels, then anchor-strong models also have strong texture-distinguishing representations — confounded.
+2. **§6.2 E6 mitigation** removes the K=8 subspace at inference. If part of the subspace is Telea-residue-related, the deployed mitigation removes a generic *image-modality-noise direction* on every forward pass. The b-arm em +8.8 pp gain is then easier to explain as "removed a generic noise direction" — i.e., Alt-1 (general regularization) of §6.3 Insight 1.5, which the paper acknowledges is unfalsified within the round.
+
+The paper's only control for this is the OCR digit-absence verification — pixel-level absence, not representation-level absence. The right control is comparing K=8 SVD on (a − m) with K=8 SVD on (m − m') where m and m' are two different inpaint-passes of the same scene with no digit ever present (so D is all-Telea-residue and any subspace recovered should be Telea-only). The paper does not report such a control.
+
+**§4.2 (m, b, d) controls** address scene-background causality (paragraph at line 169: *"masked와 neutral이 correct-base 정확도에 끼치는 손실은 1-2 pp 안에서 구별 불가"*). Scene background ≠ Telea inpaint texture. Scene background is the *anchor scene* shared with `a` and `m`; Telea inpaint texture is *distinct to `m` only*. So (m, b, d) controls do not cover the Telea texture axis.
+
+**Why the constructive rounds missed this:**
+Round 1 methodology focused on the canonical CSV reproduction; the (a − m) Insight is treated as the paper's strongest move and not attacked. Round 2 writing was prose-axis. Round 3 novelty positioned (a − m) as a generalisable design pattern. Three rounds in, the inpaint-counterfactual confound has not been raised because each reviewer focused on a different axis.
+
+**What would change my mind**: Either (i) report the (m − m') "inpaint-noise-only" SVD baseline (~2 H100-hour: regenerate 128 inpainted-twice neutrals, run SVD, compare K=8 subspace cosine similarity to the original (a − m) subspace), or (ii) explicitly acknowledge in §6.2.1 Insight that "(a − m) captures *digit-pixel-or-Telea-texture-correlated* directions; a control for inpaint-only texture is deferred to §8.4." Currently §6.2.1 frames (a − m) as cleanly isolating the causal pathway; a hostile reviewer reads "Telea inpaint" as a confound. (Round 4 v1-archive review (CRIT-3 in archive) raised the b-arm regularization story; this round adds the Telea texture confound as the *upstream* explanation.)
+
+---
+
+### MAJOR (multiple of these compound to rejection)
+
+#### **[MAJ-1] §4.6 14/84 Bonferroni-clean cells is post-hoc cell-selection. The framework predicts *direction*; the paper reports *which* cells are clean, treating Bonferroni as if it disciplined the selection. It does not.**
+
+Per §4.6 Setup (line 229):
+> 7 layer × 6 K (K ∈ {1, 2, 4, 8, 12, 16}) × 2 statistic = 84 cells L×K sweep으로 측정. Within-Thinking paired (T_a − T_d per sid) bootstrap B = 10,000, Bonferroni-corrected k = 84.
+
+Bonferroni at k=84, α=0.05: per-test α = 0.05/84 ≈ 0.0006, two-sided z ≈ 3.43, 99.94% CI bound. 14 cells clean of zero.
+
+Two issues compound:
+
+1. **The framework's prediction is qualitative-directional**: late-stack positive, mid-stack negative. The framework does not predict *which K ∈ {1, 2, 4, 8, 12, 16}* nor *which layer ∈ {late stack}* should be Bonferroni-clean. The paper *finds* that 14 cells survive, then reports those 14 cells, then claims the surviving cells "confirm" the framework. But under the framework's directional prediction, *any* combination of (some K, some late layer) being non-zero is consistent. The 14/84 fraction is "fraction of (K, layer, statistic) cells where the directional effect is large enough to survive Bonferroni" — not "fraction of framework-predicted cells that survive."
+
+2. **The framework's *implicit* universal-K=8 prediction is then partial-falsified by inspection of the 14 cells.** If §4.6's framework prediction *had been* "K=8, late layer, mean statistic ⇒ positive amplitude," and Bonferroni had then tested 1 cell, a single-cell pre-registered test would discipline the comparison. Instead the paper sweeps the entire (K, L, statistic) lattice, post-hoc selects the cells that are clean, and then reads off "K=8 was null at L=33; K=1 was clean — therefore universal-K=8 is partial-falsified." The K=1 finding is *post-hoc cell selection*, not pre-registered prediction.
+
+A hostile reviewer's read: *"This is a fishing expedition with Bonferroni correction labelled as if it were predictive verification. The framework's prospective leg is post-hoc cell-selection. The 14/84 number is 'how many cells happened to be large enough'; it is not 'how many framework-predicted cells held up.' If the framework had no predictive content, you would still see 4-5 cells survive Bonferroni in a 84-cell sweep at α=0.05/84 if the underlying signal is weakly correlated across cells (which late-stack residual amplitudes are, since they're highly correlated across L within Thinking)."*
+
+**Why the constructive rounds missed this**: Round 1 raised "84-cell sweep is multiple-comparisons inside Bonferroni" as MAJ-9 (statistical rigor); Round 1 reviser surfaced the column header "Bonferroni 99.94 % CI" but did not address the cell-selection issue. The structural critique — that 14/84 is post-hoc selection — was not made.
+
+**What would change my mind**: Pre-register a specific (K, layer, statistic) prediction *before* running the sweep, then test that single cell. The current 14/84 is exploratory analysis labelled as confirmatory.
+
+---
+
+#### **[MAJ-2] §6.2.2 cell #17 selection — Round 1's MAJOR-10 within-1-SE disclosure addressed *grid* uncertainty but not the larger cherry-pick problem: the paper applies Bonferroni-20 across the §6.2.3 evaluation but does NOT correct for the 27-cell grid pre-selection. The Bonferroni-20 family-wise error rate is therefore mis-stated.**
+
+Round 1 MAJOR-10 forced the paper to disclose that cell #17 vs #8 is within ~1 SE on the calibration-set ranking (§6.2.2 line 351-353). This is a partial fix.
+
+The deeper issue: §6.2.3's Bonferroni-20 (5 datasets × 4 metrics) treats the 5×4=20 paired tests as the multiple-comparisons family. **But the cell #17 (L=26, K=8, α=1.0) was selected from a 27-cell pilot grid on the calibration set.** The selection-on-calibration → evaluation-on-held-out paradigm requires the held-out evaluation to be *single-cell-pre-registered*. The Bonferroni-20 is then correct for *one specific cell's* multi-dataset / multi-metric evaluation. **It is not correct if the 27-cell selection itself is a multiple-comparisons family.**
+
+The paper's argument (Round 1 reviser MAJOR-10 fix) is that the selection rule was ex ante fixed (em-deal-breaker ≤ −6 pp). But:
+- The em-deal-breaker rule is non-binding: §A.5 line 596 says "27 cell 중 *어느 cell도* 이 −6 pp 임계값을 위반하지 *않는다*" — the rule pruned no cells.
+- The actual selection criterion is therefore "argmax over 27 cells of mean Δdf(a) on PlotQA + InfoVQA pooled."
+- A 27-cell argmax is a 27-fold multiple-comparisons selection.
+- The §6.2.3 evaluation then runs the chosen cell on 5 datasets × 4 metrics = 20 tests, with Bonferroni-20 applied.
+- The combined family is therefore more like 27 × 20 = 540 comparisons or 27 + 20 = 47 (under conservative counting).
+
+A hostile reviewer's read: *"Bonferroni-20 is correct for the held-out evaluation conditional on the cell being pre-registered. Pre-registration requires the cell to have been chosen without any look at the held-out data and without any look at any other plausible selection criterion. The 27-cell argmax violates the latter — it is data-driven cell selection from a grid even if the grid was specified ex ante. The correct correction is Bonferroni-540 or at minimum Bonferroni-47. Under Bonferroni-540, only PlotQA Δem(b) (the single largest effect) would survive."*
+
+This is more aggressive than the paper's "1.2 pp within ~1 SE" admission. The within-1-SE admission is *cell #17 vs cell #8 ranking instability*. The cherry-pick attack is *cell #17 vs the null hypothesis of no signal anywhere in the 27 cells*.
+
+The 1/5 Bonferroni-20 CI-clean for Δdf would shift to 0/5 under Bonferroni-540, leaving only Δem(b) (which has effect sizes of +4.7 to +13.8 pp, large enough to survive even Bonferroni-540 on n=2,306 PlotQA and n=4,978 TallyQA).
+
+**Why the constructive rounds missed this**: Round 1 MAJOR-10 was framed as "is the within-grid ranking stable" and the response (reviser Edit 11) addressed within-grid SE. The cross-family multiplicity (grid × evaluation) was not raised.
+
+**What would change my mind**: Either (i) re-run §6.2.3 with a Bonferroni correction that includes the 27-cell selection (Bonferroni-540), or (ii) explicitly discuss in §6.2.3 that the multiplicity correction is conditional on cell pre-registration and acknowledge the 27-cell selection as a separate multiplicity layer.
+
+---
+
+#### **[MAJ-3] §5.2 Insight 2 "Multi-layer redundancy *predicts* single-direction failure" overreaches. The paper presents §6.4 LEACE rank-1 ChartQA backfire as *empirical verification* of the §5.2 prediction. But §6.4 was observed *before* §5.4 framework was authored (Round 1 CRIT-1 admission). So §6.4 is not a verification of a prediction — it is one of the observations the framework was synthesised from.**
+
+Verbatim §5.2 Insight 2 (line 272):
+> Multi-layer redundancy는 single-layer 또는 single-direction mitigation의 cross-dataset 실패를 *이론적으로 예측*한다 — dataset이 다르면 signal이 *다른 layer 조합*에 분산되며, 한 dataset에서 보정한 single direction이 다른 dataset의 다른 방향에 정렬되지 못한다. 이 예측은 §6.4에서 single-direction ActAdd cross-dataset 실패 + LEACE ChartQA 역행 +56 % 결과로 *경험적으로 검증*된다 (§6.4 Insight 1과 짝).
+
+§5.4 (line 282) acknowledges:
+> §5.2의 multi-layer redundancy 결과 ... + §6.4의 LEACE rank-1 ChartQA +56 % 역행 — 이 세 mechanism finding은 본 framework 작성 *이전*에 모두 관찰되었으며, 본 절은 이 세 결과를 *사후*에 단일 mechanism narrative로 묶는 **synthesis**이다.
+
+**The two statements are at variance.**
+- §5.2 Insight 2: multi-layer redundancy *predicts* single-direction failure; §6.4 *verifies* it.
+- §5.4: §5.2 + §5.3 + §6.4 all observed *before* framework writeup; framework is *post-hoc* synthesis.
+
+Both cannot be true. If §5.4 framework is post-hoc to §5.2 + §5.3 + §6.4, then §5.2 Insight 2 cannot claim §6.4 *verifies* a §5.2 prediction unless that prediction was authored *between* §5.2 (single-layer null observation) and §6.4 (LEACE backfire observation). Per Round 1 CRIT-1 admission (in reviser response Edit 10): *§5.4 was authored in v7 (Round-5 bar-raiser response), pre-Phase 5; §6.4 result is in `docs/experiments/E6-tally-only-rerun-tracker.md:480` predating §5.4.* So:
+- §5.2 result observed (call this T1).
+- §6.4 LEACE backfire observed (call this T2).
+- §5.4 framework authored (call this T3).
+- T3 > T2 > T1.
+
+The §5.2 Insight 2 prediction language ("이론적으로 예측") implies T2 > prediction > T1. But the paper documents T3 > T2: the framework that *generates* the prediction is post-T2. So the prediction language is retrospective fitting.
+
+The honest reading: §5.2 multi-layer redundancy *and* §6.4 LEACE backfire are two empirical observations that §5.4 framework explains together. §6.4 does not verify a §5.2 prediction; it is one of two observations from which the framework was constructed.
+
+**Why the constructive rounds missed this**: Round 1 CRIT-1 was the deepest attack on this — and the reviser fix was to relabel §5.4 framing to "post-hoc synthesis." But Round 1's fix did not propagate to §5.2 Insight 2's "predict-then-verify" language. The §5.2 → §6.4 chain language survives, structurally inconsistent with §5.4's post-hoc admission.
+
+**What would change my mind**: Edit §5.2 Insight 2 to remove "이론적으로 예측" / "경험적으로 검증" language; replace with "*post-hoc consistent with*" or "*together accommodated by §5.4 routing-vs-integration synthesis*". The intellectual content is unchanged; the prediction-verification language is what's wrong.
+
+---
+
+#### **[MAJ-4] §1.5 supporting finding (i) "anchoring을 wrong/correct binary projection이 아닌 continuous confidence gradient로 재해석" — the strict 5/5 monotonicity is on 21-24/80 cells (26-30%); ≥ 4/5 strict is 51-57/80 (64-71%). The contribution sentence reads as "5×6=80 cells confirm continuous gradient"; the data says 30% strict, 70% relaxed.**
+
+§4.4 line 193 honest:
+> *fully strict 5/5 pairs* 기준은 21 / 80 ~ 24 / 80 cell로 더 엄격하게 잡힌다
+
+§4.4 line 203 surfaces non-monotonic cells:
+> ≥ 4/5 strict pair criterion을 통과하지 못하는 23-29 / 80 cell (29-36 %; cross_entropy 29 / 80, log_prob_sum 23 / 80)
+
+So:
+- Strict 5/5 monotonic: 26-30% of cells.
+- ≥4/5 strict: 64-71%.
+- Fail ≥4/5: 29-36%.
+
+§1.5 (i) supporting finding language:
+> 5 dataset × 6 model cross-dataset 위에서 anchoring을 wrong/correct binary projection이 아닌 *continuous confidence gradient*로 재해석하는 세 직교 axis 증거 (L1 6-bin gradient, (a − m) digit-pixel causality, wrong/correct binary stratification; §4)
+
+The "세 직교 axis 증거" language treats L1 6-bin gradient as load-bearing for the *continuous gradient* reframe. But strict-monotonic L1 only holds on 30% of cells. The body's load-bearing claim is the panel-mean B6 − B1 gap (+19.5 to +23.5 pp), which is *aggregate-level monotonicity* — different from cell-level monotonicity.
+
+A hostile reviewer's read: *"The 'continuous gradient' reframe holds for the panel mean and on a majority (≥4/5 strict) of cells, but not on a majority (5/5 strict) of cells. The §1.5 contribution language elides the strict-vs-relaxed distinction. A 30% strict-monotonic cell rate is consistent with the binary projection being the *true* underlying structure with measurement-noise injecting cell-level non-monotonicity. The paper has not falsified that null."*
+
+**Why the constructive rounds missed this**: Round 2 MAJ-W4 / MAJ-W5 addressed the run-on sentences in §4.4 but did not attack the strict-vs-relaxed framing. Round 3 MIN-N2 reordered §1.5 (i) to lead with the reframe but did not address the strict-cell-fraction.
+
+**What would change my mind**: Either (i) compute panel-level monotonic-trend test (Mann-Kendall on the bin-rank correlation per cell, Bonferroni-corrected across 80 cells) and report what fraction is significantly monotonic *as a statistical test*, not as a strict-pair-counting heuristic; or (ii) acknowledge in §4.4 that 70% relaxed monotonic is the headline finding but 30% strict-monotonic is the more conservative count.
+
+---
+
+#### **[MAJ-5] §6.2.3 InfoVQA Δdf = −0.7 pp on n=443 with 95 % CI [−4.7, +3.4] is *symmetrically distributed around zero*. Calling this "fence" hedges the noun but the data is consistent with no effect at all. The "5/5 sign-clean" headline relies on +0.001 pp positive point estimates that the paper itself admits are within noise.**
+
+InfoVQA Δdf:
+- Point estimate: −0.7 pp
+- 95 % CI: [−4.7, +3.4] (CI half-width 4 pp on a 0.7 pp point estimate)
+- §6.2.3 prose: "InfoVQA n=443 [−4.7, +3.4] fence"
+
+For Δdf = −0.7 pp to count as "sign-clean negative" the point estimate needs to be negative; under the paper's own bootstrap procedure with B=10,000 paired draws, the fraction of bootstrap samples where Δdf < 0 is approximately the lower-CI-mass of the symmetric distribution. With CI [−4.7, +3.4] symmetric around −0.65, roughly 60% of bootstrap draws are negative — i.e., the *direction* itself is barely better than coin-flip on this dataset.
+
+§6.2.3 line 376 prose:
+> Δdf(a)는 sample-size에 묶여 있다 ... InfoVQA n=443 [−4.7, +3.4] fence
+
+"Fence" is a verbal hedge that does *not* admit the data is consistent with zero effect. A hostile reviewer reads: *"This dataset shows no effect. The paper reports it as 'sign-clean negative' because the point estimate is −0.7 pp; under bootstrap that's 60-40 negative. That is not sign-clean evidence; that is no evidence."*
+
+The same structural problem: TallyQA Δdf = −0.3 pp [−1.3, +0.6] is reported as "TallyQA baseline df floor" — i.e., the paper acknowledges TallyQA has so little baseline anchoring effect that the projection cannot reduce it further. TallyQA contributes nothing to the cross-dataset Δdf claim. So of the "5/5 sign-clean" Δdf, in honest reading:
+- PlotQA: CI-clean strong evidence.
+- ChartQA: CI [−9.8, +1.8], point estimate −4.0 pp, CI overlaps zero by 1.8 pp half-width.
+- MathVista: CI [−11.8, +3.5], point estimate −4.1 pp, CI half-width 3.5 pp.
+- InfoVQA: CI [−4.7, +3.4], point estimate −0.7 pp, fence.
+- TallyQA: CI [−1.3, +0.6], point estimate −0.3 pp, baseline floor.
+
+Of these, PlotQA is the only one with statistical evidence. ChartQA and MathVista point estimates suggest a real effect but CI half-widths are 1.8 and 3.5 pp (close to and exceeding the point estimate magnitude). InfoVQA is null. TallyQA is floor.
+
+**The "5/5 sign-clean" framing in the body is technically true (5/5 datasets have negative point estimates) but is misleading as evidence**. Honest framing: 1/5 CI-clean, 2/5 point-estimate-strong-but-CI-wide, 1/5 fence, 1/5 floor.
+
+**Why the constructive rounds missed this**: Round 1 CRIT-2 surfaced the multiplicity issue and the 1/5 CI-clean count. Round 1 reviser response (Edit 5) compressed the §6.2.3 self-reframe to 3 sentences carrying the headline-vs-fence distinction. The fence language is preserved but the "5/5 sign-clean" framing is also preserved in §1.5, Abstract, §8.1. The two framings co-exist; the latter is the marketed framing.
+
+**What would change my mind**: Re-run InfoVQA / ChartQA / MathVista at PlotQA-equivalent n (~2,300 each) and report whether the Δdf CIs close. Currently the paper has run §6.2.3 on stratified small-n cells; the natural cross-evaluation is on full-n cells. (Per §3.3 raw n: ChartQA 5,390; MathVista 385; InfoVQA 1,147 — so MathVista is fundamentally bounded; ChartQA and InfoVQA could be run at full n.)
+
+---
+
+#### **[MAJ-6] §7 Table 9 macro Δ +0.41 pp masks heterogeneity. 3 of 6 benchmarks have negative point estimates (OCRBench −0.80, MMBench −0.34, POPE −0.06); only HallusionBench excludes zero on the positive side. The macro is weighted by per-benchmark n, not by signal magnitude — under any reasonable per-benchmark weighting the macro Δ is statistically distinguishable from null only via HallusionBench.**
+
+Per the data:
+- RealWorldQA: +1.31 [−0.27, +2.89] — CI overlaps zero on the positive side; point estimate positive, CI half-width 1.6 pp.
+- OCRBench: −0.80 [−1.68, +0.08] — CI overlaps zero on the negative side; point estimate negative.
+- HallusionBench: +2.21 [+1.14, +3.28] — CI excludes zero positive.
+- MMStar: +0.13 [−0.77, +1.04] — CI symmetric around zero.
+- MMBench-DEV-EN: −0.34 [−0.82, +0.13] — point estimate negative, CI overlaps zero.
+- POPE: −0.06 [−0.21, +0.09] — pinned to zero.
+- Macro: +0.41 pp.
+
+3/6 negative point estimates. 1/6 CI-excludes-zero (HallusionBench). 5/6 within ±1.0 pp pre-registered band. Macro +0.41 pp is dominated by RealWorldQA (+1.31) and HallusionBench (+2.21); the negative drift on OCRBench / MMBench / POPE / MMStar is real but small.
+
+**This is a 4-clause free-lunch's *fourth* clause.** The clause is "Δ(held-out capability macro) ≥ −0.5 pp." The paper meets this clause. But the *qualitative* picture is not "free-lunch positive across capabilities" — it is "free-lunch positive on hallucination axis (HallusionBench), zero on the rest, with 3 small negative point estimates."
+
+§7 Insight (line 452) frames HallusionBench positively as evidence the projection helps both anchoring and hallucination. But the negative point estimates on OCRBench / MMBench / POPE / MMStar are *consistent with* the projection mildly damaging capability on those tasks while helping HallusionBench. The macro averaging hides this.
+
+A hostile reviewer's read: *"Half the benchmarks have negative point estimates. The HallusionBench gain is real and load-bearing. But the paper's '4-clause free-lunch passed' rests on macro averaging that disguises the fact that the projection has *mixed* effects across capabilities — strongly positive on hallucination/illusion, weakly negative on some VQA / multimodal-bench tasks. Calling this a free-lunch is an oversell."*
+
+**Why the constructive rounds missed this**: Round 1 MAJOR-9 surfaced the 6-bench vs 8-bench issue (8-bench macro is +0.31 not +0.41); reviser Note added at line 446. The negative-point-estimates issue was not raised. Round 2/3 stayed on novelty and writing.
+
+**What would change my mind**: Per-benchmark per-task-class breakdown (e.g., "anchoring-adjacent benchmarks: HallusionBench +2.21 (strongly positive); broad VLM benchmarks: −0.5 pp average (mildly negative); the projection helps where image-language hallucination is the failure mode, neutral or mildly negative where it is not"). This is the honest interpretive frame. The current "4-clause free-lunch passed" is the rhetorical frame.
+
+---
+
+#### **[MAJ-7] §1.4 ×12.7 ratio is back-cited from Abstract (Round 3 dropped it from Abstract per CRIT-N2). But §1.4 is part of §1 (Introduction) and is the FIRST place a reader sees the ratio. The ratio is computed from Instruct correct df = 0.021 with n_correct ≈ 249/385, so the post-stratification numerator denominator on the *correct-base* anchor pairs is ≤ 249 across all anchor levels. With the typical observed numerator < 10, the binomial SE on Instruct correct df is ~0.01 — i.e., the ratio is ×8.9 to ×26.7 under a 1-σ swing on the *denominator* alone. No CI reported.**
+
+§1.4 line 35:
+> Qwen3-VL-8B-Thinking은 같은 자극에서 Instruct 변형 대비 anchor pull을 amplify하며 (adopt ×1.6, df ×2.9; correct-base subset df ratio ×12.7, §4.5), ...
+
+§4.5 Table 4 (line 217):
+> | qwen3-vl-8b-instruct | 0.256 | 0.021 | +0.235 |
+> | qwen3-vl-8b-thinking | **0.327** | **0.267** | **+0.060** |
+> | 비율 | ×1.28 | **×12.7** | — |
+
+Round 1 MAJOR-6 explicitly asked for paired-bootstrap CI on the ratio; Round 1 reviser response soft-deferred. Round 3 CRIT-N2 dropped the ratio from the *Abstract* but it survives in §1.4.
+
+The numerical issue:
+- Instruct correct df = 0.021. With n_correct ≈ 249, binomial point-estimate SE ≈ √(0.021 × 0.979 / 249) ≈ 0.0091 ≈ 0.91 pp.
+- 1-σ band on Instruct correct df: [0.012, 0.030].
+- Ratio = 0.267 / Instruct = 8.9 (at 0.030) to 22.3 (at 0.012).
+- Ratio CI under just denominator noise: roughly ×9 to ×22.
+
+Three sig figs (×12.7) is fundamentally over-reported. The ratio is ≥ ×8.9 directional under a 1-σ swing; ×12.7 ± large.
+
+**Why the constructive rounds missed this**: Round 3 dropped from Abstract; §1.4 was treated as the body and not pulled. But §1.4 is in §1 — the introduction. A reader skims §1 before §4. The hedge ("§4.5", "denominator small") in §1.4 is one parenthetical away from the number; a Ctrl-F'er finds ×12.7 in §1.4 with the hedge two lines later. The deeper issue: even with the hedge, ×12.7 is reported to 3 sig figs without CI.
+
+**What would change my mind**: Either compute the paired-bootstrap CI (Round 1 MAJOR-6 task; ~2 H100-hour) or drop the ratio entirely from §1.4 in favor of "≥5× directional." The paper has had three rounds to do this and has not.
+
+---
+
+#### **[MAJ-8] §6.5 "5-baseline panel" CAA / ITI exclusion. The Round-3 CRIT-N1 fix added Note 2 acknowledging tuning asymmetry, but this still leaves the central exhibit table (Table 8) with 5 rows (ActAdd, LEACE rank-1, Query-adaptive, CogBias, MIA-DPO LoRA) — none of which are actually CAA or ITI as evaluated by their authors. ActAdd is described as a CAA proxy; CogBias and Query-adaptive are obscure prior baselines. The 5-baseline panel is a *constructed* baseline panel that excludes the most direct competitors.**
+
+Verbatim §6.5 Table 8 baselines:
+- Single-direction ActAdd
+- LEACE closed-form (rank-1)
+- Query-adaptive offset (PCA + Ridge)
+- CogBias decode-time
+- MIA-DPO LoRA (weight space)
+
+CAA [Panickssery et al., 2024] is *not* in the table; CAA is *reduced structurally* to "ActAdd cell" via Note 1. ITI [Li et al., 2023] is *not* in the table; ITI is reduced structurally via Note 1's §5.3 attention-locus argument.
+
+The Note 1 reduction has the gap that Round 3 CRIT-N1 raised: ITI is multi-head, §5.2 single-head null does not cover it. The Round 3 reviser response (Edit 7) acknowledged this in the Note prose — but the *table itself* still calls the chosen cell "권장 — 4-clause 동시 충족 (이 5-baseline panel 위)". The "5-baseline panel" is therefore a panel of *non-canonical* baselines (ActAdd, ChatGPT-style decode-time methods, weight-space DPO) that *does not include CAA and ITI*. The most prominent prior methods to which this paper's E6 should be compared are *deferred to §8.4 item 4*.
+
+A hostile reviewer's read: *"This table compares E6 against five baselines that are not the closest competitors. CAA and ITI — the two papers any informed reviewer expects to see — are reduced via thought experiment. The 'panel' is constructed to make E6 look distinctive against weaker baselines while declining to test against the strongest ones. Note 2's tuning-asymmetry caveat is more honest about ActAdd / LEACE than the paper's headline framing — but Note 2 itself surfaces that 'ITI multi-head fair-tuning could enable 4-clause partial-pass at some attention-head locus K-sweep cell' (paraphrased), which means ITI might pass the criterion under proper tuning, which means E6 is not uniquely-passing under proper tuning, which means the headline 'this 5-baseline panel' is hiding."*
+
+**Why the constructive rounds caught this but the fix wasn't enough**: Round 3 CRIT-N1 demanded option (a) "rephrase to 5-baseline panel" or option (b) "run CAA-at-K=1 + ITI multi-head head-cluster at L=26." The reviser chose option (a) (cheaper). The fix is *form-correct* but leaves the table doing rhetorical work the substance does not support.
+
+**What would change my mind**: Run CAA-at-K=1 with the same PlotQA + InfoVQA pooled (a − m) calibration as E6, on OneVision Main, at L=26. Report Δdf and Δem(b) for the 5 datasets. If CAA-at-K=1 backfires as predicted by §6.5 Note 1 prose, the structural reduction has empirical content. ~4-8 H100-hours per §8.4 item 4 estimate. Three rounds of review and this is still deferred.
+
+---
+
+#### **[MAJ-9] §6.3 b-arm em +8.8 pp interpretation: §6.3 Insight 1.5 surfaces three competing explanations and explicitly says "head-to-head 비교하지 *않았다*". §6.3 Insight 2 then walks the +8.8 pp into "사후 일관성 (post-hoc consistency) 형태의 신호" with HallusionBench. POPE is offered as ruling out yes/no general regularization — but POPE is binary, while the b-arm em is on numeric tokens. The Alt-1 (general regularization → mode-collapse on numeric digits) is not falsified by POPE.**
+
+§6.3 Insight 1.5 (line 391) honestly lists Alt-1 (general regularization) and Alt-2 (numeric mode-collapse to 0/1/2/3 frequent ground-truths) as alternative explanations and notes that POPE pinned-to-zero "yes/no general-regularization을 어느 정도 약화시키나, *numeric* token logit 위에서의 mode collapse (Alt-2) 또는 anchor-task-specific subspace 정렬 (본 가설) 중 어느 것인지를 분리하지 *않는다*." The honest disclosure is in §6.3 Insight 1.5; the headline (§1.5 (4) + Abstract) does not carry it.
+
+The b-arm em +8.8 pp is the multiplicity-robust headline (5/5 Bonferroni-clean). If the +8.8 pp is *anchor-task-specific* (i.e., the (a − m) subspace removed cleans up a generic wrong-base error mode), the paper's interpretation is correct. If the +8.8 pp is *generic regularization* (any K=8 subspace removal at L=26 has this effect), the paper's interpretation is wrong and the "free-lunch" reading is statistical artefact.
+
+The within-paper falsification baseline is Random-K=8 + non-anchor calibration — explicitly deferred to §8.4 item 2 per Round 1 MAJOR-8 acknowledgement.
+
+A hostile reviewer's read: *"The headline of the paper is +8.8 pp on b-arm. The paper says it doesn't know whether this is (a) anchor-task-specific subspace alignment, or (b) generic regularization at K/d ≈ 0.002, or (c) numeric mode-collapse to frequent answers. The Alt-1 falsification baseline (random-K=8) is one calibration run and one inference pass — perhaps half a day on the existing infrastructure. After three rounds of revision, this baseline is still deferred. The headline is on an unfalsified clause."*
+
+**Why the constructive rounds missed this**: Round 1 MAJOR-8 raised it; Round 1 reviser deferred to §8.4 item 2. Round 2/3 didn't return to it. The paper's own honest disclosure (§6.3 Insight 1.5) is in the body but the Abstract / §1.5 headline relies on the +8.8 pp without the contingency.
+
+**What would change my mind**: Run random-K=8 on OneVision at L=26 with non-anchor calibration set. ~1 H100-day per §8.4. The paper's headline rests on a clause whose competing explanations the paper itself cannot distinguish.
+
+---
+
+### MINOR (would be revision-required even individually)
+
+#### **[MIN-1] §1.5 supporting finding (i): the L1 6-bin gradient claim is treated as one of "three orthogonal axes" alongside (a − m) digit-pixel causality and wrong/correct binary stratification. But (a − m) and wrong/correct stratification are *not orthogonal*: §4.2 Slice B explicitly orders dataset-level (a − m) magnitudes against §6.2.3 Δdf magnitudes, demonstrating they're correlated, not orthogonal.** §4.2 line 175: "*§6.2.3 5-dataset paired-sids Δdf 표 ordering ... 은 본 절 Slice B의 (a − m) gap magnitude ordering ... 과 *개별 dataset 부호 일관*하며*". Calling these "orthogonal" is a rhetorical move; the data shows they are correlated.
+
+#### **[MIN-2] §4.6 Insight 1's 9× ratio (K=1 vs K=8 same L=33) is reported with 3 sig figs as "+0.28 [+0.19, +0.38]" vs "−0.05" — but the ratio is undefined (division by negative or zero) and the report mixes "9× difference" verbal with arithmetic on signed amplitudes. A 9× ratio claim on amplitudes [+0.28] vs [−0.05] is geometrically nonsensical (different signs); what the paper means is "K=1 is Bonferroni-positive while K=8 is null." Edit prose to remove "9×" framing.
+
+#### **[MIN-3] §3.3 panel-scope hedge ends with "이 panel-scope 분리는 본 절에서 단 1회 명시하며, 후속 절은 reference 이외에 반복하지 않는다." This is *meta-instruction to the reader*; in conference paper form, the rule is implicit. The instruction-to-reader format reads as project-management residue.
+
+#### **[MIN-4] §7 Note on benchmark coverage (line 446) discloses 6-bench → 8-bench macro shift +0.41 → +0.31 pp (drag of 0.10 pp from MME + AMBER). But the disclosure language ("contamination-resistant floor 강화 측면에서 4-clause free-lunch 판정은 두 panel에서 모두 유지") slides past the question of which is the canonical macro. Both can be technically free-lunch (≥ −0.5 pp); but 8-bench is closer to the threshold than 6-bench. Be specific: which is the canonical headline — 6-bench or 8-bench?
+
+#### **[MIN-5] §A.3 distance cutoff table now has eligibility cutoff (≤ 5) vs S1 stratum (≤ 1) split per Round 1 MIN-9 fix. But §6.2.3 is on S1-stratified data; §6.2.2 calibration is on S1-stratified data. So the entire §6.2 / §6.2.3 mitigation chain is calibrated and evaluated on the *anchor-close* subset only. The §6.2.3 "5-dataset cross-evaluation" is therefore "5-dataset S1-stratum cross-evaluation" — not a representative test across the cutoff range. This needs surfacing in §6.2.3 caption.
+
+#### **[MIN-6] §3.3 raw n vs per-cell stratified n: ChartQA 129 cells exist in the data. ChartQA Δdf in §6.2.3 is on n=224 (paired-sids intersection on a-S1 + b). 224 < 250 = pilot calibration n. Under the paired-sids intersection, the held-out evaluation set on ChartQA is *smaller than the calibration pilot*. This is a structural problem with the cross-evaluation design that no round has surfaced.
+
+#### **[MIN-7] §4.5 Table 4 row "비율 | ×1.28 | **×12.7** | —" — the bold on ×12.7 is the only point-estimate-only number bolded in the paper's main tables (Tables 2, 3, 4, 5, 6, 7, 8, 9). Bold convention is "CI excludes 0 in headline direction" elsewhere; ×12.7 has no CI. The bold is rhetorical.
+
+#### **[MIN-8] §8.4 item 1 (eigenvalue spectrum study, "1 spectral plot") is described as "가장 cheap한 rigor 향상" — a half-day's work. Three rounds in, the spectral plot is still item 1 of follow-up. If it's that cheap and that load-bearing for K=8 sweet spot defensibility, why has it not been done?
+
+#### **[MIN-9] §A.4 stimulus seed: FLUX seed pinned per `seed_base 1729 + number`. But: the Telea inpaint (m) inventory is "deterministic, no random seed" — except OpenCV Telea inpaint *can* depend on input image floating-point precision and platform. Reproducibility on an H200 vs A100 vs H100 should be cross-validated; it is not.
+
+#### **[MIN-10] §6.5 Table 8 "Cross-dataset 감소" column for E6 reads "**−0.3 ~ −5.2 pp on 5/5**" — this is the same range as §6.2.3 Table 7. But Table 7 has paired-bootstrap CI on each cell; Table 8 strips the CI and reports the point-estimate range. Reader misreads "−0.3 to −5.2 pp" as Δdf reduction across all 5 datasets when 4/5 have CI overlapping zero. Table 8 should carry the per-CI summary or at minimum point to Table 7.
+
+---
+
+## Per-attack-angle pass
 
 ### A. Overclaim hunt
 
-| Section | Claim | Closest contesting prior work or correction |
-|---|---|---|
-| Title | "Vision-Language Models" (plural) | Headline mitigation is on **one** model. Should say "in LLaVA-OneVision" or "(case study on one architecture)." |
-| Abstract / §1.3 | "deployable" | N=1 model is not deployable across architectures without re-tuning. |
-| Abstract | "5/5 evaluation dataset의 paired-sids wrong-base 부분집합에서 Δdf(a) ∈ [−5.2, −0.3] pp" | Without paired bootstrap CI, InfoVQA Δdf=−0.7 pp is noise floor (MAJ-4). Realistic: 1/5 strong, 2/5 borderline, 2/5 inconclusive. |
-| Abstract | "***strict free-lunch*** ... 5개 비교 baseline ... 중 *유일하게* 통과" | Within 5-baseline panel only; CAA/ITI not run (MAJ-5). The "유일" bound is panel-internal and is not the universal claim the headline implies. |
-| §1.5 (1) | "*first-evidence* 평가 프레임워크" | Defensible after Round-3 correction; no attack here. |
-| §1.5 (4b) | "encoder family에 의해 결정됨" | Defensible at the panel level; cross-family validation (e.g., 2 SigLIP-Gemma models, 2 Qwen-ViT models) absent. Suggestive, not established. |
-| §1.5 (5) | "*예측한 뒤 multi-direction subspace projection으로 우회*" | Predict-verify chain on N=1 model. Generalization claim implicit in "deployable" is unverified. |
-| §1.5 (6) | "처음 보이는 *first-evidence* VLM 결과" | Hedge present but contribution-tier framing inappropriate for N=1 architecture × N=1 dataset (MAJ-7). |
-| §1.4 | "다층 중복 (multi-layer redundancy)" | Mixed mechanism across 6 archetypes; "multi-layer redundancy" cleanly applies to mid-stack cluster only (MIN-11). |
-| §6.2.3 | "5/5 dataset df 5/5 감소" | InfoVQA Δdf=−0.7 pp on n=443 indistinguishable from zero without CI (MAJ-4). |
-| §6.5 Insight | "유일 후보" (unique candidate) | Within 5-baseline panel only; CAA/ITI reduction asserted not run. Round-3 response added "5-baseline panel 내부의 비교" qualifier — good — but the §6.5 Insight closing line says "유일 후보 — *dataset 간 shared variance direction* + *inference 시 weight 보존*이 동시 충족된다" without re-asserting the panel boundary. |
-| §7 Insight | "VLM hallucination의 일부가 본 논문 anchoring mechanism과 representation space를 공유" | Hedged with "시사" — appropriate. No attack. |
-| §8.1 | "**세 gate의 conjunction**" | OK as a behavioral synthesis claim. |
+Words I searched for in the body: "first", "uniquely", "유일", "novel", "deployable", "robust", "load-bearing", "predict", "free-lunch", "strict".
+
+| Word/phrase | Location | Closest prior work | Hedge required | Status |
+|---|---|---|---|---|
+| "Vision-Language Models" (plural in title) | Title | — | "on `llava-onevision-qwen2-7b-ov` Main; cross-architecture follow-up" | **Survives — overclaim** |
+| "deployable subspace projection mitigation" | Title, Abstract | CAA (LM-only deployment) | "single-architecture case study" | **Survives — overclaim** |
+| "first VLM cross-modal numerical anchoring" | §1.1 (line 19) | VLMBias [Vo et al. 2025] (cue is subject-bound but is *visual content biases numerical answer*) | "first *independent-anchor open-numeric*" — the "first" is conditional on stacked qualifiers | **Surface honest, marginal** |
+| "central contribution" | §1.5 (line 39) | — | "single-architecture case study" | **Survives — overclaim**, missing scope qualifier |
+| "유일 후보 (only candidate)" | §6.5 sub-title (round-3-softened to "후보") | CAA / ITI not run | Round 3 changed to "5-baseline panel 위 ... 후보"; Note 1 still reduces CAA / ITI structurally | **Soften retained — but Table 8 verdict cell still claims unique passage** |
+| "권장 — 4-clause 동시 충족 (이 5-baseline panel 위)" | §6.5 Table 8 verdict cell | CAA / ITI absent | Round 3 added "이 5-baseline panel 위" — but the table is still the central exhibit | **Survives — Table verdict reads as recommendation without the structural-baseline-exclusion hedge** |
+| "free-lunch" without prefix | scattered (§8.2 "E4 free-lunch") | Chand et al. negative result | Round 2 mostly converged to "4-clause free-lunch"; one residual at §8.2 | **Mostly fixed** |
+| "predict-then-verify" / "predicts" / "예측" | §5.2 Insight 2 ("이론적으로 예측"), §6.4 Insight 1 ("예측 → 검증") | Round 1 forced §5.4 to "post-hoc synthesis" | The §5.2/§6.4 "predict-verify" language was *not* updated when §5.4 was relabeled | **Survives — internally inconsistent** (see MAJ-3) |
+| "load-bearing theory" → "통합 설명 framework" | §1.5 (3) | Round 3 forced relabel | Round-3 fix correct | **Fixed** |
+| "novel" / "신규" | §6.5 Insight ("기법 class의 신규성이 아니라") | — | Already self-disclaimed | **Honest** |
+| "robust" / "robustness" | scattered | — | Used contextually; OK | **OK** |
+| "Δem(b) is the multiplicity-robust headline" | §1.5 / Abstract | — | Headline is on the *non-anchored arm*; the *anchoring task* clause is 1/5 CI-clean (FATAL-B) | **Survives — headline pivot is itself a kind of overclaim by relabel** |
 
 ### B. N=1 / cherry-pick hunt
 
-- **§6.2.2 chosen cell L=26 K=8 α=1.0 from 27-cell grid.** See CRIT-2.
-- **§6 / §7 / §8.1 entire mitigation chain on N=1 model.** See CRIT-1. This is the deepest cherry-pick: not just one cell from a grid but one model from a population of 6 (the main panel).
-- **§4.5 worked example E5c VQAv2 LLaVA-Interleave S1 cross_entropy.** Round 1 caught the Q2/Q3 numerical errors and Round 1 response fixed them. The remaining N=1 issue: this is one specific (experiment × dataset × model × stratum × proxy) cell. Round 1 axis D noted: "Generalisability is claimed via the 85-cell mean +15.6 / +19.1 pp, which is the right move, but readers should be cued that the 23 pp number is one cell, not the panel mean." Paper still uses the 23 pp single-cell number in Figure 6 caption to dramatize the gradient.
-- **§4.6 γ-β single architecture × single dataset.** See MAJ-7.
-- **§4.4 anti-scaling claim from Gemma3 family-pair only.** See MIN-9.
-- **§3.3 dataset n** — Round 1 fixed the raw-vs-per-cell n issue, but per-cell n on ChartQA goes as low as 129 (qwen2.5-vl-32b) and TallyQA as low as 6,934. Effective N for the headline 5-dataset result depends on which model's per-cell denominator was smallest in any computation; not currently surfaced.
+- **§1.5 / §6.2 / §6.5 / §7 — entire E6 chain on N=1 model (`llava-onevision-qwen2-7b-ov`).** §3.3 hedge in place; §1.5 contribution language not. **FATAL-A.**
+- **§4.5 / §4.6 — γ-β on N=1 architecture pair × N=1 dataset (Qwen3-VL Instruct vs Thinking, MathVista).** §1.5 auxiliary observation correctly demoted. ×12.7 ratio still in §1.4 with no CI (MAJ-7).
+- **§4.6 14/84 cells — post-hoc cell selection from 84-cell sweep, dressed as Bonferroni verification (MAJ-1).**
+- **§6.2.2 cell #17 selection from 27-cell grid (MAJ-2).** Bonferroni-20 corrects within-evaluation; does not correct grid-selection.
+- **§4.5 PlotQA "single-dataset depth panel" — selected as Main matrix because "paper-wide pattern이 가장 또렷이 분리되는" (per §4.1 line 132). Other datasets (TallyQA, InfoVQA) per §C.3 show the same pattern but with smaller magnitude. PlotQA selection itself is paper-pattern-conditional.**
 
 ### C. Confound hunt
 
-- **§6.3 b-arm em +8.8 pp post-hoc explanation vs general regularization.** See CRIT-3 (three alternative stories).
-- **§7 HallusionBench Δ=+2.21 pp.** Same general-regularization confound. The paper's §6.3 Insight 2 forward-points to §7 as confirmation of the b-arm error mode story; but if K=8 random subspace projection at L=26 also helps HallusionBench (an empirical question), then HB gain is regularization, not anchor-mechanism-specific.
-- **§4.3 PlotQA un-mitigated free-lunch (em(a) > em(b) for 6/7 models).** Paper §4.3 Insight 3 frames as positive finding ("이 패턴은 InfoVQA로 일반화하지 *않으며*") and §6.2.3 picks PlotQA as part of the calibration set. The S1 cutoff (anchor within ±10 % of GT for stratified data) is the design choice that *creates* this artifact. PlotQA's S1 stratum is anchors at ≤10 % of GT — i.e., the anchor *is* a plausible answer. Of course em(a) > em(b) on S1: the model is being shown a plausible answer hint. The paper acknowledges this somewhat ("S1 cutoff가 anchor를 GT의 ±10 % 안에 두므로 anchor를 '그럴듯한 추측 단서'로 픽업") but then *uses this PlotQA strength* in the calibration set for §6.2 SVD. Calibration on a stratum where anchor is the right answer to subspace-extract "anchor variance" risks confounding "GT-amplitude" variance with "anchor-presence" variance. The (a − m) contrast subtracts this only if masking the digit pixel removes the GT-amplitude signal too (which it should), but the paper does not verify on a no-anchor-near-GT calibration alternative.
-- **§5.2 single-layer ablation null — were the right layers ablated?** Per E.2 table, modes are `ablate_peak / ablate_peak_window / ablate_lower_half / ablate_upper_half / ablate_all`. The peak ± 1 window is 3 layers. What about a *random* 3-layer ablation as a null comparison? If random 3-layer ablation also gives 6/6 null (because any 3 out of 28 layers are individually ablation-tolerant), then the null result is *not* about peak vs non-peak but about LM resilience to single-layer dropout. The paper's "single-layer null → multi-layer redundant" inference depends on the specific peak ablation being non-trivial; a random-layer null comparison would tighten this.
+- **§6.3 b-arm em +8.8 pp**: Alt-1 general regularization, Alt-2 numeric mode-collapse, both surfaced in §6.3 Insight 1.5 as competing explanations, both unfalsified. **MAJ-9.**
+- **§7 HallusionBench +2.21 pp**: Paper interprets as confirming wrong-base error mode hypothesis. Alt: the projection reduces the model's overall confidence on perception-illusion items; HallusionBench scoring favors lower confidence on hallucination prompts. Has not been controlled.
+- **§4.3 PlotQA un-mitigated free-lunch**: §4.2 Insight 3 (line 173) reports em(a) > em(b) on 5/6 PlotQA models — and explicitly notes this is *because S1 cutoff puts anchor within ±10% of GT*. So the "free-lunch baseline pattern" is an *artefact of the S1 cutoff design*, not a discovery. The paper frames it as a mitigation domain ("§6.2의 free-lunch mitigation이 이 PlotQA baseline 패턴을 5-dataset에 일반화 가능한 복구 메커니즘으로 변환"); this is positive framing of an S1-cutoff design choice.
+- **§5.2 single-layer null on qwen2.5-vl** uses VQAv2 reference layer L=22, not PlotQA-calibrated. Round 1 MIN-7 raised; Round 1 MIN-5 acknowledged. The 5/5 single-layer null is therefore 4/5 PlotQA-calibrated + 1/5 VQAv2-cross-calibrated. Mild confound.
+- **(a − m) Telea inpaint texture**: representation-level texture cues that OCR pixel-level absence does not control for. **FATAL-D.**
 
 ### D. Negative result suppression hunt
 
-- **27-cell pilot grid: only chosen cell shown (CRIT-2).** Two rounds asked, two rounds deferred. Suspect there are runner-up cells in the grid that *also* pass strict free-lunch but were not chosen for some other reason (smaller magnitude? worse on a particular dataset?). The paper presents one cell as if it were the unique survivor; the 26 rejected cells determine whether this is true.
-- **CAA / ITI not run (MAJ-5).** Round 3 deferred, response asserts structural reduction. If a hostile reviewer ran CAA at K=1 on (a − m) and found it failed for the same reason as ActAdd (which the §6.5 Note predicts), this would support the paper. But no such verification exists; the reduction is hypothesized.
-- **OneVision E1d analyzer fix pending.** The 6-model mech panel single-layer ablation is 6/6 null on the canonical models, but OneVision Main (the model the entire mitigation chain runs on) is excluded from §5.2 because the analyzer has a 0.000 baseline bug. So the paper's mechanism claim ("single-layer null → predict single-direction failure → motivates §6.2 multi-direction subspace") *does not include the model the §6.2 mitigation runs on.* §5.3 partially addresses by reporting OneVision peak is dataset-dependent, but the full single-layer ablation result on OneVision is missing. A hostile reviewer: "Has the analyzer bug been fixed yet? If so, what does the OneVision single-layer ablation actually show? If it shows partial reduction (not 6/6 null), the multi-layer redundancy claim weakens for the very model the mitigation runs on."
-- **E4 attention re-weighting on Main `llava-onevision`** is implied by the paper's "two complementary mitigations" framing (E4 + E6) but §6.1 reports E4 only on the 3-mid-stack-cluster panel (LLaVA-1.5 / ConvLLaVA / InternVL3). E4 was *not* run on OneVision Main. So the "two complementary mitigations" narrative compares an E4 panel-of-3 (not including OneVision) with an E6 panel-of-1 (only OneVision). They are not run on the same model. A hostile reviewer: "If E4 doesn't work on OneVision, the 'complementary' story is a single-model E6 plus a different-model-family E4. If you ran E4 on OneVision and it did work, why not show it? If it didn't work, why isn't that in the paper?"
+- **CAA-at-K=1 on (a − m) calibration**: deferred to §8.4 item 4. Three rounds. (Round 4 archive aggressive raised this.) **MAJ-8.**
+- **ITI multi-head**: deferred. (Round 3 CRIT-N1 raised the multi-head trap; Round 3 reviser added Note 1 acknowledgement; empirical row deferred.)
+- **Random-K=8 baseline** (Alt-1 falsification): deferred to §8.4 item 2. Round 1 MAJOR-8 raised. Three rounds. **MAJ-9.**
+- **Numeric mode-collapse** (Alt-2 falsification): deferred to §8.4. Round 1.
+- **Eigenvalue spectrum study on (a − m) at L=26**: deferred to §8.4 item 1 ("가장 cheap한 rigor 향상"). Three rounds.
+- **Non-perfect-square / AnyRes mechanism panel**: §D.1 says OneVision routed via AnyRes; the 4-model perfect-square mechanism panel restricts to gemma4-e4b / llava-1.5 / convllava / qwen2.5-vl. The non-perfect-square cluster is partly suppressed by panel-scope choices.
+- **CAA / ITI fair-tuning-effort cells**: §6.5 Note 2 explicitly predicts ITI fair-tuned could enable 4-clause partial-pass at some attention-head locus K-sweep cell. Yet the empirical row is deferred. **The paper has predicted that ITI under fair-tuning might pass the criterion but has not run the experiment.** This is a near-admission of overclaim that survives because the experiment is deferred.
 
 ### E. Statistical rigor
 
-- **§7 multiple-comparisons correction not applied.** See MAJ-6.
-- **§6.2.3 paired-bootstrap CI not applied.** See MAJ-4.
-- **§4.5 monotonicity 51/85 reported as count, not as proportion with CI.** Round 1 axis A noted: "With 85 trials and a per-cell pass rate of ~60 %, a 95 % bootstrap CI on the 'fraction monotone' estimate would be approximately [50 %, 70 %]." The paper still does not report this. The 60 % headline is likely between 50 % and 70 % — i.e., the paper's "majority of cells monotone" claim is right but at the borderline of the CI lower bound.
-- **§4.1 Table 2 7-model panel n=17,730 each.** Paired sample-level CIs on the wrong-correct gap +6.9–19.6 pp range not reported. With per-model n ≈ 17,730 the CIs would be tight, but absent reporting, a reviewer cannot verify "7/7 모델" claim CIs.
-- **§4.6 γ-β ratios ×1.6 / ×2.9 / ×12.7.** No CI on the ratios; ×12.7 on n=385 with denominator (correct-base subset) of unknown size could have a wide CI. The MathVista per-cell CSV would show the underlying counts; paper does not surface them.
+- **Bonferroni-20 on §6.2.3** is correct conditional on §6.2.2 cell pre-registration. If 27-cell grid is part of the multiplicity family, correct correction is Bonferroni-540 not Bonferroni-20. **MAJ-2.**
+- **§4.6 Bonferroni-84** counts each (K, layer, statistic) cell as a test; framework prediction does not specify which cell. Post-hoc cell selection labeled as Bonferroni-clean. **MAJ-1.**
+- **§4.5 ×12.7** has no CI. Three rounds requested; deferred. **MAJ-7.**
+- **§4.2 (a − m) gaps** on n_wb = 152 / 211 / 403 have no CIs. Round 1 MAJOR-5 partially addressed via "load-bearing magnitude restricted to PlotQA + MathVista". (a − m) "5/5 dataset (a − m) > 0" headline relies on three point-estimate-only cells.
+- **Multiple comparisons across 5 datasets × 4 metrics**: Bonferroni-20 applied — but: across-§6.2.2-grid (×27) not corrected; across-§4.6-sweep (×84) post-hoc-selected; across-§7 (6 benchmarks) Bonferroni-6 applied post-hoc.
 
 ### F. Reproducibility
 
-- **§A.2 FLUX rendering seed not reported (MIN-10).** Three rounds, three deferrals.
-- **HF model commit hashes not pinned.** Round 1 Reproducibility F: "EMNLP camera-ready will need this." §A / §3.3 lists HF model IDs (`llava-onevision-qwen2-7b-ov`, etc.) but no commit hashes / revision SHAs.
-- **PlotQA + InfoVQA pooled was the 4th-or-later method-development run.** Round 1 noted: "Were the *earlier* runs ablated?" Round 1 response did not address. The paper presents PlotQA + InfoVQA pooled as the *one* calibration choice; in fact the choice was iterated over (per `E6-tally-only-rerun-tracker.md` indicating multiple calibration attempts). A hostile reviewer: "Why this calibration set? What happened on Tally-only / Chart-only / Tally + Chart calibration?" The §6.2.3 cross-evaluation claim's strength depends on whether PlotQA + InfoVQA pooled was *the first* calibration tried (one shot) or *the best* of several (cherry-picked).
-- **27-cell grid not surfaced (CRIT-2).** Rejected cells unavailable.
-- **Bootstrap CI procedure for §7 cited Round-1-added paragraph.** Good; one of the few clean reproducibility wins.
+- **Random seeds**: FLUX `seed_base 1729 + digit/scene_offset` documented in §A.4. (m) inventory is "no random seed" — Telea inpaint is deterministic but float-precision sensitive.
+- **HF model commit hashes**: not pinned in §3.3. The model panel is named (`llava-hf/llava-interleave-qwen-7b-hf`, `Qwen/Qwen2.5-VL-7B-Instruct`, etc.) but no commit hashes. Reproducibility against HF model updates is at risk.
+- **Inference seeds**: greedy decoding (temperature 0); reproducible in principle. But model rollouts can vary across hardware (FP16 vs BF16 vs FP32 reduction order).
+- **§A.5 reproducibility appendix**: pointer to canonical CSVs; but per Round-1's stated workflow, those CSVs are gitignored and only available in `outputs/` of the local repo. Public release pre-submission is not committed in the paper.
 
 ### G. Missing comparisons
 
-- **CAA / ITI empirical rows.** See MAJ-5.
-- **Random K=8 subspace as null baseline for §6.3 b-arm em gain.** See CRIT-3 Alternative 1.
-- **K=8 subspace from non-anchor-task calibration (e.g., POPE, RealWorldQA).** Tests whether the (a − m) contrast specifically is what cleans up b-arm em or whether any K=8 SVD on residual stream at L=26 helps. CRIT-3 Alternative 1 stronger version.
-- **Finetuning on debiased data.** Not run, not mentioned. A reasonable baseline.
-- **CFG (classifier-free guidance) pruning.** Not run, not mentioned. Active VLM intervention literature uses this.
-- **CoT prompting "ignore the second image."** Lou & Sun 2024 reports CoT-style mitigations are *insufficient* for LLM anchoring; the paper cites this in §2 as motivation for representation-level approach but does not run CoT-VLM as an explicit baseline. A reviewer would want to see the CoT-VLM number to confirm it's also insufficient on numerical anchoring.
-- **RLHF rejection / instruction-tuning on anchor-resistance.** Not run. Out of scope but should be acknowledged.
+- **Finetuning on debiased data** (LoRA-DPO): MIA-DPO LoRA is in Table 8 but with em side-effect; no other finetuning baseline.
+- **CFG (classifier-free guidance) pruning**: not compared. Could be a relevant baseline for VLM hallucination-reduction (Wang et al. 2024 etc.).
+- **CoT prompting that explicitly tells the model "ignore the second image"**: Lou and Sun 2024 [arXiv:2412.06593] reports CoT/Reflection/Ignoring-Anchor-Hints are insufficient for *text* anchoring; the paper cites this in §2 as motivation for representation-level intervention. But the paper doesn't run the *prompt-level* baselines on its own VLM stimuli. The motivation rests on prior LLM literature without VLM verification.
+- **CAA at K=1 with the same calibration set as E6**: deferred (MAJ-8).
+- **ITI with multi-head locus K-sweep on residual stream or attention-head**: deferred.
+- **Random-K=8 SVD on non-anchor calibration data**: deferred (MAJ-9).
+- **Rejection sampling at inference** (filter answers that match anchor): not considered.
 
 ### H. Theoretical depth
 
-- **§6.4 K=8 sweet spot — empirical sweet spot, no theory.** Insight 2 says "더 작은 K (2, 4)는 anchor signal을 더 누출, 더 큰 K (16)는 non-anchor variance를 제거 시작." This is empirical observation across the 27-cell grid (which is not shown). No theory predicts K=8. No connection to the residual stream's intrinsic dimension or the (a − m) signal's effective rank. A Main-tier paper on subspace projection would include either (i) eigenvalue spectrum of D[:, L*, :] showing rank-8 elbow, or (ii) ablation across α with fixed K showing the bias-variance trade-off curve. Neither is in the paper.
-- **§5.2 multi-layer redundancy not formalized.** "Signal은 multi-layer redundant" is asserted prose. What is the formal claim? Distributed in the sense of multiple layers each carrying ≥ ε mass? Or compositional, requiring the conjunction of layers to produce the effect? The paper's §6.4 prediction "single direction fails because signal lives in different layers across datasets" is a *cross-dataset* mechanism statement, not a multi-layer redundancy statement. The two are conflated.
-- **Subspace projection assumes linear anchor representation.** No nonlinear (kernel SVD, autoencoder bottleneck) attempt. Defensible scope choice but not theoretically motivated.
+- **§6.4 Insight 2 "K=8 sweet spot"**: empirical only on K ∈ {2, 4, 8}. Round 1 MAJOR-7 raised; deferred to spectral study (§8.4 item 1).
+- **§5.2 multi-layer redundancy**: asserted; the formal claim is "single-layer ablation produces null Δdf with bootstrap CI overlap zero on 5/5 mech panel models + 5/5 OneVision datasets." This is the right empirical claim. The *interpretation* (signal is redundantly distributed across layers) is one of two: (i) signal is duplicated across layers (true redundancy), (ii) signal at each layer is small and adding many small effects produces the upper-half significant effect (additive accumulation). The paper does not distinguish.
+- **Subspace linear assumption**: §6.2.1 SVD on `D[:, L, :]` assumes linear separability of the anchor representation. If the digit-pixel signature is *non-linear* in the residual space (e.g., manifold-like), linear projection misses it. No ablation: kernel SVD, autoencoder bottleneck, etc.
+- **§5.4 framework is qualitative narrative**: no inequality, no closed form, no scalar prediction. Round 3 CRIT-N3 forced "통합 설명 framework" relabel.
 
 ### I. Framing
 
-- **"Strict free-lunch" is rhetorical inflation (MIN-8).** The Δem(non-anchored) ≥ 0 clause is a celebration criterion shaped around the chosen cell's positive surprise.
-- **"Three-gate signature" / "세 gate의 conjunction" (§1.2 / §8.1).** Reframe attack: are the three gates (uncertainty / plausibility / digit-pixel) genuinely *one* signature or three independent observations? The paper does not test the *conjunction* — i.e., does removing any one gate eliminate the effect, or do the gates each provide a separable contribution? §4.2 Insight 1 (adopt vs df separation) suggests adopt and df measure different gates, but the "conjunction" framing implies all three must hold. The data supports each gate individually; "conjunction" is a stronger claim.
-- **"VLM-first reasoning amplification" — is this paper-tier or follow-up bait? (MAJ-7).** N=1 architecture × N=1 dataset is an existence proof.
-- **"Multi-direction × residual-stream × paired-inpaint × strict free-lunch combination" (§6.5 Insight closing).** Round 3 reframed differentiator from method-class novelty to a four-axis combination. Defensible, but the *uniqueness* of this combination depends on (a) actually running CAA / ITI to verify they don't accidentally also hit this combination (MAJ-5), and (b) the "strict free-lunch" being a real criterion not a marketing label (MIN-8).
-- **"Capability preservation" from 6 benchmarks.** §7 macro Δ=+0.41 pp. The 6 benchmarks were chosen as held-out. But "capability preservation" implies the mitigation does not harm the model on *any* downstream task; 6 benchmarks is a sample. RealWorldQA / OCRBench / HallusionBench / MMStar / MMBench-DEV-EN / POPE skews toward perception-/illusion-/grounding-style tasks. Reasoning-heavy benchmarks (MMMU, MathVista — which is *in* the headline panel — and AI2D) are not in the held-out set. The "capability preservation" framing is partially supported; reframe to "perception-style benchmark preservation."
+- **"Strict free-lunch"**: Round 2 converged to "4-clause free-lunch". The criterion is well-defined and Chand-et-al-positioned. **But**: 4-clause free-lunch's Δdf clause is 1/5 CI-clean (FATAL-B); the headline is on the third clause not the first. The "passes 4-clause" reading slides this over.
+- **"Three-gate signature" / "two gates" / "Confidence × digit-pixel × plausibility"**: §1.2 has three pillars; Abstract has "digit-pixel × uncertainty 두 gate의 conjunction"; §1.3 then has "두 gate의 conjunction + plausibility 조건". These are inconsistent — sometimes three pillars, sometimes two gates with a plausibility window. Plausibility is sometimes a gate, sometimes a condition.
+- **"VLM-first reasoning amplification"**: Round 3 reformed to "N=1 architecture × N=1 dataset existence proof". Round 4 picks up: even granting the result, this is one model pair on one dataset — no longer a paper-tier finding, more an existence-proof for follow-up. Auxiliary observation status is correct (Round 3); but the §1.4 sub-section retains 5 lines of body prose for an N=1 × N=1 result.
 
-### J. Venue fit (Main vs Findings)
+### J. Venue fit (Main vs Findings) — honest verdict
 
-The paper currently positions for EMNLP Main. After Round 3, the novelty positioning is defensible at the Main bar *if* the experimental design holds up. My read after stress-testing:
+**The paper's roadmap acknowledged behavioral probing alone landed in Findings in prior work.** Now: the paper has added (i) mechanism panel single-layer null + multi-layer redundancy synthesis, (ii) E6 mitigation with 4-clause free-lunch criterion, (iii) γ-β residual-stream bridge.
 
-- **§5 mechanism vs Weng et al. EMNLP 2024 Main.** Round 3 reframed Weng comparison to "mechanism→mitigation chain" similarity rather than "we go further." Honest. But Weng's mechanism analysis used causal mediation with quantified mediation fractions; §5 here uses ablation null + per-model archetype labeling. Weng's mediation analysis is more quantitatively grounded; §5 is more taxonomic. *Comparable* mechanism depth but different style.
-- **N=1 model on the headline mitigation.** A Main-bar "deployable mitigation" paper either (a) demonstrates on multiple architectures, or (b) explicitly scopes to one architecture and titles accordingly. This paper does neither. Title pluralizes "Vision-Language Models" while shipping N=1 deployable.
-- **Statistical rigor below Main bar.** No multiple-comparisons correction (MAJ-6), no paired bootstrap CI on the headline 5-dataset deltas (MAJ-4), 27-cell grid suppressed (CRIT-2). Findings papers can ship with these gaps; Main papers cannot.
-- **Genuine surprises.** Encoder-family-determines-archetype (§4.4 Insight 3 / §1.5 (4b)), reasoning-amplifies-anchoring (γ-β), mid-stack cluster's robustness scaling. These are Main-tier surprising claims *if* the experimental support for each holds; per the analysis above, each is N=1 or cherry-picked to varying degrees.
+Substance vs Findings/Main bar:
+- **§4 behavioral**: comprehensive, but is the *Findings-bar* substance.
+- **§5 mechanism**: 5/5 single-layer null + OneVision 5/5 confirm + dataset-dependent peak — this is real work but does not reach the depth of Weng et al. EMNLP 2024 Main (causal mediation). The §5.4 framework is qualitative-narrative, not formal causal mediation.
+- **§6 mitigation**: E6 is the Main-tier candidate IF the cross-architecture transfer were demonstrated. As N=1 model, it is *Findings-bar* mitigation (proof-of-concept).
+- **§7 capability preservation**: 6-bench/8-bench macro at single-arch — supports E6 but does not extend it to multi-arch.
+- **§4.6 γ-β residual-stream bridge**: 14/84 Bonferroni cells with K=1 vs K=8 partial-falsification of the paper's deployed K=8 — interesting but not load-bearing for either contribution.
 
-**Honest verdict:** This paper is **strong Findings**, not Main. Main rejection is highly likely if reviewed by anyone with mitigation literature awareness; Findings acceptance is plausible if the deferred items (27-cell grid + paired CIs + CAA/ITI rows + N=1 model acknowledgment) are surfaced. The paper has a real story and clean (a − m) design; it does not have Main-tier experimental scale on the headline mitigation chain.
+**Honest verdict: Findings-tier work positioning for Main on N=1 scope-overclaim. Recommend Findings, with the conditions in "Recommended action" above.**
 
-## What would the authors need to do for me to switch to weak accept?
+The user's own roadmap acknowledged this risk earlier. Three rounds of constructive review cleaned the *form*; they did not move the substance from Findings to Main. The contribution surface is one mitigation on one model with one CI-clean Δdf cell out of five and one multiplicity-robust clause out of four. That is a Findings paper.
 
-Realistically: this is reject as-is. To move to weak accept (with revisions), the four blocking items:
+---
 
-1. **Surface the 27-cell pilot grid** as an appendix table or heatmap (CRIT-2). Pre-commit the em-deal-breaker selection rule with a dated commit hash showing the rule was set before observing the grid. Without this, the chosen-cell finding is post-hoc.
-2. **Add paired bootstrap CI to §6.2.3 Table 6** (MAJ-4). Use the same procedure §7 already has. Re-state the headline: "5/5 dataset df reduction (PlotQA significant, ChartQA + MathVista borderline-significant, TallyQA + InfoVQA inconclusive)" or similar.
-3. **Run CAA at K=1 on (a − m) and ITI on attention-head outputs as additional Table 7 rows** (MAJ-5). Round 3 estimated 4–8 H100-hours for CAA, 1–2 days for ITI. The paper's "유일 후보" claim demands these be empirical, not asserted-by-reduction.
-4. **Acknowledge the N=1 model on headline E6 mitigation in §8.2 limitations** (CRIT-1). Either retitle to "case study on LLaVA-OneVision" or add a §8.2 bullet explicit about model cardinality. Currently the paper hedges every other axis but not this one.
+## What rebuttal would NOT change my mind
 
-Even with these four, I would still want to see CRIT-3 (random-subspace null comparison for b-arm em) before going to Main accept. Findings accept is achievable with the four above.
+1. **"The §3.3 panel-scope hedge is in place; the central contribution sentence does not need to repeat it."** Form-correct, function-incorrect. The §1.5 contribution is the most-cited surface; it must carry the scope. (FATAL-A)
 
-If the authors do *none* of these and refile with the §1.5 (1) softening + §2 activation-steering paragraph + Round 1/2 corrections only: hard reject from me.
+2. **"Δem(b) Bonferroni-clean is the multiplicity-robust headline; reviewers should read this as the paper's claim."** Δem(b) is the *non-anchored arm* clause; the anchoring task clause is Δdf and is 1/5 CI-clean. The paper cannot pivot from Δdf to Δem(b) and call the result "anchoring mitigation passes free-lunch". (FATAL-B)
+
+3. **"§5.4 framework is honestly relabeled to *통합 설명 framework*; CRIT-N3 was addressed."** The relabel is correct. The §4.6 prospective leg still tests at K=1 while the deployed mitigation is at K=8 — the mismatch survives the relabel. (FATAL-C)
+
+4. **"The (a − m) Telea inpaint is OCR-verified; no digit pixels remain."** Pixel-level absence does not address representation-level texture confounds. (FATAL-D)
+
+5. **"Three rounds of review have addressed every issue at the form level."** Yes, and that is the diagnosis: the form is clean, the substance is single-cell single-architecture single-dataset.
+
+## What rebuttal would change my mind
+
+1. **Run CAA-at-K=1 on the same PlotQA + InfoVQA pooled (a − m) calibration as E6 on OneVision at L=26.** Report Δdf and Δem(b) on 5 datasets. If CAA-at-K=1 backfires as predicted, §6.5 has empirical content; if not, the unique-passage claim is empirically falsified. ~4-8 H100-hours. (Closes MAJ-8.)
+
+2. **Run random-K=8 SVD on non-anchor calibration data on OneVision at L=26.** Report Δdf, Δem(a), Δem(b) on 5 datasets. If random-K=8 reproduces the +8.8 pp Δem(b), the headline is general regularization. If not, the (a − m) subspace is anchor-specific. ~1 H100-day. (Closes FATAL-D / MAJ-9.)
+
+3. **Run E6 calibration on a second architecture** (e.g., Qwen2.5-VL-7b at its peak L=22 or Gemma3-4b at L=5). Report Δdf and Δem(b) on the 5 datasets. If the cross-architecture E6 produces sign-clean Δdf, the "mitigation" claim has cross-arch grounding. If it does not, the case-study scope is the honest claim. ~3-5 H100-day. (Closes FATAL-A.)
+
+4. **Pre-register a single (K, layer, statistic) cell on the §4.6 sweep** before running the bootstrap, and report whether that single cell is Bonferroni-clean. Replaces the post-hoc 14/84 cell selection. ~free (just rerun the analysis with pre-registered cells). (Closes MAJ-1.)
+
+5. **Compute paired-bootstrap CI on the ×12.7 ratio.** Use the same `gamma-beta-bridge-evidence.md` data; resample sids, recompute correct-base df ratio per resample, percentile CI. ~2 H100-hour. (Closes MAJ-7.)
+
+Any one of (1) (2) (3) closes a FATAL. The combination of (1) + (2) + (4) + (5) without (3) leaves FATAL-A standing — the paper is still N=1 model. A genuine venue-Main verdict would require (3).
+
+---
 
 ## Final
 
-**Decision:** **reject**.
-**Confidence:** **high**.
-**One-line:** *The paper's deployable mitigation, capability-preservation, and 'strict free-lunch' headline are all on N=1 model with 27 hyperparameter cells of which only the chosen one is shown and 2/5 evaluation cells reported without confidence intervals — this is not a deployable mitigation, it is a single-cell finding with three concurrent transparency deferrals.*
+**Decision:** REJECT for Main. Borderline acceptable for Findings only after FATAL-A and FATAL-B are surfaced honestly in §1 / Abstract.
+**Confidence:** high. Three rounds of constructive review addressed form; substance issues remain unaddressed.
+**One-line:** *Three rounds of cleanup produced a clean draft of a Findings paper that markets itself as a Main paper — the cleaning was successful, but the substance is one CI-clean Δdf cell on one dataset on one model, with the multiplicity-robust headline pivoted to a non-anchoring side-effect clause.*

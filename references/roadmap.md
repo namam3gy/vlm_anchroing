@@ -684,7 +684,38 @@ contingent on P0-1 bridge experiment.
   K=1 vs K=8 + Figure 13). Source: `outputs/e6_steering/llava-onevision-qwen2-7b-ov/
   sweep_subspace_<ds>_..._p4_layer_sweep_K1_{layers_K8,L26_K1}/predictions.jsonl`,
   generator `scripts/aggregate_e6_layer_sweep_p4.py`, launcher
-  `scripts/_p4_layer_sweep_K1_followup.sh`. Total GPU: ~12.5 H200-hour wall.
+  `scripts/_p4_layer_sweep_K1_followup.sh`. Total GPU: ~12.5 H200-hour wall. PR #39.
+
+- **2026-05-11 late-PM (§4.5 ×12.7 ratio paired-bootstrap CI landed — §8.4 item 9 closure).** `scripts/bootstrap_x12_7_paired_ci.py` runs paired bootstrap (sid-level resample × arm-conditional `base_correct` filter, B = 10,000, seed = 42) on Qwen3-VL-8B Instruct vs Thinking MathVista γ-β predictions (n = 365 paired sids). **Headline: ratio T/I = ×12.69, 95 % CI [×6.23, ×56.31]**; per-arm CIs: instruct df(a) correct CI [0.0042, 0.0413] (5/238), thinking df(a) correct CI [0.2085, 0.3286] (56/210). Lower bound × 6.23 separates from 1 even under the right-skewed percentile distribution induced by the sparse instruct numerator (74/10,000 resamples drew instruct numerator = 0; excluded from ratio CI). Point estimate × 12.69 sits well inside the CI. Edits: `docs/paper/emnlp_draft_ko.md` §4.5 prose (CI inline replaces "CI 미산출") + §8.4 item 9 marked ✅ resolved with linked artifact; `docs/insights/E5e-mathvista-reasoning-evidence.md` TL;DR / §5 detailed-claim / §6 Caveats table — all with the same CI. Data canonical: `docs/insights/_data/qwen3vl_x12_7_paired_ci.{csv,json}`. Closes round-1 MAJOR-6 / round-4 MAJ-7 rigor requirement. PR `worktree-paper-x12.7-paired-ci → master`.
+- **2026-05-11 late (§A.5 / §C.3 forward-pointer cleanup — R5 protect-list 외 잔여 decorative pointer 솎기).** `docs/paper/emnlp_draft_ko.md`: 5 decorative `부록 §A.5` forward-pointer prune (L89 §3.3 per-cell n table promise / L103 §4.1 Table 2 aggregator detail / L171 §4.2 Insight 3 second InfoVQA pointer consolidate / L284 §7.4 Table 6 reproducibility pointer / L737 §D.2.2 appendix-to-appendix decoration) + L480 §8.4 item 8 redundant tail pointer 제거. §A.5 본문 실제 내용 (canonical-source pointer 2 bullet + 27-cell pilot grid 표) 과 대조해보면 pruned pointer 5건은 §A.5 안에 *존재하지 않는* 내용 (per-cell n 표, aggregator 설명, Table 6 reproducibility, D.2.2 reproducibility) 을 promise하는 stale pointer였음. R5 bar-raiser don't-touch protect-list (§6.2.3 reframing 5 callsite L331×2 + L337 + L339 + L359 + L361×2) 와 §4.2 Insight 3 first source pointer (L171), §C.3 sole nav pointer (L128) 는 유지. sections/06_confidence.md L73 (§C.3 +0.215 wrong-correct nav) + sections/07_mechanism_mitigation.md L257 (§6.2.2 cherry-pick disclosure) + L283 (Figure 7 caption) 도 protect-list-adjacent로 유지. 검증: `grep -c "§A\.5"` 11 → 6, `grep -c "§C\.3"` 1 → 1; body §1–§8 inline `docs/insights/` citation guard 통과 (1 match = Figure 7 `_data/*.csv` reference, evidence file 아님). diff 6 ins / 6 del.
+- **2026-05-11 evening (§1.4 standalone subsection collapsed — auxiliary observation 비중 축소).** `docs/paper/emnlp_draft_ko.md`: (i) deleted standalone §1.4 "추론은 anchoring을 증폭한다 (auxiliary observation 요약)" — the dedicated intro slot for the γ-β reasoning-amplifies finding was over-promoting an N=1 × N=1 existence proof; (ii) renumbered §1.5 기여 → §1.4, removed the redundant "*Auxiliary observation* — Reasoning-mode Qwen3-VL-8B-Thinking…" paragraph from contributions; (iii) §4.5 condensed from full subsection (Figure 6 + Table 4 + Insights 1/2/3) to a single paragraph carrying the headline numbers inline (×12.7 correct-base ratio, wrong/correct decomposition, acc(d) drop, LRM-literature alignment). Figure 6 dropped entirely from main body; Table 4 numbers folded into prose. (iv) Cross-ref updates: §4.6 Insight 2 "§4.5 Table 4" → "§4.5의 correct-base df ×12.7"; §8.4 item 9 "§4.5 / §1.4 hardening" → "§4.5 hardening". Abstract auxiliary observation 1-line stays as-is. Audit: `grep -n "§1\.4\|§1\.5\|Figure 6\|Table 4" docs/paper/emnlp_draft_ko.md` clean. PR `worktree-paper-1.4-shrink-to-4.5 → master`.
+- **2026-05-11 evening (Inline `docs/insights/` citation sweep — body → §A.5 only).** `docs/paper/emnlp_draft_ko.md`: 3 inline `docs/insights/...` 본문 인용 (§4.2 Insight 3 PlotQA un-mitigated free-lunch → `E7-plotqa-infovqa-evidence.md`; §6.2.3 multiplicity-correction honest note → `E6-bonferroni540-smalln-floor.md`; §8.4 item 8 future work → 같은 파일)을 모두 "부록 §A.5" 포인터로 교체. §A.5 헤더는 "27-cell pilot grid — 4-metric heatmap aggregation" → "Reproducibility — canonical evidence pointers + 27-cell pilot grid"로 broaden, 본문→appendix 이전된 두 evidence file (E7-plotqa-infovqa, E6-bonferroni540-smalln-floor) source pointer를 §A.5 도입부에 bullet 두 개로 surface. 검증: body §1–§8 grep `docs/insights` = 0 match, appendix만 6 match. Reviewer convention 일관성 — paper body는 `figures/` · `_data/*.csv` · `scripts/` 직접 인용만 허용, evidence file은 §A.5에서만 surface.
+- **2026-05-11 PM (Bonferroni-540 free-recompute aborted — small-n
+  bootstrap floor diagnostic, §6.2.3 + §8.4 item 8 update).** Round-4
+  MAJ-1/MAJ-2's "free recompute" task — read 99.99 % tail quantiles of
+  existing paired-bootstrap draws to widen Bonferroni-20 CIs into
+  Bonferroni-540 CIs covering the 27-cell pilot grid selection layer
+  — turns out to be *noninformative* on the two small-n datasets.
+  Diagnostic at B = 100,000 paired-bootstrap (`scripts/build_e6_stage4_bootstrap_ci.py
+  --bootstrap 100000`): for ChartQA n = 224 and MathVista n = 170, the
+  bootstrap Bonferroni-540 Δem(b) lower bound lands *exactly* on the
+  1/n empirical discretization floor (ChartQA +0.89 pp = 2/n;
+  MathVista +0.59 pp = 1/n), and parametric normal-approximation
+  99.99 % CIs (`Δ ± 3.91 · SE`) include zero on the same two cells
+  (ChartQA LO = −0.05 pp, MathVista LO = −0.50 pp). Bootstrap and
+  parametric agree on PlotQA / TallyQA / InfoVQA (n ≥ 443). Decision:
+  retain Bonferroni-20 (5 × 4 = 20 family) as headline correction;
+  disclose 27-cell selection layer in §6.2.3 prose only with pointer
+  to new diagnostic doc. Edits: `docs/paper/emnlp_draft_ko.md`
+  §6.2.3 honest note (replaces "would survive at Bonferroni-540"
+  hedge with sample-size diagnostic), §8.4 item 8 split into 8(a)
+  free + 8(b) ~5 H100-hour (additional n ≥ 1,000 dataset inference
+  required to escape 1/n floor on small-n cells); new doc
+  `docs/insights/E6-bonferroni540-smalln-floor.md` with reproducible
+  snippet; `scripts/build_e6_stage4_bootstrap_ci.py` docstring
+  refreshed to point at the doc and explain why Bonferroni-540
+  quantiles are not output. PR `worktree-bonferroni-540-recompute →
+  master`.
 
 - **2026-05-11 PM (Paper drop encoder-family-determines-archetype as
   contribution — PR #25).** §5.3's own finding (OneVision Main bimodal
