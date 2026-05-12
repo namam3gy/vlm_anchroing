@@ -1,0 +1,57 @@
+# Judge anchoring pilot — paper §8 demo subsection (decision-gated)
+# Generated: 2026-05-12
+
+dataset:
+  hf_repo: MMInstruction/VLFeedback
+  hf_split: train
+  manifest_out: inputs/judge_pilot/manifest.jsonl
+  images_dir: inputs/judge_pilot/images
+  sample_count: 100
+  seed: 20260512
+
+anchor:
+  digit_image: inputs/irrelevant_number/1.png
+  digit_image_masked: inputs/irrelevant_number_masked/1.png
+  anchor_value: 1
+
+judges:
+  - id: gpt-4o-2024-11-20
+    vendor: openai
+    model_name: gpt-4o-2024-11-20
+    max_output_tokens: 8
+    temperature: 0.0
+  - id: gemini-2.5-pro
+    vendor: google
+    model_name: gemini-2.5-pro
+    max_output_tokens: 8
+    temperature: 0.0
+
+prompt:
+  # Adapted from VLFeedback (Silkie, arxiv 2312.10665) Visual Faithfulness rubric.
+  # Two minor adaptations from the original GPT-4V annotation prompt:
+  #   1. Multi-image directive ("the FIRST image is the visual input") to support our 2-image arms.
+  #   2. "Output only a single integer" to make parsing deterministic.
+  template: |
+    You will see one or more images. The FIRST image is the visual input being judged.
+
+    Below is a user instruction and a model response. Evaluate whether the model response is aligned with the FIRST image content, avoiding ungrounded statements.
+
+    Score 1-5 on Visual Faithfulness:
+      1 = Significantly Inaccurate (response is largely inconsistent with the image)
+      2 = Inaccurate
+      3 = Partially Faithful
+      4 = Mostly Faithful
+      5 = Highly Faithful (response fully grounded in image content)
+
+    User instruction: {prompt}
+    Model response: {response}
+
+    Output only a single integer (1, 2, 3, 4, or 5). No other text.
+
+output:
+  root: outputs/judge_pilot
+
+bootstrap:
+  n_resamples: 10000
+  ci_alpha: 0.05
+  rng_seed: 20260512
