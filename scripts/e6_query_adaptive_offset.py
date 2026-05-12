@@ -151,20 +151,29 @@ def _build_runner(args) -> Any:
         top_p=sampling["top_p"],
         max_new_tokens=args.max_new_tokens,
     )
-    print(f"[setup] loading {args.hf_model}")
-    runner = build_eager_runner(args.hf_model, inference_config=inference_cfg)
+    print(f"[setup] loading {args.hf_model} (sdpa attn for memory)")
+    from vlm_anchor.models import build_runner
+    runner = build_runner(args.hf_model, inference_config=inference_cfg,
+                          attn_implementation="sdpa")
     return runner
 
 
+@torch.inference_mode()
 def _capture_last_token_residuals(runner: Any, question: str,
                                    images: list) -> torch.Tensor:
     """Forward pass on (question, images); return (n_layers, d_model) at last token."""
+    import gc
     _seq_len, inputs = runner._prepare_inputs(question=question, images=images)
     out = runner.model(**inputs, output_hidden_states=True, use_cache=False)
     hidden = out.hidden_states  # tuple of (1, seq_len, d) per layer+1
-    return torch.stack(
+    result = torch.stack(
         [h[0, -1, :].detach().to(torch.float32).cpu() for h in hidden[1:]]
     )  # (n_layers, d_model)
+    del out, hidden, inputs
+    gc.collect()
+    torch.cuda.synchronize()
+    torch.cuda.empty_cache()
+    return result
 
 
 def _load_predictions(pred_path: Path) -> dict[str, dict[str, dict]]:

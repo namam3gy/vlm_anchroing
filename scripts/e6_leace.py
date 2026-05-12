@@ -139,8 +139,10 @@ def _build_runner(args) -> Any:
         top_p=sampling["top_p"],
         max_new_tokens=args.max_new_tokens,
     )
-    print(f"[setup] loading {args.hf_model}")
-    return build_eager_runner(args.hf_model, inference_config=inference_cfg)
+    print(f"[setup] loading {args.hf_model} (sdpa attn for memory)")
+    from vlm_anchor.models import build_runner
+    return build_runner(args.hf_model, inference_config=inference_cfg,
+                        attn_implementation="sdpa")
 
 
 def _open_images(paths: list[str]):
@@ -174,13 +176,20 @@ def _infer_tag(pred_path: Path) -> str:
         return "alt"
 
 
+@torch.inference_mode()
 def _capture_last_token_residuals(runner, question: str, images: list) -> torch.Tensor:
     """Returns (n_layers, d_model) at last input token."""
+    import gc
     _seq_len, inputs = runner._prepare_inputs(question=question, images=images)
     out = runner.model(**inputs, output_hidden_states=True, use_cache=False)
-    return torch.stack(
+    result = torch.stack(
         [h[0, -1, :].detach().float().cpu() for h in out.hidden_states[1:]]
     )
+    del out, inputs
+    gc.collect()
+    torch.cuda.synchronize()
+    torch.cuda.empty_cache()
+    return result
 
 
 # ---------------------------------------------------------------------------
@@ -344,9 +353,10 @@ def _phase_smoke_leace(args) -> None:
     runner = _build_runner(args)
     layers = _get_llm_layers(runner.model)
 
-    L = 28
+    n_layers = P_stack.shape[0]
+    L = 26 if n_layers > 26 else n_layers - 1
     alpha = 1.0
-    print(f"[smoke-leace] {dataset_tag}: L={L} alpha={alpha}")
+    print(f"[smoke-leace] {dataset_tag}: L={L} alpha={alpha} (n_layers={n_layers})")
     n_changed = 0
     for sid in smoke_sids:
         a_rec = by_sid[sid].get("target_plus_irrelevant_number_S1")
