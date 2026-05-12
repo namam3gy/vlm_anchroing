@@ -867,3 +867,47 @@ Slice A 6/6 모델, Slice B 5/5 dataset 모두에서 *디지트 픽셀이 있을
 
 ![Figure G1 — MathVista 거리 검증 (E5d). MathVista에서는 S1-only cutoff가 ChartQA 같은 상대 cutoff 검증을 통과하지 못함 (C3 fail). 본 논문은 §4.3에서 MathVista를 single-stratum 설계 (γ-α)로 다루며, γ-β reasoning-mode 비교 (§4.5)는 별도 single-stratum 실행.](../figures/E5d_mathvista_decay.png)
 
+## G Direction-follow signed-form robustness check
+
+### G.1 동기
+
+§3 / §4의 headline metric인 direction_follow_rate (df) 는 *anchor 쪽 방향 이동*만 양수로 카운트하는 rate form ([0, 1] 구간):
+
+$$\text{df} \;=\; \frac{\#\bigl((p_a - p_b)\cdot(\text{anchor} - p_b) > 0 \;\wedge\; p_a \ne p_b\bigr)}{\#(\text{numeric pair} \;\wedge\; \text{anchor present})}.$$
+
+자연스러운 우려는 다음과 같다 — a-arm에서 모델 prediction이 anchor와 무관하게 단순히 *더 자주 움직이기만* 해도 df가 inflate되어, metric이 *directional pull* 이 아니라 *movement rate* 를 측정하는 것이 아닌가? 본 부록은 이 우려를 supplementary table로 직접 검증한다.
+
+비교 대상인 signed-form *net pull* 은 다음과 같이 정의된다:
+
+$$\text{net} \;=\; P(\text{toward}) - P(\text{away}), \qquad \text{toward/away ratio} \;=\; \frac{\#(\text{toward})}{\#(\text{away})}.$$
+
+Random-movement null 가정 하에서 net의 기대값은 0, toward/away ratio의 기대값은 1.0이다.
+
+### G.2 결과
+
+OneVision (Main) × 5개 dataset 단일 stratum (S1) full run의 분할 결과 (데이터: `docs/insights/_data/appendix_G_signed_form_onevision.csv`, 빌더: `scripts/build_paper_appendix_signed_form.py`):
+
+| dataset | n_eligible | P_toward(a) | P_away(a) | **toward/away (a)** | net(a) | (a − m) df_rate | (a − m) net_pull |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| MathVista | 276 | 21.4 % | 8.3 % | **2.57** | +13.0 pp | +5.8 pp | +6.2 pp |
+| InfoVQA | 886 | 13.9 % | 6.2 % | **2.24** | +7.7 pp | +1.6 pp | +1.6 pp |
+| PlotQA | 3,434 | 17.8 % | 9.2 % | **1.93** | +8.6 pp | +6.7 pp | +7.3 pp |
+| ChartQA | 544 | 9.9 % | 6.1 % | **1.64** | +3.9 pp | +1.8 pp | +1.8 pp |
+| TallyQA | 33,022 | 4.6 % | 3.5 % | **1.29** | +1.0 pp | +0.5 pp | +0.0 pp |
+
+세 가지 관측:
+
+1. **a-arm sign sanity ✓.** 5/5 dataset에서 P_toward(a) > P_away(a), toward/away ratio가 1.29 (TallyQA) ~ 2.57 (MathVista) 범위로 random-movement null (= 1.0) 을 모두 초과. **Directional bias가 movement rate confound에 의해 인공적으로 생기지 않는다.**
+
+2. **(a − m) paired diff: rate form ≈ signed form.** 4/5 dataset에서 df_rate (a − m) 과 net_pull (a − m) 이 ±0.5 pp 이내로 일치. PlotQA / MathVista는 오히려 signed form이 *더 큰* 값을 보임 — m-arm 대비 a-arm에서 P_away가 *낮아져* anchor가 away-direction 이동까지 억제한다는 함의. **Headline conclusion은 metric form 선택에 robust.**
+
+3. **TallyQA의 (a − m) net pull collapse.** TallyQA만 df_rate (a − m) = +0.5 pp 인 반면 signed-form net pull (a − m) = +0.0 pp. a-arm과 m-arm이 동일한 movement asymmetry를 보이지만 *anchor 정보가 directional 차이를 추가로 생성하지 못함* 을 의미. 이는 §4.4 / §6에서 이미 disclose된 "Δdf(a)는 PlotQA만 95 % CI strict 통과, 나머지 4/5 dataset은 sample-size-bound" 한계의 *직교 표현*이지 새로운 약점이 아니다. 본 논문이 multiplicity-robust headline으로 Δem(b) (5/5 Bonferroni-20 sign-clean) 를 설정한 이유와 일관.
+
+### G.3 Paper-narrative 위치
+
+- **§1 graded-pull claim 의 정량적 뒷받침.** P_toward / P_away 비율이 1.29 ~ 2.57의 *유한* 값이라는 점은 anchor pull이 deterministic snap (categorical capture) 이 아니라 *probabilistic graded shift* 임을 직접 보여준다 — categorical capture이었다면 ratio가 ∞ 또는 그에 매우 가까워야 하지만, away-direction 이동도 a-arm에서 4 ~ 9 % 의 빈도로 잔존한다.
+
+- **§3 metric 선택 정당화.** Reviewer가 "왜 rate form (binary toward-only) 인가, signed form (-1 / 0 / +1) 이 anchoring psychology의 표준 아닌가" 라고 질문할 경우 본 부록 G.2 #2 가 답이다 — (a − m) Δ는 두 form에서 동일 conclusion을 주며, headline metric form 선택이 결과를 좌우하지 않는다. Rate form은 `adopt_rate`와의 [0, 1] scale 호환성 및 §4의 categorical-vs-graded layered reporting을 가능하게 한다.
+
+- **§4.4 / §6 sample-size 한계와 cross-reference.** TallyQA의 (a − m) net pull = 0.0 pp 는 본 논문이 이미 명시한 sample-size-bound 한계 (PlotQA만 strict CI 통과) 의 metric-form 직교 evidence로, §4.4 prose의 "Δdf(a) interpretation"  caveat와 동일한 결론을 다른 각도에서 재확인한다.
+

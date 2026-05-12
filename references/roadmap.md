@@ -660,6 +660,25 @@ contingent on P0-1 bridge experiment.
 
 ## 10. Changelog
 
+- **2026-05-12 PM (Appendix G — direction_follow_rate signed-form robustness check landed).**
+  §3 / §4의 headline direction_follow_rate (binary toward-rate) 가 anchor-specific
+  directional pull이 아니라 단순 movement rate inflation을 측정하는 것 아닌가 라는
+  잠재 reviewer 공격에 대응하는 supplementary appendix를 추가. OneVision Main × 5 dataset
+  (PlotQA, InfoVQA, TallyQA, ChartQA, MathVista) S1 full run에서 (a-arm, m-arm) 의
+  {P_toward, P_away, P_tie, net_pull, toward/away ratio} 를 보고. **결과**: (1) a-arm
+  toward/away ratio 5/5 dataset에서 1.29 (TallyQA) ~ 2.57 (MathVista), random-movement
+  null (= 1.0) 초과 → sign sanity clean; (2) (a − m) df_rate 과 (a − m) net_pull 이
+  4/5 dataset에서 ±0.5 pp 이내로 일치, PlotQA / MathVista는 signed form이 오히려 더 큼
+  → headline conclusion은 metric form 선택에 robust; (3) TallyQA만 (a − m) net_pull
+  = 0.0 pp 로 collapse, 이는 §4.4 / §6에서 이미 disclose된 "Δdf(a)는 PlotQA만 95 %
+  CI strict 통과, 나머지 4/5 dataset은 sample-size-bound" 한계의 metric-form *직교
+  표현* 이지 새 약점이 아님. Source: 빌더 `scripts/build_paper_appendix_signed_form.py`,
+  canonical CSV `docs/insights/_data/appendix_G_signed_form_onevision.csv`. Paper edits:
+  `docs/paper/emnlp_draft_ko.md` 신설 §G (G.1 motivation + G.2 결과 + G.3 paper-narrative
+  위치). Forward-reference 미추가 (본문 §1 / §3 / §4.4 prose 유지) — appendix는 reviewer
+  query에 답하는 self-contained robustness 검증으로 기능. PR `worktree-paper-appendix-G-signed-form
+  → master`.
+
 - **2026-05-12 AM (P4 — §5.4 framework verification via layer sweep + K=1 falsification, OneVision Main).**
   §5.4 routing-vs-integration framework predictions P2 (single-direction failure) +
   P3 (late-layer integration site) were not directly tested in the prior chosen-cell
