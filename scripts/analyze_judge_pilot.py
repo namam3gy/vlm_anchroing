@@ -23,12 +23,25 @@ import matplotlib.pyplot as plt
 from vlm_anchor.judge_pilot_data import paired_bootstrap_ci
 
 
-def _latest_predictions(judge_root: Path) -> Path:
+def _largest_predictions(judge_root: Path) -> Path:
+    """Pick the predictions.jsonl with the most rows (canonical run).
+
+    Memory `feedback_smoke_run_pollution`: smoke runs accumulate alongside
+    canonical full runs; mtime / alphabetical selection has shadowed canonical
+    runs in past Phase A work. Sort by row count descending, tie-break by
+    mtime descending.
+    """
     runs = [p for p in judge_root.iterdir() if p.is_dir() and (p / "predictions.jsonl").exists()]
     if not runs:
         raise FileNotFoundError(f"No predictions under {judge_root}")
-    runs.sort(key=lambda p: p.stat().st_mtime, reverse=True)
-    return runs[0] / "predictions.jsonl"
+    def _key(p: Path) -> tuple[int, float]:
+        n_rows = sum(1 for _ in (p / "predictions.jsonl").open())
+        return (n_rows, p.stat().st_mtime)
+    runs.sort(key=_key, reverse=True)
+    chosen = runs[0] / "predictions.jsonl"
+    n_rows = sum(1 for _ in chosen.open())
+    print(f"  selected {chosen} ({n_rows} rows)")
+    return chosen
 
 
 def _load_predictions(path: Path) -> pd.DataFrame:
@@ -61,7 +74,7 @@ def main() -> None:
         if not judge_root.exists():
             print(f"[skip] no run dir for {judge_id}")
             continue
-        preds_path = _latest_predictions(judge_root)
+        preds_path = _largest_predictions(judge_root)
         df = _load_predictions(preds_path)
         wide = df.pivot_table(index=["judge_id", "sample_id"], columns="arm", values="score").reset_index()
         wide.columns.name = None
@@ -105,6 +118,13 @@ def main() -> None:
     args.ci_out.parent.mkdir(parents=True, exist_ok=True)
     args.figure_out.parent.mkdir(parents=True, exist_ok=True)
 
+    if not per_sample_frames:
+        raise SystemExit(
+            "No judge predictions found under "
+            f"{out_root}. Run `scripts/run_judge_pilot.py` first to produce "
+            "predictions.jsonl files for the judges configured in "
+            f"{args.config}."
+        )
     per_sample_df = pd.concat(per_sample_frames, ignore_index=True)
     per_sample_df.to_csv(args.data_out, index=False)
     print(f"Wrote per-sample CSV: {args.data_out}")
