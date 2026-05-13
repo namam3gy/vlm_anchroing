@@ -174,7 +174,7 @@ VLM의 cross-modal anchoring은 categorical capture가 아닌 **graded pull**이
 
 전체 5 × 6 main matrix (Figure 4)에서 다음이 관찰된다.
 
-![Figure 4 — 5-dataset 6-model wrong-base S1 direction-follow. df 부호 30/30 cell 모두 양수. gemma3-4b가 ChartQA/PlotQA/MathVista에서 가장 큰 끌림 (단, InfoVQA에서는 4B < 27B로 역전 — Insight 2). adopt + df 기준 가장 강건한 모델은 Qwen2.5-VL family (7b/32b 동률 — Table 2 / §4.1 Insight 1 참조).](../figures/paper_cross_dataset_summary.png)
+![Figure 4 — 5-dataset 6-model wrong-base S1 slope plot: df(a) (좌) + adopt(a) (우). 한 라인 = 한 모델 × 5 dataset, 색은 encoder family. df 부호 30/30 cell 모두 양수 (y=0 reference line). Gemma3-4b (gold) 가 PlotQA/ChartQA/MathVista/TallyQA 4 dataset에서 27B 위쪽에 위치하다가 우측 InfoVQA에서 27B (red) 아래로 교차 — Insight 2 anti-scaling crossover. Qwen2.5-VL family (navy 계) 두 라인이 panel-min 위치를 점유 (가장 강건).](../figures/paper_cross_dataset_summary.png)
 
 **Insight 1 (효과의 보편성과 mitigation universality 사전 정당화).** 30/30 cell 부호 양수는 §6.2의 *단일 (L, K, α) hyperparameter가 5/5 dataset에 일반화*한다는 주장의 사전 prerequisite — cell-level 효과가 부호 비일관이라면 단일 cross-dataset hyperparameter가 정의 가능하지 않다.
 

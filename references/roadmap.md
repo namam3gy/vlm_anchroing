@@ -660,6 +660,26 @@ contingent on P0-1 bridge experiment.
 
 ## 10. Changelog
 
+- **2026-05-14 (§4.3 Figure 4 — heatmap → 6-model slope plot).**
+  Replaced `paper_cross_dataset_summary.png` heatmap (which silently dropped
+  `llava-next-interleaved-7b` → only 25 cells rendered despite caption claiming
+  "30/30") with a two-panel slope/parallel-coordinates plot showing all 6 models
+  × 5 datasets = 30 cells. Left panel = df(a), right panel = adopt(a); each model
+  is one line across the 5 datasets with encoder-family color coding; y=0
+  reference line makes universality (Insight 1) visually obvious; dataset order
+  keeps InfoVQA at the right edge so the Gemma 4B vs 27B anti-scaling crossover
+  (Insight 2) lands at the visual focal point. Builder
+  `scripts/build_paper_figures.py:fig_cross_dataset_summary` rewritten; figure
+  caption in `docs/paper/emnlp_draft_ko.md` §4.3 updated. **Surfaced (not yet
+  fixed)**: (i) §4.3 Insight 2 prose says "3개 dataset (PlotQA/ChartQA/MathVista)"
+  but the canonical CSV shows Gemma 4B > 27B on 4/5 datasets (TallyQA marginal
+  +2 pp, ChartQA +11 pp, MathVista +8 pp, PlotQA +17 pp; reversal only on
+  InfoVQA −3 pp); (ii) §4.3 Insight 3 still references "InternViT (8b)" in the
+  encoder-family ordering (InternVL3 removed 2026-05-10 PR #21/#22) and the
+  stated ordering Qwen > Gemma27 > InternViT > Gemma4 > OneVision contradicts
+  actual mean-df ranking (OneVision is 3rd-most-robust, not last). Both prose
+  drifts left as-is pending user decision.
+
 - **2026-05-12 PM (Appendix G — direction_follow_rate signed-form robustness check landed).**
   §3 / §4의 headline direction_follow_rate (binary toward-rate) 가 anchor-specific
   directional pull이 아니라 단순 movement rate inflation을 측정하는 것 아닌가 라는
