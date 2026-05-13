@@ -200,14 +200,17 @@ def fig_E5e_mathvista_bars() -> Path:
 
 
 def fig_cross_dataset_summary() -> Path | None:
-    """Heatmap of wrong-base S1 adopt + df across the 5-dataset main matrix.
+    """Slope plot of wrong-base S1 df(a) + adopt(a) across the 5-dataset main matrix.
 
-    Reads `docs/insights/_data/main_panel_5dataset_per_cell.csv`
-    (built by scripts/build_e5e_e7_5dataset_summary.py). Restricts to the
-    5-model §4.3 main panel (drops llava-next-interleaved-7b — see roadmap
-    §3.0a / commit 0e7998e: low native resolution, not informative for
-    chart/figure datasets). Orders rows by mean df(a) ascending so most-
-    robust models sit at the top.
+    Reads `docs/insights/_data/main_panel_5dataset_per_cell.csv` (built by
+    scripts/build_e5e_e7_5dataset_summary.py). Full 6-model §4.3 main panel
+    including llava-next-interleaved-7b — the panel scope declared in §3.3 is
+    6-model and the §4.3 prose ("30/30 cell 부호 양수") expects 5 × 6 = 30 cells.
+
+    Two side-by-side panels show df(a) (left, headline) and adopt(a) (right).
+    Each model is one line across the 5 datasets, colored by encoder family.
+    Dataset order keeps InfoVQA at the right edge so the Gemma 4B↔27B
+    anti-scaling crossover lands at the visual focal point.
     """
     src = DATA_DIR / "main_panel_5dataset_per_cell.csv"
     if not src.exists():
@@ -215,59 +218,83 @@ def fig_cross_dataset_summary() -> Path | None:
         return None
     df = pd.read_csv(src)
     df = df[df["cond_class"] == "a"].copy()
-    df = df[df["model"] != "llava-next-interleaved-7b"]
 
     pretty = {
-        "qwen2.5-vl-7b-instruct": "Qwen2.5-VL-7b",
-        "qwen2.5-vl-32b-instruct": "Qwen2.5-VL-32b",
+        "qwen2.5-vl-7b-instruct":      "Qwen2.5-VL-7b",
+        "qwen2.5-vl-32b-instruct":     "Qwen2.5-VL-32b",
         "llava-onevision-qwen2-7b-ov": "LLaVA-OneVision-7b (Main)",
-        "gemma3-27b-it": "Gemma3-27b",
-        "gemma3-4b-it": "Gemma3-4b",
+        "llava-next-interleaved-7b":   "LLaVA-Interleave-7b",
+        "gemma3-27b-it":               "Gemma3-27b",
+        "gemma3-4b-it":                "Gemma3-4b",
     }
     df["model_short"] = df["model"].map(pretty).fillna(df["model"])
 
-    metrics = [
-        ("adopt_M2",            "adopt_rate(a)",  0.30),
-        ("direction_follow_M2", "df(a) C-form",   0.45),
-    ]
+    # Encoder-family palette: same hue per family, lighter shade = smaller model.
+    style = {
+        "Qwen2.5-VL-7b":              {"color": "#1F4FA8", "marker": "o", "ls": "-"},
+        "Qwen2.5-VL-32b":             {"color": "#5A8FE0", "marker": "o", "ls": "-"},
+        "LLaVA-OneVision-7b (Main)":  {"color": "#1A7F3F", "marker": "s", "ls": "-"},
+        "LLaVA-Interleave-7b":        {"color": "#6C7280", "marker": "D", "ls": "--"},
+        "Gemma3-27b":                 {"color": "#C8102E", "marker": "^", "ls": "-"},
+        "Gemma3-4b":                  {"color": "#F2A900", "marker": "^", "ls": "-"},
+    }
+
     dataset_order = ["TallyQA", "ChartQA", "MathVista", "PlotQA", "InfographicVQA"]
     dataset_label = {"InfographicVQA": "InfoVQA"}
-    row_order = (df.groupby("model_short")["direction_follow_M2"].mean()
-                   .sort_values(ascending=True).index.tolist())
+    x_labels = [dataset_label.get(d, d) for d in dataset_order]
+    x_pos = np.arange(len(dataset_order))
 
-    fig, axes = plt.subplots(1, 2, figsize=(15, 5.4), dpi=150)
-    for ax, (col, title, vmax) in zip(axes, metrics):
-        piv = df.pivot_table(index="model_short", columns="dataset", values=col, aggfunc="first")
-        cols_order = [c for c in dataset_order if c in piv.columns]
-        piv = piv.loc[row_order, cols_order]
-        im = ax.imshow(piv.values, cmap="YlGnBu", aspect="auto", vmin=0, vmax=vmax)
-        for i in range(piv.shape[0]):
-            for j in range(piv.shape[1]):
-                v = piv.values[i, j]
-                if pd.isna(v):
-                    ax.text(j, i, "—", ha="center", va="center",
-                            color="#666666", fontsize=11)
-                    continue
-                color = "white" if v > vmax * 0.55 else "black"
-                weight = "bold" if v >= vmax * 0.5 else "normal"
-                ax.text(j, i, f"{v:.3f}", ha="center", va="center",
-                        color=color, fontsize=11, fontweight=weight)
-        ax.set_xticks(range(piv.shape[1]))
-        ax.set_xticklabels([dataset_label.get(c, c) for c in piv.columns],
-                           fontsize=10, rotation=20, ha="right")
-        ax.set_yticks(range(piv.shape[0]))
-        ax.set_yticklabels(piv.index, fontsize=10)
-        ax.set_title(f"S1 wrong-base {title}", fontsize=11)
-        fig.colorbar(im, ax=ax, fraction=0.05)
-    n_models = len(row_order)
-    n_datasets = len([c for c in dataset_order
-                      if c in df["dataset"].unique()])
+    # Plot order: most-robust (lowest mean df) drawn last so it sits on top.
+    mean_df = (df.groupby("model_short")["direction_follow_M2"]
+                 .mean().sort_values(ascending=False))
+    plot_order = mean_df.index.tolist()
+
+    metrics = [
+        ("direction_follow_M2", "S1 wrong-base direction-follow rate $df(a)$",
+         "df(a) C-form"),
+        ("adopt_M2",            "S1 wrong-base adoption rate $adopt(a)$",
+         "adopt(a)"),
+    ]
+
+    fig, axes = plt.subplots(1, 2, figsize=(14, 5.6), dpi=150)
+    for ax, (col, ylabel, _short) in zip(axes, metrics):
+        piv = df.pivot_table(index="model_short", columns="dataset",
+                             values=col, aggfunc="first")
+        piv = piv.reindex(index=plot_order, columns=dataset_order)
+        for model in plot_order:
+            y = piv.loc[model, dataset_order].values.astype(float)
+            s = style[model]
+            ax.plot(x_pos, y, color=s["color"], linestyle=s["ls"],
+                    marker=s["marker"], markersize=8, linewidth=2.2,
+                    label=model, zorder=3)
+        ax.axhline(0.0, color="#888888", linewidth=0.8, linestyle=":",
+                   zorder=1)
+        ax.set_xticks(x_pos)
+        ax.set_xticklabels(x_labels, fontsize=11)
+        ax.set_ylabel(ylabel, fontsize=11)
+        ax.set_ylim(bottom=0.0)
+        ax.grid(axis="y", color="#E5E7EB", linewidth=0.7, zorder=0)
+        ax.set_axisbelow(True)
+
+    n_models = len(plot_order)
+    n_datasets = len(dataset_order)
+
+    # Single shared legend below the panels — sort by mean df ascending
+    # (most robust first) for readability.
+    handles, labels = axes[0].get_legend_handles_labels()
+    legend_order = mean_df.sort_values(ascending=True).index.tolist()
+    handle_map = dict(zip(labels, handles))
     fig.suptitle(
         f"5-dataset main matrix ({n_models} models × {n_datasets} datasets, "
-        "S1 wrong-base, C-form). Rows sorted by mean df(a) ascending — "
-        "Qwen2.5-VL family panel-min, gemma3-4b panel-max.",
-        y=1.02, fontsize=11)
-    fig.tight_layout()
+        f"{n_models * n_datasets} cells, S1 wrong-base, C-form). "
+        "All cells positive ⇒ universality (§4.3 Insight 1); "
+        "Gemma 4B > 27B on 4/5 datasets, reversal on InfoVQA (Insight 2).",
+        fontsize=11)
+    fig.tight_layout(rect=(0, 0.08, 1, 0.96))
+    fig.legend([handle_map[m] for m in legend_order], legend_order,
+               loc="lower center", bbox_to_anchor=(0.5, 0.0),
+               ncol=6, frameon=False, fontsize=10,
+               handlelength=2.4, columnspacing=1.4)
     out = FIG_DIR / "paper_cross_dataset_summary.png"
     fig.savefig(out, bbox_inches="tight")
     plt.close(fig)
