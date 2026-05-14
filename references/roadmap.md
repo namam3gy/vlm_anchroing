@@ -660,6 +660,38 @@ contingent on P0-1 bridge experiment.
 
 ## 10. Changelog
 
+- **2026-05-14 (E7 — ActAdd + QAO recalibration on PlotQA + InfoVQA pool, §7.4.5 fail-table updated).**
+  E6 LEACE recal (PR #40, Outcome B) 의 동일 OneVision Main + (a−m)
+  calibration scope 위에서 §7.4.5 fail-table 의 두 baseline (single-direction
+  ActAdd + Query-adaptive offset) 을 재실행. **ActAdd**: ChartQA Δdf @α=1.0
+  = −1.3 pp [−4.0, +1.3] null/mit-direction (LEACE rank-1 −2.7 pp 의 ~50%);
+  TallyQA +0.2 pp [−0.0, +0.5] borderline backfire; 4/5 Δem(b) CI-clean
+  positive — 원래 "+57 % backfire" 는 calibration-pool artifact (LEACE rank-1
+  과 같은 부호, cross-method confirmed). **QAO**: 16-cell sweep at L_q ∈
+  {20, 24, 26, 27} × L_target=26 × α ∈ {0.5, 1, 2, 4}. 5/5 datasets 0/5
+  CI-clean Δdf at central cell (range −1.0 ~ +1.5 pp); cherry-pick best 는
+  MathVista (n=170) 1/5 만 CI-clean — probe smoothing 이 effects 를 평탄화하여
+  "probe overfit" 이 아닌 *under-fit-to-near-constant* failure mode. **Q-D
+  alignment 보정 patch**: LEACE 세션의 Q files (Q_wrong=2502 from e5b,
+  `--max-calibrate-pairs 2502`) 가 D_wrong=2314 (e7 + 4-cond filter) 와
+  cross-sample misalign 됨을 발견. `_phase_calibrate_qao` 에 wrong + all-4-cond
+  filter 추가 (commit 72d733f) + early-exit 최적화 (commit f52087f) → Q_wrong
+  shape 가 D_wrong 과 정확히 일치 (2314/2314, 443/443) 후 재실행. **Cross-
+  method synthesis**: 3 single-direction methods (LEACE rank-1 + ActAdd +
+  §6.2.4 P4 K=1 SVD) 모두 same OneVision + PlotQA/InfoVQA pool 위에서 동일
+  TallyQA-as-backfire-site / ChartQA-as-null-site 패턴 → method-independent
+  shared-variance-spread signature; K=8 selection rationale 가 "single-direction
+  은 broken" 이 아닌 "even with right calibration, ~50% under-mitigates" 로
+  reframe. **Files**: evidence `docs/insights/E7-actadd-qao-recalibration-evidence.md`,
+  data `docs/insights/_data/{actadd,qao}_recal_per_dataset_ci.{csv,md,npz}`,
+  generator `scripts/_aggregate_actadd_qao_recal.py`, runner
+  `scripts/_actadd_qao_recalibration_runner.sh` (idempotent), QAO patches
+  `scripts/e6_query_adaptive_offset.py`. Paper updates: `docs/paper/sections/01_intro.md`
+  + `docs/paper/sections/07_mechanism_mitigation.md` (English) + `docs/paper/emnlp_draft_ko.md`
+  §6.5 Table 8 + Insight + Note 2 (Korean), `docs/experiments/E6-steering-vector.md`
+  Method 0d / 2 / 3 / 4a status. Branch `worktree-actadd-qao-recalibration`,
+  commits `e248ca2 → 7d90f11` + this commit.
+
 - **2026-05-14 (§4.3 Figure 4 — heatmap → 6-model slope plot).**
   Replaced `paper_cross_dataset_summary.png` heatmap (which silently dropped
   `llava-next-interleaved-7b` → only 25 cells rendered despite caption claiming

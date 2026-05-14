@@ -347,11 +347,39 @@ appends here as it lands, in the same format. Methods so far:
   fails at α=1)
 - **Method 0c — ChartQA-cal single-dir ActAdd** (calibration extracted
   but cross-dataset sweep deferred — low-priority sanity)
-- **Method 1 — multi-direction subspace projection (next)** —
-  CIPHER/VCE/RepE family; replaces single mean v with top-K SVD basis.
-  Implementation queued for next session.
-- **Method 2 / 3 / 4+ — fallbacks** documented in plan file and the
-  "Three-method pivot plan" section above.
+- **Method 0d — OneVision Main + PlotQA/InfoVQA-pool ActAdd
+  ✅ recovers, ⚠ under-mitigates** (E7 follow-up, 2026-05-12 → 14):
+  v_wrong = mean(D_wrong[plotqa] ∪ D_wrong[infovqa]) at L=26, α∈{0.5,
+  1.0, 2.0}. Under the same (a−m) calibration scope as the K=8 cell,
+  the original "TallyQA-cal → ChartQA backfire α=1" finding does *not*
+  reproduce: ChartQA Δdf @α=1.0 = −1.3 pp [−4.0, +1.3] null /
+  mit-direction (LEACE rank-1 −2.7 pp 의 ~50%); TallyQA +0.2 pp
+  [−0.0, +0.5] borderline backfire (CI lower 0); 4/5 datasets Δem(b)
+  CI-clean positive. Same TallyQA-as-backfire-site / ChartQA-as-null-
+  site pattern as LEACE rank-1 → calibration-pool axis is load-bearing
+  cross-method confirmed. Single-direction plateaus at ~50% of K=8
+  magnitude → method-independent under-mitigation. See
+  `docs/insights/E7-actadd-qao-recalibration-evidence.md`.
+- **Method 1 — multi-direction subspace projection ✅ shipped** —
+  CIPHER/VCE/RepE family; top-K SVD basis at L=26 K=8 α=1.0 deployed;
+  see paper §7.4.5 / §6.2.3.
+- **Method 2 — Query-adaptive offset (PCA + Ridge probe) ❌ flattens
+  effects** (E7 follow-up, 2026-05-13 → 14): probe trained on aligned
+  (Q, D) per-sample pairs from PlotQA + InfoVQA pool (Q-D alignment
+  patches commits 72d733f + f52087f), 16-cell sweep at L_q ∈ {20, 24,
+  26, 27} × L_target=26 × α ∈ {0.5, 1, 2, 4}. Result: 0/5 datasets
+  CI-clean Δdf at central cell L_q=L_target=26 / α=1.0 (range −1.0 ~
+  +1.5 pp); cherry-pick best across 16 cells reaches CI-clean only on
+  MathVista (n=170). 0/5 CI-clean Δem(b) gain. Probe regularisation
+  under-fits to a near-constant correction → flattens both mitigation
+  and backfire. *Different* failure mode from "probe overfits training
+  query distribution" originally reported.
+- **Method 3 — MIA-DPO LoRA (weight space)** — original report (em −5.85 pp
+  on VQAv2 a-arm; gt-distribution training bias). Not retested under
+  new pool; deferred to §8.4.
+- **Method 4a — CogBias decode-step** — not retested under new pool.
+  Mechanism-equivalent to ActAdd direction (same v_general) with
+  decode-time application; predicted to follow ActAdd recovery; deferred.
 
 **Experiment policy (effective 2026-04-29).** Every new method tested
 first on **TallyQA + ChartQA SUBSETS (n=100–200 wrong-base sids)**.
