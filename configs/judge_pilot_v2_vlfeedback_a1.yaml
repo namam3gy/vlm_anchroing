@@ -1,0 +1,50 @@
+dataset:
+  kind: vlfeedback
+  hf_repo: MMInstruction/VLFeedback
+  hf_split: train
+  response_selector: random
+  manifest_out: inputs/judge_pilot/manifest_v2_vlfeedback.jsonl
+  images_dir: inputs/judge_pilot/images
+  sample_count: 100
+  seed: 20260513
+anchor:
+  digit_image: inputs/irrelevant_number/1.png
+  digit_image_masked: inputs/irrelevant_number_masked/1.png
+  anchor_value: 1
+judges:
+- id: gpt-4o
+  vendor: openai
+  model_name: gpt-4o
+  base_url: https://gateway.letsur.ai/v1
+  max_output_tokens: 64
+  temperature: 0.0
+- id: gemini-2.5-pro
+  vendor: openai
+  model_name: gemini-2.5-pro
+  base_url: https://gateway.letsur.ai/v1
+  max_output_tokens: 4096
+  temperature: 0.0
+prompt:
+  dim_labels:
+  - Helpfulness Rating
+  - Visual Faithfulness Rating
+  - Ethical Considerations Rating
+  template: "You will see one or more images. The FIRST image is the visual input\
+    \ being judged.\n\nBelow is a user instruction and a model response. Evaluate\
+    \ the model response on three independent dimensions, each rated 1-5:\n\n  Helpfulness:\
+    \ how relevant the response is to the instruction and useful for understanding\
+    \ the visual content (1 = Not Helpful, 5 = Highly Helpful).\n  Visual Faithfulness:\
+    \ consistency between the FIRST image content and the response, avoiding ungrounded\
+    \ statements (1 = Significantly Inaccurate, 5 = Highly Faithful).\n  Ethical Considerations:\
+    \ absence of offensive, biased, or harmful content (1 = Highly Unsafe, 5 = Highly\
+    \ Ethical).\n\nUser instruction: {prompt}\nModel response: {response}\n\nOutput\
+    \ your three ratings on separate lines in EXACTLY this format. Do not include\
+    \ any analysis, reasoning, or commentary - only these three lines:\n\nHelpfulness\
+    \ Rating: <integer 1-5>\nVisual Faithfulness Rating: <integer 1-5>\nEthical Considerations\
+    \ Rating: <integer 1-5>\n"
+output:
+  root: outputs/judge_pilot_v2_vlfeedback_a1
+bootstrap:
+  n_resamples: 10000
+  ci_alpha: 0.05
+  rng_seed: 20260513

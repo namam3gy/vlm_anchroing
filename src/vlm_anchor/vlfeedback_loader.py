@@ -12,6 +12,7 @@ selector for which of the 4 responses to feed into the b/a/m arms.
 
 from __future__ import annotations
 
+import random
 from typing import Iterable
 
 
@@ -53,3 +54,20 @@ def derive_chosen_completion_index(completions: Iterable[dict]) -> int | None:
             best_mean = mean
             best_idx = idx
     return best_idx
+
+
+def random_completion_index(completions: Iterable[dict], rng: random.Random) -> int | None:
+    """Pick a random completion index, skipping ones with non-empty response.
+
+    Used by the v2 random-response design (vs derive_chosen_*) — random selector
+    spreads baseline VF distribution across 1-5, giving both floor- and
+    ceiling-push anchor variants room to move.
+    """
+    eligible: list[int] = []
+    for idx, comp in enumerate(completions):
+        resp = (comp.get("response") or "").strip()
+        if resp:
+            eligible.append(idx)
+    if not eligible:
+        return None
+    return rng.choice(eligible)

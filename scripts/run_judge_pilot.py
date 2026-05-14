@@ -37,6 +37,8 @@ def _build_judge(judge_cfg: dict):
             model_name=judge_cfg["model_name"],
             max_output_tokens=int(judge_cfg.get("max_output_tokens", 8)),
             temperature=float(judge_cfg.get("temperature", 0.0)),
+            base_url=judge_cfg.get("base_url"),
+            extra_body=judge_cfg.get("extra_body"),
         )
     if vendor == "google":
         return GeminiJudgeClient(
@@ -90,6 +92,7 @@ def main() -> None:
         seen = _existing_keys(predictions_path)
         print(f"[{judge_id}] writing to {predictions_path} (resuming over {len(seen)} prior records)")
 
+        dim_labels = cfg.get("prompt", {}).get("dim_labels")  # None or list[str]
         with predictions_path.open("a") as out:
             for sample in manifest:
                 for arm in iter_pilot_arms(sample):
@@ -102,10 +105,12 @@ def main() -> None:
                     )
                     t0 = time.perf_counter()
                     try:
-                        response: JudgeResponse = client.score(images=arm["images"], prompt=prompt)
+                        response: JudgeResponse = client.score(
+                            images=arm["images"], prompt=prompt, dim_labels=dim_labels
+                        )
                         err = None
                     except Exception as exc:  # noqa: BLE001 — log and continue
-                        response = JudgeResponse(score=None, raw="")
+                        response = JudgeResponse(score=None, raw="", scores={})
                         err = repr(exc)
                     rec = {
                         "judge_id": judge_id,
@@ -113,13 +118,15 @@ def main() -> None:
                         "arm": arm["arm"],
                         "n_images": len(arm["images"]),
                         "score": response.score,
+                        "scores": response.scores,
                         "raw": response.raw,
                         "elapsed_s": round(time.perf_counter() - t0, 3),
                         "error": err,
                     }
                     out.write(json.dumps(rec) + "\n")
                     out.flush()
-                    print(f"  {judge_id} {sample.sample_id} {arm['arm']:>1} -> score={response.score} ({rec['elapsed_s']}s)" + (f" err={err}" if err else ""))
+                    score_repr = response.scores if response.scores else response.score
+                    print(f"  {judge_id} {sample.sample_id} {arm['arm']:>1} -> {score_repr} ({rec['elapsed_s']}s)" + (f" err={err}" if err else ""))
 
         summary = {
             "judge_id": judge_id,

@@ -1,10 +1,12 @@
 dataset:
-  hf_repo: MMInstruction/VLFeedback
-  hf_split: train
-  manifest_out: inputs/judge_pilot/manifest.jsonl
-  images_dir: inputs/judge_pilot/images
+  kind: vlrewardbench
+  hf_repo: MMInstruction/VL-RewardBench
+  hf_split: test
+  response_selector: chosen
+  manifest_out: inputs/judge_pilot/manifest_vlrewardbench_a1.jsonl
+  images_dir: inputs/judge_pilot/images_vlrewardbench
   sample_count: 200
-  seed: 20260512
+  seed: 20260513
 anchor:
   digit_image: inputs/irrelevant_number/1.png
   digit_image_masked: inputs/irrelevant_number_masked/1.png
@@ -54,8 +56,8 @@ prompt:
     \ fully grounded in image content)\n\nUser instruction: {prompt}\nModel response:\
     \ {response}\n\nOutput only a single integer (1, 2, 3, 4, or 5). No other text.\n"
 output:
-  root: outputs/judge_pilot
+  root: outputs/judge_pilot_vlrewardbench_a1
 bootstrap:
   n_resamples: 10000
   ci_alpha: 0.05
-  rng_seed: 20260512
+  rng_seed: 20260513
