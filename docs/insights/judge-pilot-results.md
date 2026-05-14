@@ -4,10 +4,8 @@
 **Status:** ✅ Strong positive findings on 4/10 cells, robust evidence for §8 demo
 **Decision:** PASS — proceed with paper §8 demo subsection in follow-up plan
 **Source predictions:** `outputs/judge_pilot/<judge>/<ts>/` and `outputs/judge_pilot_vlrewardbench_a1/<judge>/<ts>/`
-**Figures:**
-- `docs/figures/judge_pilot_v1_5judges_2datasets_n200.png` — final 2 dataset × 5 judge line overlay (n=200)
-- `docs/figures/judge_pilot_v1_gpt4o_n200_lines.png` — gpt-4o focused 2-panel
-- (older v1 / v2 figures preserved for design history)
+**Figure:**
+- `docs/figures/judge_pilot_v1_5judges_2datasets_n200.png` — 2 dataset × 5 judge line overlay (n=200)
 
 ---
 
@@ -155,21 +153,16 @@ Brief design ablations (random response selector, multi-dim labeled output, per-
 - `configs/judge_pilot.yaml` — VLFeedback × 5 judges
 - `configs/judge_pilot_vlrewardbench_a1.yaml` — VL-RewardBench × 5 judges
 
-### Configs (preserved as historical / ablation reference)
-- `configs/judge_pilot_anchor5.yaml` — VLFeedback anchor=5 ceiling push (2-judge baseline; null)
-- `configs/judge_pilot_vlrewardbench_a5.yaml` — VL-RewardBench anchor=5 (not run; dropped after VLFeedback null)
-- `configs/judge_pilot_v2_*.yaml` — random + multi-dim simple ablation (signal too weak; abandoned)
+(Anchor=5 ceiling-push and v2 random+multi-dim ablation are described in §4.2 / §4.5
+above; their configs were intermediate exploration and have been removed —
+re-create from this writeup if needed for replication.)
 
 ### Outputs (gitignored)
 - `outputs/judge_pilot/<judge>/<ts>/` — VLFeedback × 5 judges
-- `outputs/judge_pilot_anchor5/<judge>/<ts>/` — VLFeedback anchor=5 (2 judges)
 - `outputs/judge_pilot_vlrewardbench_a1/<judge>/<ts>/` — VL-RewardBench × 5 judges
 
-### Figures (gitignored under `docs/figures/`)
-- `judge_pilot_v1_5judges_2datasets_n200.png` — **MAIN** 2×5 line overlay
-- `judge_pilot_v1_gpt4o_n200_lines.png` — gpt-4o focused
-- `judge_pilot_v1_cross_dataset_anchor1_lines.png` — earlier 2×2 (n=100)
-- `judge_pilot_score_lines.png`, `judge_pilot_anchor1_paired_delta.png`, etc. — earlier design iterations
+### Figure
+- `docs/figures/judge_pilot_v1_5judges_2datasets_n200.png` — 2 dataset × 5 judge line overlay (n=200)
 
 ---
 
