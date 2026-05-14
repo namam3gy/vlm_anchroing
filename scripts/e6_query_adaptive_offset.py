@@ -117,6 +117,21 @@ def _parse_args() -> argparse.Namespace:
     ap.add_argument("--out-tag", default=None,
                     help="sweep-qao only: suffix appended to output dir name "
                          "(e.g. 'full' → sweep_qao_tally_full_pooled).")
+    ap.add_argument("--probe-pairs", default=None,
+                    help="train-probe: comma-sep 'Lq:Lt' pairs override "
+                         "(e.g. '20:26,24:26,26:26,27:26'). Default uses "
+                         "_sweep_probe_pairs() hardcoded for 32-layer Interleave.")
+    ap.add_argument("--sweep-cells", default=None,
+                    help="sweep-qao: comma-sep 'Lq:Lt:alpha' triples override "
+                         "(e.g. '20:26:1.0,24:26:1.0'). Bypasses _qao_sweep_cells(). "
+                         "Always prepends a baseline cell.")
+    ap.add_argument("--smoke-pair", default=None,
+                    help="smoke-qao: 'Lq:Lt:alpha' triple override "
+                         "(e.g. '26:26:4.0'). Default '30:31:4.0' (Interleave).")
+    ap.add_argument("--max-sweep-conds", default=None,
+                    help="sweep-qao: comma-sep condition names to run "
+                         "(e.g. 'target_only,target_plus_irrelevant_number_S1'). "
+                         "Default = all 4 (b/a/m/d). Reduces walltime.")
     ap.add_argument("--seed", type=int, default=42)
     ap.add_argument("--max-calibrate-pairs", type=int, default=None,
                     help="Cap on Q_all sids for calibrate-qao (None = all). "
@@ -249,24 +264,52 @@ def _phase_calibrate_qao(args) -> None:
     by_sid_cond = _load_predictions(pred_path)
     wrong_sids = _wrong_sids_from_predictions(by_sid_cond)
 
+    # Tighten wrong-base to wrong + all 4 conditions, matching calibrate-subspace's
+    # eligibility (which produces D_wrong). Guarantees Q_wrong[i] and D_wrong[i]
+    # both reference the same i-th sid in dict-iteration order, so the probe in
+    # train-probe sees correctly aligned (Q, D) pairs. Without this filter,
+    # calibrate-qao admits sids missing some non-target_only conditions, which
+    # breaks per-sample alignment with D_wrong from calibrate-subspace.
+    cal_subspace_conds = ("target_only",
+                          "target_plus_irrelevant_number_S1",
+                          "target_plus_irrelevant_number_masked_S1",
+                          "target_plus_irrelevant_neutral")
+    aligned_wrong = {s for s in wrong_sids
+                     if all(c in by_sid_cond[s] for c in cal_subspace_conds)}
+    n_dropped = len(wrong_sids) - len(aligned_wrong)
+    if n_dropped:
+        print(f"[setup] {dataset_tag}: dropping {n_dropped} wrong-base sids that "
+              f"miss some of 4 conds (Q-D alignment with calibrate-subspace)")
+    wrong_sids = aligned_wrong
+
     # Prioritise wrong-base sids (same ordering as calibrate-subspace)
     all_sids = list(by_sid_cond.keys())
     ordered = ([s for s in all_sids if s in wrong_sids]
                + [s for s in all_sids if s not in wrong_sids])
 
     print(f"[setup] {dataset_tag}: {len(ordered)} total sids, "
-          f"{len(wrong_sids)} wrong-base")
+          f"{len(wrong_sids)} wrong-base (aligned to calibrate-subspace 4-cond)")
 
     runner = _build_runner(args)
 
     Q_wrong: list[torch.Tensor] = []
     Q_all: list[torch.Tensor] = []
+    Q_wrong_sids: list[str] = []
+    Q_all_sids: list[str] = []
     n_skipped = 0
     t0 = time.time()
 
     max_pairs = args.max_calibrate_pairs
+    n_wrong_target = len(wrong_sids)
     for i, sid in enumerate(ordered):
         if max_pairs is not None and len(Q_all) >= max_pairs:
+            break
+        # Early exit — Q_all beyond wrong_sids is not used downstream
+        # (train-probe uses Q_wrong only; _load_v_general uses v.pt).
+        # With wrong sids first in `ordered`, exit when we've captured them all.
+        if len(Q_wrong) >= n_wrong_target:
+            print(f"  [early-exit] captured all {n_wrong_target} wrong-base sids; "
+                  f"skipping {len(ordered) - i} non-wrong forwards (not used by probe)")
             break
         b_rec = by_sid_cond[sid].get("target_only")
         if b_rec is None:
@@ -282,8 +325,10 @@ def _phase_calibrate_qao(args) -> None:
             continue
 
         Q_all.append(res)
+        Q_all_sids.append(sid)
         if sid in wrong_sids:
             Q_wrong.append(res)
+            Q_wrong_sids.append(sid)
 
         n = len(Q_all)
         if n % 20 == 0 or n == 1:
@@ -299,12 +344,18 @@ def _phase_calibrate_qao(args) -> None:
                  else torch.zeros(0, *Q_all_t.shape[1:]))
     torch.save(Q_all_t, out_dir / "Q_all.pt")
     torch.save(Q_wrong_t, out_dir / "Q_wrong.pt")
+    (out_dir / "Q_sids.json").write_text(json.dumps({
+        "Q_all_sids": Q_all_sids,
+        "Q_wrong_sids": Q_wrong_sids,
+    }, indent=2))
     meta = {
         "model": args.model, "dataset_tag": dataset_tag,
         "n_all": len(Q_all), "n_wrong": len(Q_wrong),
         "n_skipped": n_skipped,
         "Q_all_shape": list(Q_all_t.shape),
         "Q_wrong_shape": list(Q_wrong_t.shape),
+        "predictions_path": str(pred_path),
+        "wrong_base_filter": "target_only.exact_match == 0 AND all 4 conds present",
         "wall_seconds": time.time() - t0,
     }
     (out_dir / "Q_meta.json").write_text(json.dumps(meta, indent=2))
@@ -380,6 +431,18 @@ def _phase_train_probe(args) -> None:
         n = min(Q_tag.shape[0], D_tag.shape[0])
         print(f"  {tag}: Q_wrong={tuple(Q_tag.shape)}  D_wrong={tuple(D_tag.shape)}"
               f"  using n={n}")
+        # Alignment guard — Q_wrong and D_wrong rows must be per-sample matched.
+        # Equal shapes (e.g., 2314 vs 2314) signal calibrate-qao ran with the
+        # wrong+4-cond filter that matches calibrate-subspace. Mismatched shapes
+        # (e.g., 2502 vs 2314) signal a misaligned legacy-session capture and
+        # would produce a meaningless probe — fail loud.
+        if Q_tag.shape[0] != D_tag.shape[0]:
+            raise RuntimeError(
+                f"{tag}: Q_wrong shape[0]={Q_tag.shape[0]} != D_wrong shape[0]={D_tag.shape[0]}. "
+                f"Q-D alignment broken. Re-run calibrate-qao with the wrong+4-cond filter "
+                f"(current e6_query_adaptive_offset.py applies this filter; if the Q files "
+                f"predate that patch, delete and regenerate)."
+            )
         Q_list.append(Q_tag[:n])
         D_list.append(D_tag[:n])
 
@@ -389,7 +452,14 @@ def _phase_train_probe(args) -> None:
     n_layers = Q_all.shape[1]
     print(f"[train-probe] pooled: N={N}  n_layers={n_layers}  d_model={Q_all.shape[2]}")
 
-    pairs = _sweep_probe_pairs()
+    if args.probe_pairs:
+        pairs = []
+        for p in args.probe_pairs.split(","):
+            lq_s, lt_s = p.strip().split(":")
+            pairs.append((int(lq_s), int(lt_s)))
+        print(f"[train-probe] using --probe-pairs override: {pairs}")
+    else:
+        pairs = _sweep_probe_pairs()
     print(f"[train-probe] fitting {len(pairs)} (L_q, L_target) probes "
           f"(pca_components={args.pca_components}  ridge_alpha={args.ridge_alpha})")
 
@@ -475,21 +545,24 @@ def _phase_smoke_qao(args) -> None:
     if not smoke_sids:
         raise RuntimeError("No wrong-base a-arm samples found in predictions.")
 
-    # Load v_general and probe for L_q=30, L_target=31 (near-miss layer)
+    # Load v_general and probe (default L_q=30, L_target=31; override via --smoke-pair)
     calib_tags = [t.strip() for t in args.calib_tags.split(",") if t.strip()]
     v_general = _load_v_general(args.model, calib_tags)  # [n_layers, d]
     p_dir = _probe_dir(args.model, args.probe_dir)
-    probe_path = p_dir / "probe_Lq30_Lt31.pt"
+    if args.smoke_pair:
+        lq_s, lt_s, a_s = args.smoke_pair.split(":")
+        L_q, L_target, alpha = int(lq_s), int(lt_s), float(a_s)
+    else:
+        L_q, L_target, alpha = 30, 31, 4.0
+    probe_path = p_dir / f"probe_Lq{L_q:02d}_Lt{L_target:02d}.pt"
     if not probe_path.exists():
         raise FileNotFoundError(f"Missing probe at {probe_path}. Run train-probe first.")
     probe = torch.load(probe_path, map_location="cpu", weights_only=True)
 
     runner = _build_runner(args)
     layers = _get_llm_layers(runner.model)
-    L_target = 31
-    alpha = 4.0
 
-    print(f"[smoke-qao] {dataset_tag}: L_q=30 L_target={L_target} alpha={alpha}")
+    print(f"[smoke-qao] {dataset_tag}: L_q={L_q} L_target={L_target} alpha={alpha}")
     n_changed = 0
     for sid in smoke_sids:
         b_rec = by_sid_cond[sid].get("target_only")
@@ -506,7 +579,7 @@ def _phase_smoke_qao(args) -> None:
             print(f"  [skip] sid={sid}: b-arm capture failed: {exc}")
             continue
 
-        q = q_repr[30]  # [d] at L_q=30
+        q = q_repr[L_q]  # [d] at L_q
         delta = _apply_probe(probe, q)
         correction = (alpha * (v_general[L_target] + delta))  # [d]
 
@@ -619,16 +692,19 @@ def _phase_sweep_qao(args) -> None:
 
     # Pre-load all probes
     probes: dict[tuple[int, int], dict] = {}
-    for L_q, L_target in _sweep_probe_pairs():
-        probe_path = p_dir / f"probe_Lq{L_q:02d}_Lt{L_target:02d}.pt"
-        if not probe_path.exists():
-            raise FileNotFoundError(
-                f"Missing {probe_path}. Run train-probe first.")
-        probes[(L_q, L_target)] = torch.load(
-            probe_path, map_location="cpu", weights_only=True)
-    print(f"[sweep-qao] loaded {len(probes)} probes from {p_dir}")
-
-    cells = _qao_sweep_cells()
+    # Build cell list (override via --sweep-cells)
+    if args.sweep_cells:
+        cells = [{"L_q": -1, "L_target": -1, "alpha": 0.0, "label": "baseline"}]
+        for spec in args.sweep_cells.split(","):
+            lq_s, lt_s, a_s = spec.strip().split(":")
+            lq, lt, alpha = int(lq_s), int(lt_s), float(a_s)
+            cells.append({
+                "L_q": lq, "L_target": lt, "alpha": alpha,
+                "label": f"Lq{lq:02d}_Lt{lt:02d}_a{alpha}",
+            })
+        print(f"[sweep-qao] using --sweep-cells override: {len(cells)} cells")
+    else:
+        cells = _qao_sweep_cells()
     if args.target_cells:
         keep = set(c.strip() for c in args.target_cells.split(","))
         cells = [c for c in cells if c["label"] in keep]
@@ -636,6 +712,17 @@ def _phase_sweep_qao(args) -> None:
     else:
         print(f"[sweep-qao] grid: {len(cells)} cells "
               f"(1 baseline + {len(cells)-1} steered)")
+
+    # Pre-load only the probes referenced by the cell list (skip baseline)
+    needed_pairs = sorted({(c["L_q"], c["L_target"]) for c in cells if c["alpha"] != 0.0})
+    for L_q, L_target in needed_pairs:
+        probe_path = p_dir / f"probe_Lq{L_q:02d}_Lt{L_target:02d}.pt"
+        if not probe_path.exists():
+            raise FileNotFoundError(
+                f"Missing {probe_path}. Run train-probe first.")
+        probes[(L_q, L_target)] = torch.load(
+            probe_path, map_location="cpu", weights_only=True)
+    print(f"[sweep-qao] loaded {len(probes)} probes from {p_dir}")
 
     out_path = _sweep_qao_output_path(args.model, dataset_tag, args.out_tag)
     out_path.parent.mkdir(parents=True, exist_ok=True)
@@ -650,7 +737,12 @@ def _phase_sweep_qao(args) -> None:
         "target_only",
         "target_plus_irrelevant_number_S1",
         "target_plus_irrelevant_number_masked_S1",
+        "target_plus_irrelevant_neutral",
     ]
+    if args.max_sweep_conds:
+        keep_conds = {c.strip() for c in args.max_sweep_conds.split(",")}
+        sweep_conditions = [c for c in sweep_conditions if c in keep_conds]
+        print(f"[sweep-qao] filtering to {len(sweep_conditions)} conditions: {sweep_conditions}")
 
     # Pre-extract b-arm reprs for all eligible sids (shared across cells)
     print(f"[sweep-qao] pre-extracting b-arm reprs for {len(eligible)} sids ...")

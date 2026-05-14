@@ -4,6 +4,7 @@
 **Status:** complete; **Outcome B confirmed** per pre-registered decision tree, with **§6.2.4 P4 K=1 corroboration** re-anchoring the broader P2 prediction.
 **Plan:** `docs/superpowers/specs/2026-05-11-leace-recalibration-plan.md` (PR #35).
 **Eraser tag:** `plotqa_infovqa_recal` at `outputs/e6_steering/llava-onevision-qwen2-7b-ov/leace_erasers_plotqa_infovqa_recal/`.
+**Companion (2026-05-14):** `E7-actadd-qao-recalibration-evidence.md` — single-direction ActAdd + Query-adaptive offset re-tested on the **same OneVision Main + PlotQA + InfoVQA (a − m) calibration scope** as this LEACE re-cal. ActAdd recovers from "+57 % ChartQA backfire" to ChartQA Δdf @α=1.0 = −1.3 pp [−4.0, +1.3] null/mit-direction with the same TallyQA-as-backfire-site signature (cross-method confirmation of calibration-pool axis as load-bearing). QAO probe correction flattens effects to 0/5 CI-clean Δdf. Note: the Q files captured in §2.1 below were re-extracted with a wrong+4-cond filter for QAO Q-D alignment (Q_wrong=2502 → 2314 to match D_wrong, see E7 §2.1); LEACE rank-1 results in this doc are unaffected (mean direction is alignment-robust).
 
 ## 1. Headline
 
