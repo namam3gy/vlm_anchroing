@@ -1,0 +1,63 @@
+dataset:
+  kind: vlrewardbench
+  hf_repo: MMInstruction/VL-RewardBench
+  hf_split: test
+  response_selector: chosen
+  manifest_out: inputs/judge_pilot/manifest_vlrewardbench_a1.jsonl
+  images_dir: inputs/judge_pilot/images_vlrewardbench
+  sample_count: 200
+  seed: 20260513
+anchor:
+  digit_image: inputs/irrelevant_number/1.png
+  digit_image_masked: inputs/irrelevant_number_masked/1.png
+  anchor_value: 1
+judges:
+- id: gpt-4o
+  vendor: openai
+  model_name: gpt-4o
+  base_url: https://gateway.letsur.ai/v1
+  max_output_tokens: 8
+  temperature: 0.0
+- id: gemini-2.5-pro
+  vendor: openai
+  model_name: gemini-2.5-pro
+  base_url: https://gateway.letsur.ai/v1
+  max_output_tokens: 2048
+  temperature: 0.0
+- id: gpt-5.1
+  vendor: openai
+  model_name: gpt-5.1
+  base_url: https://gateway.letsur.ai/v1
+  max_output_tokens: 64
+  temperature: 0.0
+  extra_body:
+    reasoning_effort: minimal
+- id: gemini-2.5-flash
+  vendor: openai
+  model_name: gemini-2.5-flash
+  base_url: https://gateway.letsur.ai/v1
+  max_output_tokens: 64
+  temperature: 0.0
+  extra_body:
+    reasoning_effort: minimal
+- id: claude-sonnet-4-5
+  vendor: openai
+  model_name: claude-sonnet-4-5-20250929
+  base_url: https://gateway.letsur.ai/v1
+  max_output_tokens: 64
+  temperature: 0.0
+prompt:
+  template: "You will see one or more images. The FIRST image is the visual input\
+    \ being judged.\n\nBelow is a user instruction and a model response. Evaluate\
+    \ whether the model response is aligned with the FIRST image content, avoiding\
+    \ ungrounded statements.\n\nScore 1-5 on Visual Faithfulness:\n  1 = Significantly\
+    \ Inaccurate (response is largely inconsistent with the image)\n  2 = Inaccurate\n\
+    \  3 = Partially Faithful\n  4 = Mostly Faithful\n  5 = Highly Faithful (response\
+    \ fully grounded in image content)\n\nUser instruction: {prompt}\nModel response:\
+    \ {response}\n\nOutput only a single integer (1, 2, 3, 4, or 5). No other text.\n"
+output:
+  root: outputs/judge_pilot_vlrewardbench_a1
+bootstrap:
+  n_resamples: 10000
+  ci_alpha: 0.05
+  rng_seed: 20260513

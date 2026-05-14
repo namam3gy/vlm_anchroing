@@ -50,6 +50,62 @@ Predictions are written `pred_b / pred_a / pred_m / pred_d`; ground truth is
 
 ## 3. Status snapshot — where we are (2026-05-09 — 5-round paper review loop complete)
 
+### 3.0e Post-judge-pilot state (2026-05-13/14 — closed-API VLM-as-judge anchoring demo landed)
+
+Pilot question: does the cross-modal anchoring bias studied in §4–§7 transfer
+to the **VLM-as-judge** deployment setting? Five frontier closed-API judges
+(gpt-4o / gpt-5.1 / gemini-2.5-pro / gemini-2.5-flash /
+claude-sonnet-4-5-20250929) tested on n=200 (image, prompt, response) triplets
+sampled from each of two standard judge benchmarks (VLFeedback,
+VL-RewardBench), with the chosen / argmax(human_ranking) response per record,
+under three arms: image only (b) / image + anchor digit "1" (a) / image + same
+anchor with digit pixels Telea-masked (m). Single-dim Visual Faithfulness 1–5
+scoring (VLFeedback Silkie native rubric).
+
+**Headline (Δ(a−b) on Visual Faithfulness 1–5, both datasets)**:
+
+- **gpt-4o** strongly susceptible: VLFeedback **−0.55** (mean 4.49 → 3.94),
+  VL-RewardBench **−0.96** (4.61 → 3.65). P(score=1) jumps +21pp / +30pp.
+  **Digit-specific** mechanism — Δ(a−m) = −0.47 / −0.62 ≫ Δ(m−b) = −0.08 / −0.34
+  (anchor digit pixels carry the effect, not generic distraction).
+- **gemini-2.5-flash** comparably susceptible: VLF **−0.41**, VLB **−0.58**.
+  **Distractor-general** mechanism — Δ(a−m) ≈ 0; Δ(m−b) ≈ Δ(a−b)
+  (any second image lowers score; anchor digit not load-bearing).
+- **gpt-5.1, gemini-2.5-pro, claude-sonnet-4-5** all within ±0.15 of zero on
+  both datasets — effectively robust.
+
+**Two within-vendor ablations supported:**
+- *OpenAI generation*: gpt-4o (susceptible) → gpt-5.1 (robust). Newer
+  generation eliminates anchor susceptibility (mechanism untested:
+  RLHF / scale / instruction-following).
+- *Google reasoning*: gemini-2.5-pro (reasoning forced ON, robust) vs
+  gemini-2.5-flash (reasoning OFF via `reasoning_effort=minimal`, susceptible).
+  Within-family suggests "reasoning provides anchor-resistance"; confounded
+  by capability gap (the cleanest test would require gemini-pro thinking-off,
+  blocked by Google API policy).
+
+**Caveats**: chosen-response selection privileges high-baseline samples
+(worst-case adversarial framing, ~10× attenuation under random selector);
+gemini-2.5-pro VLB has 10% parse-failure rate (n_pair drops to 165) due to
+reasoning chains exceeding 2048 token budget — null-read still adequate but
+not directly comparable; Staix gateway returns alias-only model IDs (snapshot
+opacity for non-Claude models). Anchor=5 ceiling-push not re-tested under
+expanded panel (saturation observed in earlier 2-judge run).
+
+Lands paper §8.5 (new sub-section) — figure
+`docs/figures/judge_pilot_v1_5judges_2datasets_n200.png` (2 dataset × 5 judge
+line overlay, n=200). Full evidence:
+[`docs/insights/judge-pilot-results.md`](../docs/insights/judge-pilot-results.md).
+PR #43 (`worktree-judge-anchoring-pilot → master`).
+
+**Tier impact**: out-of-scope for §4–§7 main thesis. Strengthens paper's
+*deployment necessity* framing — anchoring is not just an open-weight VLM
+benchmark artifact, it surfaces in production judge pipelines (RLAIF /
+judge-mediated eval) on the most-deployed closed-API models. §8.2 한계
+"폐쇄 모델 defuse 미수행" partially addressed; §8.4 "후속 작업"에서 mechanism
+follow-up (within-vendor ablations on cross-architecture generality, anchor=5
+ceiling re-test) 등 직접 표면화.
+
 ### 3.0d Post-§5.4-framework-verification state (2026-05-12 AM — §5.4 framework P2 + P3 directly verified on OneVision Main)
 
 PR #26 (merged 2026-05-11) lifted the routing-vs-integration framework from §6.6
@@ -492,6 +548,7 @@ gt range (no [0,8] restriction).
 | **F1 (preferred)** | LLM/VLM architectural diff — same anchor delivered as text to LLM vs. as image to VLM, compare layer-wise integration profile (§7-style attention) | ✅ ideation paragraph drafted — `docs/insights/paper-section-8-f1-future-work.md` (2026-04-29) |
 | **F2** | image-vs-text anchor — anchor image described as text and given to the same VLM; effect-size delta | ☐ ideation only |
 | **F3** | Reasoning-mode VLM at scale — Qwen3-VL thinking, etc., on E5e cross-dataset matrix | ☐ scope only (γ-β is the minimal §8 stake) |
+| **F4** | Closed-API VLM-as-judge anchoring demo — does the bias transfer to RLAIF / judge-mediated eval pipelines? | ✅ pilot landed (2026-05-13/14) — `docs/insights/judge-pilot-results.md`, lands paper §8.5; gpt-4o & gemini-2.5-flash susceptible, gpt-5.1 / gemini-2.5-pro / claude robust; PR #43 |
 
 ## 7. Pending work — Phase-structured priority queue (2026-05-04 update)
 
@@ -711,6 +768,41 @@ contingent on P0-1 bridge experiment.
   stated ordering Qwen > Gemma27 > InternViT > Gemma4 > OneVision contradicts
   actual mean-df ranking (OneVision is 3rd-most-robust, not last). Both prose
   drifts left as-is pending user decision.
+
+- **2026-05-13/14 (Closed-API VLM-as-judge anchoring pilot — §8.5 demo landed).**
+  Pilot tests whether the cross-modal anchoring bias studied in §4–§7 transfers
+  to the **VLM-as-judge** deployment setting. Five frontier closed-API judges
+  (gpt-4o, gpt-5.1, gemini-2.5-pro, gemini-2.5-flash, claude-sonnet-4-5-20250929)
+  on n=200 (image, prompt, response) triplets sampled from each of two standard
+  judge benchmarks (VLFeedback, VL-RewardBench), chosen / argmax(human_ranking)
+  response per record, three arms b / a / m (anchor digit "1" + Telea-masked
+  control), single-dim Visual Faithfulness 1–5. Accessed via Staix gateway
+  (`gateway.letsur.ai/v1`, OpenAI-compat) on 2026-05-13/14. **Headline**:
+  (1) **gpt-4o strongly susceptible** — Δ(a−b) = −0.55 (VLFeedback) / −0.96
+  (VL-RewardBench), P(score=1) +21pp / +30pp, **digit-specific** (Δ(a−m) ≫ Δ(m−b));
+  (2) **gemini-2.5-flash comparably susceptible** — Δ(a−b) = −0.41 / −0.58,
+  **distractor-general** (Δ(a−m) ≈ 0); (3) **gpt-5.1 / gemini-2.5-pro /
+  claude-sonnet-4-5 all within ±0.15** of zero on both datasets. Two
+  within-vendor ablations: OpenAI generation upgrade (gpt-4o → gpt-5.1)
+  eliminates susceptibility; Google reasoning toggle (gemini-2.5-pro reasoning
+  ON robust vs gemini-2.5-flash reasoning OFF susceptible) supports
+  "reasoning provides anchor-resistance" hypothesis (capability-gap confounded;
+  cleanest test = gemini-pro thinking-off blocked by Google API policy).
+  **Caveats**: chosen-response selector is worst-case adversarial framing
+  (~10× attenuation under random selector ablation); gemini-2.5-pro VLB has
+  10% parse-failure rate (n_pair=165); Staix gateway returns alias-only model
+  IDs (snapshot opacity for non-Claude); anchor=5 ceiling-push not re-tested
+  under expanded panel. **Out-of-scope for §4–§7 main thesis** — strengthens
+  paper's *deployment necessity* framing (anchoring is not just a benchmark
+  artifact; it surfaces in production judge pipelines on the most-deployed
+  closed-API models). Lands paper §8.5 (new sub-section + figure
+  `docs/figures/judge_pilot_v1_5judges_2datasets_n200.png`) and softens §8.2
+  "폐쇄 모델 defuse 미수행" 한계. Code: `src/vlm_anchor/{vlfeedback_loader,
+  vlrewardbench_loader,judge_clients,judge_pilot_data}.py`,
+  `scripts/{build_judge_pilot_dataset,run_judge_pilot,analyze_judge_pilot}.py`.
+  Configs: `configs/judge_pilot.yaml`, `configs/judge_pilot_vlrewardbench_a1.yaml`.
+  Full evidence: `docs/insights/judge-pilot-results.md`. PR #43
+  (`worktree-judge-anchoring-pilot → master`).
 
 - **2026-05-12 PM (Appendix G — direction_follow_rate signed-form robustness check landed).**
   §3 / §4의 headline direction_follow_rate (binary toward-rate) 가 anchor-specific
