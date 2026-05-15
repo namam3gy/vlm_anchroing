@@ -49,25 +49,23 @@
 
 ## 2 Related Work
 
-### 2.1 {{Anchoring in cognition + text LLMs}}
+> 4 subsection, 각 끝 1–2 문장에 본 논문 differentiator woven-in. 별도 positioning subsection 없음.
 
-{{}}
+### 2.1 Anchoring in cognition and text LLMs
 
-### 2.2 {{Multimodal bias / cognitive bias paradigms}}
+{{Tversky-Kahneman 1974, Mussweiler-Strack 1999 (cognitive); Jones-Steinhardt 2022, Echterhoff 2024, Lou-Sun 2024 (LLM anchoring + prompt-level mitigation 실패), Wang 2025a (LRM judging bias 가 reasoning trace 통해 amplified — §4.5 Qwen3-VL Thinking ×12.7 호응), Huang 2025 (synthetic LLM mechanism — text-side mechanism 비교). 끝 1문장: 시각 modality 위 anchoring 미평가.}}
 
-{{}}
+### 2.2 Cognitive bias and behavioral analysis of VLMs
 
-### 2.3 Closest-neighbor 분리 (positioning)
+{{VLMBias [Vo, Nguyen 2025] — familiar-subject counting; AIpsych [Liu 2025], CIVET [Rizzoli 2025], Tinted Frames [Fan 2026] — sycophancy / position / framing. 끝 1문장: 본 논문은 cue 가 question subject 와 분리된 *independent rendered-digit* 이미지 + open-ended numeric estimation 으로 두 축 모두에서 상보적.}}
 
-본 paradigm 은 가장 가까운 기존 multimodal bias 연구들과 *cue source × measurement type* 두 축에서 분리된다.
+### 2.3 Visual cue manipulation in VLMs
 
-- **VLMBias [Vo, Nguyen et al., 2025]** — *familiar subject* counting accuracy. cue 가 question 의 subject 와 묶임.
-- **Typographic attack [Wang et al., 2025b], FigStep [Gong et al., 2025]** — 클래스 라벨 / prompt 텍스트의 이미지화. 측정은 *분류 뒤집기 / jailbreak ASR*.
-- **본 논문** — *질문과 분리된 독립 rendered-digit 이미지* + *open-ended numeric estimation* baseline-relative shift. 두 축 모두에서 상보적.
+{{Goh 2021 multimodal neurons (mechanism foundation); Wang 2025b NAACL multi-image typographic attack; Gong 2025 FigStep visual jailbreak; Hufe 2025 Dyslexify (encoder-side defense for typographic). 끝 1문장: 본 논문은 클래스 라벨 / prompt 의 이미지화가 아닌 *수치값 단독* cue, 분류 뒤집기 / ASR 이 아닌 *open-numeric baseline-relative shift*; mitigation site 도 encoder 가 아닌 LM residual.}}
 
-### 2.4 {{Activation steering / concept erasure / mitigation literature}}
+### 2.4 Representation-level intervention: activation steering and concept erasure
 
-{{}}
+{{CAA [Panickssery 2024] — paired contrastive activation, single direction; ITI [Li 2023] — attention-head multi-direction (LM-only); LEACE [Belrose 2023] — closed-form linear erasure (rank-1 default); Weng 2024 EMNLP — VLM gender bias의 causal mediation → encoder-side mitigation (mechanism→mitigation chain venue-tier 선례); Chand 2025 "No Free Lunch in LM bias mitigation" — LM × discrete social bias × weight space 위 4-clause 동시 충족 *실패* 보고 (본 mitigation 은 *VLM × continuous numeric × inference activation* cross-axis positive). 끝 1문장: 본 mitigation 은 (i) CAA paired-contrast 패러다임을 *vision-modality (a − m) 인과 통로 분리* 로 확장, (ii) ITI attention-head 가 아닌 *residual stream*, (iii) single-direction (LEACE rank-1 / ActAdd) 의 cross-dataset 실패 위에서 *multi-direction subspace* 채택.}}
 
 ---
 
