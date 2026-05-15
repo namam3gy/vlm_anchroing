@@ -69,111 +69,101 @@
 
 ---
 
-## 3 Background / Preliminaries
+## 3 Cross-Modal Anchoring: Stimulus and Measurement
 
-> Optional. 독자가 본 논문을 이해하기 위해 필요한 표기·정의·전제를 정리.
+> Paradigm 도입. (a − m) paired contrast 는 §3.2 에 별도 격상 — §4 phenomenon, §5 mechanism, §6 mitigation 세 cluster 모두 이 substrate 를 재사용.
 
-### 3.1 표기 (Notation)
+### 3.1 4-condition stimulus (b / a / m / d)
 
-{{}}
+{{Target only / target + anchor / target + masked anchor / target + neutral distractor 의 정의 + 설계 의도. 자극 예시 + 자세한 spec 은 Appendix A.}}
 
-### 3.2 {{Concept / setup primer}}
+### 3.2 (a − m) paired contrast — digit-pixel 인과 isolate
 
-{{}}
+{{Anchor 이미지 안의 *다른 모든 변수* (이미지 존재, 추가 attention 부하, 배경 텍스처) 를 m 이 그대로 carry 하므로, (a − m) 차이는 *digit pixel* 만 isolate 한다는 design 논리. §4 의 digit-pixel causal-gate finding + §6 의 calibration 신호 양쪽의 substrate.}}
 
----
+### 3.3 Anchoring 측정 (metrics)
 
-## 4 Method
+{{Direction-follow (primary, gt-free) / adopt (literal copy) / exact-match. 정확한 정의 + 본문에서 어떤 metric 이 어떤 claim 을 carry 하는지.}}
 
-### 4.1 문제 정식화 (Problem formulation)
+### 3.4 Models and datasets (brief)
 
-{{}}
-
-### 4.2 {{Method component 1}}
-
-{{}}
-
-### 4.3 {{Method component 2}}
-
-{{}}
-
-### 4.4 알고리즘 / pseudocode
-
-{{Algorithm box}}
+{{6 open-weight VLM × 5 dataset main panel 의 한 줄 summary. 자세한 사양 + filter / sampling 은 Appendix B.}}
 
 ---
 
-## 5 Experimental Setup
+## 4 Phenomenon
 
-### 5.1 데이터 (Data)
+> *언제* 그리고 *무슨 조건* 에서 anchoring 이 일어나는가.
 
-{{Datasets, splits, preprocessing}}
+### 4.1 {{Graded pull across models and datasets}}
 
-### 5.2 모델 (Models)
+{{F1 — 약 10–40 % 응답이 anchor 쪽으로 점진적 끌림, 일부 (1.7–15.7 %) 는 그대로 베낌. 6 model × 5 dataset cross-table.}}
 
-{{Models / baselines / sizes}}
+### 4.2 {{Confidence modulation}}
 
-### 5.3 평가 metric
+{{F2 — base prediction confidence 가 낮을수록 끌림이 큼. L1 6-bin monotonic gradient (5 dataset × 6 model 위 단조).}}
 
-{{Primary metric + secondary metrics + statistical test}}
+### 4.3 {{Digit-pixel causal gate via (a − m)}}
 
-### 5.4 구현 세부 (Implementation details)
-
-{{Hyperparams, hardware, seeds, reproducibility pointer}}
+{{F3 — anchor 이미지의 digit pixel 만 가린 m 으로 비교 시 끌림이 일반 distractor 수준으로 사라짐. (a − m) gap 의 dataset/model 별 크기.}}
 
 ---
 
-## 6 Results
+## 5 Mechanism Analysis
 
-### 6.1 Main results
+> *어디* 에서 anchoring representation 이 형성되는가.
 
-{{Headline table / figure}}
+### 5.1 {{Layer-wise localization}}
 
-### 6.2 {{Result group 2}}
+{{Layer × model heatmap, peak layer identification on calibration set.}}
 
-{{}}
+### 5.2 {{Single-layer ablation + multi-layer redundancy}}
 
-### 6.3 {{Result group 3}}
+{{Single-layer null result (5/5), multi-layer redundancy 시사. §6 mitigation site / multi-direction subspace 설계의 motivation.}}
 
-{{}}
+### 5.3 {{Late-layer formation site}}
 
----
-
-## 7 Analysis
-
-### 7.1 Ablations
-
-{{}}
-
-### 7.2 {{Mechanism / probing analysis}}
-
-{{}}
-
-### 7.3 Qualitative examples
-
-{{}}
-
-### 7.4 Negative / null results
-
-{{}}
+{{Anchoring representation 이 LM 후반부 layer 에 형성된다는 통합 결론. §1.2 F4 의 evidence.}}
 
 ---
 
-## 8 Discussion
+## 6 Mitigation
 
-### 8.1 함의 (Implications)
+> Method + cross-dataset results + capability preservation 한 section 에.
+
+### 6.1 {{Method: subspace projection from (a − m) calibration}}
+
+{{(a − m) 차이 vector 들의 SVD top-K subspace 를 LM 후반부 residual 에 projection 으로 제거. Algorithm box.}}
+
+### 6.2 {{Calibration setup + hyperparameters}}
+
+{{Calibration set (보조 dataset 1–2개), projection rank K, layer 선택 근거.}}
+
+### 6.3 {{Cross-dataset anchoring 감소}}
+
+{{5 dataset 위 anchoring 효과 변화 (Δdf, Δadopt). Paired bootstrap CI.}}
+
+### 6.4 {{Capability preservation (held-out benchmarks)}}
+
+{{6 일반 capability benchmark (HallusionBench, AMBER, POPE, MME 등) 에서 평균 성능 변화 +0.41 pp.}}
+
+---
+
+## 7 Discussion
+
+### 7.1 함의 (Implications)
 
 {{}}
 
-### 8.2 다른 접근과의 비교
+### 7.2 다른 접근과의 비교
 
 {{}}
 
-### 8.3 후속 작업 (Future work)
+### 7.3 후속 작업 (Future work)
 
 {{}}
 
-### 8.4 Ecological validity — closed-API VLM-as-judge pilot
+### 7.4 Ecological validity — closed-API VLM-as-judge pilot
 
 - §1.1 hook (deployment relevance) 의 보충 검증. 5 closed-API judge × 2 dataset × 3 arm × n=200 pilot.
 - 결과 mixed: gpt-4o (digit-specific) / gemini-2.5-flash (distractor-general) 에서 anchoring 관찰; gpt-5.1 / gemini-2.5-pro / claude 는 robust.
@@ -181,7 +171,7 @@
 
 ---
 
-## 9 Conclusion
+## 8 Conclusion
 
 {{한 문단 요약: 무엇을 했고, 무엇을 보였고, 왜 중요한가}}
 
