@@ -717,6 +717,36 @@ contingent on P0-1 bridge experiment.
 
 ## 10. Changelog
 
+- **2026-05-16 (§4.3 Insight 2/3 prose drift fix + InternViT 잔존 reference 제거).**
+  PR #42 (Figure 4 슬로프 플롯) merge 시 surface 된 두 prose drift 를
+  canonical [`main_panel_5dataset_per_cell.csv`](../docs/insights/_data/main_panel_5dataset_per_cell.csv)
+  cond_class='a' rows 위에서 5-dataset df(a) wrong-base S1 재집계 후 정정.
+  (i) **Insight 2 anti-scaling fact**: "Gemma3-4b가 3개 dataset
+  (PlotQA/ChartQA/MathVista) 에서 27B 보다 끌린다" → 실제 4 / 5 dataset
+  (PlotQA +16.8 pp / ChartQA +10.6 pp / MathVista +8.2 pp / TallyQA +2.1 pp
+  marginal; InfoVQA −2.6 pp reversal). Figure 4 caption ("4 dataset에서
+  27B 위쪽") 과의 self-conflict 해소. Load-bearing magnitude 는 chart /
+  plot / math 3 dataset (+8 ~ +17 pp) 에 집중, TallyQA marginal 로 honest
+  disclose. (ii) **Insight 3 robustness ordering**: stale "Qwen-ViT >
+  SigLIP-Gemma (27b) > InternViT (8b) > SigLIP-Gemma (4b) > AnyRes-SigLIP
+  (OneVision)" → 5-dataset mean df(a) 위 실제 ordering "Qwen-ViT
+  (qwen2.5-vl-7b 0.146 / qwen2.5-vl-32b 0.163) > AnyRes-SigLIP (OneVision
+  0.178) > SigLIP (LLaVA-Interleave 0.226) > SigLIP-Gemma (gemma3-27b
+  0.260 / gemma3-4b 0.330)". 두 drift 모두: (a) InternViT (8b)
+  reference 는 InternVL3 panel-removal (2026-05-10 PR #21/#22) 이후
+  의 잔존; (b) OneVision 이 *3rd-most-robust* 임에도 paper 가 *last*
+  로 적어 데이터와 모순. Encoder-family-determines-robustness 강한
+  claim 도 같이 softened — 동일 SigLIP-So400m 을 공유하는 3 모델
+  (OneVision / LLaVA-Interleave / Gemma3-27b) 의 mean df 가 0.178 ~ 0.260
+  범위에 분포하므로 LM backbone × routing × calibration 조합도 동시
+  작동. **Files**: `docs/paper/emnlp_draft_ko.md` §4.3 Insight 2 (L181)
+  + Insight 3 (L183); `docs/paper/sections/01_intro.md` (gitignored local
+  copy) E4 encoder list 의 "InternViT" 단어 1 개 prune. **Verification**:
+  `grep -n internvl docs/paper/{emnlp_draft_ko.md,sections/*.md}` clean
+  (0 match); "3개 dataset.*anti-scaling" + "AnyRes-SigLIP (OneVision)$"
+  ordering pattern grep clean. Branch
+  `paper/section-4-3-insight-2-3-fix-internvl-purge`.
+
 - **2026-05-14 (E7 — ActAdd + QAO recalibration on PlotQA + InfoVQA pool, §7.4.5 fail-table updated).**
   E6 LEACE recal (PR #40, Outcome B) 의 동일 OneVision Main + (a−m)
   calibration scope 위에서 §7.4.5 fail-table 의 두 baseline (single-direction
