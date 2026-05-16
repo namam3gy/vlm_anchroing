@@ -111,19 +111,6 @@
 
 {{본 subsection 은 main panel 의 6 open-weight VLM 과 5 dataset 을 한 단락으로 소개한다. Model: LLaVA-OneVision-7B (Main), LLaVA-Interleave-7B, Qwen2.5-VL-7B / 32B, Gemma3-4B / 27B. Dataset: TallyQA (counting), ChartQA / PlotQA / InfoVQA (chart-style numeric QA), MathVista (visual math). Filter / sampling / GT range / anchor inventory 디테일은 Appendix B / C.}}
 
-**Preview Table §3.4 — Main panel.**
-
-| Models (6) | Datasets (5) |
-|---|---|
-| LLaVA-OneVision-7B (**Main**) | TallyQA — counting (GT 0–8) |
-| LLaVA-Interleave-7B | ChartQA — chart QA (GT 0–1000) |
-| Qwen2.5-VL-7B | MathVista — visual math (GT 0–1000) |
-| Qwen2.5-VL-32B | PlotQA — plot QA (GT 0–10000) |
-| Gemma3-4B | InfographicVQA — infographic QA (GT 0–10000) |
-| Gemma3-27B | |
-
-> 자세한 사양 (filter 통과 후 n, GT distribution, anchor stratum scheme) → Appendix B.
-
 ---
 
 ## 4 Phenomenon
