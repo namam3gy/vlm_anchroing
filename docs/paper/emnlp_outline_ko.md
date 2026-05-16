@@ -13,7 +13,7 @@
 - **Finding 2 (causal gate).** 같은 anchor 이미지에서 숫자 픽셀만 가린 *masked* 짝을 만들어 비교하면 위 끌림이 일반 distractor 수준으로 사라진다 — 즉 anchoring 은 *(보이는 digit) × (모델 uncertainty)* 두 조건의 conjunction.
 - **Method.** 본 논문은 anchored 와 masked 짝의 *paired contrast* 를 신호로 삼아 모델 내부의 anchoring representation 을 추정하고, inference 시 이를 제거하는 mitigation 을 제안한다.
 - **Result.** 5 dataset 위에서 anchoring 효과 감소 + anchor 가 있는 경우와 없는 경우 모두 정확도 동시 상승, 6 held-out capability benchmark 평균 보존 (+0.41 pp).
-- **Implication.** Mechanism 분석은 anchoring signal 이 단일 layer 가 아니라 모델 후반부 여러 layer 에 분산되어 존재함을 보여, vision-modality bias 가 LM 후반부에 *분리 및 제거 가능한 representation 단위* 로 존재해 retraining 이나 prompt-level 방어 없이 inference 시 직접 개입할 수 있음을 시사한다.
+- **Implication.** Mechanism 분석은 anchoring signal 이 *multi-layer redundant* 하게 routing 됨을 보여 (single-layer ablation null + per-model peak heterogeneity), model-specific integration site 에 *분리 및 제거 가능한 representation 단위* 로 통합되어 retraining 이나 prompt-level 방어 없이 inference 시 직접 개입할 수 있음을 시사한다.
 
 ---
 
@@ -31,7 +31,7 @@
 - **F1 (graded pull).** 약 15-33 % 의 응답이 anchor 쪽으로 점진적으로 끌리고, 그 중 일부 (약 3-15 %) 는 anchor 를 그대로 베낀다 — 효과의 질량은 *literal copy* 가 아닌 *점진적 이동* 에 있다.
 - **F2 (uncertainty modulation).** 끌리는 정도는 base 답에 대한 모델 confidence 가 낮을수록 크다 (5 dataset × 6 model L1 6-bin 위 단조 monotonic gradient).
 - **F3 (digit-pixel causal gate).** Anchor 이미지에서 digit pixel 만 가린 *masked* 짝과 비교하면 끌림이 일반 distractor 수준으로 사라진다 — *digit pixel × uncertainty* 두 조건의 conjunction.
-- **F4 (mechanism).** Anchoring 의 internal representation 은 LM 후반부 layer 에 형성된다 — 이 위치는 본 논문 mitigation 의 작용 site 가 된다.
+- **F4 (mechanism).** Anchoring representation 은 *multi-layer redundant* 하며 (single-layer ablation null + per-model peak heterogeneity), mitigation 은 model-specific integration site (OneVision Main 의 경우 L=26) 에 작용.
 
 ### 1.3 접근과 결과 (Approach & Result)
 
@@ -42,8 +42,8 @@
 ### 1.4 기여 (Contributions)
 
 - **C1 (Phenomenon).** Cross-modal numerical anchoring 을 5 dataset × 6 open-weight VLM 위에서 정량 보고 — 약 15-33 % 의 응답이 무관한 이미지의 digit 으로 끌리며 (일부는 그대로 베끼고), 끌림은 모델 confidence 에 비례해 graded 되며, anchor 이미지에서 digit pixel 만 가리면 효과가 사라짐. 행동 + causal gate 동시 검증.
-- **C2 (Mitigation).** *(a − m) paired contrast* 를 calibration 신호로 활용해 LM 후반부의 anchoring representation 을 한 차례 추정하고, inference 시 모든 입력에 projection 으로 일괄 적용. anchor label 이나 runtime 탐지 불필요. 5 dataset 에서 anchoring 효과 감소 + 6 일반 capability benchmark 평균 +0.41 pp 보존.
-- **C3 (Mechanism evidence).** Mechanism 분석으로 (i) anchoring representation 이 LM 후반부 layer 에 위치하고, (ii) 그 layer 안에서도 single direction 으로 reduce 되지 않음을 보여 — §6 mitigation 의 *작용 site* 와 *multi-direction subspace* 설계 모두에 근거를 제공.
+- **C2 (Mitigation).** *(a − m) paired contrast* 를 calibration 신호로 활용해 model-specific integration site (OneVision Main 의 경우 L=26) 의 anchoring representation 을 한 차례 추정하고, inference 시 모든 입력에 projection 으로 일괄 적용. anchor label 이나 runtime 탐지 불필요. 5 dataset 에서 anchoring 효과 감소 + 6 일반 capability benchmark 평균 +0.41 pp 보존.
+- **C3 (Mechanism evidence).** Mechanism 분석으로 (i) anchoring representation 이 *multi-layer redundant* 하게 분포 (single-layer ablation null + per-model peak heterogeneity — single causal layer 부재), (ii) within-layer single direction 으로도 reduce 되지 않음을 보여 — §6 mitigation 의 *model-specific integration site* 와 *multi-direction subspace* 설계 모두에 근거를 제공.
 
 ---
 
@@ -150,13 +150,13 @@
 
 ## 5 Mechanism: Locating Anchoring Representation
 
-> *위치* (어느 layer) 와 *차원* (한 layer 안에서 몇 개 방향) 두 측면에서 anchoring representation 의 mechanism 을 측정 — §6 mitigation 의 site 선택과 subspace 설계 두 design choice 의 evidence 를 제공.
+> *위치 분포* (model 별 peak heterogeneity + multi-layer redundancy) 와 *차원* (한 layer 안에서 multi-direction) 두 측면에서 anchoring representation 의 mechanism 을 측정 — §6 mitigation 의 model-specific integration site 선택과 subspace 설계 두 design choice 의 evidence 를 제공.
 
-### 5.1 Layer-wise probes: late-LM peak
+### 5.1 Layer-wise probes: per-model peak heterogeneity
 
-{{본 subsection 은 perfect-square 5-model mechanism panel (ConvLLaVA-7B, FastVLM-7B, Gemma4-E4B, LLaVA-1.5-7B, Qwen2.5-VL-7B; §3.4 main 6-model panel 과 별도) 위 layer-wise linear probe 로 anchoring representation 이 어느 layer 에 가장 강하게 형성되는지를 측정한다. 결과는 LM 후반부 (peak layer) 에서 가장 강하게 검출되어, §6 mitigation 의 *작용 site* (late LM layer) 의 mechanism evidence 를 제공. 5/5 모델 모두 후반부 peak 가 일관되게 형성되어 cross-model robustness 도 동시에 확인. OneVision Main 은 §5.3 OneVision-only 확장으로 별도 검증.}}
+{{본 subsection 은 5-model mechanism panel (convllava-7b, fastvlm-7b, gemma4-e4b, llava-1.5-7b, qwen2.5-vl-7b; §3.4 main 6-model panel 과 별도) 위 calibration dataset (PlotQA; qwen2.5-vl-7b 는 PlotQA peak 미측정으로 VQAv2 reference) 에서 model 별 (text → 두 번째 이미지) attention peak layer 를 식별. 각 모델의 peak 은 *1-2 layer 로 명확히 좁혀지나 위치는 model-dependent* — gemma4-e4b L=5/42 (early), llava-1.5 / convllava L=14/32 (mid), fastvlm L=17/28 (mid), qwen2.5-vl L=22/28 (mid-late, VQAv2 ref). 이 *peak heterogeneity* (single uniform causal site 부재) 가 §5.3 routing-and-integration framework 의 직접 supporting evidence — model 별 다른 peak 위치가 *routing pathway 가 multi-layer + integration site 가 model-architecture-dependent* 라는 framework prediction 과 일관. Model-specific peak 은 §5.2 single-layer ablation 의 target 으로 사용. OneVision Main 은 dataset-dependent peak (Plot/Tally L=27 vs Info/VQAv2 L=14) 으로 panel-level single peak 미정의 — §5.3 별도 논의.}}
 
-> **TODO (Appendix table):** Layer × model probe-strength heatmap (5-model panel). 본문에는 cross-model 일관성 한 줄만, full panel data 는 appendix.
+> **TODO (Appendix table):** 5-model × calibration dataset peak layer 표 (n_layers, peak_layer, peak_frac, CI). Source: `docs/insights/_data/cross_dataset_peaks.csv`.
 
 ### 5.2 K-subspace sweep: multi-direction within a layer
 
@@ -177,7 +177,7 @@
 
 ### 5.3 Multi-layer routing-and-integration (post-hoc characterization)
 
-{{본 subsection 은 single-layer ablation null + late-layer probe peak 의 두 관찰을 *routing-and-integration* framework 로 합성한다 — multi-layer attention pathway 가 anchoring 신호를 *routing* (처리) 하고, late-layer residual 에서 통합 표현으로 *integration* (집계). Anchoring representation 의 전체 구조에 대한 post-hoc characterization 으로, design 의 driver 라기보다 §5.1 / §5.2 finding 을 묶는 통합 narrative.}}
+{{본 subsection 은 §5.1 의 *per-model peak heterogeneity* + §5.2 의 *single-layer ablation null* + *K-subspace sweep* 세 mechanism finding 을 *routing-and-integration* framework 로 합성한다 — anchoring 신호가 multi-layer attention pathway 를 통해 *routing* 되고 (multi-layer 처리, model 마다 다른 site 를 통과), residual stream 의 한 model-specific site 에 *integration* 으로 통합됨. *Heterogeneity* 와 *single-layer null* 이 framework 의 자연 prediction — uniform causal site 가 없는 것은 routing pathway 가 multi-layer 인 직접 결과, integration site 가 architecture-dependent 인 것도 같은 해석에 부합. OneVision Main 의 경우 integration site 는 §6.2.4 sweep 위 L=26 (28-layer Qwen2 의 93 %, 즉 late residual). Anchoring representation 의 전체 구조에 대한 post-hoc characterization 으로 §5.1 / §5.2 finding 을 묶는 통합 narrative.}}
 
 > Cross-architecture partial verification (Qwen3-VL γ-β residual-stream bridge) 은 **Appendix E**.
 
@@ -185,7 +185,7 @@
 
 ## 6 Mitigation: Calibrated Subspace Projection
 
-> §5 mechanism finding (late-LM site + within-layer multi-direction) 위에 *calibrated subspace projection* mitigation 을 구축. 한 차례 calibration 후 inference 시 anchor label 없이 deployable.
+> §5 mechanism finding (multi-layer routing + model-specific integration site + within-layer multi-direction) 위에 *calibrated subspace projection* mitigation 을 구축. OneVision Main 의 경우 integration site = L=26 (28-layer 의 93 %, late residual). 한 차례 calibration 후 inference 시 anchor label 없이 deployable.
 
 ### 6.1 Method (algorithm + (a − m) calibration recipe)
 
@@ -251,7 +251,7 @@ Primary metric Δdf(a) (negative = anchoring 감소), secondary Δadopt(a) + Δe
 
 ## 8 Conclusion
 
-{{본 paper 는 VLM 의 *cross-modal numerical anchoring* 을 6 open-weight model × 5 dataset 위에서 정량 보고하고 (graded pull + digit-pixel causal gate + confidence modulation), 그 mechanism (LM 후반 layer 의 within-layer multi-direction representation) 을 mechanism 분석으로 입증하며, (a − m) paired contrast 로부터 *calibrated subspace projection* mitigation 을 구축한다. Mitigation 은 5 dataset 에서 anchoring 감소 + 6 capability benchmark 평균 +0.41 pp 보존 — *anchor label 없이* one-time calibration 으로 inference 시 deployable. 코드/데이터: {{repo URL}}.}}
+{{본 paper 는 VLM 의 *cross-modal numerical anchoring* 을 6 open-weight model × 5 dataset 위에서 정량 보고하고 (graded pull + digit-pixel causal gate + confidence modulation), 그 mechanism (*multi-layer redundant routing + within-layer multi-direction representation*) 을 mechanism 분석으로 입증하며, (a − m) paired contrast 로부터 *calibrated subspace projection* mitigation 을 OneVision Main 의 model-specific integration site (L=26) 위에 구축한다. Mitigation 은 5 dataset 에서 anchoring 감소 + 6 capability benchmark 평균 +0.41 pp 보존 — *anchor label 없이* one-time calibration 으로 inference 시 deployable. 코드/데이터: {{repo URL}}.}}
 
 ---
 
