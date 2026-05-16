@@ -154,9 +154,9 @@
 
 ### 5.1 Layer-wise probes: per-model peak heterogeneity
 
-{{본 subsection 은 6-model mechanism panel (convllava-7b, fastvlm-7b, gemma4-e4b, llava-1.5-7b, qwen2.5-vl-7b, OneVision Main; §3.4 main 6-model panel 과 architecture 선정 기준이 달라 partially overlapping) 위 calibration dataset (PlotQA; qwen2.5-vl-7b 는 PlotQA peak 미측정으로 VQAv2 reference) 에서 model 별 (text → 두 번째 이미지) attention peak layer 를 식별. 각 모델의 peak 은 *1-2 layer 로 명확히 좁혀지나 위치는 model-dependent* — gemma4-e4b L=5/42 (early), llava-1.5 / convllava L=14/32 (mid), fastvlm L=17/28 (mid), qwen2.5-vl L=22/28 (mid-late, VQAv2 ref), OneVision Main L=27/28 (late on PlotQA; *OneVision 만 dataset-dependent peak* — Info/VQAv2 에서는 L=14). 이 *peak heterogeneity* (cross-model + OneVision-internal cross-dataset; single uniform causal site 부재) 가 §5.3 routing-and-integration framework 의 직접 supporting evidence — model / dataset 별 다른 peak 위치가 *routing pathway 가 multi-layer + integration site 가 architecture / data-dependent* 라는 framework prediction 과 일관. Model-specific peak 은 §5.2 single-layer ablation 의 target 으로 사용.}}
+{{본 subsection 은 6-model mechanism panel (convllava-7b, fastvlm-7b, gemma4-e4b, llava-1.5-7b, qwen2.5-vl-7b, OneVision Main; §3.4 main 6-model panel 과 architecture 선정 기준이 달라 partially overlapping) 위 calibration dataset (PlotQA) 에서 model 별 (text → 두 번째 이미지) attention peak layer 를 식별 (qwen2.5-vl-7b 는 paper evaluation suite 위 attention probe 미측정 → 5 model 위 peak heterogeneity 묘사). 각 모델의 peak 은 *1-2 layer 로 명확히 좁혀지나 위치는 model-dependent* — gemma4-e4b L=5/42 (early), llava-1.5 / convllava L=14/32 (mid), fastvlm L=17/28 (mid), OneVision Main L=27/28 (late on PlotQA / TallyQA; *OneVision 만 dataset-dependent peak* — InfoVQA 에서는 L=14). 이 *peak heterogeneity* (cross-model + OneVision-internal cross-dataset; single uniform causal site 부재) 가 §5.3 routing-and-integration framework 의 직접 supporting evidence — model / dataset 별 다른 peak 위치가 *routing pathway 가 multi-layer + integration site 가 architecture / data-dependent* 라는 framework prediction 과 일관. Model-specific peak 은 §5.2 single-layer ablation 의 target 으로 사용.}}
 
-> **TODO (Appendix table):** 5-model × calibration dataset peak layer 표 (n_layers, peak_layer, peak_frac, CI). Source: `docs/insights/_data/cross_dataset_peaks.csv`.
+> Per-(model, dataset) peak layer 표 (5 model × 3 dataset, n_layers / peak L / depth-norm / peak Δ / 95 % CI) 는 **Appendix G** 참조.
 
 ### 5.2 K-subspace sweep: multi-direction within a layer
 
@@ -173,7 +173,7 @@
 > Blue = K=8 layer sweep (5 layers × 5 datasets), Red = K=1 at L=26. K=1 (red square) 가 K=8 (blue point at L=26) 보다 anchoring 감소 효과 약함 — single-direction 으로는 부족하다는 5-dataset cross-check.
 
 > **TODO (Body figure final):** 위 preview 둘 중 하나로 통합 (또는 5-dataset 평균 K=1/2/4/8 bar chart 신규 빌드).
-> **TODO (Appendix):** LEACE rank-1 + ActAdd + K=1 SVD per-dataset 결과 표 (convergent negative evidence).
+> LEACE rank-1 + ActAdd + K=1 SVD per-dataset Δdf(a) 비교 표 (convergent negative evidence) 는 **Appendix H** 참조 — 3 method 가 동일한 *TallyQA backfire + PlotQA undershoot* 패턴 공유.
 
 ### 5.3 Multi-layer routing-and-integration (post-hoc characterization)
 
@@ -242,6 +242,8 @@ Primary metric Δdf(a) (negative = anchoring 감소), secondary Δadopt(a) + Δe
 ### 7.1 Implications (including ecological validity)
 
 {{본 subsection 은 paper 의 행동 + mechanism + mitigation finding 을 *한 narrative* 로 종합하고, *ecological validity* 의 보충 검증 (closed-API VLM-as-judge pilot) 으로 마무리한다. Pilot 결과 (5 judge × 2 dataset × n=200): gpt-4o / gemini-2.5-flash 에서 anchoring 관찰, gpt-5.1 / gemini-2.5-pro / claude 는 robust. Open-weight 인공물 아니며 frontier judge 도 부분적으로 surface — mitigation 의 deployment relevance 보강. 단 *모든* 시스템 영향 받는다고 overclaim 하지 않음.}}
+
+> Per-judge headline matrix (5 judge × 2 dataset × 3 arm), two attack patterns (digit-specific vs distractor-general), within-vendor ablations (OpenAI generation, Google reasoning), and caveats 는 **Appendix J** 참조.
 
 ### 7.2 Future work
 
@@ -518,3 +520,124 @@ Table E.1 에서 K=1 이 K=8 보다 강한 cell 이 있음 (예: L=30 K=1 +0.477
 | §6.3 per-benchmark capability | `docs/insights/_data/capability_eval_per_benchmark.{csv,md}` |
 | Appendix D.1/D.2 per-cell tables | 동일 `main_panel_5dataset_per_cell.csv` |
 | Appendix E γ-β bridge L×K sweep | `docs/insights/_data/gamma_beta_bridge_lk_sweep.{csv,md}` |
+| Appendix G attention peak per (model, dataset) | `docs/insights/_data/cross_dataset_peaks.csv` |
+| Appendix H LEACE rank-1 / ActAdd / K=1 SVD per-dataset | `docs/insights/_data/leace_recal_per_dataset_ci.{csv,md}`, `actadd_recal_per_dataset_ci.{csv,md}`, `p4_layer_sweep_per_cell_ci.csv` |
+| Appendix J closed-API judge pilot 5×2×3×200 | `docs/insights/judge-pilot-results.md` |
+
+---
+
+## G Layer-wise attention peak per (model, calibration dataset)
+
+> §5.1 supporting evidence. Mechanism panel 5 model × 3 dataset 의 (text → 두 번째 이미지) attention peak layer 와 magnitude 를 한 표로 정리. qwen2.5-vl-7b 는 paper evaluation suite (TallyQA / ChartQA / PlotQA / InfoVQA / MathVista) 위 attention probe 미측정으로 본 표에서 제외 — mechanism panel membership 자체는 유지 (§3.4 architecture coverage 목적).
+
+**Definition.** 각 모델 × dataset 위에서 generation 의 *answer step* (final-numeric-token 생성 step) 의 layer-별 attention mass 를 anchor 와 distractor 조건에서 측정 — `peak_Δ = (anchor-arm − distractor-arm)` second-image-token attention. `peak_layer` = 그 Δ 가 최대값을 가지는 layer, `depth-norm = peak_layer / n_layers`. 95 % CI 는 sample-instance bootstrap.
+
+**Table G.1 — Per-(model, dataset) attention peak (answer step).** Source: `docs/insights/_data/cross_dataset_peaks.csv`.
+
+| Model | n_layers | Dataset | n | peak L | depth-norm | peak Δ | 95 % CI |
+|---|---:|---|---:|---:|---:|---:|---|
+| convllava-7b | 32 | TallyQA | 200 | 7 | 0.22 | +0.027 | [+0.025, +0.028] |
+| convllava-7b | 32 | **PlotQA** | 189 | **14** | 0.45 | +0.090 | [+0.084, +0.097] |
+| convllava-7b | 32 | InfoVQA | 190 | 12 | 0.39 | +0.029 | [+0.025, +0.032] |
+| fastvlm-7b | 28 | TallyQA | 50 | 23 | 0.85 | +0.030 | [+0.022, +0.038] |
+| fastvlm-7b | 28 | **PlotQA** | 205 | **17** | 0.63 | +0.051 | [+0.047, +0.055] |
+| fastvlm-7b | 28 | InfoVQA | 186 | 27 | 1.00 | +0.024 | [+0.019, +0.029] |
+| gemma4-e4b | 42 | TallyQA | 200 | 5 | 0.12 | +0.051 | [+0.048, +0.055] |
+| gemma4-e4b | 42 | **PlotQA** | 205 | **5** | 0.12 | +0.037 | [+0.034, +0.040] |
+| gemma4-e4b | 42 | InfoVQA | 200 | 5 | 0.12 | +0.033 | [+0.031, +0.036] |
+| llava-1.5-7b | 32 | TallyQA | 192 | 8 | 0.26 | +0.018 | [+0.016, +0.019] |
+| llava-1.5-7b | 32 | **PlotQA** | 205 | **14** | 0.45 | +0.039 | [+0.036, +0.043] |
+| llava-1.5-7b | 32 | InfoVQA | 198 | 8 | 0.26 | +0.017 | [+0.015, +0.019] |
+| OneVision-7B (Main) | 28 | TallyQA | 79 † | 27 | 1.00 | +0.031 | [+0.024, +0.037] |
+| OneVision-7B (Main) | 28 | **PlotQA** | 204 | **27** | 1.00 | +0.027 | [+0.023, +0.030] |
+| OneVision-7B (Main) | 28 | InfoVQA | 200 | 14 | 0.52 | +0.010 | [+0.009, +0.012] |
+
+**Bold** = §5.1 본문에서 reference 되는 calibration dataset 선택 (PlotQA). † = n_low (OneVision TallyQA attention-trace pool 이 작음); peak L 는 OneVision 의 두 *late-peak* dataset (PlotQA, TallyQA) 모두 L=27 / InfoVQA L=14 로 일관 — 직접 magnitude 비교는 주의.
+
+**Observation.** Calibration-dataset peak depth-norm 범위 = 0.12 (gemma4-e4b, 3/3 dataset) → 1.00 (fastvlm InfoVQA, OneVision PlotQA / TallyQA). Cross-model heterogeneity (5 model 의 peak depth-norm 이 early / mid / late 전 범위 cover) + OneVision intra-model heterogeneity (PlotQA / TallyQA 에서 L=27, InfoVQA 에서 L=14) 가 §5.1 *peak heterogeneity* claim 의 직접 수치 backing — *single uniform causal site 부재* 는 model / dataset 별 routing pathway 변동에 의한 자연 결과 (§5.3 framework prediction).
+
+---
+
+## H Single-direction methods: convergent negative evidence (§5.2)
+
+> §5.2 supporting evidence. 한 layer 안에서 single direction 만 제거하는 3 method 가 5 dataset 위에서 anchoring 을 충분히 줄이지 못함을 보여 — *within-layer multi-direction representation* 의 직접 evidence + §6 K=8 design 선택의 정당화.
+
+**Methods compared (모두 OneVision Main, injection site = L=26, α=1.0).**
+
+| Method | Description | Source |
+|---|---|---|
+| **LEACE rank-1** | Closed-form linear erasure [Belrose 2023]. `X_neg = h^b`, `X_pos = h^b + (h^a − h^m)`, PlotQA + InfoVQA pool calibration. | `leace_recal_per_dataset_ci.{csv,md}` |
+| **ActAdd** | Paired-contrast mean shift [Panickssery 2024] (CAA-style), wrong-base filter, PlotQA + InfoVQA pool. | `actadd_recal_per_dataset_ci.{csv,md}` |
+| **K=1 SVD** | Top-1 singular direction of (h^a − h^m) paired residual matrix, PlotQA + InfoVQA pooled n5k. | `p4_layer_sweep_per_cell_ci.csv` (`L26_K01_a1.0`) |
+| **K=8 SVD (ref)** | Top-8 singular directions (§6 chosen cell). | `stage4_final_per_dataset_ci.{csv,md}` |
+
+**Table H.1 — Δdf(a) [95 % CI] per dataset (pp).** Bold = 95 % CI excludes 0 (sign-clean).
+
+| Dataset | LEACE rank-1 | ActAdd | K=1 SVD | K=8 SVD (ref) |
+|---|---:|---:|---:|---:|
+| TallyQA | +0.60 [+0.00, +1.24] | +0.23 [−0.04, +0.50] | **+1.35** [+0.52, +2.17] | −0.3 [−1.3, +0.6] |
+| PlotQA | −0.52 [−1.34, +0.30] | −0.39 [−1.04, +0.26] | −0.35 [−1.65, +0.91] | **−5.2** [−6.9, −3.4] |
+| InfoVQA | −0.68 [−2.48, +1.35] | +1.35 [−0.23, +3.16] | −1.35 [−4.51, +1.81] | −0.7 [−4.7, +3.4] |
+| ChartQA | −2.23 [−4.46, +0.00] | −1.34 [−4.02, +1.34] | −2.68 [−6.70, +1.34] | −4.0 [−9.8, +1.8] |
+| MathVista | 0.00 [−3.53, +3.53] | 0.00 [−3.53, +3.53] | +5.29 [−2.35, +12.94] | −4.1 [−11.8, +3.5] |
+
+> n_paired 가 method 별로 다른 이유: LEACE TallyQA n=2493 (eraser-eligible filter), ActAdd n=8146 (wrong-base only), K=1 / K=8 SVD n≈4975 (4-condition wrong-base eligible). α ∈ {0.5, 2.0} 변형 cell 은 source CSV 에 포함, qualitative 패턴 동일.
+
+**Convergent pattern.** 3 single-direction method 가 두 가지 dataset-specific failure pattern 을 공유 — 
+- (i) **TallyQA backfire.** 3/3 method 가 점추정 Δdf(a) > 0 at α=1.0 (LEACE +0.60, ActAdd +0.23, K=1 SVD +1.35; K=1 SVD 만 95 % CI strict sign-clean). 같은 site 의 K=8 SVD 는 −0.3 pp 로 backfire 가 해소.
+- (ii) **PlotQA undershoot.** 3/3 method 가 |Δ| < 0.6 pp 이고 모두 95 % CI overlaps 0; K=8 SVD 의 PlotQA Δdf −5.2 pp [−6.9, −3.4] (sign-clean) 대비 ~10 배 약함.
+
+Design 이 다른 3 method (closed-form erasure / mean shift / single SVD) 위에서 *같은 dataset-specific failure profile* 이 reproduce 된다는 점 — anchoring representation 이 within-layer single direction 으로 reduce 되지 않는다는 §5.2 mechanism claim 의 *method-independent corroboration*. 같은 injection site (L=26) 에서 dimension 만 K=1 → K=8 으로 늘리면 PlotQA Δdf 가 ~10 배 강해지고 TallyQA backfire 도 해소 — §6 *multi-direction subspace (K=8)* 선택의 직접 정당화.
+
+---
+
+## J VLM-as-judge anchoring pilot (closed-API)
+
+> §7.1 ecological validity 의 보조 검증. Closed-API frontier judge 위에서도 cross-modal anchoring 이 surface 되는지 확인 — open-weight Main panel finding 이 architecture 의 artifact 가 아닌 *deployment-realistic 시나리오* 의 phenomenon 임을 보강. §4 / §5 / §6 contribution 대체 아닌 §7.1 *deployment relevance* 보조.
+
+**Setup.** 5 closed-API judges × 2 standard judge benchmarks × 3 arms (b: image only / a: + anchor digit "1" / m: + Telea-masked anchor) × n=200 paired samples per cell. Judge task = *Visual Faithfulness 1–5 rating* (VLFeedback Silkie native rubric). Response selector = chosen (VLFeedback: max average GPT-4V rating; VL-RewardBench: argmax human ranking) — adversarial worst-case (high-baseline samples 에 anchor 가 push 할 room 보존).
+
+| Item | Value |
+|---|---|
+| Datasets | **VLFeedback** (`MMInstruction/VLFeedback`) + **VL-RewardBench** (`MMInstruction/VL-RewardBench`), n=200 each |
+| Anchor | digit "1" (`inputs/irrelevant_number/1.png`); m-arm = same image, digit pixels Telea-masked |
+| Judges | gpt-4o, gpt-5.1, gemini-2.5-pro, gemini-2.5-flash, claude-sonnet-4-5-20250929 |
+| Reasoning | gpt-5.1 + flash via `reasoning_effort=minimal` (non-reasoning); gemini-2.5-pro reasoning forced ON (provider policy) |
+| Gateway | `gateway.letsur.ai/v1` (Staix, OpenAI-compat); 2026-05-13 / 14 access |
+
+**Table J.1 — Headline matrix (5 judge × 2 dataset × 3 arm).** Source: `docs/insights/judge-pilot-results.md`. Bold = |Δ(a−b)| ≥ 0.4 (substantial effect).
+
+| Dataset | Judge | n | b → a → m mean | Δ(a−b) | Δ(m−b) | Δ(a−m) | P(score=1) b → a |
+|---|---|---:|---|---:|---:|---:|---|
+| VLFeedback | **gpt-4o** | 199 | 4.49 → 3.94 → 4.41 | **−0.55** | −0.08 | **−0.47** | 5 % → 25 % (+21 pp) |
+| VLFeedback | gpt-5.1 | 199 | 3.89 → 3.85 → 3.86 | −0.04 | −0.03 | −0.01 | 12 % → 13 % (+0.5 pp) |
+| VLFeedback | gemini-2.5-pro | 193 | 3.67 → 3.68 → 3.77 | +0.02 | +0.10 | −0.08 | 20 % → 22 % (+1.6 pp) |
+| VLFeedback | **gemini-2.5-flash** | 198 | 4.32 → 3.89 → 3.98 | **−0.41** | −0.34 | −0.07 | 14 % → 26 % (+12 pp) |
+| VLFeedback | claude-sonnet-4-5 | 193 | 3.88 → 3.83 → 3.86 | −0.05 | −0.02 | −0.03 | 8 % → 12 % (+3.6 pp) |
+| VL-RewardBench | **gpt-4o** | 199 | 4.61 → 3.65 → 4.27 | **−0.96** | −0.34 | **−0.62** | 2 % → 32 % (+30 pp) |
+| VL-RewardBench | gpt-5.1 | 199 | 3.35 → 3.40 → 3.23 | +0.05 | −0.12 | +0.17 | 14 % → 11 % (−3.0 pp) |
+| VL-RewardBench | gemini-2.5-pro | 165 † | 2.67 → 2.62 → 2.77 | +0.04 | +0.23 | −0.19 | 36 % → 37 % (+0.6 pp) |
+| VL-RewardBench | **gemini-2.5-flash** | 197 | 4.35 → 3.75 → 3.79 | **−0.58** | −0.54 | −0.04 | 8 % → 25 % (+17 pp) |
+| VL-RewardBench | claude-sonnet-4-5 | 198 | 3.26 → 3.11 → 3.14 | −0.15 | −0.12 | −0.03 | 5 % → 11 % (+5.6 pp) |
+
+**Two distinct attack patterns** (via Δ(a−m) vs Δ(m−b) split):
+
+| Pattern | Δ(a−b) | Δ(m−b) | Δ(a−m) | Judges |
+|---|---|---|---|---|
+| **Digit-specific** | large neg | ≈ 0 | large neg | gpt-4o (VLF / VLB Δ(a−m) −0.47 / −0.62) |
+| **Distractor-general** | large neg | ≈ Δ(a−b) | ≈ 0 | gemini-2.5-flash (Δ(m−b) ≈ Δ(a−b)) |
+| Null on both | ≈ 0 | ≈ 0 | ≈ 0 | gpt-5.1 / gemini-2.5-pro / claude-sonnet-4-5 |
+
+> *Digit-specific* 패턴 (gpt-4o) 은 *(a − m) paired contrast* 가 §3.2 / §4.2 와 같은 sign 으로 isolate — 본 paper 의 mechanism 이 closed-API 위에서도 부분적으로 detect 됨. *Distractor-general* (flash) 은 별개 위협 모델 (any second image 에 대한 multi-image instruction-following 약점).
+
+**Within-vendor ablations.**
+- **OpenAI generation (gpt-4o → gpt-5.1).** 같은 vendor 안에서 newer generation 이 anchor susceptibility 를 effectively eliminate (mean Δ(a−b) drop ~1 pt → noise). Cause (RLHF / scale / instruction-following) 는 disentangle 불가.
+- **Google reasoning toggle (pro vs flash).** 같은 family 안에서 reasoning ON (pro) 은 robust, reasoning OFF (flash) 은 highly susceptible — *reasoning 이 anchor-resistance 를 제공* 하는 directional hypothesis support. Pro-vs-flash capability gap 으로 confound (clean ablation 은 pro-reasoning-disabled 필요, provider policy 로 불가).
+
+**Caveats.**
+- Anchor=1 *single anchor digit*; anchor=5 ceiling-push 는 expanded panel 미실행 (earlier 2-judge run 에서 score-5 ceiling 으로 null).
+- Chosen-response selector 가 high-baseline cohort 위 worst-case adversarial — random-response selector 는 ~10 배 attenuated (anchor effect 가 *baseline-conditional*).
+- † gemini-2.5-pro VL-RewardBench parse fail 10 % (longer reasoning chain × `max_output_tokens=2048` budget) → n_pair 165, null reading 에는 충분하나 직접 magnitude 비교 주의.
+- Gateway alias 만 노출 → claude-sonnet-4-5-20250929 외 model 은 alias + access date pattern 으로 citation.
+
+> 본 pilot 은 §4–§7 contribution 의 *대체* 아니며 §7.1 *ecological validity* 보조 — closed-API frontier 일부 (gpt-4o, gemini-2.5-flash) 에서 anchoring 이 surface 됨을 보여 mitigation 의 deployment relevance 보강.
