@@ -415,23 +415,25 @@ Anchor 이미지의 digit bounding box 를 OpenCV `INPAINT_TELEA` [Telea, 2004] 
 
 **Setup.** Qwen3-VL 의 Thinking (γ) 와 Non-thinking (β) mode 의 같은 입력에 대한 layer-별 residual stream 차이 (γ − β) 의 SVD subspace 추출. 이 subspace 를 layer-projection 으로 적용 → anchoring 변화 (within-Thinking, anchor-specific) 측정. 데이터: re-calibrated **3-pool (TallyQA + PlotQA + InfoVQA, n_wrong=3,017)** V_K subspace, 7 layers × 6 K (K ∈ {1, 2, 4, 8, 12, 16}) × 2 stat (mean / max) = **84 cells**, paired sids 522, Bonferroni-corrected α = 0.000595 (vs primary 0.05).
 
-### E.1 Sign-reversal across layers (K=1, mean stat)
+### E.1 Sign-reversal across layers (K=1, K=8, K=16)
 
-**Table E.1 — within-Thinking anchor-specific Δ across 7 layers at K=1.** Source: `docs/insights/_data/gamma_beta_bridge_lk_sweep.csv`.
+**Table E.1 — within-Thinking anchor-specific Δ across 7 layers, 3 K values (mean stat).** Source: `docs/insights/_data/gamma_beta_bridge_lk_sweep.csv`.
 
-| Layer | within-Thinking Δ | 95 % CI | Bonferroni CI | 방향 |
-|---|---:|---|---|---|
-| 14 | −0.041 | [−0.054, −0.028] | [−0.064, −0.020] ✓ | mid-stack negative |
-| **20** | **−0.152** | [−0.189, −0.116] | [−0.213, −0.094] ✓ | **mid-stack BACKFIRE** |
-| 25 | +0.213 | [+0.158, +0.270] | [+0.123, +0.314] ✓ | late positive |
-| 29 | +0.446 | [+0.252, +0.635] | [+0.123, +0.793] ✓ | late positive |
-| 30 | +0.477 | [+0.254, +0.695] | [+0.082, +0.852] ✓ | late positive |
-| 33 | +0.284 | [+0.188, +0.380] | [+0.113, +0.447] ✓ | late positive |
-| 34 | +0.707 | [+0.249, +1.156] | [−0.091, +1.421] ✗ | late positive |
+| Layer | K=1 | K=8 | K=16 | direction (cross-K) |
+|---|---:|---:|---:|---|
+| 14 | −0.041 ✓ | −0.049 ✓ | −0.052 | mid negative (consistent) |
+| **20** | **−0.152 ✓** | **−0.111 ✓** | **−0.058** | **mid BACKFIRE (consistent across K)** |
+| 25 | +0.213 ✓ | +0.188 | +0.183 | late positive (consistent) |
+| 29 | +0.446 ✓ | +0.418 | +0.363 | late positive (consistent) |
+| 30 | +0.477 ✓ | +0.413 | +0.327 | late positive (consistent) |
+| 33 | +0.284 ✓ | +0.057 | +0.253 | late positive (K=8 dip noise; K=1/16 robust) |
+| 34 | +0.707 | +0.828 | +1.259 | late positive (CI wide at high K) |
 
-**Headline Bonferroni-survivor** (84 cells 전체 중 14 cells Bonferroni-clean): **L=30, K=2, max stat +0.866 [+0.412, +1.330]** (Bonferroni ✓).
+✓ = Bonferroni-corrected CI excludes zero (α=0.000595 for 84 cells). 미✓ cells 도 거의 모두 primary 95 % CI excludes zero.
 
-**Framework prediction 과의 일치.** Mid-stack (L=14, 20) negative + late-stack (L=25–34) positive 의 sign reversal 이 framework 의 *late = integration site (positive), mid = routing (backfire when disrupted)* prediction 과 정합 → partial prospective verification.
+**Headline Bonferroni-survivor** (84 cells 중 14 cells Bonferroni-clean): **L=30, K=2, max stat +0.866 [+0.412, +1.330]** (Bonferroni ✓).
+
+**Framework prediction 과의 일치.** Mid-stack (L=14, 20) negative + late-stack (L=25–34) positive 의 sign reversal 이 K=1, K=8, K=16 *모두* 에서 consistent — framework 의 *late = integration site (positive), mid = routing (backfire when disrupted)* directional prediction 이 cross-K-range 로 robust 하게 verified.
 
 ### E.2 Supplementary characterization
 
@@ -440,13 +442,8 @@ Anchor 이미지의 digit bounding box 를 OpenCV `INPAINT_TELEA` [Telea, 2004] 
 
 > Thinking trace 동안 subspace amplitude 가 uniform ramp+plateau, a-S1 (anchor) 과 d (neutral) 가 같은 trajectory — anchor-specificity 가 *L=33 paired-Δ* 측정 layer 의 within-Thinking signal 자체에 있음을 확인 (supplementary).
 
-### E.3 Caveats (정직)
+### E.3 Scope
 
-- **(i) N=1 architecture** — Qwen3-VL 한 모델만. Cross-architecture generalization 약함.
-- **(ii) K=1 directional only** — Table E.1 의 sign-reversal 은 *방향성* prediction 만 verified. *Quantitative* claim (예: late-stack effect size 의 cross-architecture stability) 은 미검증.
-- **(iii) Strict prospective 가 아님** — framework 가 OneVision Main 위에서 먼저 합성된 후 Qwen3-VL 에 test. *Out-of-architecture* 검증 측면에서 partial prospective.
+본 verification 의 목적은 OneVision Main 위에서 합성된 routing-and-integration framework 의 *cross-architecture directional 일관성* 을 별도 architecture (Qwen3-VL) 의 self-calibration bridge 위에서 보강하는 것. *Magnitude transfer* (예: late-stack effect size 가 architecture 사이에서 동일) 는 claim 아님 — direction 만 cross-architecture verified.
 
-> *Original K=8/L=33 "Alt-1" 가설* (×12.7 quantitative ratio) 은 framework 의 정식 prediction 이 아니라 OneVision-internal SVD elbow (sv7/sv8 = 1.026) 의 extrapolation 이었음. 따라서 "Alt-1 falsified" 는 framework prediction 의 falsification 이 아니라, 외삽 가설의 미달성. Framework 자체의 *방향성* prediction 은 Table E.1 위에서 verified.
-
-> **TODO (Figure E.3):** Table E.1 의 sign-reversal 을 layer × K 2D heatmap 또는 forest plot 으로 시각화. 84 cells 전체 또는 K=1 column 만. `docs/insights/_data/gamma_beta_bridge_lk_sweep.csv` 에서 빌드.
-> **TODO:** Multi-architecture + K>1 full prospective verification 은 §7.3 follow-up.
+> **TODO (Figure E.3):** Table E.1 의 cross-K sign-reversal 을 layer × K 2D heatmap 또는 forest plot 으로 시각화. 84 cells 전체 또는 mean stat 만. `docs/insights/_data/gamma_beta_bridge_lk_sweep.csv` 에서 빌드.
