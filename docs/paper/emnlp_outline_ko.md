@@ -9,7 +9,7 @@
 > 목표 분량: ~180 단어. 아래 5개 beat을 한 문단으로 압축.
 
 - **Problem.** VLM에게 질문과 무관한 이미지를 함께 보여줄 때, 그 이미지에 숫자가 그려져 있다면 답이 그 숫자 쪽으로 끌리는가 — *cross-modal numerical anchoring*.
-- **Finding 1 (현상).** 6개 open-weight VLM × 5 dataset에서 약 4-23 % 의 응답이 anchor 숫자 쪽으로 *점진적으로* 끌리고, 그 중 일부 (약 1-13 %) 는 anchor 를 그대로 베끼기까지 한다 (per-model 평균 broad cohort 기준; base-wrong cohort 만 보면 각각 약 15-33 % / 3-15 %, Appendix D.1 / D.2 참조). 끌리는 정도는 base 답에 대한 모델 confidence 가 낮을수록 더 크다.
+- **Finding 1 (현상).** 6개 open-weight VLM × 5 dataset에서 약 4-23 % 의 응답이 anchor 숫자 쪽으로 *점진적으로* 끌리고, 그 중 일부 (약 1-13 %) 는 anchor 를 그대로 베끼기까지 한다 (per-model 평균; broad cohort 기준, base-wrong cohort 비교는 Appendix D.1 / D.2). 끌리는 정도는 base 답에 대한 모델 confidence 가 낮을수록 더 크다.
 - **Finding 2 (causal gate).** 같은 anchor 이미지에서 숫자 픽셀만 가린 *masked* 짝을 만들어 비교하면 위 끌림이 일반 distractor 수준으로 사라진다 — 즉 anchoring 은 *(보이는 digit) × (모델 uncertainty)* 두 조건의 conjunction.
 - **Method.** 본 논문은 anchored 와 masked 짝의 *paired contrast* 를 신호로 삼아 모델 내부의 anchoring representation 을 추정하고, inference 시 이를 제거하는 mitigation 을 제안한다.
 - **Result.** 5 dataset 위에서 anchoring 효과 감소 + anchor 가 있는 경우와 없는 경우 모두 정확도 동시 상승, 6 held-out capability benchmark 평균 보존 (+0.41 pp).
@@ -28,7 +28,7 @@
 ### 1.2 본 논문의 발견 (Findings)
 
 > Abstract 의 Finding 1 / Finding 2 를 본문 톤으로 한 단계 풀어서 서술. 4-condition 자극 (b: target only / a: + anchor / m: + masked anchor / d: + neutral distractor) 으로 6 open-weight VLM × 5 dataset 측정.
-- **F1 (graded pull).** 약 4-23 % 의 응답이 anchor 쪽으로 점진적으로 끌리고, 그 중 일부 (약 1-13 %) 는 anchor 를 그대로 베낀다 — 효과의 질량은 *literal copy* 가 아닌 *점진적 이동* 에 있다. (Broad cohort; base-wrong cohort 만 보면 각각 약 15-33 % / 3-15 %.)
+- **F1 (graded pull).** 약 4-23 % 의 응답이 anchor 쪽으로 점진적으로 끌리고, 그 중 일부 (약 1-13 %) 는 anchor 를 그대로 베낀다 — 효과의 질량은 *literal copy* 가 아닌 *점진적 이동* 에 있다.
 - **F2 (uncertainty modulation).** 끌리는 정도는 base 답에 대한 모델 confidence 가 낮을수록 크다 (5 dataset × 6 model L1 6-bin 위 단조 monotonic gradient).
 - **F3 (digit-pixel causal gate).** Anchor 이미지에서 digit pixel 만 가린 *masked* 짝과 비교하면 끌림이 일반 distractor 수준으로 사라진다 — *digit pixel × uncertainty* 두 조건의 conjunction.
 - **F4 (mechanism).** Anchoring representation 은 *multi-layer redundant* 하며 (single-layer ablation null + per-model peak heterogeneity), mitigation 은 model-specific integration site (OneVision Main 의 경우 L=26) 에 작용.
@@ -41,7 +41,7 @@
 
 ### 1.4 기여 (Contributions)
 
-- **C1 (Phenomenon).** Cross-modal numerical anchoring 을 5 dataset × 6 open-weight VLM 위에서 정량 보고 — 약 4-23 % 의 응답이 무관한 이미지의 digit 으로 끌리며 (일부는 그대로 베끼고; broad cohort 기준, base-wrong cohort 만 보면 약 15-33 %), 끌림은 모델 confidence 에 비례해 graded 되며, anchor 이미지에서 digit pixel 만 가리면 효과가 사라짐. 행동 + causal gate 동시 검증.
+- **C1 (Phenomenon).** Cross-modal numerical anchoring 을 5 dataset × 6 open-weight VLM 위에서 정량 보고 — 약 4-23 % 의 응답이 무관한 이미지의 digit 으로 끌리며 (일부는 그대로 베끼고), 끌림은 모델 confidence 에 비례해 graded 되며, anchor 이미지에서 digit pixel 만 가리면 효과가 사라짐. 행동 + causal gate 동시 검증.
 - **C2 (Mitigation).** *(a − m) paired contrast* 를 calibration 신호로 활용해 model-specific integration site (OneVision Main 의 경우 L=26) 의 anchoring representation 을 한 차례 추정하고, inference 시 모든 입력에 projection 으로 일괄 적용. anchor label 이나 runtime 탐지 불필요. 5 dataset 에서 anchoring 효과 감소 + 6 일반 capability benchmark 평균 +0.41 pp 보존.
 - **C3 (Mechanism evidence).** Mechanism 분석으로 (i) anchoring representation 이 *multi-layer redundant* 하게 분포 (single-layer ablation null + per-model peak heterogeneity — single causal layer 부재), (ii) within-layer single direction 으로도 reduce 되지 않음을 보여 — §6 mitigation 의 *model-specific integration site* 와 *multi-direction subspace* 설계 모두에 근거를 제공.
 
@@ -119,12 +119,12 @@
 
 ### 4.1 Anchoring effect: graded pull and literal copy
 
-{{본 subsection 은 6 model × 5 dataset main panel 위에서 anchoring 효과의 *전반적 크기* 와 *cross-panel robustness* 를 제시한다. 모델별 평균 direction-follow 약 4-23 %, adopt 약 1-13 % 의 range (broad cohort; base-wrong cohort 만 보면 각각 약 15-33 % / 3-15 %, Appendix D.1 / D.2 참조) 가 모든 모델 × 모든 dataset cell 에서 양수 임을 main panel table 한 장으로 입증 — 효과의 질량이 literal copy 가 아닌 graded pull 에 있고, 특정 architecture / domain artifact 가 아님.}}
+{{본 subsection 은 6 model × 5 dataset main panel 위에서 anchoring 효과의 *전반적 크기* 와 *cross-panel robustness* 를 제시한다. 모델별 평균 direction-follow 약 4-23 %, adopt 약 1-13 % 의 range 가 모든 모델 × 모든 dataset cell 에서 양수 임을 main panel table 한 장으로 입증 — 효과의 질량이 literal copy 가 아닌 graded pull 에 있고, 특정 architecture / domain artifact 가 아님.}}
 
 **Preview Figure 1 — Cross-dataset summary (S1 wrong-base).**
 <img src="../figures/paper_cross_dataset_summary.png" alt="cross-dataset summary" width="700"/>
 
-> Per-cell df / adopt 수치 (6 model × 5 dataset grid; broad + base-wrong cohort 병기) 는 **Appendix D.1 / D.2** 참조. DF formula update 시 re-aggregation 후 final 수치 확정 — `약 1-13 %` adopt range (broad) 도 그때 재검증.
+> Per-cell df / adopt 수치 (6 model × 5 dataset grid; broad + base-wrong cohort 병기) 는 **Appendix D.1 / D.2** 참조. DF formula update 시 re-aggregation 후 final 수치 확정 — `약 1-13 %` adopt range 도 그때 재검증.
 
 ### 4.2 Digit-pixel causal gate (via (a − m))
 
