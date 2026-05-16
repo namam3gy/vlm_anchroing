@@ -251,18 +251,23 @@ Primary metric Δdf(a) (negative = anchoring 감소), secondary Δadopt(a) + Δe
 
 ## 8 Conclusion
 
-{{한 문단 요약: 무엇을 했고, 무엇을 보였고, 왜 중요한가}}
+{{본 paper 는 VLM 의 *cross-modal numerical anchoring* 을 6 open-weight model × 5 dataset 위에서 정량 보고하고 (graded pull + digit-pixel causal gate + confidence modulation), 그 mechanism (LM 후반 layer 의 within-layer multi-direction representation) 을 mechanism 분석으로 입증하며, (a − m) paired contrast 로부터 *calibrated subspace projection* mitigation 을 구축한다. Mitigation 은 5 dataset 에서 anchoring 감소 + 6 capability benchmark 평균 +0.41 pp 보존 — *anchor label 없이* one-time calibration 으로 inference 시 deployable. 코드/데이터: {{repo URL}}.}}
 
 ---
 
 ## Limitations
 
-> EMNLP 필수 섹션. 페이지 제한 *밖*. Honest, specific, non-defensive.
-> 데이터/모델/일반화/통계/재현성 한계를 항목별로.
+> EMNLP 필수 섹션. 페이지 제한 *밖*.
 
-- {{Limitation 1}}
-- {{Limitation 2}}
-- {{Limitation 3}}
+**Mitigation scope.** Subspace projection mitigation 은 LLaVA-OneVision-7B Main 위 worked example — cross-architecture *directional* framework verification 은 γ-β bridge (Qwen3-VL, Appendix E) 에서 제공; *magnitude* transfer 는 후속 작업. Mitigation 은 anchoring effect 를 *부분적으로* 감소 (Δdf(a) mean -2.9 pp), 완전 elimination 은 representation-level inference-time intervention 의 scope 밖 — K / α 선택은 anchoring reduction 과 capability preservation 의 균형점.
+
+**Statistical scope.** Multiplicity-robust headline 은 *capability gain* (Δem(b)) — 5/5 dataset × Bonferroni-20 corrected CI sign-clean. *Anchoring reduction* (Δdf(a)) 는 sample-size-bound — PlotQA (n=2,306) single-dataset CI-clean, 나머지 4 small-n dataset 은 점추정 일관 + CI border.
+
+**Capability coverage.** 6 held-out benchmark (n=10,507) 위 macro Δ = +0.41 pp (HallusionBench +2.21 pp CI-clean positive). AMBER + MME 추가 (8-bench 확장) 는 config 준비 완료.
+
+**Phenomenon scope.** Open-weight main panel 위 universal; §7.1 closed-API pilot 이 frontier 일부 robustness 확인 (3/5 robust). Open-weight 은 *intentional design choice* — full mechanism access + cost-sensitive production deployment 의 주요 target.
+
+**Methodological in-progress.** Direction-follow metric 은 epsilon-threshold form finalize 진행 중 (§3.3); directional 결론은 form-invariant, magnitude 만 form-dependent.
 
 ---
 
