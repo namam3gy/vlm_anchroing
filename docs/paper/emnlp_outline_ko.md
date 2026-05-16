@@ -183,25 +183,27 @@
 
 ---
 
-## 6 Mitigation
+## 6 Mitigation: Calibrated Subspace Projection
 
-> Method + cross-dataset results + capability preservation 한 section 에.
+> §5 mechanism finding (late-LM site + within-layer multi-direction) 위에 *calibrated subspace projection* mitigation 을 구축. 한 차례 calibration 후 inference 시 anchor label 없이 deployable.
 
-### 6.1 {{Method: subspace projection from (a − m) calibration}}
+### 6.1 Method (algorithm + (a − m) calibration recipe)
 
-{{(a − m) 차이 vector 들의 SVD top-K subspace 를 LM 후반부 residual 에 projection 으로 제거. Algorithm box.}}
+{{본 subsection 은 calibrated subspace projection 의 algorithm 을 정의한다. (a − m) paired stimuli — *calibration pool: PlotQA + InfoVQA pooled (n ≈ 5,000 base-wrong)* — 의 residual stream 차이로부터 K=8 SVD top-direction subspace 를 추출 (calibration), inference 시 LM 후반부 (L=26, OneVision Main) residual 에 projection 으로 제거 (application). Design choice 의 근거 (site = L=26, K=8) 는 §5.1 layer probe + §5.2 K sweep 의 mechanism evidence 위에 구축. Algorithm box 포함.}}
 
-### 6.2 {{Calibration setup + hyperparameters}}
+### 6.2 Cross-dataset anchoring reduction
 
-{{Calibration set (보조 dataset 1–2개), projection rank K, layer 선택 근거.}}
+{{본 subsection 은 5 dataset 위 anchoring 효과 감소를 제시한다. 5 dataset 의 구성:
+- **Calibration distribution 내** (within): PlotQA, InfoVQA — §6.1 calibration pool 과 동일 distribution. *In-distribution efficacy* 측정.
+- **Calibration distribution 외** (held-out): TallyQA, ChartQA, MathVista — *true cross-dataset generalization* 측정.
 
-### 6.3 {{Cross-dataset anchoring 감소}}
+Primary metric Δdf(a) (negative = anchoring 감소), secondary Δadopt(a) + Δem(a). Paired bootstrap CI + Bonferroni-20 multiplicity correction. Headline: OneVision Main, L=26, K=8 위 *5/5 dataset Δem(b) sign-clean (Bonferroni ✓)* — non-anchored arm 정확도가 5 dataset 모두에서 sign-positive 한 multiplicity-robust 결과.}}
 
-{{5 dataset 위 anchoring 효과 변화 (Δdf, Δadopt). Paired bootstrap CI.}}
+### 6.3 Capability preservation
 
-### 6.4 {{Capability preservation (held-out benchmarks)}}
+{{본 subsection 은 mitigation 의 capability preservation 을 *8 held-out benchmark* (HallusionBench, AMBER, POPE, MME, MMVet, MMMU 등) 위에서 검증한다 — STRICT_FREE_LUNCH protocol, n_total = 27,097. **매크로 평균 Δ = +0.31 pp** (positive). HallusionBench +2.21 pp [+1.14, +3.28] 와 AMBER +0.19 pp [+0.05, +0.33] 가 CI excludes zero — *hallucination axis* 에서 statistically significant positive. 나머지 benchmark 는 ±1 pp band 안 — capability 손상 없음.
 
-{{6 일반 capability benchmark (HallusionBench, AMBER, POPE, MME 등) 에서 평균 성능 변화 +0.41 pp.}}
+> **TODO (수치 일관성):** 본 +0.31 pp 는 E8 canonical 결과 ([[e8_capability_eval]]). Abstract / §1.3 의 "+0.41 pp" 와 mismatch — Abstract / §1.3 도 +0.31 pp 로 정정 필요 (또는 +0.41 의 source 확인).}}
 
 ---
 
