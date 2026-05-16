@@ -75,19 +75,21 @@
 
 ### 3.1 4-condition stimulus (b / a / m / d)
 
-{{Target only / target + anchor / target + masked anchor / target + neutral distractor 의 정의 + 설계 의도. 자극 예시 + 자세한 spec 은 Appendix A.}}
+{{본 subsection 은 4-condition 자극 (b: target only / a: + anchor / m: + masked anchor / d: + neutral distractor) 의 정의와 각 condition 이 무엇을 isolate 하는지의 설계 의도를 한 단락으로 정리한다. 자극 예시 이미지, prompt template, masked 이미지 생성 방식은 Appendix A.}}
 
 ### 3.2 (a − m) paired contrast — digit-pixel 인과 isolate
 
-{{Anchor 이미지 안의 *다른 모든 변수* (이미지 존재, 추가 attention 부하, 배경 텍스처) 를 m 이 그대로 carry 하므로, (a − m) 차이는 *digit pixel* 만 isolate 한다는 design 논리. §4 의 digit-pixel causal-gate finding + §6 의 calibration 신호 양쪽의 substrate.}}
+{{본 subsection 은 (a − m) paired contrast 의 design 논리를 설명한다. Anchor image 자체는 동일하고 digit pixel 만 다르기 때문에 (a − m) 차이는 digit pixel 의 인과 효과만 isolate 하고, 일반 distraction 효과는 별도 d arm 에서 통제된다. 이 substrate 는 §4 의 digit-pixel causal gate finding 과 §6 의 calibration 신호 양쪽에서 재사용 — paper organizational backbone.}}
 
 ### 3.3 Anchoring 측정 (metrics)
 
-{{Direction-follow (primary, gt-free) / adopt (literal copy) / exact-match. 정확한 정의 + 본문에서 어떤 metric 이 어떤 claim 을 carry 하는지.}}
+{{본 subsection 은 anchoring 측정에 쓰는 metric 3 종을 정의한다. Primary 는 *direction-follow* (sign-based, gt-free), secondary 는 *adopt* (literal copy 비율) 과 *exact-match* (정확도). 각 metric 이 본문에서 carry 하는 claim — direction-follow = §4 graded pull headline, adopt = literal capture, exact-match = §6.4 capability — 도 짧게 mapping.}}
+
+> **TODO (DF formula):** Direction-follow 수식이 epsilon-threshold form `P[(pa−pb)(z−pb) > eps | |z−pb| > eps]` 로 finalize 되면, canonical CSV 전체 re-aggregation 후 §4 / §5 / §6 수치 일괄 update. 현재 본문 수치는 old C-form 기준.
 
 ### 3.4 Models and datasets (brief)
 
-{{6 open-weight VLM × 5 dataset main panel 의 한 줄 summary. 자세한 사양 + filter / sampling 은 Appendix B.}}
+{{본 subsection 은 main panel 의 6 open-weight VLM 과 5 dataset 을 한 단락으로 소개한다. Model: LLaVA-OneVision-7B (Main), LLaVA-Interleave-7B, Qwen2.5-VL-7B / 32B, Gemma3-4B / 27B. Dataset: TallyQA (counting), ChartQA / PlotQA / InfoVQA (chart-style numeric QA), MathVista (visual math). Filter / sampling / GT range / anchor inventory 디테일은 Appendix B / C.}}
 
 ---
 
