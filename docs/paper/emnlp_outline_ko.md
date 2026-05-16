@@ -154,15 +154,22 @@
 
 ### 5.1 Layer-wise probes: late-LM peak
 
-{{본 subsection 은 layer-wise linear probe 로 anchoring representation 이 어느 layer 에 가장 강하게 형성되는지를 측정한다. 결과는 LM 후반부 (peak layer) 에서 가장 강하게 검출되어, §6 mitigation 의 *작용 site* (late LM layer) 의 mechanism evidence 를 제공.}}
+{{본 subsection 은 layer-wise linear probe 로 anchoring representation 이 어느 layer 에 가장 강하게 형성되는지를 측정한다. 결과는 LM 후반부 (peak layer) 에서 가장 강하게 검출되어, §6 mitigation 의 *작용 site* (late LM layer) 의 mechanism evidence 를 제공. 5/5 모델 모두 후반부 peak 가 일관되게 형성되어 cross-model robustness 도 동시에 확인.}}
+
+> **TODO (Appendix table):** Layer × model probe-strength heatmap (5-model panel). 본문에는 cross-model 일관성 한 줄만, full panel data 는 appendix.
 
 ### 5.2 Single-direction insufficiency (K=1, LEACE rank-1, ActAdd)
 
-{{본 subsection 은 within-layer single direction 만 제거하는 method 들 (LEACE rank-1, ActAdd, K=1 SVD) 이 cross-dataset 에서 anchoring 을 충분히 줄이지 못함을 보인다. 한 layer 안에서도 anchoring representation 이 multi-direction 으로 분산되어 있다는 mechanism evidence — §6 의 *multi-direction subspace* (K>1) 설계의 직접 정당화.}}
+{{본 subsection 은 within-layer single direction 만 제거하는 method 들 이 cross-dataset 에서 anchoring 을 충분히 줄이지 못함을 보인다. 한 layer 안에서도 anchoring representation 이 multi-direction 으로 분산되어 있다는 mechanism evidence — §6 의 *multi-direction subspace* (K>1) 설계의 직접 정당화. 본문 headline 은 K=1 / 2 / 4 / 8 SVD sweep 의 monotonic improvement (positive evidence); LEACE rank-1 / ActAdd 등 alternative single-direction method 들의 convergent failure 는 appendix 에서 보강.}}
+
+> **TODO (Body figure):** K=1/2/4/8 SVD monotonic improvement bar chart (5 dataset 평균 또는 OneVision Main on PlotQA — §6.2.4 P4 sweep 데이터 활용 가능).
+> **TODO (Appendix):** LEACE rank-1 + ActAdd + K=1 SVD per-dataset 결과 표 (convergent negative evidence).
 
 ### 5.3 Multi-layer routing-and-integration (post-hoc characterization)
 
 {{본 subsection 은 single-layer ablation null + late-layer probe peak 의 두 관찰을 *routing-and-integration* framework 로 합성한다 — multi-layer attention pathway 가 anchoring 신호를 *routing* (처리) 하고, late-layer residual 에서 통합 표현으로 *integration* (집계). Anchoring representation 의 전체 구조에 대한 post-hoc characterization 으로, design 의 driver 라기보다 §5.1 / §5.2 finding 을 묶는 통합 narrative.}}
+
+> Cross-architecture partial verification (Qwen3-VL γ-β residual-stream bridge) 은 **Appendix E**.
 
 ---
 
@@ -389,3 +396,21 @@ Anchor 이미지의 digit bounding box 를 OpenCV `INPAINT_TELEA` [Telea, 2004] 
 > 본문 §4.3 의 continuous L1 6-bin gradient (Figure 3) 의 *binary projection* 보조. Wrong-base 가 correct-base 보다 일관되게 높은 df(a) — 기존 anchoring literature (wrong vs correct) 의 framing 과 호환 + §6 mitigation 의 wrong-base calibration filter 의 사전 정당화.
 
 > **TODO (D.3 final):** 현재 single dataset (PlotQA × 6 model). Final 은 5 dataset 평균 또는 dataset-stratified panel + adopt 도 포함.
+
+---
+
+## E Cross-architecture verification: γ-β residual-stream bridge (Qwen3-VL)
+
+> §5.3 routing-and-integration framework 의 partial cross-architecture verification. Main panel 밖 architecture (Qwen3-VL) 위 *방향성 prediction 만* 검증.
+
+**Setup.** Qwen3-VL 의 Thinking (γ) 와 Non-thinking (β) mode 의 같은 입력에 대한 layer-별 residual stream 차이 (γ − β) 의 SVD K=1 subspace 추출. 이 subspace 를 layer-projection 으로 적용 → anchoring 변화 측정.
+
+**Result.**
+- Late layer (L=29–34) 적용 → anchoring 감소 (positive)
+- Mid layer (L=20) 적용 → anchoring 증가 (negative — sign reversal)
+
+**Framework prediction 과의 일치.** Sign reversal 패턴이 framework 의 layer-routing 방향성 prediction (late = integration, mid = routing) 과 일치 → partial prospective verification.
+
+**Caveats.** (i) N=1 architecture (Qwen3-VL only). (ii) K=1 only — original framework 의 K=8 quantitative ratio (×12.7) prediction 은 falsified. (iii) Strict prospective 가 아님 (framework 가 already 존재하는 상태에서 test). 즉 *방향성 cross-architecture* 만 verified.
+
+> **TODO:** Multi-architecture + K>1 full prospective verification 은 §7.3 follow-up 항목 등록.
