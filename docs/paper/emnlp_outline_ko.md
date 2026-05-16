@@ -89,15 +89,7 @@
 
 {{본 subsection 은 (a − m) paired contrast 의 design 논리를 설명한다. Anchor image 자체는 동일하고 digit pixel 만 다르기 때문에 (a − m) 차이는 digit pixel 의 인과 효과만 isolate 하고, 일반 distraction 효과는 별도 d arm 에서 통제된다. 이 substrate 는 §4 의 digit-pixel causal gate finding 과 §6 의 calibration 신호 양쪽에서 재사용 — paper organizational backbone.}}
 
-**Preview Figure §3.2 — (a − m) paired contrast: anchor image vs. digit-masked version.**
-
-| anchor image (a condition 의 두 번째 이미지) | masked version (m condition 의 두 번째 이미지) |
-|---|---|
-| <img src="figures/demo_sample_01/anchor.png" alt="anchor" width="200"/> | <img src="figures/demo_sample_01/masked.png" alt="masked" width="200"/> |
-
-> 두 이미지의 *유일한 차이* 는 digit pixel — 배경, 텍스처, 이미지 크기, attention 부하 등 다른 모든 confound 는 동일하게 유지됨. 따라서 a-arm 과 m-arm 의 응답 차이는 *digit pixel 의 인과 효과만* isolate.
-
-> **TODO (Figure §3.2 final):** 위 preview 는 single sample. Final 은 design pattern 의 conceptual diagram (혹은 multi-sample montage) 으로 *(a − m) 의 invariance argument* 를 시각화.
+> §3.1 의 4-condition preview 에서 anchor 와 masked 가 *디지트 픽셀 이외 모든 변수가 동일* 함을 시각적으로 확인 가능. 별도 figure 불필요.
 
 ### 3.3 Anchoring 측정 (metrics)
 
