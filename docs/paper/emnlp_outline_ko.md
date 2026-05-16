@@ -407,57 +407,35 @@ Anchor 이미지의 digit bounding box 를 OpenCV `INPAINT_TELEA` [Telea, 2004] 
 
 > 본문 §4.1 의 cross-dataset summary figure (Figure 1) 와 §4.3 의 6-bin gradient figure (Figure 3) 를 *수치 / 보조 figure* 로 보강. 본문 page-budget 절약 목적.
 
-> **두 cohort 병기.** D.1 / D.2 는 동일 metric (df(a), adopt(a)) 을 두 cohort 위에서 병기한다 — **broad** 는 cell 의 *모든* sample (`base-correct ∪ base-wrong`) 위 rate 로, 본문 §4.1 의 "약 4-23 %" / "약 1-13 %" range 에 직접 대응한다. **base-wrong** 은 b-arm 예측이 GT 와 다른 sample 만 (anchoring 이 작동할 수 있는 cohort) 위 rate 로, canonical aggregator (`scripts/build_e5e_e7_5dataset_summary.py`) 가 `main_panel_5dataset_per_cell.csv` 에 기록하는 값과 일치한다. 두 cohort 의 cell-by-cell 재현은 `notebooks/paper_cross_model_cross_dataset.ipynb` §11-§13 참조.
+> **두 cohort 병기.** D.1 / D.2 는 동일 metric (df(a), adopt(a)) 을 두 cohort 위에서 병기하며 각 cell 은 **`broad / base-wrong`** 두 값을 나란히 적는다 — **broad** 는 cell 의 *모든* sample (`base-correct ∪ base-wrong`) 위 rate 로 본문 §4.1 의 "약 4-23 %" / "약 1-13 %" range 에 직접 대응한다. **base-wrong** 은 b-arm 예측이 GT 와 다른 sample 만 위 rate 로 canonical aggregator (`scripts/build_e5e_e7_5dataset_summary.py`) 가 `main_panel_5dataset_per_cell.csv` 에 기록하는 값과 일치한다. 두 cohort 의 cell-by-cell 재현은 `notebooks/paper_cross_model_cross_dataset.ipynb` §11-§13 참조.
 
 ### D.1 Direction-follow per cell — df(a) % across 6 models × 5 datasets
 
-**D.1a · broad cohort** — df(a) % over all samples (base-correct ∪ base-wrong).
+각 cell 표기: **`broad / base-wrong`** (단위 %).
 
 | Model | TallyQA | ChartQA | MathVista | PlotQA | InfoVQA | **Mean** |
 |---|---|---|---|---|---|---:|
-| OneVision-7B (Main) | 3.9 | 6.6 | 15.3 | 10.9 | 11.2 | **9.6** |
-| Interleave-7B | 6.6 | 15.2 | 20.5 | 27.2 | 22.3 | **18.4** |
-| Qwen2.5-VL-7B | 2.9 | 5.1 | 7.2 | 4.0 | 3.1 | **4.4** |
-| Qwen2.5-VL-32B | 3.6 | 5.0 | 8.3 | 4.0 | 3.8 | **4.9** |
-| Gemma3-4B | 9.8 | 19.0 | 34.5 | 28.7 | 23.4 | **23.1** |
-| Gemma3-27B | 7.3 | 9.6 | 21.6 | 11.7 | 18.3 | **13.7** |
-
-**D.1b · base-wrong cohort** — df(a) % over b-arm-wrong samples only.
-
-| Model | TallyQA | ChartQA | MathVista | PlotQA | InfoVQA | **Mean** |
-|---|---|---|---|---|---|---:|
-| OneVision-7B (Main) | 9.9 | 18.9 | 20.5 | 20.6 | 19.0 | **17.8** |
-| Interleave-7B | 12.7 | 20.0 | 26.6 | 29.5 | 24.4 | **22.6** |
-| Qwen2.5-VL-7B | 8.5 | 18.7 | 16.2 | 17.4 | 12.3 | **14.6** |
-| Qwen2.5-VL-32B | 10.9 | 20.3 | 18.4 | 16.3 | 15.6 | **16.3** |
-| Gemma3-4B | 17.2 | 34.6 | 41.3 | 39.5 | 32.4 | **33.0** |
-| Gemma3-27B | 15.2 | 24.0 | 33.2 | 22.7 | 35.0 | **26.0** |
+| OneVision-7B (Main) | 3.9 / 9.9 | 6.6 / 18.9 | 15.3 / 20.5 | 10.9 / 20.6 | 11.2 / 19.0 | **9.6 / 17.8** |
+| Interleave-7B | 6.6 / 12.7 | 15.2 / 20.0 | 20.5 / 26.6 | 27.2 / 29.5 | 22.3 / 24.4 | **18.4 / 22.6** |
+| Qwen2.5-VL-7B | 2.9 / 8.5 | 5.1 / 18.7 | 7.2 / 16.2 | 4.0 / 17.4 | 3.1 / 12.3 | **4.4 / 14.6** |
+| Qwen2.5-VL-32B | 3.6 / 10.9 | 5.0 / 20.3 | 8.3 / 18.4 | 4.0 / 16.3 | 3.8 / 15.6 | **4.9 / 16.3** |
+| Gemma3-4B | 9.8 / 17.2 | 19.0 / 34.6 | 34.5 / 41.3 | 28.7 / 39.5 | 23.4 / 32.4 | **23.1 / 33.0** |
+| Gemma3-27B | 7.3 / 15.2 | 9.6 / 24.0 | 21.6 / 33.2 | 11.7 / 22.7 | 18.3 / 35.0 | **13.7 / 26.0** |
 
 > Per-model mean range — broad: **4.4 – 23.1** (본문 §4.1 의 "약 4-23 %" 와 일치); base-wrong: **14.6 – 33.0** (denominator 가 base-wrong 으로 좁아진 데 따른 magnitude shift; cell-wise 부호는 두 cohort 모두 30/30 cell 양수로 일관).
 
 ### D.2 Adopt per cell — adopt(a) % (literal copy rate)
 
-**D.2a · broad cohort** — adopt(a) % over all samples with `pb ≠ z`.
+각 cell 표기: **`broad / base-wrong`** (단위 %; `pb ≠ z` denominator 는 두 cohort 모두 동일하게 적용 후 cohort 만 다름).
 
 | Model | TallyQA | ChartQA | MathVista | PlotQA | InfoVQA | **Mean** |
 |---|---|---|---|---|---|---:|
-| OneVision-7B (Main) | 1.2 | 1.5 | 10.8 | 5.9 | 2.3 | **4.3** |
-| Interleave-7B | 2.6 | 2.8 | 6.6 | 8.1 | 6.0 | **5.2** |
-| Qwen2.5-VL-7B | 1.1 | 1.7 | 2.0 | 1.3 | 0.9 | **1.4** |
-| Qwen2.5-VL-32B | 1.3 | 1.7 | 8.0 | 1.1 | 2.8 | **3.0** |
-| Gemma3-4B | 3.3 | 5.9 | 27.6 | 15.4 | 10.5 | **12.5** |
-| Gemma3-27B | 2.7 | 3.7 | 17.6 | 6.3 | 10.3 | **8.1** |
-
-**D.2b · base-wrong cohort** — adopt(a) % over b-arm-wrong samples with `pb ≠ z`.
-
-| Model | TallyQA | ChartQA | MathVista | PlotQA | InfoVQA | **Mean** |
-|---|---|---|---|---|---|---:|
-| OneVision-7B (Main) | 3.2 | 3.3 | 8.4 | 9.0 | 2.0 | **5.2** |
-| Interleave-7B | 5.0 | 3.2 | 6.5 | 8.2 | 6.1 | **5.8** |
-| Qwen2.5-VL-7B | 3.0 | 3.5 | 2.6 | 2.4 | 2.5 | **2.8** |
-| Qwen2.5-VL-32B | 3.8 | 4.3 | 12.8 | 2.3 | 9.8 | **6.6** |
-| Gemma3-4B | 6.2 | 8.8 | 30.1 | 18.4 | 13.3 | **15.3** |
-| Gemma3-27B | 5.9 | 7.0 | 23.0 | 9.9 | 16.3 | **12.4** |
+| OneVision-7B (Main) | 1.2 / 3.2 | 1.5 / 3.3 | 10.8 / 8.4 | 5.9 / 9.0 | 2.3 / 2.0 | **4.3 / 5.2** |
+| Interleave-7B | 2.6 / 5.0 | 2.8 / 3.2 | 6.6 / 6.5 | 8.1 / 8.2 | 6.0 / 6.1 | **5.2 / 5.8** |
+| Qwen2.5-VL-7B | 1.1 / 3.0 | 1.7 / 3.5 | 2.0 / 2.6 | 1.3 / 2.4 | 0.9 / 2.5 | **1.4 / 2.8** |
+| Qwen2.5-VL-32B | 1.3 / 3.8 | 1.7 / 4.3 | 8.0 / 12.8 | 1.1 / 2.3 | 2.8 / 9.8 | **3.0 / 6.6** |
+| Gemma3-4B | 3.3 / 6.2 | 5.9 / 8.8 | 27.6 / 30.1 | 15.4 / 18.4 | 10.5 / 13.3 | **12.5 / 15.3** |
+| Gemma3-27B | 2.7 / 5.9 | 3.7 / 7.0 | 17.6 / 23.0 | 6.3 / 9.9 | 10.3 / 16.3 | **8.1 / 12.4** |
 
 > Per-model mean range — broad: **1.4 – 12.5** (본문 §4.1 의 "약 1-13 %" 와 일치); base-wrong: **2.8 – 15.3** (denominator 가 base-wrong 으로 좁아진 데 따른 magnitude shift).
 
