@@ -43,7 +43,7 @@
 
 - **C1 (Phenomenon).** Cross-modal numerical anchoring 을 5 dataset × 6 open-weight VLM 위에서 정량 보고 — 약 10–40 % 의 응답이 무관한 이미지의 digit 으로 끌리며 (일부는 그대로 베끼고), 끌림은 모델 confidence 에 비례해 graded 되며, anchor 이미지에서 digit pixel 만 가리면 효과가 사라짐. 행동 + causal gate 동시 검증.
 - **C2 (Mitigation).** *(a − m) paired contrast* 를 calibration 신호로 활용해 LM 후반부의 anchoring representation 을 한 차례 추정하고, inference 시 모든 입력에 projection 으로 일괄 적용. anchor label 이나 runtime 탐지 불필요. 5 dataset 에서 anchoring 효과 감소 + 6 일반 capability benchmark 평균 +0.41 pp 보존.
-- **C3 (Mechanism evidence).** Anchoring 의 internal representation 이 LM 후반부 layer 에 분산되어 형성됨을 mechanism 분석으로 입증 — 이 결과는 C2 mitigation 의 작용 site 와 *multi-direction subspace* 설계 선택을 모두 정당화한다.
+- **C3 (Mechanism evidence).** Mechanism 분석으로 (i) anchoring representation 이 LM 후반부 layer 에 위치하고, (ii) 그 layer 안에서도 single direction 으로 reduce 되지 않음을 보여 — §6 mitigation 의 *작용 site* 와 *multi-direction subspace* 설계 모두에 근거를 제공.
 
 ---
 
@@ -148,21 +148,21 @@
 
 ---
 
-## 5 Mechanism Analysis
+## 5 Mechanism: Locating Anchoring Representation
 
-> *어디* 에서 anchoring representation 이 형성되는가.
+> *위치* (어느 layer) 와 *차원* (한 layer 안에서 몇 개 방향) 두 측면에서 anchoring representation 의 mechanism 을 측정 — §6 mitigation 의 site 선택과 subspace 설계 두 design choice 의 evidence 를 제공.
 
-### 5.1 {{Layer-wise localization}}
+### 5.1 Layer-wise probes: late-LM peak
 
-{{Layer × model heatmap, peak layer identification on calibration set.}}
+{{본 subsection 은 layer-wise linear probe 로 anchoring representation 이 어느 layer 에 가장 강하게 형성되는지를 측정한다. 결과는 LM 후반부 (peak layer) 에서 가장 강하게 검출되어, §6 mitigation 의 *작용 site* (late LM layer) 의 mechanism evidence 를 제공.}}
 
-### 5.2 {{Single-layer ablation + multi-layer redundancy}}
+### 5.2 Single-direction insufficiency (K=1, LEACE rank-1, ActAdd)
 
-{{Single-layer null result (5/5), multi-layer redundancy 시사. §6 mitigation site / multi-direction subspace 설계의 motivation.}}
+{{본 subsection 은 within-layer single direction 만 제거하는 method 들 (LEACE rank-1, ActAdd, K=1 SVD) 이 cross-dataset 에서 anchoring 을 충분히 줄이지 못함을 보인다. 한 layer 안에서도 anchoring representation 이 multi-direction 으로 분산되어 있다는 mechanism evidence — §6 의 *multi-direction subspace* (K>1) 설계의 직접 정당화.}}
 
-### 5.3 {{Late-layer formation site}}
+### 5.3 Multi-layer routing-and-integration (post-hoc characterization)
 
-{{Anchoring representation 이 LM 후반부 layer 에 형성된다는 통합 결론. §1.2 F4 의 evidence.}}
+{{본 subsection 은 single-layer ablation null + late-layer probe peak 의 두 관찰을 *routing-and-integration* framework 로 합성한다 — multi-layer attention pathway 가 anchoring 신호를 *routing* (처리) 하고, late-layer residual 에서 통합 표현으로 *integration* (집계). Anchoring representation 의 전체 구조에 대한 post-hoc characterization 으로, design 의 driver 라기보다 §5.1 / §5.2 finding 을 묶는 통합 narrative.}}
 
 ---
 
