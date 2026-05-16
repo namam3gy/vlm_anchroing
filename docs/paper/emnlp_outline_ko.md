@@ -9,7 +9,7 @@
 > 목표 분량: ~180 단어. 아래 5개 beat을 한 문단으로 압축.
 
 - **Problem.** VLM에게 질문과 무관한 이미지를 함께 보여줄 때, 그 이미지에 숫자가 그려져 있다면 답이 그 숫자 쪽으로 끌리는가 — *cross-modal numerical anchoring*.
-- **Finding 1 (현상).** 6개 open-weight VLM × 5 dataset에서 약 10–40 % 의 응답이 anchor 숫자 쪽으로 *점진적으로* 끌리고, 그 중 일부 (1.7–15.7 %) 는 anchor 를 그대로 베끼기까지 한다. 끌리는 정도는 base 답에 대한 모델 confidence 가 낮을수록 더 크다.
+- **Finding 1 (현상).** 6개 open-weight VLM × 5 dataset에서 약 15-33 % 의 응답이 anchor 숫자 쪽으로 *점진적으로* 끌리고, 그 중 일부 (약 3-15 %) 는 anchor 를 그대로 베끼기까지 한다. 끌리는 정도는 base 답에 대한 모델 confidence 가 낮을수록 더 크다.
 - **Finding 2 (causal gate).** 같은 anchor 이미지에서 숫자 픽셀만 가린 *masked* 짝을 만들어 비교하면 위 끌림이 일반 distractor 수준으로 사라진다 — 즉 anchoring 은 *(보이는 digit) × (모델 uncertainty)* 두 조건의 conjunction.
 - **Method.** 본 논문은 anchored 와 masked 짝의 *paired contrast* 를 신호로 삼아 모델 내부의 anchoring representation 을 추정하고, inference 시 이를 제거하는 mitigation 을 제안한다.
 - **Result.** 5 dataset 위에서 anchoring 효과 감소 + anchor 가 있는 경우와 없는 경우 모두 정확도 동시 상승, 6 held-out capability benchmark 평균 보존 (+0.41 pp).
@@ -28,7 +28,7 @@
 ### 1.2 본 논문의 발견 (Findings)
 
 > Abstract 의 Finding 1 / Finding 2 를 본문 톤으로 한 단계 풀어서 서술. 4-condition 자극 (b: target only / a: + anchor / m: + masked anchor / d: + neutral distractor) 으로 6 open-weight VLM × 5 dataset 측정.
-- **F1 (graded pull).** 약 10–40 % 의 응답이 anchor 쪽으로 점진적으로 끌리고, 그 중 일부 (1.7–15.7 %) 는 anchor 를 그대로 베낀다 — 효과의 질량은 *literal copy* 가 아닌 *점진적 이동* 에 있다.
+- **F1 (graded pull).** 약 15-33 % 의 응답이 anchor 쪽으로 점진적으로 끌리고, 그 중 일부 (약 3-15 %) 는 anchor 를 그대로 베낀다 — 효과의 질량은 *literal copy* 가 아닌 *점진적 이동* 에 있다.
 - **F2 (uncertainty modulation).** 끌리는 정도는 base 답에 대한 모델 confidence 가 낮을수록 크다 (5 dataset × 6 model L1 6-bin 위 단조 monotonic gradient).
 - **F3 (digit-pixel causal gate).** Anchor 이미지에서 digit pixel 만 가린 *masked* 짝과 비교하면 끌림이 일반 distractor 수준으로 사라진다 — *digit pixel × uncertainty* 두 조건의 conjunction.
 - **F4 (mechanism).** Anchoring 의 internal representation 은 LM 후반부 layer 에 형성된다 — 이 위치는 본 논문 mitigation 의 작용 site 가 된다.
@@ -41,7 +41,7 @@
 
 ### 1.4 기여 (Contributions)
 
-- **C1 (Phenomenon).** Cross-modal numerical anchoring 을 5 dataset × 6 open-weight VLM 위에서 정량 보고 — 약 10–40 % 의 응답이 무관한 이미지의 digit 으로 끌리며 (일부는 그대로 베끼고), 끌림은 모델 confidence 에 비례해 graded 되며, anchor 이미지에서 digit pixel 만 가리면 효과가 사라짐. 행동 + causal gate 동시 검증.
+- **C1 (Phenomenon).** Cross-modal numerical anchoring 을 5 dataset × 6 open-weight VLM 위에서 정량 보고 — 약 15-33 % 의 응답이 무관한 이미지의 digit 으로 끌리며 (일부는 그대로 베끼고), 끌림은 모델 confidence 에 비례해 graded 되며, anchor 이미지에서 digit pixel 만 가리면 효과가 사라짐. 행동 + causal gate 동시 검증.
 - **C2 (Mitigation).** *(a − m) paired contrast* 를 calibration 신호로 활용해 LM 후반부의 anchoring representation 을 한 차례 추정하고, inference 시 모든 입력에 projection 으로 일괄 적용. anchor label 이나 runtime 탐지 불필요. 5 dataset 에서 anchoring 효과 감소 + 6 일반 capability benchmark 평균 +0.41 pp 보존.
 - **C3 (Mechanism evidence).** Mechanism 분석으로 (i) anchoring representation 이 LM 후반부 layer 에 위치하고, (ii) 그 layer 안에서도 single direction 으로 reduce 되지 않음을 보여 — §6 mitigation 의 *작용 site* 와 *multi-direction subspace* 설계 모두에 근거를 제공.
 
@@ -119,12 +119,12 @@
 
 ### 4.1 Anchoring effect: graded pull and literal copy
 
-{{본 subsection 은 6 model × 5 dataset main panel 위에서 anchoring 효과의 *전반적 크기* 와 *cross-panel robustness* 를 제시한다. Direction-follow 약 10–40 %, adopt 1.7–15.7 % 의 range 가 모든 모델 × 모든 dataset cell 에서 nontrivially 양수 임을 main panel table 한 장으로 입증 — 효과의 질량이 literal copy 가 아닌 graded pull 에 있고, 특정 architecture / domain artifact 가 아님.}}
+{{본 subsection 은 6 model × 5 dataset main panel 위에서 anchoring 효과의 *전반적 크기* 와 *cross-panel robustness* 를 제시한다. 모델별 평균 direction-follow 약 15-33 %, adopt 약 3-15 % 의 range 가 모든 모델 × 모든 dataset cell 에서 nontrivially 양수 임을 main panel table 한 장으로 입증 — 효과의 질량이 literal copy 가 아닌 graded pull 에 있고, 특정 architecture / domain artifact 가 아님.}}
 
 **Preview Figure 1 — Cross-dataset summary (S1 wrong-base).**
 <img src="../figures/paper_cross_dataset_summary.png" alt="cross-dataset summary" width="700"/>
 
-> Per-cell df / adopt 수치 (6 model × 5 dataset grid) 는 **Appendix D.1 / D.2** 참조. DF formula update 시 re-aggregation 후 final 수치 확정 — `1.7–15.7 %` adopt range 도 그때 재검증.
+> Per-cell df / adopt 수치 (6 model × 5 dataset grid) 는 **Appendix D.1 / D.2** 참조. DF formula update 시 re-aggregation 후 final 수치 확정 — `약 3-15 %` adopt range 도 그때 재검증.
 
 ### 4.2 Digit-pixel causal gate (via (a − m))
 
@@ -154,7 +154,7 @@
 
 ### 5.1 Layer-wise probes: late-LM peak
 
-{{본 subsection 은 layer-wise linear probe 로 anchoring representation 이 어느 layer 에 가장 강하게 형성되는지를 측정한다. 결과는 LM 후반부 (peak layer) 에서 가장 강하게 검출되어, §6 mitigation 의 *작용 site* (late LM layer) 의 mechanism evidence 를 제공. 5/5 모델 모두 후반부 peak 가 일관되게 형성되어 cross-model robustness 도 동시에 확인.}}
+{{본 subsection 은 perfect-square 5-model mechanism panel (ConvLLaVA-7B, FastVLM-7B, Gemma4-E4B, LLaVA-1.5-7B, Qwen2.5-VL-7B; §3.4 main 6-model panel 과 별도) 위 layer-wise linear probe 로 anchoring representation 이 어느 layer 에 가장 강하게 형성되는지를 측정한다. 결과는 LM 후반부 (peak layer) 에서 가장 강하게 검출되어, §6 mitigation 의 *작용 site* (late LM layer) 의 mechanism evidence 를 제공. 5/5 모델 모두 후반부 peak 가 일관되게 형성되어 cross-model robustness 도 동시에 확인. OneVision Main 은 §5.3 OneVision-only 확장으로 별도 검증.}}
 
 > **TODO (Appendix table):** Layer × model probe-strength heatmap (5-model panel). 본문에는 cross-model 일관성 한 줄만, full panel data 는 appendix.
 
@@ -275,7 +275,7 @@ Primary metric Δdf(a) (negative = anchoring 감소), secondary Δadopt(a) + Δe
 
 > EMNLP 필수 (해당 시) / 권장 (그 외). 페이지 제한 밖.
 
-- **Dataset licenses.** 사용한 5 evaluation dataset (TallyQA, ChartQA, PlotQA, InfographicVQA, MathVista) 및 6 held-out capability benchmark (HallusionBench, RealWorldQA, MMStar, POPE, MMBench-DEV-EN, OCRBench) 는 모두 공개 academic dataset. {{각 license 명시 — Apache 2.0 / MIT / CC-BY / 등.}}
+- **Dataset licenses.** 사용한 5 evaluation dataset (TallyQA, ChartQA, PlotQA, InfoVQA, MathVista) 및 6 held-out capability benchmark (HallusionBench, RealWorldQA, MMStar, POPE, MMBench-DEV-EN, OCRBench) 는 모두 공개 academic dataset. {{각 license 명시 — Apache 2.0 / MIT / CC-BY / 등.}}
 - **Closed-API usage.** §7.1 ecological validity 의 closed-API VLM-as-judge pilot (5 judge × 2 dataset × n=200) 은 ~$XX 비용 소요. Closed-API access 가 제한된 사용자는 본 pilot 직접 reproduce 어려움 — open-weight main panel 결과는 누구나 reproduce 가능.
 - **Potential misuse.** 본 mitigation 은 anchoring 을 *줄이는* 방향 design. Inverse projection 으로 anchoring 을 *증폭* 할 가능성 존재 (trivial 변경) — 그러나 본 paper 의 bias 측정/완화 contribution 의 net positive 가 이 risk 를 정당화.
 - **Compute budget.** OneVision Main 의 mitigation calibration + 5-dataset evaluation + 6-benchmark capability eval 합산 ~ {{XX}} GPU hours (NVIDIA A100). γ-β bridge (Qwen3-VL, Appendix E) 추가 ~ {{XX}} hours.
@@ -337,7 +337,7 @@ Figure A.1 — 동일 question 위 4-condition 자극의 실제 입력 이미지
 
 각 condition 의 input 은 *target image + 두 번째 image (a/m/d 의 경우)* — 모델은 두 이미지를 하나의 prompt 에 동시에 받음.
 
-| Condition | Input image(s) | Llava-OneVision-7B (Main) 답 |
+| Condition | Input image(s) | LLaVA-OneVision-7B (Main) 답 |
 |---|---|---|
 | **b** (target only) | <img src="figures/demo_sample_01/target.png" alt="target" width="180"/> | **3** ✓ |
 | **a** (target + anchor) | <img src="figures/demo_sample_01/target.png" alt="target" width="180"/> <img src="figures/demo_sample_01/anchor.png" alt="anchor" width="180"/> | **4** ← anchor 그대로 |
@@ -358,7 +358,7 @@ Anchor 이미지의 digit bounding box 를 OpenCV `INPAINT_TELEA` [Telea, 2004] 
 |---|---|---|---|---|---|---|
 | ChartQA | test | full split (2,500) | numeric GT, range [0, 1000] | **705** | 0–1000 | small / round 값 skew |
 | PlotQA | test | seed=42 stratified subset of 1,228,313 (1,000/bin × 5 GT bins (0,8] (8,20] (20,100] (100,1k] (1k,10k]) | range [0, 10000] | **5,000** | 0–10000 | bins 균등 (sampled by design) |
-| InfoVQA | val | fetch-time numeric-only subset of 1,147 | range [0, 10000] | **1,147** | 0–10000 | natural, mild right-skew |
+| InfoVQA (full: InfographicVQA) | val | fetch-time numeric-only subset of 1,147 | range [0, 10000] | **1,147** | 0–10000 | natural, mild right-skew |
 | MathVista | testmini | full split (1,000) | `answer_type=integer`, range [0, 1000] | **385** | 0–1000 | mixed (도형 counting + 산술) |
 | TallyQA | test | full split (38,589) | numeric GT, range [0, 8] | **38,245** | 0–8 (counting) | strongly skewed small (1–4 dominant) |
 
@@ -407,25 +407,29 @@ Anchor 이미지의 digit bounding box 를 OpenCV `INPAINT_TELEA` [Telea, 2004] 
 
 ### D.1 Direction-follow per cell — df(a) % across 6 models × 5 datasets
 
-| Model | TallyQA | ChartQA | MathVista | PlotQA | InfographicVQA |
-|---|---|---|---|---|---|
-| OneVision-7B (Main) | 9.9 | 18.9 | 20.5 | 20.6 | 19.0 |
-| Interleave-7B | 12.7 | 20.0 | 26.6 | 29.5 | 24.4 |
-| Qwen2.5-VL-7B | 8.5 | 18.7 | 16.2 | 17.4 | 12.3 |
-| Qwen2.5-VL-32B | 10.9 | 20.3 | 18.4 | 16.3 | 15.6 |
-| Gemma3-4B | 17.2 | 34.6 | 41.3 | 39.5 | 32.4 |
-| Gemma3-27B | 15.2 | 24.0 | 33.2 | 22.7 | 35.0 |
+| Model | TallyQA | ChartQA | MathVista | PlotQA | InfoVQA | **Mean** |
+|---|---|---|---|---|---|---:|
+| OneVision-7B (Main) | 9.9 | 18.9 | 20.5 | 20.6 | 19.0 | **17.8** |
+| Interleave-7B | 12.7 | 20.0 | 26.6 | 29.5 | 24.4 | **22.6** |
+| Qwen2.5-VL-7B | 8.5 | 18.7 | 16.2 | 17.4 | 12.3 | **14.6** |
+| Qwen2.5-VL-32B | 10.9 | 20.3 | 18.4 | 16.3 | 15.6 | **16.3** |
+| Gemma3-4B | 17.2 | 34.6 | 41.3 | 39.5 | 32.4 | **33.0** |
+| Gemma3-27B | 15.2 | 24.0 | 33.2 | 22.7 | 35.0 | **26.0** |
+
+> Per-model mean range: **14.6 – 33.0** → 본문 §4.1 의 "약 15-33 %" 와 일치.
 
 ### D.2 Adopt per cell — adopt(a) % (literal copy rate)
 
-| Model | TallyQA | ChartQA | MathVista | PlotQA | InfographicVQA |
-|---|---|---|---|---|---|
-| OneVision-7B (Main) | 3.2 | 3.3 | 8.4 | 9.0 | 2.0 |
-| Interleave-7B | 5.0 | 3.2 | 6.5 | 8.2 | 6.1 |
-| Qwen2.5-VL-7B | 3.0 | 3.5 | 2.6 | 2.4 | 2.5 |
-| Qwen2.5-VL-32B | 3.8 | 4.3 | 12.8 | 2.3 | 9.8 |
-| Gemma3-4B | 6.2 | 8.8 | 30.1 | 18.4 | 13.3 |
-| Gemma3-27B | 5.9 | 7.0 | 23.0 | 9.9 | 16.3 |
+| Model | TallyQA | ChartQA | MathVista | PlotQA | InfoVQA | **Mean** |
+|---|---|---|---|---|---|---:|
+| OneVision-7B (Main) | 3.2 | 3.3 | 8.4 | 9.0 | 2.0 | **5.2** |
+| Interleave-7B | 5.0 | 3.2 | 6.5 | 8.2 | 6.1 | **5.8** |
+| Qwen2.5-VL-7B | 3.0 | 3.5 | 2.6 | 2.4 | 2.5 | **2.8** |
+| Qwen2.5-VL-32B | 3.8 | 4.3 | 12.8 | 2.3 | 9.8 | **6.6** |
+| Gemma3-4B | 6.2 | 8.8 | 30.1 | 18.4 | 13.3 | **15.4** |
+| Gemma3-27B | 5.9 | 7.0 | 23.0 | 9.9 | 16.3 | **12.4** |
+
+> Per-model mean range: **2.8 – 15.4** → 본문 §4.1 의 "약 3-15 %" 와 일치.
 
 > **TODO (D.1 / D.2 final):** 현재 canonical CSV (`main_panel_5dataset_per_cell.csv`, M2 / C-form) 기준. DF formula update 시 re-aggregation 후 final 수치 확정.
 
