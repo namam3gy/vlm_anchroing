@@ -162,7 +162,17 @@
 
 {{본 subsection 은 within-layer single direction 만 제거하는 method 들 이 cross-dataset 에서 anchoring 을 충분히 줄이지 못함을 보인다. 한 layer 안에서도 anchoring representation 이 multi-direction 으로 분산되어 있다는 mechanism evidence — §6 의 *multi-direction subspace* (K>1) 설계의 직접 정당화. 본문 headline 은 K=1 / 2 / 4 / 8 SVD sweep 의 monotonic improvement (positive evidence); LEACE rank-1 / ActAdd 등 alternative single-direction method 들의 convergent failure 는 appendix 에서 보강.}}
 
-> **TODO (Body figure):** K=1/2/4/8 SVD monotonic improvement bar chart (5 dataset 평균 또는 OneVision Main on PlotQA — §6.2.4 P4 sweep 데이터 활용 가능).
+**Preview Figure §5.2a — K=2/4/8 progression heatmap (PlotQA × OneVision Main, L ∈ {25, 26, 27}, α ∈ {0.5, 1, 2}, E6 calibration pilot).**
+<img src="../figures/E6_pilot_grid_plotqa_heatmap.png" alt="K progression heatmap" width="700"/>
+
+> 4 metric × 3 layer × 3 α × 3 K. L=26, α=1.0 에서 K=2 → K=4 → K=8 progression: adopt(a) Δ -0.4 → -1.4 → -3.8 pp (PlotQA, n=250). K-monotonic improvement 가 multi-direction representation 의 직접 evidence. ★ 표시 cell (L=26, α=1.0, K=8) 이 §6 selected. 전체 5-dataset K sweep 은 §6.2.4 P4 figure (`p4_layer_sweep_delta_df.png`) 와 cross-check.
+
+**Preview Figure §5.2b — K=8 vs K=1 fallback at L=26 across 5 datasets (P4 verification).**
+<img src="../figures/p4_layer_sweep_delta_df.png" alt="K=8 layer sweep + K=1 fallback" width="700"/>
+
+> Blue = K=8 layer sweep (5 layers × 5 datasets), Red = K=1 at L=26. K=1 (red square) 가 K=8 (blue point at L=26) 보다 anchoring 감소 효과 약함 — single-direction 으로는 부족하다는 5-dataset cross-check.
+
+> **TODO (Body figure final):** 위 preview 둘 중 하나로 통합 (또는 5-dataset 평균 K=1/2/4/8 bar chart 신규 빌드).
 > **TODO (Appendix):** LEACE rank-1 + ActAdd + K=1 SVD per-dataset 결과 표 (convergent negative evidence).
 
 ### 5.3 Multi-layer routing-and-integration (post-hoc characterization)
@@ -411,6 +421,17 @@ Anchor 이미지의 digit bounding box 를 OpenCV `INPAINT_TELEA` [Telea, 2004] 
 
 **Framework prediction 과의 일치.** Sign reversal 패턴이 framework 의 layer-routing 방향성 prediction (late = integration, mid = routing) 과 일치 → partial prospective verification.
 
-**Caveats.** (i) N=1 architecture (Qwen3-VL only). (ii) K=1 only — original framework 의 K=8 quantitative ratio (×12.7) prediction 은 falsified. (iii) Strict prospective 가 아님 (framework 가 already 존재하는 상태에서 test). 즉 *방향성 cross-architecture* 만 verified.
+**Preview Figure E.1 — γ-β paired Δ distribution at L=33 (Alt-1 falsification, ×12.7 ratio NOT achieved).**
+<img src="../figures/gamma_beta_bridge_paired_delta.png" alt="γ-β paired delta" width="650"/>
 
+> a-S1 (anchor present) 와 d (neutral, length control) 의 Δ distribution overlap — *K=8 quantitative prediction* (×12.7 ratio) falsified. Caveat 의 (ii) 직접 evidence.
+
+**Preview Figure E.2 — Per-token amplitude trajectory during Thinking generation.**
+<img src="../figures/gamma_beta_bridge_per_token_trajectory.png" alt="per-token amplitude" width="600"/>
+
+> Thinking trace 진행 동안 subspace amplitude 가 uniform ramp+plateau — a-S1 (anchor) 과 d (neutral) 가 거의 같은 trajectory (supplementary characterization).
+
+**Caveats.** (i) N=1 architecture (Qwen3-VL only). (ii) K=1 only — original framework 의 K=8 quantitative ratio (×12.7) prediction 은 falsified (위 Figure E.1). (iii) Strict prospective 가 아님 (framework 가 already 존재하는 상태에서 test). 즉 *방향성 cross-architecture* 만 verified.
+
+> **TODO (Figure E.3 — sign reversal):** L×K sweep summary (late-stack {29,30,33} positive vs mid-stack L=20 negative). Data: `docs/insights/_data/gamma_beta_bridge_lk_sweep.csv` (84 cells). 현재 rendered figure 없음 — 신규 빌드 필요. 이게 framework 의 layer-routing 방향성 verification 의 *직접 visual*.
 > **TODO:** Multi-architecture + K>1 full prospective verification 은 §7.3 follow-up 항목 등록.
