@@ -77,19 +77,60 @@
 
 {{본 subsection 은 4-condition 자극 (b: target only / a: + anchor / m: + masked anchor / d: + neutral distractor) 의 정의와 각 condition 이 무엇을 isolate 하는지의 설계 의도를 한 단락으로 정리한다. 자극 예시 이미지, prompt template, masked 이미지 생성 방식은 Appendix A.}}
 
+**Preview Figure §3.1 — 4-condition 예시 (TallyQA "How many zebras...", gt=3, anchor=4):**
+
+| b (target only) | a (target + anchor) | m (target + masked) | d (target + neutral) |
+|---|---|---|---|
+| <img src="figures/demo_sample_01/target.png" alt="b" width="140"/> | <img src="figures/demo_sample_01/anchor.png" alt="a-side" width="140"/> | <img src="figures/demo_sample_01/masked.png" alt="m-side" width="140"/> | <img src="figures/demo_sample_01/neutral.png" alt="d-side" width="140"/> |
+
+> Preview 는 자극의 "두 번째 이미지" 만 보여줌 (target image 와 함께 model 에 입력됨). Full 4-condition input grid 는 Appendix A.2.
+
 ### 3.2 (a − m) paired contrast — digit-pixel 인과 isolate
 
 {{본 subsection 은 (a − m) paired contrast 의 design 논리를 설명한다. Anchor image 자체는 동일하고 digit pixel 만 다르기 때문에 (a − m) 차이는 digit pixel 의 인과 효과만 isolate 하고, 일반 distraction 효과는 별도 d arm 에서 통제된다. 이 substrate 는 §4 의 digit-pixel causal gate finding 과 §6 의 calibration 신호 양쪽에서 재사용 — paper organizational backbone.}}
 
+**Preview Figure §3.2 — (a − m) paired contrast: anchor image vs. digit-masked version.**
+
+| anchor image (a condition 의 두 번째 이미지) | masked version (m condition 의 두 번째 이미지) |
+|---|---|
+| <img src="figures/demo_sample_01/anchor.png" alt="anchor" width="200"/> | <img src="figures/demo_sample_01/masked.png" alt="masked" width="200"/> |
+
+> 두 이미지의 *유일한 차이* 는 digit pixel — 배경, 텍스처, 이미지 크기, attention 부하 등 다른 모든 confound 는 동일하게 유지됨. 따라서 a-arm 과 m-arm 의 응답 차이는 *digit pixel 의 인과 효과만* isolate.
+
+> **TODO (Figure §3.2 final):** 위 preview 는 single sample. Final 은 design pattern 의 conceptual diagram (혹은 multi-sample montage) 으로 *(a − m) 의 invariance argument* 를 시각화.
+
 ### 3.3 Anchoring 측정 (metrics)
 
 {{본 subsection 은 anchoring 측정에 쓰는 metric 3 종을 정의한다. Primary 는 *direction-follow* (sign-based, gt-free), secondary 는 *adopt* (literal copy 비율) 과 *exact-match* (정확도). 각 metric 이 본문에서 carry 하는 claim — direction-follow = §4 graded pull headline, adopt = literal capture, exact-match = §6.4 capability — 도 짧게 mapping.}}
+
+**Metric definitions (notation per memory `[[paper-notation-convention]]`).** For each sample `i`, `gt_i` = ground truth, `z_i` = anchor digit value, `p_i^c` = parsed prediction under condition `c ∈ {b, a, m, d}`.
+
+| Metric | Definition | Role |
+|---|---|---|
+| **Adopt_c** | `#(p^c == z AND pb != z) / #(pb != z) = P[p^c == z \| pb != z]` | Literal copy rate. §4.1 graded-vs-categorical headline. |
+| **DF_c** | `P[(p^c − pb)(z − pb) > eps \| \|z − pb\| > eps]` | Primary anchoring metric (sign-based, gt-free). §4 headline + §6 mitigation target. |
+| **Exact-match_c** | `#(p^c == gt) / #(numeric pair)` | Capability axis. b-arm = baseline accuracy, a-arm = anchored accuracy, 양 axis 변화로 §6.4 capability preservation 측정. |
+
+**Subsets:** `base-correct = { i | pb_i == gt_i }`, `base-wrong = { i | pb_i != gt_i }`. §4.3 binary projection + §6 mitigation calibration 에서 사용.
 
 > **TODO (DF formula):** Direction-follow 수식이 epsilon-threshold form `P[(pa−pb)(z−pb) > eps | |z−pb| > eps]` 로 finalize 되면, canonical CSV 전체 re-aggregation 후 §4 / §5 / §6 수치 일괄 update. 현재 본문 수치는 old C-form 기준.
 
 ### 3.4 Models and datasets (brief)
 
 {{본 subsection 은 main panel 의 6 open-weight VLM 과 5 dataset 을 한 단락으로 소개한다. Model: LLaVA-OneVision-7B (Main), LLaVA-Interleave-7B, Qwen2.5-VL-7B / 32B, Gemma3-4B / 27B. Dataset: TallyQA (counting), ChartQA / PlotQA / InfoVQA (chart-style numeric QA), MathVista (visual math). Filter / sampling / GT range / anchor inventory 디테일은 Appendix B / C.}}
+
+**Preview Table §3.4 — Main panel.**
+
+| Models (6) | Datasets (5) |
+|---|---|
+| LLaVA-OneVision-7B (**Main**) | TallyQA — counting (GT 0–8) |
+| LLaVA-Interleave-7B | ChartQA — chart QA (GT 0–1000) |
+| Qwen2.5-VL-7B | MathVista — visual math (GT 0–1000) |
+| Qwen2.5-VL-32B | PlotQA — plot QA (GT 0–10000) |
+| Gemma3-4B | InfographicVQA — infographic QA (GT 0–10000) |
+| Gemma3-27B | |
+
+> 자세한 사양 (filter 통과 후 n, GT distribution, anchor stratum scheme) → Appendix B.
 
 ---
 
