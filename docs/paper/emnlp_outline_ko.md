@@ -9,7 +9,7 @@
 > 목표 분량: ~180 단어. 아래 5개 beat을 한 문단으로 압축.
 
 - **Problem.** VLM에게 질문과 무관한 이미지를 함께 보여줄 때, 그 이미지에 숫자가 그려져 있다면 답이 그 숫자 쪽으로 끌리는가 — *cross-modal numerical anchoring*.
-- **Finding 1 (현상).** 6개 open-weight VLM × 5 dataset에서 약 15-33 % 의 응답이 anchor 숫자 쪽으로 *점진적으로* 끌리고, 그 중 일부 (약 3-15 %) 는 anchor 를 그대로 베끼기까지 한다. 끌리는 정도는 base 답에 대한 모델 confidence 가 낮을수록 더 크다.
+- **Finding 1 (현상).** 6개 open-weight VLM × 5 dataset에서 약 4-23 % 의 응답이 anchor 숫자 쪽으로 *점진적으로* 끌리고, 그 중 일부 (약 1-13 %) 는 anchor 를 그대로 베끼기까지 한다 (per-model 평균 broad cohort 기준; base-wrong cohort 만 보면 각각 약 15-33 % / 3-15 %, Appendix D.1 / D.2 참조). 끌리는 정도는 base 답에 대한 모델 confidence 가 낮을수록 더 크다.
 - **Finding 2 (causal gate).** 같은 anchor 이미지에서 숫자 픽셀만 가린 *masked* 짝을 만들어 비교하면 위 끌림이 일반 distractor 수준으로 사라진다 — 즉 anchoring 은 *(보이는 digit) × (모델 uncertainty)* 두 조건의 conjunction.
 - **Method.** 본 논문은 anchored 와 masked 짝의 *paired contrast* 를 신호로 삼아 모델 내부의 anchoring representation 을 추정하고, inference 시 이를 제거하는 mitigation 을 제안한다.
 - **Result.** 5 dataset 위에서 anchoring 효과 감소 + anchor 가 있는 경우와 없는 경우 모두 정확도 동시 상승, 6 held-out capability benchmark 평균 보존 (+0.41 pp).
@@ -28,7 +28,7 @@
 ### 1.2 본 논문의 발견 (Findings)
 
 > Abstract 의 Finding 1 / Finding 2 를 본문 톤으로 한 단계 풀어서 서술. 4-condition 자극 (b: target only / a: + anchor / m: + masked anchor / d: + neutral distractor) 으로 6 open-weight VLM × 5 dataset 측정.
-- **F1 (graded pull).** 약 15-33 % 의 응답이 anchor 쪽으로 점진적으로 끌리고, 그 중 일부 (약 3-15 %) 는 anchor 를 그대로 베낀다 — 효과의 질량은 *literal copy* 가 아닌 *점진적 이동* 에 있다.
+- **F1 (graded pull).** 약 4-23 % 의 응답이 anchor 쪽으로 점진적으로 끌리고, 그 중 일부 (약 1-13 %) 는 anchor 를 그대로 베낀다 — 효과의 질량은 *literal copy* 가 아닌 *점진적 이동* 에 있다. (Broad cohort; base-wrong cohort 만 보면 각각 약 15-33 % / 3-15 %.)
 - **F2 (uncertainty modulation).** 끌리는 정도는 base 답에 대한 모델 confidence 가 낮을수록 크다 (5 dataset × 6 model L1 6-bin 위 단조 monotonic gradient).
 - **F3 (digit-pixel causal gate).** Anchor 이미지에서 digit pixel 만 가린 *masked* 짝과 비교하면 끌림이 일반 distractor 수준으로 사라진다 — *digit pixel × uncertainty* 두 조건의 conjunction.
 - **F4 (mechanism).** Anchoring representation 은 *multi-layer redundant* 하며 (single-layer ablation null + per-model peak heterogeneity), mitigation 은 model-specific integration site (OneVision Main 의 경우 L=26) 에 작용.
@@ -41,7 +41,7 @@
 
 ### 1.4 기여 (Contributions)
 
-- **C1 (Phenomenon).** Cross-modal numerical anchoring 을 5 dataset × 6 open-weight VLM 위에서 정량 보고 — 약 15-33 % 의 응답이 무관한 이미지의 digit 으로 끌리며 (일부는 그대로 베끼고), 끌림은 모델 confidence 에 비례해 graded 되며, anchor 이미지에서 digit pixel 만 가리면 효과가 사라짐. 행동 + causal gate 동시 검증.
+- **C1 (Phenomenon).** Cross-modal numerical anchoring 을 5 dataset × 6 open-weight VLM 위에서 정량 보고 — 약 4-23 % 의 응답이 무관한 이미지의 digit 으로 끌리며 (일부는 그대로 베끼고; broad cohort 기준, base-wrong cohort 만 보면 약 15-33 %), 끌림은 모델 confidence 에 비례해 graded 되며, anchor 이미지에서 digit pixel 만 가리면 효과가 사라짐. 행동 + causal gate 동시 검증.
 - **C2 (Mitigation).** *(a − m) paired contrast* 를 calibration 신호로 활용해 model-specific integration site (OneVision Main 의 경우 L=26) 의 anchoring representation 을 한 차례 추정하고, inference 시 모든 입력에 projection 으로 일괄 적용. anchor label 이나 runtime 탐지 불필요. 5 dataset 에서 anchoring 효과 감소 + 6 일반 capability benchmark 평균 +0.41 pp 보존.
 - **C3 (Mechanism evidence).** Mechanism 분석으로 (i) anchoring representation 이 *multi-layer redundant* 하게 분포 (single-layer ablation null + per-model peak heterogeneity — single causal layer 부재), (ii) within-layer single direction 으로도 reduce 되지 않음을 보여 — §6 mitigation 의 *model-specific integration site* 와 *multi-direction subspace* 설계 모두에 근거를 제공.
 
@@ -119,12 +119,12 @@
 
 ### 4.1 Anchoring effect: graded pull and literal copy
 
-{{본 subsection 은 6 model × 5 dataset main panel 위에서 anchoring 효과의 *전반적 크기* 와 *cross-panel robustness* 를 제시한다. 모델별 평균 direction-follow 약 15-33 %, adopt 약 3-15 % 의 range 가 모든 모델 × 모든 dataset cell 에서 nontrivially 양수 임을 main panel table 한 장으로 입증 — 효과의 질량이 literal copy 가 아닌 graded pull 에 있고, 특정 architecture / domain artifact 가 아님.}}
+{{본 subsection 은 6 model × 5 dataset main panel 위에서 anchoring 효과의 *전반적 크기* 와 *cross-panel robustness* 를 제시한다. 모델별 평균 direction-follow 약 4-23 %, adopt 약 1-13 % 의 range (broad cohort; base-wrong cohort 만 보면 각각 약 15-33 % / 3-15 %, Appendix D.1 / D.2 참조) 가 모든 모델 × 모든 dataset cell 에서 양수 임을 main panel table 한 장으로 입증 — 효과의 질량이 literal copy 가 아닌 graded pull 에 있고, 특정 architecture / domain artifact 가 아님.}}
 
 **Preview Figure 1 — Cross-dataset summary (S1 wrong-base).**
 <img src="../figures/paper_cross_dataset_summary.png" alt="cross-dataset summary" width="700"/>
 
-> Per-cell df / adopt 수치 (6 model × 5 dataset grid) 는 **Appendix D.1 / D.2** 참조. DF formula update 시 re-aggregation 후 final 수치 확정 — `약 3-15 %` adopt range 도 그때 재검증.
+> Per-cell df / adopt 수치 (6 model × 5 dataset grid; broad + base-wrong cohort 병기) 는 **Appendix D.1 / D.2** 참조. DF formula update 시 re-aggregation 후 final 수치 확정 — `약 1-13 %` adopt range (broad) 도 그때 재검증.
 
 ### 4.2 Digit-pixel causal gate (via (a − m))
 
@@ -407,7 +407,22 @@ Anchor 이미지의 digit bounding box 를 OpenCV `INPAINT_TELEA` [Telea, 2004] 
 
 > 본문 §4.1 의 cross-dataset summary figure (Figure 1) 와 §4.3 의 6-bin gradient figure (Figure 3) 를 *수치 / 보조 figure* 로 보강. 본문 page-budget 절약 목적.
 
+> **두 cohort 병기.** D.1 / D.2 는 동일 metric (df(a), adopt(a)) 을 두 cohort 위에서 병기한다 — **broad** 는 cell 의 *모든* sample (`base-correct ∪ base-wrong`) 위 rate 로, 본문 §4.1 의 "약 4-23 %" / "약 1-13 %" range 에 직접 대응한다. **base-wrong** 은 b-arm 예측이 GT 와 다른 sample 만 (anchoring 이 작동할 수 있는 cohort) 위 rate 로, canonical aggregator (`scripts/build_e5e_e7_5dataset_summary.py`) 가 `main_panel_5dataset_per_cell.csv` 에 기록하는 값과 일치한다. 두 cohort 의 cell-by-cell 재현은 `notebooks/paper_cross_model_cross_dataset.ipynb` §11-§13 참조.
+
 ### D.1 Direction-follow per cell — df(a) % across 6 models × 5 datasets
+
+**D.1a · broad cohort** — df(a) % over all samples (base-correct ∪ base-wrong).
+
+| Model | TallyQA | ChartQA | MathVista | PlotQA | InfoVQA | **Mean** |
+|---|---|---|---|---|---|---:|
+| OneVision-7B (Main) | 3.9 | 6.6 | 15.3 | 10.9 | 11.2 | **9.6** |
+| Interleave-7B | 6.6 | 15.2 | 20.5 | 27.2 | 22.3 | **18.4** |
+| Qwen2.5-VL-7B | 2.9 | 5.1 | 7.2 | 4.0 | 3.1 | **4.4** |
+| Qwen2.5-VL-32B | 3.6 | 5.0 | 8.3 | 4.0 | 3.8 | **4.9** |
+| Gemma3-4B | 9.8 | 19.0 | 34.5 | 28.7 | 23.4 | **23.1** |
+| Gemma3-27B | 7.3 | 9.6 | 21.6 | 11.7 | 18.3 | **13.7** |
+
+**D.1b · base-wrong cohort** — df(a) % over b-arm-wrong samples only.
 
 | Model | TallyQA | ChartQA | MathVista | PlotQA | InfoVQA | **Mean** |
 |---|---|---|---|---|---|---:|
@@ -418,9 +433,22 @@ Anchor 이미지의 digit bounding box 를 OpenCV `INPAINT_TELEA` [Telea, 2004] 
 | Gemma3-4B | 17.2 | 34.6 | 41.3 | 39.5 | 32.4 | **33.0** |
 | Gemma3-27B | 15.2 | 24.0 | 33.2 | 22.7 | 35.0 | **26.0** |
 
-> Per-model mean range: **14.6 – 33.0** → 본문 §4.1 의 "약 15-33 %" 와 일치.
+> Per-model mean range — broad: **4.4 – 23.1** (본문 §4.1 의 "약 4-23 %" 와 일치); base-wrong: **14.6 – 33.0** (denominator 가 base-wrong 으로 좁아진 데 따른 magnitude shift; cell-wise 부호는 두 cohort 모두 30/30 cell 양수로 일관).
 
 ### D.2 Adopt per cell — adopt(a) % (literal copy rate)
+
+**D.2a · broad cohort** — adopt(a) % over all samples with `pb ≠ z`.
+
+| Model | TallyQA | ChartQA | MathVista | PlotQA | InfoVQA | **Mean** |
+|---|---|---|---|---|---|---:|
+| OneVision-7B (Main) | 1.2 | 1.5 | 10.8 | 5.9 | 2.3 | **4.3** |
+| Interleave-7B | 2.6 | 2.8 | 6.6 | 8.1 | 6.0 | **5.2** |
+| Qwen2.5-VL-7B | 1.1 | 1.7 | 2.0 | 1.3 | 0.9 | **1.4** |
+| Qwen2.5-VL-32B | 1.3 | 1.7 | 8.0 | 1.1 | 2.8 | **3.0** |
+| Gemma3-4B | 3.3 | 5.9 | 27.6 | 15.4 | 10.5 | **12.5** |
+| Gemma3-27B | 2.7 | 3.7 | 17.6 | 6.3 | 10.3 | **8.1** |
+
+**D.2b · base-wrong cohort** — adopt(a) % over b-arm-wrong samples with `pb ≠ z`.
 
 | Model | TallyQA | ChartQA | MathVista | PlotQA | InfoVQA | **Mean** |
 |---|---|---|---|---|---|---:|
@@ -428,12 +456,12 @@ Anchor 이미지의 digit bounding box 를 OpenCV `INPAINT_TELEA` [Telea, 2004] 
 | Interleave-7B | 5.0 | 3.2 | 6.5 | 8.2 | 6.1 | **5.8** |
 | Qwen2.5-VL-7B | 3.0 | 3.5 | 2.6 | 2.4 | 2.5 | **2.8** |
 | Qwen2.5-VL-32B | 3.8 | 4.3 | 12.8 | 2.3 | 9.8 | **6.6** |
-| Gemma3-4B | 6.2 | 8.8 | 30.1 | 18.4 | 13.3 | **15.4** |
+| Gemma3-4B | 6.2 | 8.8 | 30.1 | 18.4 | 13.3 | **15.3** |
 | Gemma3-27B | 5.9 | 7.0 | 23.0 | 9.9 | 16.3 | **12.4** |
 
-> Per-model mean range: **2.8 – 15.4** → 본문 §4.1 의 "약 3-15 %" 와 일치.
+> Per-model mean range — broad: **1.4 – 12.5** (본문 §4.1 의 "약 1-13 %" 와 일치); base-wrong: **2.8 – 15.3** (denominator 가 base-wrong 으로 좁아진 데 따른 magnitude shift).
 
-> **TODO (D.1 / D.2 final):** 현재 canonical CSV (`main_panel_5dataset_per_cell.csv`, M2 / C-form) 기준. DF formula update 시 re-aggregation 후 final 수치 확정.
+> **TODO (D.1 / D.2 final):** 현재 canonical aggregation (M2 / C-form) 기준. DF formula update 시 두 cohort 모두 re-aggregation 후 final 수치 확정.
 
 ### D.3 Binary projection — wrong-base vs correct-base df(a)
 
@@ -518,7 +546,8 @@ Table E.1 에서 K=1 이 K=8 보다 강한 cell 이 있음 (예: L=30 K=1 +0.477
 | §5.2 K-subspace sweep (OneVision) | {{TODO — 5-dataset K sweep CSV 신규 generate 필요}} |
 | §6.2 stage-4 paired-bootstrap CI | `docs/insights/_data/stage4_final_per_dataset_ci.{csv,md}` |
 | §6.3 per-benchmark capability | `docs/insights/_data/capability_eval_per_benchmark.{csv,md}` |
-| Appendix D.1/D.2 per-cell tables | 동일 `main_panel_5dataset_per_cell.csv` |
+| Appendix D.1/D.2 per-cell tables (base-wrong cohort) | 동일 `main_panel_5dataset_per_cell.csv` |
+| Appendix D.1/D.2 per-cell tables (broad cohort) | `docs/insights/_data/experiment_{e5e_tallyqa,e5e_chartqa,e5e_mathvista,e7_plotqa,e7_infographicvqa}_full_per_cell.csv` (combine `base_correct ∈ {True, False}` rows, S1, `cond_class='a'`; cell reproduction in `notebooks/paper_cross_model_cross_dataset.ipynb` §11-§13) |
 | Appendix E γ-β bridge L×K sweep | `docs/insights/_data/gamma_beta_bridge_lk_sweep.{csv,md}` |
 | Appendix G attention peak per (model, dataset) | `docs/insights/_data/cross_dataset_peaks.csv` |
 | Appendix H LEACE rank-1 / ActAdd / K=1 SVD per-dataset | `docs/insights/_data/leace_recal_per_dataset_ci.{csv,md}`, `actadd_recal_per_dataset_ci.{csv,md}`, `p4_layer_sweep_per_cell_ci.csv` |
