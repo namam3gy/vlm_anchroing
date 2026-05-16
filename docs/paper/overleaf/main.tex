@@ -1,18 +1,12 @@
-% !TeX program = xelatex
 % =============================================================
 % Pulled by Pixels: Cross-Modal Numerical Anchoring in VLMs
-% EMNLP submission outline -- compiled with XeLaTeX (Korean + English mix)
+% EMNLP submission outline -- full English translation of emnlp_outline_ko.md
+% Compiles with standard pdfLaTeX (ACL/EMNLP default).
 %
-% Compile:  xelatex main.tex && bibtex main && xelatex main.tex && xelatex main.tex
-% Overleaf: the magic comment on line 1 makes Overleaf pick XeLaTeX automatically.
-%          If it doesn't: Menu (left sidebar) -> Compiler -> XeLaTeX -> Recompile.
+% Compile: pdflatex main.tex && bibtex main && pdflatex main.tex && pdflatex main.tex
 % =============================================================
 
 \documentclass[11pt]{article}
-
-% Fail fast with a clear message if pdfLaTeX/LuaLaTeX is used by mistake.
-\RequirePackage{iftex}
-\RequireXeTeX
 
 % Change "review" to "final" for the camera-ready, "preprint" for non-anonymous with page numbers.
 \usepackage[review]{acl}
@@ -20,6 +14,8 @@
 % NOTE: acl.sty already loads xcolor, geometry, caption, natbib, hyperref, lineno (review).
 % Do NOT add \usepackage{hyperref} or \usepackage{url} -- they will clash.
 
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
 \usepackage{microtype}
 \usepackage{graphicx}
 \usepackage{booktabs}
@@ -27,15 +23,6 @@
 \usepackage{array}
 \usepackage{amsmath}
 \usepackage{amssymb}
-
-% --- Korean support (XeLaTeX only) ---
-\usepackage{xeCJK}
-% Noto Sans CJK KR ships with TeX Live on Overleaf.
-\setCJKmainfont{Noto Sans CJK KR}
-\setCJKsansfont{Noto Sans CJK KR}
-\setCJKmonofont{Noto Sans Mono CJK KR}
-\XeTeXlinebreaklocale "ko"
-\XeTeXlinebreakskip = 0pt plus 1pt minus 0.1pt
 
 % Convenience macro for outline placeholders that still need authoring.
 \newcommand{\todoNote}[1]{\textit{\textcolor[rgb]{0.45,0.45,0.45}{[#1]}}}
@@ -50,70 +37,86 @@
 
 % =============================================================
 \begin{abstract}
-\todoNote{목표 분량 $\sim$180 단어. 아래 5개 beat을 한 문단으로 압축.}
-\textbf{Problem.} VLM에게 질문과 무관한 이미지를 함께 보여줄 때, 그 이미지에 숫자가 그려져 있다면 답이 그 숫자 쪽으로 끌리는가 -- \textit{cross-modal numerical anchoring}.
-\textbf{Finding 1 (현상).} 6개 open-weight VLM $\times$ 5 dataset에서 약 10--40\,\% 의 응답이 anchor 숫자 쪽으로 \textit{점진적으로} 끌리고, 그 중 일부 (1.7--15.7\,\%) 는 anchor 를 그대로 베끼기까지 한다. 끌리는 정도는 base 답에 대한 모델 confidence 가 낮을수록 더 크다.
-\textbf{Finding 2 (causal gate).} 같은 anchor 이미지에서 숫자 픽셀만 가린 \textit{masked} 짝을 만들어 비교하면 위 끌림이 일반 distractor 수준으로 사라진다 -- 즉 anchoring 은 \textit{(보이는 digit)} $\times$ \textit{(모델 uncertainty)} 두 조건의 conjunction.
-\textbf{Method.} 본 논문은 anchored 와 masked 짝의 \textit{paired contrast} 를 신호로 삼아 모델 내부의 anchoring representation 을 추정하고, inference 시 이를 제거하는 mitigation 을 제안한다.
-\textbf{Result.} 5 dataset 위에서 anchoring 효과 감소 + anchor 가 있는 경우와 없는 경우 모두 정확도 동시 상승, 6 held-out capability benchmark 평균 보존 ($+0.41$\,pp).
-\textbf{Implication.} Mechanism 분석은 anchoring signal 이 단일 layer 가 아니라 모델 후반부 여러 layer 에 분산되어 존재함을 보여, vision-modality bias 가 LM 후반부에 \textit{분리 및 제거 가능한 representation 단위} 로 존재해 retraining 이나 prompt-level 방어 없이 inference 시 직접 개입할 수 있음을 시사한다.
+\todoNote{Target length $\sim$180 words. Condense the five beats below into a single paragraph.}
+\textbf{Problem.}
+When a vision--language model (VLM) is shown a question together with an irrelevant image that contains a number, is the model's numeric answer pulled toward that number---a phenomenon we call \textit{cross-modal numerical anchoring}?
+\textbf{Finding 1 (phenomenon).}
+Across six open-weight VLMs and five datasets, roughly 10--40\,\% of responses are \textit{gradually} pulled toward the anchor digit, and a subset (1.7--15.7\,\%) is even copied verbatim. The magnitude of the pull is larger when the model's confidence in its base answer is lower.
+\textbf{Finding 2 (causal gate).}
+When we construct a \textit{masked} counterpart of the anchor image that retains every pixel except the digit, the pull collapses to the level of an ordinary distractor---establishing that anchoring requires the conjunction of two conditions: \textit{a visible digit} and \textit{model uncertainty}.
+\textbf{Method.}
+We use the \textit{paired contrast} between the anchored and masked stimuli as a calibration signal to estimate the model's internal anchoring representation and remove it at inference time.
+\textbf{Result.}
+Across the same five datasets, our intervention reduces the anchoring effect while simultaneously improving accuracy both when anchors are present and when they are absent; it also preserves average performance on six held-out capability benchmarks ($+0.41$\,pp).
+\textbf{Implication.}
+Our mechanism analysis shows that the anchoring signal is distributed over several late layers of the language model rather than confined to a single layer, suggesting that vision-modality bias exists as a \textit{separable and removable representation unit} in the late language model and can be intervened on at inference time without retraining or prompt-level defenses.
 \end{abstract}
 
 % =============================================================
 \section{Introduction}
 
-\subsection{동기 (Motivation)}
+\subsection{Motivation}
 \begin{itemize}
-  \item \textbf{Hook (model-behavior question).} Multi-image prompt 가 RAG / multi-screenshot Q\&A / VLM-as-judge 등에서 일반화되는 가운데 -- VLM 은 질문과 무관한 시각 입력을 \textit{무시} 하는가, 아니면 그 정보가 답을 \textit{흔드는가}?
-  \item \textbf{Phenomenon 명명.} \textit{Cross-modal numerical anchoring} -- 무관한 이미지의 digit pixel이 모델 답을 끌어당긴다.
-  \item \textbf{Cognitive grounding.} Anchoring 은 인간 [Tversky and Kahneman, 1974] 과 텍스트 LLM [Jones and Steinhardt, 2022; Echterhoff et al., 2024] 에서 잘 정립된 인지 편향. 그러나 \textit{시각 modality} 위에서 -- 즉 visual cue 가 모델의 답을 어떻게 끌어당기는지에 대해서는 체계적 평가가 부재. 위 deployment 시나리오 (RAG retrieval, multi-image Q\&A, VLM-as-judge) 에서 무관한 시각 입력 노출이 자연스럽게 발생할 수 있어, 이 빈 칸은 cognitive 호기심을 넘어선 deployment relevance 를 가진다.
+  \item \textbf{Hook (model-behavior question).}
+    Multi-image prompting has become routine in retrieval-augmented generation (RAG), multi-screenshot question answering, and the use of VLMs as judges. In this setting, does a VLM \textit{ignore} visual inputs that are irrelevant to the question, or do they \textit{sway} the answer?
+  \item \textbf{Naming the phenomenon.}
+    We refer to this effect as \textit{cross-modal numerical anchoring}: the digit pixels in an irrelevant image pull the model's answer.
+  \item \textbf{Cognitive grounding.}
+    Anchoring is a well-established cognitive bias in humans [Tversky and Kahneman, 1974] and in text large language models (LLMs) [Jones and Steinhardt, 2022; Echterhoff et al., 2024]. Yet there has been no systematic evaluation of whether---and how---a \textit{visual cue} pulls a VLM's answer. Because exposure to irrelevant visual inputs arises naturally in the deployment scenarios above (RAG retrieval, multi-image Q\&A, VLM-as-judge), filling this gap is not merely a matter of cognitive curiosity but has direct deployment relevance.
 \end{itemize}
 
-\subsection{본 논문의 발견 (Findings)}
-\todoNote{Abstract 의 Finding 1 / Finding 2 를 본문 톤으로 한 단계 풀어서 서술. 4-condition 자극 (b: target only / a: + anchor / m: + masked anchor / d: + neutral distractor) 으로 6 open-weight VLM $\times$ 5 dataset 측정.}
+\subsection{Findings of this paper}
+\todoNote{Expand Findings~1 and 2 from the abstract into the body register one level deeper. The measurements use a 4-condition stimulus---b: target only / a: + anchor / m: + masked anchor / d: + neutral distractor---across six open-weight VLMs and five datasets.}
 \begin{itemize}
-  \item \textbf{F1 (graded pull).} 약 10--40\,\% 의 응답이 anchor 쪽으로 점진적으로 끌리고, 그 중 일부 (1.7--15.7\,\%) 는 anchor 를 그대로 베낀다 -- 효과의 질량은 \textit{literal copy} 가 아닌 \textit{점진적 이동} 에 있다.
-  \item \textbf{F2 (uncertainty modulation).} 끌리는 정도는 base 답에 대한 모델 confidence 가 낮을수록 크다 (5 dataset $\times$ 6 model L1 6-bin 위 단조 monotonic gradient).
-  \item \textbf{F3 (digit-pixel causal gate).} Anchor 이미지에서 digit pixel 만 가린 \textit{masked} 짝과 비교하면 끌림이 일반 distractor 수준으로 사라진다 -- \textit{digit pixel} $\times$ \textit{uncertainty} 두 조건의 conjunction.
-  \item \textbf{F4 (mechanism).} Anchoring 의 internal representation 은 LM 후반부 layer 에 형성된다 -- 이 위치는 본 논문 mitigation 의 작용 site 가 된다.
+  \item \textbf{F1 (graded pull).}
+    Approximately 10--40\,\% of responses are gradually pulled toward the anchor, and a subset of these (1.7--15.7\,\%) is copied verbatim. The mass of the effect lies in \textit{graded shift}, not \textit{literal copy}.
+  \item \textbf{F2 (uncertainty modulation).}
+    The magnitude of the pull grows as the model's confidence in its base answer decreases (a monotonic gradient is observed across the L1 6-bin partition over $5\;\text{datasets}\times 6\;\text{models} = 80$ cells).
+  \item \textbf{F3 (digit-pixel causal gate).}
+    When the digit pixels in the anchor image are masked, while everything else is preserved, the pull collapses to the level of an ordinary distractor---revealing a conjunction of \textit{digit pixels} and \textit{uncertainty}.
+  \item \textbf{F4 (mechanism).}
+    The internal representation of anchoring is formed in the late layers of the language model. This location becomes the site at which our mitigation operates.
 \end{itemize}
 
-\subsection{접근과 결과 (Approach \& Result)}
+\subsection{Approach and Results}
 \begin{itemize}
-  \item \textit{(a $-$ m) paired contrast} 를 calibration 신호로 활용 $\rightarrow$ 모델 내부의 anchoring representation 을 추정 $\rightarrow$ inference 시 projection 으로 제거.
-  \item Calibration 은 별도 phase 에서 한 차례만 수행되고, 거기서 얻은 projection 은 이후 모든 inference 에 일괄 적용된다. 배포 단계부터는 입력 이미지에 anchor 가 포함되어 있는지 여부와 무관하게 동일한 projection 이 작동하므로, runtime 에 anchor 를 탐지하거나 라벨링할 필요가 없다 -- 그대로 deployable 하다.
-  \item 이 mitigation 을 적용하면 5 dataset 위에서 anchoring 효과가 감소하며, 동시에 anchoring 과 \textit{무관한} 6 개 general capability benchmark (held-out) 의 성능도 손상되지 않는다 (평균 변화 $+0.41$\,pp) -- 즉 mitigation 이 모델의 일반 능력을 해치지 않는다.
+  \item We use the \textit{(a $-$ m) paired contrast} as a calibration signal to estimate the model's internal anchoring representation and remove it at inference time via a projection.
+  \item Calibration is performed once, in a separate phase; the resulting projection is applied uniformly to all subsequent inferences. From the moment of deployment onward, the same projection runs regardless of whether the input image contains an anchor---no anchor detection or labeling at runtime is required. The intervention is directly deployable.
+  \item When applied, our mitigation reduces the anchoring effect on the five datasets while \textit{preserving} average performance on six general-capability benchmarks (held out, average change $+0.41$\,pp). That is, the mitigation does not impair the model's general competence.
 \end{itemize}
 
-\subsection{기여 (Contributions)}
+\subsection{Contributions}
 \begin{itemize}
-  \item \textbf{C1 (Phenomenon).} Cross-modal numerical anchoring 을 5 dataset $\times$ 6 open-weight VLM 위에서 정량 보고 -- 약 10--40\,\% 의 응답이 무관한 이미지의 digit 으로 끌리며 (일부는 그대로 베끼고), 끌림은 모델 confidence 에 비례해 graded 되며, anchor 이미지에서 digit pixel 만 가리면 효과가 사라짐. 행동 + causal gate 동시 검증.
-  \item \textbf{C2 (Mitigation).} \textit{(a $-$ m) paired contrast} 를 calibration 신호로 활용해 LM 후반부의 anchoring representation 을 한 차례 추정하고, inference 시 모든 입력에 projection 으로 일괄 적용. anchor label 이나 runtime 탐지 불필요. 5 dataset 에서 anchoring 효과 감소 + 6 일반 capability benchmark 평균 $+0.41$\,pp 보존.
-  \item \textbf{C3 (Mechanism evidence).} Mechanism 분석으로 (i) anchoring representation 이 LM 후반부 layer 에 위치하고, (ii) 그 layer 안에서도 single direction 으로 reduce 되지 않음을 보여 -- \S6 mitigation 의 \textit{작용 site} 와 \textit{multi-direction subspace} 설계 모두에 근거를 제공.
+  \item \textbf{C1 (Phenomenon).}
+    We quantify cross-modal numerical anchoring across $5\;\text{datasets}\times 6\;\text{open-weight VLMs}$: roughly 10--40\,\% of responses are pulled toward the digit in an irrelevant image (a subset is copied verbatim); the pull is graded by model confidence; and masking only the digit pixels in the anchor image eliminates the effect. Behavior and causal gate are verified jointly.
+  \item \textbf{C2 (Mitigation).}
+    We use the \textit{(a $-$ m) paired contrast} as a calibration signal to estimate the late-LM anchoring representation in a single calibration pass and apply it as an inference-time projection to every input. No anchor labels and no runtime detection are required. We obtain reduced anchoring on the five datasets and an average $+0.41$\,pp preservation on six general-capability benchmarks.
+  \item \textbf{C3 (Mechanism evidence).}
+    Our mechanism analysis shows that (i) the anchoring representation is located in the late layers of the language model, and (ii) within those layers, it is not reducible to a single direction. These two facts directly motivate the \textit{operating site} and the \textit{multi-direction subspace} design choices of the mitigation in \S6.
 \end{itemize}
 
 % =============================================================
 \section{Related Work}
-\todoNote{4 subsection, 각 끝 1--2 문장에 본 논문 differentiator woven-in. 별도 positioning subsection 없음.}
+\todoNote{Four subsections; in each, the closing 1--2 sentences weave in this paper's differentiator. No separate positioning subsection.}
 
 \subsection{Anchoring in cognition and text LLMs}
-\todoNote{Tversky-Kahneman 1974, Mussweiler-Strack 1999 (cognitive); Jones-Steinhardt 2022, Echterhoff 2024, Lou-Sun 2024 (LLM anchoring + prompt-level mitigation 실패), Wang 2025a (LRM judging bias 가 reasoning trace 통해 amplified -- \S4.5 Qwen3-VL Thinking $\times$12.7 호응), Huang 2025 (synthetic LLM mechanism -- text-side mechanism 비교). 끝 1문장: 시각 modality 위 anchoring 미평가.}
+\todoNote{Tversky--Kahneman 1974, Mussweiler--Strack 1999 (cognitive); Jones--Steinhardt 2022, Echterhoff 2024, Lou--Sun 2024 (LLM anchoring + failure of prompt-level mitigation); Wang 2025a (LRM judging bias amplified through the reasoning trace---resonates with the $\times$12.7 Qwen3-VL Thinking observation in \S4.5); Huang 2025 (synthetic LLM mechanism---basis for comparison with text-side mechanism). Closing sentence: visual-modality anchoring has not been evaluated.}
 
 \subsection{Cognitive bias and behavioral analysis of VLMs}
-\todoNote{VLMBias [Vo, Nguyen 2025] -- familiar-subject counting; AIpsych [Liu 2025], CIVET [Rizzoli 2025], Tinted Frames [Fan 2026] -- sycophancy / position / framing. 끝 1문장: 본 논문은 cue 가 question subject 와 분리된 \textit{independent rendered-digit} 이미지 + open-ended numeric estimation 으로 두 축 모두에서 상보적.}
+\todoNote{VLMBias [Vo, Nguyen 2025]---familiar-subject counting; AIpsych [Liu 2025], CIVET [Rizzoli 2025], Tinted Frames [Fan 2026]---sycophancy / position / framing. Closing sentence: our paper provides complementary coverage along both axes by using cues that are \textit{independently rendered-digit images} disjoint from the question subject and by employing open-ended numeric estimation.}
 
 \subsection{Visual cue manipulation in VLMs}
-\todoNote{Goh 2021 multimodal neurons (mechanism foundation); Wang 2025b NAACL multi-image typographic attack; Gong 2025 FigStep visual jailbreak; Hufe 2025 Dyslexify (encoder-side defense for typographic). 끝 1문장: 본 논문은 클래스 라벨 / prompt 의 이미지화가 아닌 \textit{수치값 단독} cue, 분류 뒤집기 / ASR 이 아닌 \textit{open-numeric baseline-relative shift}; mitigation site 도 encoder 가 아닌 LM residual.}
+\todoNote{Goh 2021 multimodal neurons (mechanism foundation); Wang 2025b NAACL multi-image typographic attack; Gong 2025 FigStep visual jailbreak; Hufe 2025 Dyslexify (encoder-side defense for typographic attacks). Closing sentence: our cue is a \textit{numeric value alone}, not a class label or a rendered prompt; the measured shift is an \textit{open-numeric, baseline-relative shift} rather than a classification flip or ASR; and our mitigation site is the LM residual stream rather than the encoder.}
 
 \subsection{Representation-level intervention: activation steering and concept erasure}
-\todoNote{CAA [Panickssery 2024] -- paired contrastive activation, single direction; ITI [Li 2023] -- attention-head multi-direction (LM-only); LEACE [Belrose 2023] -- closed-form linear erasure (rank-1 default); Weng 2024 EMNLP -- VLM gender bias의 causal mediation $\rightarrow$ encoder-side mitigation (mechanism$\rightarrow$mitigation chain venue-tier 선례); Chand 2025 ``No Free Lunch in LM bias mitigation'' -- LM $\times$ discrete social bias $\times$ weight space 위 4-clause 동시 충족 \textit{실패} 보고 (본 mitigation 은 \textit{VLM $\times$ continuous numeric $\times$ inference activation} cross-axis positive). 끝 1문장: 본 mitigation 은 (i) CAA paired-contrast 패러다임을 \textit{vision-modality (a $-$ m) 인과 통로 분리} 로 확장, (ii) ITI attention-head 가 아닌 \textit{residual stream}, (iii) single-direction (LEACE rank-1 / ActAdd) 의 cross-dataset 실패 위에서 \textit{multi-direction subspace} 채택.}
+\todoNote{CAA [Panickssery 2024]---paired contrastive activation, single direction; ITI [Li 2023]---attention-head, multi-direction (LM-only); LEACE [Belrose 2023]---closed-form linear erasure (rank-1 default); Weng 2024 EMNLP---causal-mediation $\rightarrow$ encoder-side mitigation of VLM gender bias (a venue-tier mechanism$\rightarrow$mitigation chain precedent); Chand 2025 ``No Free Lunch in LM bias mitigation''---reports the \textit{failure} of simultaneously satisfying four clauses on the (LM $\times$ discrete social bias $\times$ weight space) axis (our mitigation is the positive cross-axis instance on the orthogonal (VLM $\times$ continuous numeric $\times$ inference-time activation) axis). Closing sentence: our mitigation (i) extends the CAA paired-contrast paradigm to \textit{vision-modality (a $-$ m) causal-path isolation}, (ii) operates on the \textit{residual stream} rather than on attention heads as in ITI, and (iii) adopts a \textit{multi-direction subspace} on top of the cross-dataset failure of single-direction baselines (LEACE rank-1 / ActAdd).}
 
 % =============================================================
 \section{Cross-Modal Anchoring: Stimulus and Measurement}
-\todoNote{Paradigm 도입. (a $-$ m) paired contrast 는 \S3.2 에 별도 격상 -- \S4 phenomenon, \S5 mechanism, \S6 mitigation 세 cluster 모두 이 substrate 를 재사용.}
+\todoNote{Introduction of the paradigm. The (a $-$ m) paired contrast is elevated to its own subsection in \S3.2; the three clusters in \S4 (phenomenon), \S5 (mechanism), and \S6 (mitigation) all reuse this substrate.}
 
 \subsection{4-condition stimulus (b / a / m / d)}
-\todoNote{본 subsection 은 4-condition 자극 (b: target only / a: + anchor / m: + masked anchor / d: + neutral distractor) 의 정의와 각 condition 이 무엇을 isolate 하는지의 설계 의도를 한 단락으로 정리한다. 자극 예시 이미지, prompt template, masked 이미지 생성 방식은 Appendix~\ref{app:stimulus}.}
+\todoNote{This subsection summarizes, in a single paragraph, the four-condition stimulus---b: target only / a: + anchor / m: + masked anchor / d: + neutral distractor---together with the design intent that specifies what each condition isolates. Concrete stimulus images, the prompt template, and the procedure for generating the masked image are deferred to Appendix~\ref{app:stimulus}.}
 
 \begin{figure}[t]
   \centering
@@ -124,17 +127,17 @@
     \includegraphics[width=0.20\linewidth]{figures/demo_sample_01/neutral.png} \\
     \small b (target only) & \small a (anchor) & \small m (masked) & \small d (neutral) \\
   \end{tabular}
-  \caption{4-condition preview (TallyQA \emph{``How many zebras\dots''}, gt=3, anchor=4). Preview shows the \emph{second image} only (paired with the target image at inference). Full input grid is in Appendix~\ref{app:stimulus}.}
+  \caption{Four-condition preview (TallyQA \emph{``How many zebras\dots''}, gt$=3$, anchor$=4$). The preview displays only the \emph{second image} (paired with the target image at inference). The full input grid is in Appendix~\ref{app:stimulus}.}
   \label{fig:preview-4cond}
 \end{figure}
 
-\subsection{(a $-$ m) paired contrast -- digit-pixel 인과 isolate}
-\todoNote{본 subsection 은 (a $-$ m) paired contrast 의 design 논리를 설명한다. Anchor image 자체는 동일하고 digit pixel 만 다르기 때문에 (a $-$ m) 차이는 digit pixel 의 인과 효과만 isolate 하고, 일반 distraction 효과는 별도 d arm 에서 통제된다. 이 substrate 는 \S4 의 digit-pixel causal gate finding 과 \S6 의 calibration 신호 양쪽에서 재사용 -- paper organizational backbone.}
+\subsection{(a $-$ m) paired contrast: isolating the digit-pixel causal path}
+\todoNote{This subsection explains the design logic of the (a $-$ m) paired contrast. Because the anchor image itself is identical and only the digit pixels differ, the (a $-$ m) difference isolates only the causal effect of the digit pixels, while ordinary distraction is independently controlled by the d arm. This substrate is reused on both sides---the digit-pixel causal gate finding in \S4 and the calibration signal in \S6---and serves as the organizational backbone of the paper.}
 
-\subsection{Anchoring 측정 (metrics)}
-\todoNote{본 subsection 은 anchoring 측정에 쓰는 metric 3 종을 정의한다. Primary 는 \textit{direction-follow} (sign-based, gt-free), secondary 는 \textit{adopt} (literal copy 비율) 과 \textit{exact-match} (정확도). 각 metric 이 본문에서 carry 하는 claim -- direction-follow = \S4 graded pull headline, adopt = literal capture, exact-match = \S6.4 capability -- 도 짧게 mapping.}
+\subsection{Measuring anchoring (metrics)}
+\todoNote{This subsection defines the three metrics used to measure anchoring. The primary is \textit{direction-follow} (sign-based, gt-free); the secondaries are \textit{adopt} (literal-copy rate) and \textit{exact-match} (accuracy). For each metric we also briefly map the claim it carries in the body---direction-follow $=$ the graded-pull headline in \S4; adopt $=$ literal capture; exact-match $=$ the capability axis in \S6.4.}
 
-\paragraph{Notation.} For each sample $i$, $gt_i$ = ground truth, $z_i$ = anchor digit value, $p_i^c$ = parsed prediction under condition $c \in \{b, a, m, d\}$.
+\paragraph{Notation.} For each sample $i$, let $gt_i$ denote the ground truth, $z_i$ the anchor digit value, and $p_i^c$ the parsed prediction under condition $c \in \{b, a, m, d\}$.
 
 \begin{table}[t]
   \centering
@@ -143,131 +146,131 @@
     \toprule
     \textbf{Metric} & \textbf{Definition} & \textbf{Role} \\
     \midrule
-    Adopt$_c$ & $P[p_i^c = z_i \mid p_i^b \neq z_i]$ & Literal copy rate. \S4.1 graded-vs-categorical headline. \\
-    DF$_c$ & $P[(p_i^c - p_i^b)(z_i - p_i^b) > \epsilon \mid |z_i - p_i^b| > \epsilon]$ & Primary anchoring metric (sign-based, gt-free). \S4 headline + \S6 mitigation target. \\
-    EM$_c$ & $\#(p_i^c = gt_i) / \#(\text{numeric pair})$ & Capability axis. b-arm = baseline accuracy, a-arm = anchored accuracy. \\
+    Adopt$_c$ & $P[p_i^c = z_i \mid p_i^b \neq z_i]$ & Literal copy rate. Headline of the graded-vs-categorical contrast in \S4.1. \\
+    DF$_c$ & $P[(p_i^c - p_i^b)(z_i - p_i^b) > \epsilon \mid |z_i - p_i^b| > \epsilon]$ & Primary anchoring metric (sign-based, gt-free). Headline of \S4 and target of the \S6 mitigation. \\
+    EM$_c$ & $\#(p_i^c = gt_i) / \#(\text{numeric pair})$ & Capability axis. The b-arm is baseline accuracy; the a-arm is anchored accuracy. \\
     \bottomrule
   \end{tabular}
   \caption{Metric definitions used throughout. Subsets: \emph{base-correct} $= \{ i : p_i^b = gt_i \}$, \emph{base-wrong} $= \{ i : p_i^b \neq gt_i \}$.}
   \label{tab:metrics}
 \end{table}
 
-\todoNote{TODO (DF formula): Direction-follow 수식이 epsilon-threshold form 으로 finalize 되면, canonical CSV 전체 re-aggregation 후 \S4 / \S5 / \S6 수치 일괄 update. 현재 본문 수치는 old C-form 기준.}
+\todoNote{TODO (DF formula): once the direction-follow expression is finalized as the epsilon-threshold form, re-aggregate the canonical CSVs and propagate the updated numbers throughout \S4 / \S5 / \S6 in a single sweep. The numbers in the current body are based on the old C-form.}
 
 \subsection{Models and datasets (brief)}
-\todoNote{본 subsection 은 main panel 의 6 open-weight VLM 과 5 dataset 을 한 단락으로 소개한다. Model: LLaVA-OneVision-7B (Main), LLaVA-Interleave-7B, Qwen2.5-VL-7B / 32B, Gemma3-4B / 27B. Dataset: TallyQA (counting), ChartQA / PlotQA / InfoVQA (chart-style numeric QA), MathVista (visual math). Filter / sampling / GT range / anchor inventory 디테일은 Appendix~\ref{app:datasets} / \ref{app:anchors}.}
+\todoNote{This subsection introduces, in a single paragraph, the six open-weight VLMs and the five datasets used in the main panel. Models: LLaVA-OneVision-7B (Main), LLaVA-Interleave-7B, Qwen2.5-VL-7B / 32B, Gemma3-4B / 27B. Datasets: TallyQA (counting), ChartQA / PlotQA / InfoVQA (chart-style numeric QA), and MathVista (visual math). Filtering, sampling, GT ranges, and the anchor inventory are deferred to Appendices~\ref{app:datasets} and \ref{app:anchors}.}
 
 % =============================================================
 \section{Phenomenon}
-\todoNote{무엇이 일어나는가 $\rightarrow$ 무엇이 gating 하는가 $\rightarrow$ 무엇이 modulating 하는가. Effect $\rightarrow$ causal gate $\rightarrow$ trigger condition 의 narrative arc.}
+\todoNote{What happens $\rightarrow$ what gates it $\rightarrow$ what modulates it. Effect $\rightarrow$ causal gate $\rightarrow$ trigger condition, a narrative arc.}
 
 \subsection{Anchoring effect: graded pull and literal copy}
-\todoNote{본 subsection 은 6 model $\times$ 5 dataset main panel 위에서 anchoring 효과의 \textit{전반적 크기} 와 \textit{cross-panel robustness} 를 제시한다. Direction-follow 약 10--40\,\%, adopt 1.7--15.7\,\% 의 range 가 모든 모델 $\times$ 모든 dataset cell 에서 nontrivially 양수 임을 main panel table 한 장으로 입증 -- 효과의 질량이 literal copy 가 아닌 graded pull 에 있고, 특정 architecture / domain artifact 가 아님.}
+\todoNote{This subsection presents, on the $6\;\text{models}\times 5\;\text{datasets}$ main panel, the \textit{overall magnitude} of the anchoring effect and its \textit{cross-panel robustness}. A single main-panel table is sufficient to demonstrate that direction-follow ($\approx$10--40\,\%) and adopt (1.7--15.7\,\%) ranges are non-trivially positive in every model $\times$ dataset cell---meaning that the mass of the effect lies in graded pull rather than literal copy and that it is not an artifact of a particular architecture or domain.}
 
 \begin{figure}[t]
   \centering
   \includegraphics[width=\linewidth]{figures/paper_cross_dataset_summary.png}
-  \caption{Cross-dataset summary (S1 wrong-base). Per-cell df / adopt numerics in Appendix~\ref{app:per-cell}.}
+  \caption{Cross-dataset summary (S1 wrong-base). Per-cell df / adopt numerics are reported in Appendix~\ref{app:per-cell}.}
   \label{fig:cross-dataset-summary}
 \end{figure}
 
 \subsection{Digit-pixel causal gate (via (a $-$ m))}
-\todoNote{본 subsection 은 a / m / d 3-arm 의 anchoring metric 을 한 figure 에 나란히 제시한다. \textit{anchor 추가의 총효과 (a $-$ b)} / \textit{digit-pixel 인과 효과 (a $-$ m)} / \textit{일반 distraction 통제 (d $-$ b)} 의 분리를 시각적으로 보이고, m 과 d 가 거의 같은 수준이고 a 만 떨어진다는 visual 이 핵심 결론 -- anchoring 의 인과 통로가 \textit{오직 digit pixel} 임을 empirical 으로 닫는다.}
+\todoNote{This subsection presents anchoring metrics for the a / m / d 3-arm side by side in a single figure. The decomposition into \textit{the total effect of adding the anchor (a $-$ b)}, \textit{the digit-pixel causal effect (a $-$ m)}, and \textit{the ordinary-distraction control (d $-$ b)} is shown visually. The key conclusion is the qualitative visual---m and d are at nearly the same level and only a drops---which empirically closes the case that the causal path of anchoring runs \textit{exclusively through the digit pixels}.}
 
 \begin{figure}[t]
   \centering
   \includegraphics[width=\linewidth]{figures/paper_4_2_digit_pixel_causality.png}
-  \caption{(a $-$ m) adopt gap. Left: 6 model $\times$ PlotQA. Right: 5 dataset $\times$ OneVision. \todoNote{Final figure: 3-arm (a/m/d) $\times$ DF + adopt -- show m $\approx$ d while a drops.}}
+  \caption{(a $-$ m) adopt gap. Left: 6 models $\times$ PlotQA. Right: 5 datasets $\times$ OneVision. \todoNote{Final figure: 3-arm (a/m/d) $\times$ (DF + adopt) so that the ``m $\approx$ d while a drops'' visual is unambiguous.}}
   \label{fig:digit-pixel-causality}
 \end{figure}
 
 \subsection{Confidence modulation}
-\todoNote{본 subsection 은 confidence axis 가 anchoring 의 \textit{진짜 modulator} 임을 두 형태로 보인다 -- primary 는 L1 6-bin monotonic gradient (continuous, B6 $-$ B1 gap $+$19.5--23.5\,pp on 5 dataset $\times$ 6 model = 80 cells), secondary 는 wrong-base vs correct-base binary projection (기존 anchoring literature 호환). 두 형태가 같은 direction 으로 작동. Binary projection 도입은 \S6 mitigation 의 wrong-base calibration filter 와 paper-wide 일관성 확보.}
+\todoNote{This subsection shows, in two forms, that the confidence axis is the \textit{actual modulator} of anchoring. The primary form is the continuous L1 6-bin monotonic gradient (across $5\;\text{datasets}\times 6\;\text{models} = 80$ cells, with B6$-$B1 gap of $+$19.5--23.5\,pp). The secondary form is the binary projection of wrong-base versus correct-base, which is compatible with the existing anchoring literature. Both forms point in the same direction. Introducing the binary projection also harmonizes the body with the wrong-base calibration filter used by the mitigation in \S6.}
 
 \begin{figure}[t]
   \centering
   \includegraphics[width=\linewidth]{figures/paper_L1_confidence_quartile.png}
-  \caption{Continuous L1 6-bin gradient (PlotQA $\times$ OneVision Main, single cell). Binary projection (wrong vs correct) in Appendix~\ref{app:per-cell}.}
+  \caption{Continuous L1 6-bin gradient (PlotQA $\times$ OneVision Main, single cell). The binary projection (wrong vs.\ correct base) is reported separately in Appendix~\ref{app:per-cell}.}
   \label{fig:l1-6bin}
 \end{figure}
 
 % =============================================================
-\section{Mechanism: Locating Anchoring Representation}
-\todoNote{\textit{위치} (어느 layer) 와 \textit{차원} (한 layer 안에서 몇 개 방향) 두 측면에서 anchoring representation 의 mechanism 을 측정 -- \S6 mitigation 의 site 선택과 subspace 설계 두 design choice 의 evidence 를 제공.}
+\section{Mechanism: Locating the Anchoring Representation}
+\todoNote{Two axes---\textit{location} (which layer) and \textit{dimensionality} (how many directions within a layer)---characterize the mechanism of the anchoring representation. These two axes supply the evidence for the two design choices of the \S6 mitigation: the operating site and the subspace design.}
 
-\subsection{Layer-wise probes: late-LM peak}
-\todoNote{본 subsection 은 layer-wise linear probe 로 anchoring representation 이 어느 layer 에 가장 강하게 형성되는지를 측정한다. 결과는 LM 후반부 (peak layer) 에서 가장 강하게 검출되어, \S6 mitigation 의 \textit{작용 site} (late LM layer) 의 mechanism evidence 를 제공. 5/5 모델 모두 후반부 peak 가 일관되게 형성되어 cross-model robustness 도 동시에 확인.}
+\subsection{Layer-wise probes: a late-LM peak}
+\todoNote{This subsection uses layer-wise linear probes to measure which layer most strongly encodes the anchoring representation. The result is a peak in the late layers of the language model, providing the mechanism evidence for the \textit{operating site} of the mitigation (late LM layer) in \S6. The late peak is consistent across 5 of 5 models, simultaneously confirming cross-model robustness.}
 
-\todoNote{TODO (Appendix table): Layer $\times$ model probe-strength heatmap (5-model panel). 본문에는 cross-model 일관성 한 줄만, full panel data 는 appendix.}
+\todoNote{TODO (Appendix table): a layer $\times$ model probe-strength heatmap (5-model panel). The body keeps only a one-line statement of cross-model consistency; the full panel data is deferred to the appendix.}
 
 \subsection{Single-direction insufficiency (K=1, LEACE rank-1, ActAdd)}
 \label{sec:single-direction}
-\todoNote{본 subsection 은 within-layer single direction 만 제거하는 method 들 이 cross-dataset 에서 anchoring 을 충분히 줄이지 못함을 보인다. 한 layer 안에서도 anchoring representation 이 multi-direction 으로 분산되어 있다는 mechanism evidence -- \S6 의 \textit{multi-direction subspace} (K$>$1) 설계의 직접 정당화. 본문 headline 은 K=1 / 2 / 4 / 8 SVD sweep 의 monotonic improvement (positive evidence); LEACE rank-1 / ActAdd 등 alternative single-direction method 들의 convergent failure 는 appendix 에서 보강.}
+\todoNote{This subsection shows that methods that remove only a single within-layer direction do not sufficiently reduce anchoring across datasets. This is mechanism evidence that, even within a single layer, the anchoring representation is distributed over multiple directions---direct justification for the \textit{multi-direction subspace} ($K>1$) design in \S6. The body headline is the monotonic improvement of the SVD sweep at $K = 1, 2, 4, 8$ (positive evidence); the convergent failures of alternative single-direction methods (LEACE rank-1, ActAdd) are reinforced in the appendix.}
 
 \begin{figure}[t]
   \centering
   \includegraphics[width=\linewidth]{figures/E6_pilot_grid_plotqa_heatmap.png}
-  \caption{K=2/4/8 progression heatmap (PlotQA $\times$ OneVision Main, L$\in$\{25,26,27\}, $\alpha\in$\{0.5,1,2\}, E6 calibration pilot). 4 metric $\times$ 3 layer $\times$ 3 $\alpha$ $\times$ 3 K. L=26, $\alpha$=1.0: adopt(a) $\Delta$ $-0.4 \rightarrow -1.4 \rightarrow -3.8$\,pp at K=2,4,8 (PlotQA, n=250). $\star$ cell (L=26, $\alpha$=1.0, K=8) is the \S6 selected configuration.}
+  \caption{$K = 2, 4, 8$ progression heatmap (PlotQA $\times$ OneVision Main, $L \in \{25, 26, 27\}$, $\alpha \in \{0.5, 1, 2\}$, E6 calibration pilot). Four metrics $\times$ three layers $\times$ three $\alpha$ values $\times$ three $K$ values. At $L = 26$, $\alpha = 1.0$, adopt$_a$ $\Delta$ moves $-0.4 \rightarrow -1.4 \rightarrow -3.8$\,pp at $K = 2, 4, 8$ (PlotQA, $n = 250$). The $\star$ cell ($L = 26$, $\alpha = 1.0$, $K = 8$) is the configuration selected in \S6.}
   \label{fig:K-progression}
 \end{figure}
 
 \begin{figure}[t]
   \centering
   \includegraphics[width=\linewidth]{figures/p4_layer_sweep_delta_df.png}
-  \caption{K=8 vs K=1 fallback at L=26 across 5 datasets (P4 verification). Blue = K=8 layer sweep; Red = K=1 at L=26. K=1 weaker than K=8 -- 5-dataset cross-check of single-direction insufficiency.}
+  \caption{$K = 8$ versus $K = 1$ fallback at $L = 26$ across five datasets (P4 verification). Blue $=$ $K = 8$ layer sweep; red $=$ $K = 1$ at $L = 26$. $K = 1$ is weaker than $K = 8$, providing a 5-dataset cross-check that a single direction is insufficient.}
   \label{fig:K8-vs-K1}
 \end{figure}
 
-\todoNote{TODO (Body figure final): combine the two previews above into one (or build a 5-dataset average K=1/2/4/8 bar chart).}
-\todoNote{TODO (Appendix): LEACE rank-1 + ActAdd + K=1 SVD per-dataset table (convergent negative evidence).}
+\todoNote{TODO (final body figure): combine the two previews above into a single figure (or build a new 5-dataset average $K = 1/2/4/8$ bar chart).}
+\todoNote{TODO (appendix): a per-dataset table reporting LEACE rank-1, ActAdd, and $K = 1$ SVD (convergent negative evidence).}
 
 \subsection{Multi-layer routing-and-integration (post-hoc characterization)}
-\todoNote{본 subsection 은 single-layer ablation null + late-layer probe peak 의 두 관찰을 \textit{routing-and-integration} framework 로 합성한다 -- multi-layer attention pathway 가 anchoring 신호를 \textit{routing} (처리) 하고, late-layer residual 에서 통합 표현으로 \textit{integration} (집계). Anchoring representation 의 전체 구조에 대한 post-hoc characterization 으로, design 의 driver 라기보다 \S5.1 / \S5.2 finding 을 묶는 통합 narrative.}
+\todoNote{This subsection synthesizes the two observations---the single-layer ablation null and the late-layer probe peak---into a \textit{routing-and-integration} framework: a multi-layer attention pathway \textit{routes} (processes) the anchoring signal, and the late-layer residual stream \textit{integrates} (aggregates) it into a unified representation. This is a post-hoc characterization of the global structure of the anchoring representation; it ties together the findings of \S5.1 and \S5.2 rather than driving the design.}
 
-Cross-architecture partial verification (Qwen3-VL $\gamma$-$\beta$ residual-stream bridge) is in Appendix~\ref{app:gamma-beta}.
+Cross-architecture partial verification (Qwen3-VL $\gamma$-$\beta$ residual-stream bridge) is reported in Appendix~\ref{app:gamma-beta}.
 
 % =============================================================
 \section{Mitigation}
-\todoNote{Method + cross-dataset results + capability preservation 한 section 에.}
+\todoNote{Method, cross-dataset results, and capability preservation are all consolidated into a single section.}
 
 \subsection{Method: subspace projection from (a $-$ m) calibration}
-\todoNote{(a $-$ m) 차이 vector 들의 SVD top-K subspace 를 LM 후반부 residual 에 projection 으로 제거. Algorithm box.}
+\todoNote{The SVD top-$K$ subspace of the (a $-$ m) difference vectors is removed by a projection on the late-LM residual stream. Algorithm box.}
 
-\subsection{Calibration setup + hyperparameters}
-\todoNote{Calibration set (보조 dataset 1--2개), projection rank K, layer 선택 근거.}
+\subsection{Calibration setup and hyperparameters}
+\todoNote{Calibration set (one or two auxiliary datasets), projection rank $K$, and the rationale for layer selection.}
 
-\subsection{Cross-dataset anchoring 감소}
-\todoNote{5 dataset 위 anchoring 효과 변화 ($\Delta$df, $\Delta$adopt). Paired bootstrap CI.}
+\subsection{Cross-dataset reduction of anchoring}
+\todoNote{Changes in the anchoring effect across the five datasets ($\Delta$df, $\Delta$adopt). Paired-bootstrap confidence intervals.}
 
 \subsection{Capability preservation (held-out benchmarks)}
-\todoNote{6 일반 capability benchmark (HallusionBench, AMBER, POPE, MME 등) 에서 평균 성능 변화 $+0.41$\,pp.}
+\todoNote{Average performance change on six general-capability benchmarks (HallusionBench, AMBER, POPE, MME, etc.) is $+0.41$\,pp.}
 
 % =============================================================
 \section{Discussion}
 
-\subsection{함의 (Implications)}
+\subsection{Implications}
 \todoNote{}
 
-\subsection{다른 접근과의 비교}
+\subsection{Comparison with other approaches}
 \todoNote{}
 
-\subsection{후속 작업 (Future work)}
+\subsection{Future work}
 \todoNote{}
 
-\subsection{Ecological validity -- closed-API VLM-as-judge pilot}
+\subsection{Ecological validity: closed-API VLM-as-judge pilot}
 \begin{itemize}
-  \item \S1.1 hook (deployment relevance) 의 보충 검증. 5 closed-API judge $\times$ 2 dataset $\times$ 3 arm $\times$ n=200 pilot.
-  \item 결과 mixed: gpt-4o (digit-specific) / gemini-2.5-flash (distractor-general) 에서 anchoring 관찰; gpt-5.1 / gemini-2.5-pro / claude 는 robust.
-  \item Take-home: phenomenon 이 open-weight 인공물이 아니며 frontier judge 에서도 부분적으로 surface -- mitigation 의 deployment relevance 보강. 동시에 \textit{모든} 시스템이 영향을 받는다고 overclaim 하지 않음.
+  \item A supplementary verification of the deployment-relevance hook in \S1.1. Five closed-API judges $\times$ two datasets $\times$ three arms $\times$ $n = 200$ pilot.
+  \item The result is mixed: anchoring is observed in gpt-4o (digit-specific) and gemini-2.5-flash (distractor-general); gpt-5.1, gemini-2.5-pro, and Claude are robust.
+  \item Take-home message: the phenomenon is not an open-weight artifact and partially surfaces in frontier judges---reinforcing the deployment relevance of the mitigation---without overclaiming that \textit{every} system is affected.
 \end{itemize}
 
 % =============================================================
 \section{Conclusion}
-\todoNote{한 문단 요약: 무엇을 했고, 무엇을 보였고, 왜 중요한가.}
+\todoNote{A single-paragraph summary of what we did, what we showed, and why it matters.}
 
 % =============================================================
 \section*{Limitations}
-\todoNote{EMNLP 필수 섹션. 페이지 제한 \textit{밖}. Honest, specific, non-defensive. 데이터/모델/일반화/통계/재현성 한계를 항목별로.}
+\todoNote{Required EMNLP section. \textit{Outside} the page limit. Honest, specific, non-defensive. Itemize limitations along data, model, generalization, statistics, and reproducibility.}
 \begin{itemize}
   \item \todoNote{Limitation 1}
   \item \todoNote{Limitation 2}
@@ -276,26 +279,26 @@ Cross-architecture partial verification (Qwen3-VL $\gamma$-$\beta$ residual-stre
 
 % =============================================================
 \section*{Ethics Statement}
-\todoNote{권장 섹션. 페이지 제한 밖. 해당 사항 없으면 명시적으로 ``no ethical concerns identified'' 라고 적기보다, 데이터 출처$\cdot$라이선스$\cdot$잠재적 오용$\cdot$환경 비용 정도는 짧게 다루는 것이 통상.}
+\todoNote{Recommended section. Outside the page limit. Rather than declaring ``no ethical concerns identified'' when there are none, the standard practice is to address data sourcing, licenses, potential misuse, and the environmental cost briefly.}
 
-\todoNote{Data licensing, human subjects, potential misuse, compute / carbon footprint.}
+\todoNote{Data licensing, human subjects, potential misuse, and the compute / carbon footprint.}
 
 % =============================================================
 \section*{Acknowledgments}
-\todoNote{Optional. 익명화 단계에서는 비워둘 것.}
+\todoNote{Optional. Leave blank in the anonymized version.}
 
 % =============================================================
 % \bibliography{custom}
-\todoNote{References -- BibTeX 는 별도 \texttt{custom.bib} 파일에서 관리. 현재는 placeholder.}
+\todoNote{References. The BibTeX entries are managed in a separate \texttt{custom.bib} file. The current bibliography is a placeholder.}
 
 % =============================================================
 \appendix
 
-\section{Stimulus \& prompt details}
+\section{Stimulus and prompt details}
 \label{app:stimulus}
 
 \subsection{Prompt template}
-모든 6개 모델, 모든 dataset, 모든 4-condition 에 대해 \textit{동일한} system + user template 사용 (모델별 변동 없음). 이미지 슬롯 개수만 condition 에 따라 1 (b) / 2 (a, m, d) 로 변동.
+For all six models, all datasets, and all four conditions, we use the \textit{same} system and user template (no model-specific variation). Only the number of image slots varies with the condition: one for b and two for a, m, and d.
 
 \paragraph{System.}
 \begin{verbatim}
@@ -322,9 +325,9 @@ Question: {question}
 
 Sampling: \texttt{temperature=0.0}, \texttt{top\_p=1.0}, \texttt{max\_new\_tokens=16}.
 
-\subsection{4-condition 자극 예시}
+\subsection{Four-condition stimulus example}
 
-Figure~\ref{fig:appendix-a2} -- 동일 question 위 4-condition 자극의 실제 입력 이미지 + 모델 답. 본 예시는 demo site (\url{https://namam3gy.github.io/vlm_anchroing/}) 의 첫 번째 샘플 (TallyQA, \texttt{2448100\_24481\_stratified}).
+Figure~\ref{fig:appendix-a2} shows, for a single question, the actual input images of the four-condition stimulus together with the model's answers. The example is the first sample of the demo site (\url{https://namam3gy.github.io/vlm_anchroing/}), namely the TallyQA item \texttt{2448100\_24481\_stratified}.
 
 \textbf{Question:} \textit{How many zebras are there standing in the water?} \quad \textbf{Ground truth:} 3 \quad \textbf{Anchor value:} 4
 
@@ -336,16 +339,16 @@ Figure~\ref{fig:appendix-a2} -- 동일 question 위 4-condition 자극의 실제
     \midrule
     b & \includegraphics[width=0.20\linewidth]{figures/demo_sample_01/target.png} & \textbf{3} $\checkmark$ \\
     a & \includegraphics[width=0.20\linewidth]{figures/demo_sample_01/target.png}\,\includegraphics[width=0.20\linewidth]{figures/demo_sample_01/anchor.png} & \textbf{4} $\leftarrow$ anchor \\
-    m & \includegraphics[width=0.20\linewidth]{figures/demo_sample_01/target.png}\,\includegraphics[width=0.20\linewidth]{figures/demo_sample_01/masked.png} & \textbf{3} $\checkmark$ (recover) \\
+    m & \includegraphics[width=0.20\linewidth]{figures/demo_sample_01/target.png}\,\includegraphics[width=0.20\linewidth]{figures/demo_sample_01/masked.png} & \textbf{3} $\checkmark$ (recovered) \\
     d & \includegraphics[width=0.20\linewidth]{figures/demo_sample_01/target.png}\,\includegraphics[width=0.20\linewidth]{figures/demo_sample_01/neutral.png} & \textbf{3} $\checkmark$ \\
     \bottomrule
   \end{tabular}
-  \caption{4-condition input grid for a TallyQA example. The full 6-model answer table is on the demo site. This single sample illustrates the (a $-$ m) paired contrast: anchor pulls the answer (3 $\rightarrow$ 4); masking the digit recovers baseline (3); neutral distractor is null.}
+  \caption{The four-condition input grid for a TallyQA example. The full 6-model answer table is on the demo site. This single sample illustrates the (a $-$ m) paired contrast: the anchor pulls the answer ($3 \rightarrow 4$); masking the digit recovers the baseline ($3$); the neutral distractor has no effect.}
   \label{fig:appendix-a2}
 \end{figure}
 
-\subsection{Masked 자극 생성}
-Anchor 이미지의 digit bounding box 를 OpenCV \texttt{INPAINT\_TELEA} [Telea, 2004] 로 채워 \texttt{m} 이미지 생성. Mask 외 영역은 원본 그대로 보존되어, \textit{paired contrast (a $-$ m)} 가 digit pixel 효과만 isolate.
+\subsection{Masked stimulus generation}
+The digit bounding box in the anchor image is filled with OpenCV's \texttt{INPAINT\_TELEA} algorithm [Telea, 2004] to produce the \texttt{m} image. The area outside the mask is preserved exactly, so the \textit{paired contrast (a $-$ m)} isolates the effect of the digit pixels alone.
 
 % -----------------------------------------------------------
 \section{Dataset details}
@@ -358,28 +361,28 @@ Anchor 이미지의 digit bounding box 를 OpenCV \texttt{INPAINT\_TELEA} [Telea
     \toprule
     \textbf{Dataset} & \textbf{Split} & \textbf{Filter} & \textbf{$n$} \\
     \midrule
-    ChartQA & test & numeric, [0,1000] & 705 \\
-    PlotQA & test & seed=42 strat 5-bin & 5{,}000 \\
-    InfoVQA & val & numeric, [0,10000] & 1{,}147 \\
-    MathVista & testmini & integer, [0,1000] & 385 \\
-    TallyQA & test & numeric, [0,8] & 38{,}245 \\
+    ChartQA & test & numeric, $[0, 1000]$ & 705 \\
+    PlotQA & test & seed$=$42, 5-bin strat. & 5{,}000 \\
+    InfoVQA & val & numeric, $[0, 10000]$ & 1{,}147 \\
+    MathVista & testmini & integer, $[0, 1000]$ & 385 \\
+    TallyQA & test & numeric, $[0, 8]$ & 38{,}245 \\
     \bottomrule
   \end{tabular}
-  \caption{Eligible-sample pool per dataset (filter-passing). 4-condition stimuli (b/a/m/d) are built on top.}
+  \caption{The pool of eligible samples per dataset (those that pass the filter). The four-condition stimuli (b/a/m/d) are constructed on top of this pool.}
   \label{tab:datasets}
 \end{table}
 
-\noindent\textbf{PlotQA stratification.} seed=42 stratified subset of 1{,}228{,}313 samples (1{,}000 per bin $\times$ 5 GT bins: $(0,8], (8,20], (20,100], (100,1k], (1k,10k]$). Range filter [0, 10000].
+\noindent\textbf{PlotQA stratification.} A seed$=$42 stratified subset of 1{,}228{,}313 samples (1{,}000 per bin $\times$ 5 GT bins: $(0, 8], (8, 20], (20, 100], (100, 1{,}000], (1{,}000, 10{,}000]$), with a range filter of $[0, 10000]$.
 
-\noindent\textbf{GT distribution.} ChartQA $\sim$ small/round skew; PlotQA balanced by design; InfoVQA natural mild right-skew; MathVista mixed (counting + arithmetic); TallyQA strongly small-skew (1--4 dominant).
+\noindent\textbf{GT distribution.} ChartQA is skewed toward small / round values; PlotQA is balanced by design; InfoVQA is natural with a mild right skew; MathVista is mixed (counting + arithmetic); TallyQA is strongly skewed toward small values (1--4 dominate).
 
-\noindent All datasets enforce \texttt{require\_single\_numeric\_gt=true} -- only samples whose GT candidates are all identical numeric values. \texttt{answer\_range} cutoffs match the anchor inventory (Appendix~\ref{app:anchors}).
+\noindent For all datasets we enforce \texttt{require\_single\_numeric\_gt=true}: only samples whose GT candidates are all identical numeric values are retained. The \texttt{answer\_range} cutoffs are matched to the anchor inventory (Appendix~\ref{app:anchors}).
 
 % -----------------------------------------------------------
-\section{Anchor value 선정 (per dataset)}
+\section{Anchor value selection (per dataset)}
 \label{app:anchors}
 
-\paragraph{Inventory.} 128 pre-rendered single-/multi-digit images (\texttt{inputs/irrelevant\_number/\{value\}.png}). Value distribution is dense-low / sparse-high:
+\paragraph{Inventory.} The inventory consists of 128 pre-rendered single- and multi-digit images (\texttt{inputs/irrelevant\_number/\{value\}.png}). The value distribution is dense at low magnitudes and sparse at high magnitudes:
 
 \begin{table}[h]
   \centering
@@ -388,24 +391,24 @@ Anchor 이미지의 digit bounding box 를 OpenCV \texttt{INPAINT\_TELEA} [Telea
     \toprule
     \textbf{Range} & \textbf{Step} & \textbf{Values} & \textbf{Count} \\
     \midrule
-    0--10 & 1 & 0,1,2,\dots,10 & 11 \\
-    15--100 & 5 & 15,20,\dots,95,100 & 18 \\
-    200--10{,}000 & 100 & 200,300,\dots,10000 & 99 \\
+    0--10 & 1 & $0, 1, 2, \dots, 10$ & 11 \\
+    15--100 & 5 & $15, 20, \dots, 95, 100$ & 18 \\
+    200--10{,}000 & 100 & $200, 300, \dots, 10{,}000$ & 99 \\
     \midrule
     \multicolumn{3}{l}{\textbf{Total}} & \textbf{128} \\
     \bottomrule
   \end{tabular}
-  \caption{Anchor inventory. Dense low-range provides close-distance anchors for small-GT datasets (TallyQA, MathVista counting); coarser 100-step block keeps plausible anchors available for wide-GT datasets (PlotQA, InfoVQA).}
+  \caption{Anchor inventory. The dense low range supplies close-distance anchors for small-GT datasets (TallyQA, MathVista counting); the coarser 100-step block keeps plausible anchors available for wide-GT datasets (PlotQA, InfoVQA).}
   \label{tab:anchor-inventory}
 \end{table}
 
-\paragraph{Per-question stratification.} For each question, distance $|a - gt|$ between GT and every candidate is computed. Within each distance stratum, one candidate is sampled via RNG -- per question, one anchor per stratum.
+\paragraph{Per-question stratification.} For each question, we compute the distance $|a - gt|$ between the GT and every candidate. Within each distance stratum we sample one candidate via the RNG, yielding one anchor per stratum per question.
 
-\paragraph{Distance stratum schemes.}
+\paragraph{Distance-stratum schemes.}
 \begin{itemize}
-  \item \textbf{absolute}: fixed boundaries $[0,1], [2,5], [6,30], [31,300], [301,\infty)$. Narrow-GT dataset (TallyQA).
-  \item \textbf{relative}: upper bound $\mathrm{hi} = \max(\text{absolute\_floor}, \text{fraction} \cdot |gt|)$ with fractions $[10\%, 30\%, 100\%, 300\%, \infty]$. Wide-GT datasets.
-  \item \textbf{relative\_s1}: first stratum only ($|a - gt| \leq \max(1, 0.10 \cdot gt)$).
+  \item \textbf{absolute}: fixed boundaries $[0, 1], [2, 5], [6, 30], [31, 300], [301, \infty)$. Narrow-GT datasets (TallyQA).
+  \item \textbf{relative}: the upper bound is $\mathrm{hi} = \max(\text{absolute\_floor}, \text{fraction} \cdot |gt|)$, with fractions $[10\%, 30\%, 100\%, 300\%, \infty]$. Wide-GT datasets.
+  \item \textbf{relative\_s1}: only the first stratum of the relative scheme ($|a - gt| \leq \max(1, 0.10 \cdot gt)$).
 \end{itemize}
 
 \paragraph{Per-dataset main-panel settings.}
@@ -416,24 +419,24 @@ Anchor 이미지의 digit bounding box 를 OpenCV \texttt{INPAINT\_TELEA} [Telea
     \toprule
     \textbf{Dataset} & \textbf{Scheme} & \textbf{Effective range} \\
     \midrule
-    TallyQA & absolute $[0,5]$ & $|a-gt| \leq 5$ \\
-    ChartQA & relative\_s1 & $|a-gt| \leq \max(1, 0.10\cdot gt)$ \\
+    TallyQA & absolute $[0, 5]$ & $|a - gt| \leq 5$ \\
+    ChartQA & relative\_s1 & $|a - gt| \leq \max(1, 0.10 \cdot gt)$ \\
     MathVista & relative\_s1 & same \\
     PlotQA & relative\_s1 & same \\
     InfoVQA & relative\_s1 & same \\
     \bottomrule
   \end{tabular}
-  \caption{Main 6-model panel uses close-distance single-stratum only -- anchoring's worst-case slot. The 5-stratum full schedule is reported as an OneVision-only extension.}
+  \caption{The main 6-model panel uses a single close-distance stratum---the worst-case slot for anchoring. The full 5-stratum schedule is reported separately as an OneVision-only extension.}
   \label{tab:anchor-per-dataset}
 \end{table}
 
 % -----------------------------------------------------------
-\section{Per-cell main panel results + binary projection}
+\section{Per-cell main panel results and binary projection}
 \label{app:per-cell}
 
-\todoNote{본문 \S4.1 의 cross-dataset summary figure 와 \S4.3 의 6-bin gradient figure 를 \textit{수치 / 보조 figure} 로 보강. 본문 page-budget 절약 목적.}
+\todoNote{Reinforces the cross-dataset summary figure in \S4.1 and the 6-bin gradient figure in \S4.3 with \textit{numerical / auxiliary} figures. The purpose is to save body page budget.}
 
-\subsection{Direction-follow per cell -- df(a) \% across 6 models $\times$ 5 datasets}
+\subsection{Direction-follow per cell: df$_a$ (\%) across 6 models $\times$ 5 datasets}
 
 \begin{table}[h]
   \centering
@@ -451,11 +454,11 @@ Anchor 이미지의 digit bounding box 를 OpenCV \texttt{INPAINT\_TELEA} [Telea
     Gemma3-27B & 15.2 & 24.0 & 33.2 & 22.7 & 35.0 \\
     \bottomrule
   \end{tabular}
-  \caption{df(a) \% per cell, 6-model $\times$ 5-dataset main panel.}
+  \caption{df$_a$ (\%) per cell, on the 6-model $\times$ 5-dataset main panel.}
   \label{tab:df-per-cell}
 \end{table}
 
-\subsection{Adopt per cell -- adopt(a) \% (literal copy rate)}
+\subsection{Adopt per cell: adopt$_a$ (\%, literal copy rate)}
 
 \begin{table}[h]
   \centering
@@ -473,42 +476,42 @@ Anchor 이미지의 digit bounding box 를 OpenCV \texttt{INPAINT\_TELEA} [Telea
     Gemma3-27B & 5.9 & 7.0 & 23.0 & 9.9 & 16.3 \\
     \bottomrule
   \end{tabular}
-  \caption{adopt(a) \% per cell. \todoNote{Current numbers under M2 / C-form (canonical CSV \texttt{main\_panel\_5dataset\_per\_cell.csv}); will be re-aggregated when DF formula finalizes.}}
+  \caption{adopt$_a$ (\%) per cell. \todoNote{The current numbers are under M2 / C-form (canonical CSV \texttt{main\_panel\_5dataset\_per\_cell.csv}); they will be re-aggregated once the DF formula is finalized.}}
   \label{tab:adopt-per-cell}
 \end{table}
 
-\subsection{Binary projection -- wrong-base vs correct-base df(a)}
+\subsection{Binary projection: wrong-base vs.\ correct-base df$_a$}
 
 \begin{figure}[h]
   \centering
   \includegraphics[width=\linewidth]{figures/paper_4_1_PlotQA_correct_vs_wrong_df.png}
-  \caption{PlotQA $\times$ 6 models -- wrong-base consistently higher df(a) than correct-base. Binary projection of the continuous L1 6-bin gradient (\S4.3); also pre-justifies the \S6 wrong-base calibration filter.}
+  \caption{PlotQA $\times$ 6 models. The wrong-base df$_a$ is consistently higher than the correct-base df$_a$. This is the binary projection of the continuous L1 6-bin gradient (\S4.3); it also pre-justifies the wrong-base calibration filter used by the mitigation in \S6.}
   \label{fig:binary-projection}
 \end{figure}
 
-\todoNote{TODO (D.3 final): expand to 5-dataset average or dataset-stratified panel + adopt.}
+\todoNote{TODO (D.3 final): extend the figure to a 5-dataset average or a dataset-stratified panel, and include adopt as well.}
 
 % -----------------------------------------------------------
-\section{Cross-architecture verification: $\gamma$-$\beta$ residual-stream bridge (Qwen3-VL)}
+\section{Cross-architecture verification: the $\gamma$-$\beta$ residual-stream bridge (Qwen3-VL)}
 \label{app:gamma-beta}
 
-\todoNote{\S5.3 routing-and-integration framework 의 partial cross-architecture verification. Main panel 밖 architecture (Qwen3-VL) 위 \textit{방향성 prediction 만} 검증.}
+\todoNote{A partial cross-architecture verification of the routing-and-integration framework in \S5.3. On an architecture outside the main panel (Qwen3-VL), we verify the \textit{directional prediction} only.}
 
-\paragraph{Setup.} For Qwen3-VL, take the layer-wise residual-stream difference $\gamma - \beta$ between Thinking ($\gamma$) and Non-thinking ($\beta$) modes on identical inputs. Extract the SVD K=1 subspace of this difference and apply it as a layer-projection. Measure anchoring change.
+\paragraph{Setup.} For Qwen3-VL, we take the layer-wise residual-stream difference $\gamma - \beta$ between the Thinking ($\gamma$) and Non-thinking ($\beta$) modes on identical inputs. We extract the $K = 1$ SVD subspace of this difference and apply it as a layer projection. We then measure the resulting change in anchoring.
 
 \paragraph{Result.}
 \begin{itemize}
-  \item Late layers (L=29--34) $\rightarrow$ anchoring \emph{decreases} (positive).
-  \item Mid layer (L=20) $\rightarrow$ anchoring \emph{increases} (negative -- sign reversal).
+  \item Late layers ($L = 29$--$34$) $\rightarrow$ anchoring \emph{decreases} (positive).
+  \item A mid layer ($L = 20$) $\rightarrow$ anchoring \emph{increases} (negative---sign reversal).
 \end{itemize}
 
-\paragraph{Framework prediction agreement.} The sign-reversal pattern matches the framework's layer-routing directionality (late = integration, mid = routing) $\rightarrow$ partial prospective verification.
+\paragraph{Agreement with the framework prediction.} The sign-reversal pattern matches the directionality of the framework's layer-routing prediction (late $=$ integration, mid $=$ routing) $\rightarrow$ a partial prospective verification.
 
 \paragraph{Caveats.}
-(i) $N=1$ architecture (Qwen3-VL only).
-(ii) K=1 only -- the original K=8 quantitative ratio ($\times 12.7$) is \emph{falsified}.
-(iii) Not strictly prospective (framework already existed when tested) -- only \emph{directional} cross-architecture verification.
+(i) $N = 1$ architecture (Qwen3-VL only).
+(ii) $K = 1$ only---the quantitative ratio of the original $K = 8$ prediction ($\times 12.7$) is \emph{falsified}.
+(iii) The verification is not strictly prospective (the framework already existed at test time)---only the \emph{directional} cross-architecture verification holds.
 
-\todoNote{TODO: multi-architecture + K$>$1 full prospective verification registered as \S7.3 follow-up.}
+\todoNote{TODO: a multi-architecture, $K > 1$, full prospective verification is registered as a \S7.3 follow-up.}
 
 \end{document}
