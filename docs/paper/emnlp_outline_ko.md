@@ -239,23 +239,13 @@ Primary metric Δdf(a) (negative = anchoring 감소), secondary Δadopt(a) + Δe
 
 ## 7 Discussion
 
-### 7.1 함의 (Implications)
+### 7.1 Implications (including ecological validity)
 
-{{}}
+{{본 subsection 은 paper 의 행동 + mechanism + mitigation finding 을 *한 narrative* 로 종합하고, *ecological validity* 의 보충 검증 (closed-API VLM-as-judge pilot) 으로 마무리한다. Pilot 결과 (5 judge × 2 dataset × n=200): gpt-4o / gemini-2.5-flash 에서 anchoring 관찰, gpt-5.1 / gemini-2.5-pro / claude 는 robust. Open-weight 인공물 아니며 frontier judge 도 부분적으로 surface — mitigation 의 deployment relevance 보강. 단 *모든* 시스템 영향 받는다고 overclaim 하지 않음.}}
 
-### 7.2 다른 접근과의 비교
+### 7.2 Future work
 
-{{}}
-
-### 7.3 후속 작업 (Future work)
-
-{{}}
-
-### 7.4 Ecological validity — closed-API VLM-as-judge pilot
-
-- §1.1 hook (deployment relevance) 의 보충 검증. 5 closed-API judge × 2 dataset × 3 arm × n=200 pilot.
-- 결과 mixed: gpt-4o (digit-specific) / gemini-2.5-flash (distractor-general) 에서 anchoring 관찰; gpt-5.1 / gemini-2.5-pro / claude 는 robust.
-- Take-home: phenomenon 이 open-weight 인공물이 아니며 frontier judge 에서도 부분적으로 surface — mitigation 의 deployment relevance 보강. 동시에 *모든* 시스템이 영향을 받는다고 overclaim 하지 않음.
+{{본 subsection 은 §6.2 의 *예상치 못한 finding* (mitigation 이 anchor 없는 입력에 대해서도 정확도 상승, Δem(b) 5/5 dataset positive, mean +8.8 pp) 에 대한 가장 likely 한 해석을 제시하고 후속 작업을 정의한다. 해석: (a − m) subspace 가 *anchor-specific 외 broader distraction direction* 까지 capture — anchor 가 distraction 의 한 instance 이고, paired contrast 가 더 일반적인 distraction handling 을 incidentally 학습. §6.3 의 hallucination-axis positive transfer (HallusionBench +2.21 pp) 가 이 해석 support (hallucination 도 일종의 *visual distraction 처리 실패*). Mechanism 적 검증 — 본 mitigation 의 generality 와 다른 vision-modality bias 로의 확장 가능성 — 이 핵심 future work.}}
 
 ---
 
@@ -278,9 +268,13 @@ Primary metric Δdf(a) (negative = anchoring 감소), secondary Δadopt(a) + Δe
 
 ## Ethics Statement
 
-> 권장 섹션. 페이지 제한 밖. 해당 사항 없으면 명시적으로 "no ethical concerns identified" 라고 적기보다, 데이터 출처·라이선스·잠재적 오용·환경 비용 정도는 짧게 다루는 것이 통상.
+> EMNLP 필수 (해당 시) / 권장 (그 외). 페이지 제한 밖.
 
-{{Data licensing, human subjects, potential misuse, compute / carbon footprint}}
+- **Dataset licenses.** 사용한 5 evaluation dataset (TallyQA, ChartQA, PlotQA, InfographicVQA, MathVista) 및 6 held-out capability benchmark (HallusionBench, RealWorldQA, MMStar, POPE, MMBench-DEV-EN, OCRBench) 는 모두 공개 academic dataset. {{각 license 명시 — Apache 2.0 / MIT / CC-BY / 등.}}
+- **Closed-API usage.** §7.1 ecological validity 의 closed-API VLM-as-judge pilot (5 judge × 2 dataset × n=200) 은 ~$XX 비용 소요. Closed-API access 가 제한된 사용자는 본 pilot 직접 reproduce 어려움 — open-weight main panel 결과는 누구나 reproduce 가능.
+- **Potential misuse.** 본 mitigation 은 anchoring 을 *줄이는* 방향 design. Inverse projection 으로 anchoring 을 *증폭* 할 가능성 존재 (trivial 변경) — 그러나 본 paper 의 bias 측정/완화 contribution 의 net positive 가 이 risk 를 정당화.
+- **Compute budget.** OneVision Main 의 mitigation calibration + 5-dataset evaluation + 6-benchmark capability eval 합산 ~ {{XX}} GPU hours (NVIDIA A100). γ-β bridge (Qwen3-VL, Appendix E) 추가 ~ {{XX}} hours.
+- **AI assistant disclosure.** 본 paper 의 *실험 코드 작성* 과 *한국어 ↔ 영어 번역* 에 Anthropic Claude 를 보조 도구로 사용. 모든 실험 설계 / 결과 / 분석 / 해석 / writing 의 *지적 책임* 은 저자에게 있음.
 
 ---
 
@@ -491,3 +485,27 @@ Table E.1 에서 K=1 이 K=8 보다 강한 cell 이 있음 (예: L=30 K=1 +0.477
 본 verification 의 목적은 OneVision Main 위에서 합성된 routing-and-integration framework 의 *cross-architecture directional 일관성* 을 별도 architecture (Qwen3-VL) 의 self-calibration bridge 위에서 보강하는 것. *Magnitude transfer* (예: late-stack effect size 가 architecture 사이에서 동일) 는 claim 아님 — direction 만 cross-architecture verified.
 
 > **TODO (Figure E.3):** Table E.1 의 cross-K sign-reversal 을 layer × K 2D heatmap 또는 forest plot 으로 시각화. 84 cells 전체 또는 mean stat 만. `docs/insights/_data/gamma_beta_bridge_lk_sweep.csv` 에서 빌드.
+
+---
+
+## F Reproducibility Checklist
+
+> EMNLP 권장 — 본문 claim 의 evidence 와 코드/데이터 release 정보 정리.
+
+- **Code release.** {{repo link / anonymized link for double-blind submission}}. 모든 experiment driver script (`scripts/run_experiment.py`), analysis notebook (`notebooks/`), mitigation calibration pipeline (`scripts/calibrate_subspace.py`), capability eval harness 포함.
+- **Data release.** Per-condition predictions (`outputs/{experiment}/{model}/predictions.{jsonl,csv}`) + summary aggregates (`docs/insights/_data/*.csv`) release. Stimulus inventory (anchor digit images, masked variants, neutral distractors) 는 `inputs/irrelevant_number/`, `inputs/irrelevant_number_masked/`, `inputs/irrelevant_neutral/` 에 cached.
+- **Seeds.** 모든 random sampling 의 seed 명시 — stimulus 생성 (FLUX `--seed 42`), anchor stratification (per-question RNG `seed=42`), bootstrap CI (`B=10,000`, `seed=20260510`), JSON parse fallback.
+- **Hardware.** NVIDIA A100 80 GB × {{N}} GPUs.
+- **Compute budget.** Total ~ {{XX}} GPU-hours (breakdown: main 6-model × 5-dataset inference ~ {{X}} h, mitigation calibration ~ {{X}} h, 6-bench capability eval ~ {{X}} h, γ-β bridge sweep ~ {{X}} h).
+- **Statistical protocol.** Paired bootstrap CI (B=10,000, paired sample-instance id resampling), Bonferroni-20 multiplicity correction for 5 dataset × 4 metric family (§6.2), Bonferroni-corrected α=0.000595 for 84 cells (Appendix E).
+- **Canonical evidence pointer table** (본문 claim ↔ underlying CSV):
+
+| Claim location | Source CSV / md |
+|---|---|
+| §4 main panel (df, adopt, em per cell) | `docs/insights/_data/main_panel_5dataset_per_cell.csv` |
+| §4.3 L1 6-bin confidence gradient | `docs/insights/_data/L1_proxy_monotonicity_6bin.csv` |
+| §5.2 K-subspace sweep (OneVision) | {{TODO — 5-dataset K sweep CSV 신규 generate 필요}} |
+| §6.2 stage-4 paired-bootstrap CI | `docs/insights/_data/stage4_final_per_dataset_ci.{csv,md}` |
+| §6.3 per-benchmark capability | `docs/insights/_data/capability_eval_per_benchmark.{csv,md}` |
+| Appendix D.1/D.2 per-cell tables | 동일 `main_panel_5dataset_per_cell.csv` |
+| Appendix E γ-β bridge L×K sweep | `docs/insights/_data/gamma_beta_bridge_lk_sweep.{csv,md}` |
