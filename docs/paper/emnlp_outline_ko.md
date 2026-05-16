@@ -154,9 +154,9 @@
 
 ### 5.1 Layer-wise probes: per-model peak heterogeneity
 
-{{본 subsection 은 6-model mechanism panel (convllava-7b, fastvlm-7b, gemma4-e4b, llava-1.5-7b, qwen2.5-vl-7b, OneVision Main; §3.4 main 6-model panel 과 architecture 선정 기준이 달라 partially overlapping) 위 calibration dataset (PlotQA; qwen2.5-vl-7b 는 PlotQA peak 미측정으로 VQAv2 reference) 에서 model 별 (text → 두 번째 이미지) attention peak layer 를 식별. 각 모델의 peak 은 *1-2 layer 로 명확히 좁혀지나 위치는 model-dependent* — gemma4-e4b L=5/42 (early), llava-1.5 / convllava L=14/32 (mid), fastvlm L=17/28 (mid), qwen2.5-vl L=22/28 (mid-late, VQAv2 ref), OneVision Main L=27/28 (late on PlotQA / TallyQA; *OneVision 만 dataset-dependent peak* — InfoVQA / VQAv2 에서는 L=14). 이 *peak heterogeneity* (cross-model + OneVision-internal cross-dataset; single uniform causal site 부재) 가 §5.3 routing-and-integration framework 의 직접 supporting evidence — model / dataset 별 다른 peak 위치가 *routing pathway 가 multi-layer + integration site 가 architecture / data-dependent* 라는 framework prediction 과 일관. Model-specific peak 은 §5.2 single-layer ablation 의 target 으로 사용.}}
+{{본 subsection 은 6-model mechanism panel (convllava-7b, fastvlm-7b, gemma4-e4b, llava-1.5-7b, qwen2.5-vl-7b, OneVision Main; §3.4 main 6-model panel 과 architecture 선정 기준이 달라 partially overlapping) 위 calibration dataset (PlotQA) 에서 model 별 (text → 두 번째 이미지) attention peak layer 를 식별 (qwen2.5-vl-7b 는 paper evaluation suite 위 attention probe 미측정 → 5 model 위 peak heterogeneity 묘사). 각 모델의 peak 은 *1-2 layer 로 명확히 좁혀지나 위치는 model-dependent* — gemma4-e4b L=5/42 (early), llava-1.5 / convllava L=14/32 (mid), fastvlm L=17/28 (mid), OneVision Main L=27/28 (late on PlotQA / TallyQA; *OneVision 만 dataset-dependent peak* — InfoVQA 에서는 L=14). 이 *peak heterogeneity* (cross-model + OneVision-internal cross-dataset; single uniform causal site 부재) 가 §5.3 routing-and-integration framework 의 직접 supporting evidence — model / dataset 별 다른 peak 위치가 *routing pathway 가 multi-layer + integration site 가 architecture / data-dependent* 라는 framework prediction 과 일관. Model-specific peak 은 §5.2 single-layer ablation 의 target 으로 사용.}}
 
-> Per-(model, dataset) peak layer 표 (6 model × up-to-4 dataset, n_layers / peak L / depth-norm / peak Δ / 95 % CI) 는 **Appendix G** 참조.
+> Per-(model, dataset) peak layer 표 (5 model × 3 dataset, n_layers / peak L / depth-norm / peak Δ / 95 % CI) 는 **Appendix G** 참조.
 
 ### 5.2 K-subspace sweep: multi-direction within a layer
 
@@ -528,7 +528,7 @@ Table E.1 에서 K=1 이 K=8 보다 강한 cell 이 있음 (예: L=30 K=1 +0.477
 
 ## G Layer-wise attention peak per (model, calibration dataset)
 
-> §5.1 supporting evidence. Mechanism panel 6 model × up-to-4 dataset 의 (text → 두 번째 이미지) attention peak layer 와 magnitude 를 한 표로 정리.
+> §5.1 supporting evidence. Mechanism panel 5 model × 3 dataset 의 (text → 두 번째 이미지) attention peak layer 와 magnitude 를 한 표로 정리. qwen2.5-vl-7b 는 paper evaluation suite (TallyQA / ChartQA / PlotQA / InfoVQA / MathVista) 위 attention probe 미측정으로 본 표에서 제외 — mechanism panel membership 자체는 유지 (§3.4 architecture coverage 목적).
 
 **Definition.** 각 모델 × dataset 위에서 generation 의 *answer step* (final-numeric-token 생성 step) 의 layer-별 attention mass 를 anchor 와 distractor 조건에서 측정 — `peak_Δ = (anchor-arm − distractor-arm)` second-image-token attention. `peak_layer` = 그 Δ 가 최대값을 가지는 layer, `depth-norm = peak_layer / n_layers`. 95 % CI 는 sample-instance bootstrap.
 
@@ -539,28 +539,22 @@ Table E.1 에서 K=1 이 K=8 보다 강한 cell 이 있음 (예: L=30 K=1 +0.477
 | convllava-7b | 32 | TallyQA | 200 | 7 | 0.22 | +0.027 | [+0.025, +0.028] |
 | convllava-7b | 32 | **PlotQA** | 189 | **14** | 0.45 | +0.090 | [+0.084, +0.097] |
 | convllava-7b | 32 | InfoVQA | 190 | 12 | 0.39 | +0.029 | [+0.025, +0.032] |
-| convllava-7b | 32 | VQAv2 | 471 | 7 | 0.22 | +0.026 | [+0.025, +0.027] |
 | fastvlm-7b | 28 | TallyQA | 50 | 23 | 0.85 | +0.030 | [+0.022, +0.038] |
 | fastvlm-7b | 28 | **PlotQA** | 205 | **17** | 0.63 | +0.051 | [+0.047, +0.055] |
 | fastvlm-7b | 28 | InfoVQA | 186 | 27 | 1.00 | +0.024 | [+0.019, +0.029] |
-| fastvlm-7b | 28 | VQAv2 | 268 | 22 | 0.81 | +0.027 | [+0.019, +0.035] |
 | gemma4-e4b | 42 | TallyQA | 200 | 5 | 0.12 | +0.051 | [+0.048, +0.055] |
 | gemma4-e4b | 42 | **PlotQA** | 205 | **5** | 0.12 | +0.037 | [+0.034, +0.040] |
 | gemma4-e4b | 42 | InfoVQA | 200 | 5 | 0.12 | +0.033 | [+0.031, +0.036] |
-| gemma4-e4b | 42 | VQAv2 | 474 | 5 | 0.12 | +0.052 | [+0.050, +0.054] |
 | llava-1.5-7b | 32 | TallyQA | 192 | 8 | 0.26 | +0.018 | [+0.016, +0.019] |
 | llava-1.5-7b | 32 | **PlotQA** | 205 | **14** | 0.45 | +0.039 | [+0.036, +0.043] |
 | llava-1.5-7b | 32 | InfoVQA | 198 | 8 | 0.26 | +0.017 | [+0.015, +0.019] |
-| llava-1.5-7b | 32 | VQAv2 | 443 | 8 | 0.26 | +0.019 | [+0.018, +0.021] |
-| qwen2.5-vl-7b | 28 | **VQAv2** | 200 | **22** | 0.81 | +0.015 | [+0.008, +0.023] |
 | OneVision-7B (Main) | 28 | TallyQA | 79 † | 27 | 1.00 | +0.031 | [+0.024, +0.037] |
 | OneVision-7B (Main) | 28 | **PlotQA** | 204 | **27** | 1.00 | +0.027 | [+0.023, +0.030] |
 | OneVision-7B (Main) | 28 | InfoVQA | 200 | 14 | 0.52 | +0.010 | [+0.009, +0.012] |
-| OneVision-7B (Main) | 28 | VQAv2 | 61 † | 14 | 0.52 | +0.043 | [+0.036, +0.049] |
 
-**Bold** = §5.1 본문에서 reference 되는 calibration dataset 선택; qwen2.5-vl-7b 는 PlotQA / TallyQA / InfoVQA 미측정 → VQAv2 reference. † = n_low (OneVision TallyQA / VQAv2 attention-trace pool 이 작음); peak L 는 일관 (OneVision 의 두 *late-peak* dataset 모두 L=27, 두 *mid-peak* dataset 모두 L=14) 으로 직접 magnitude 비교는 주의.
+**Bold** = §5.1 본문에서 reference 되는 calibration dataset 선택 (PlotQA). † = n_low (OneVision TallyQA attention-trace pool 이 작음); peak L 는 OneVision 의 두 *late-peak* dataset (PlotQA, TallyQA) 모두 L=27 / InfoVQA L=14 로 일관 — 직접 magnitude 비교는 주의.
 
-**Observation.** Calibration-dataset peak depth-norm 범위 = 0.12 (gemma4-e4b, 4/4 dataset) → 1.00 (fastvlm InfoVQA, OneVision PlotQA / TallyQA). Cross-model heterogeneity (5 model 의 peak depth-norm 이 early / mid / mid-late / late 전 범위 cover) + OneVision intra-model heterogeneity (PlotQA / TallyQA 에서 L=27, InfoVQA / VQAv2 에서 L=14) 가 §5.1 *peak heterogeneity* claim 의 직접 수치 backing — *single uniform causal site 부재* 는 model / dataset 별 routing pathway 변동에 의한 자연 결과 (§5.3 framework prediction).
+**Observation.** Calibration-dataset peak depth-norm 범위 = 0.12 (gemma4-e4b, 3/3 dataset) → 1.00 (fastvlm InfoVQA, OneVision PlotQA / TallyQA). Cross-model heterogeneity (5 model 의 peak depth-norm 이 early / mid / late 전 범위 cover) + OneVision intra-model heterogeneity (PlotQA / TallyQA 에서 L=27, InfoVQA 에서 L=14) 가 §5.1 *peak heterogeneity* claim 의 직접 수치 backing — *single uniform causal site 부재* 는 model / dataset 별 routing pathway 변동에 의한 자연 결과 (§5.3 framework prediction).
 
 ---
 
