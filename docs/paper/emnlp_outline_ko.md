@@ -95,19 +95,26 @@
 
 ## 4 Phenomenon
 
-> *언제* 그리고 *무슨 조건* 에서 anchoring 이 일어나는가.
+> 무엇이 일어나는가 → 무엇이 gating 하는가 → 무엇이 modulating 하는가. Effect → causal gate → trigger condition 의 narrative arc.
 
-### 4.1 {{Graded pull across models and datasets}}
+### 4.1 Anchoring effect: graded pull and literal copy
 
-{{F1 — 약 10–40 % 응답이 anchor 쪽으로 점진적 끌림, 일부 (1.7–15.7 %) 는 그대로 베낌. 6 model × 5 dataset cross-table.}}
+{{본 subsection 은 6 model × 5 dataset main panel 위에서 anchoring 효과의 *전반적 크기* 와 *cross-panel robustness* 를 제시한다. Direction-follow 약 10–40 %, adopt 1.7–15.7 % 의 range 가 모든 모델 × 모든 dataset cell 에서 nontrivially 양수 임을 main panel table 한 장으로 입증 — 효과의 질량이 literal copy 가 아닌 graded pull 에 있고, 특정 architecture / domain artifact 가 아님.}}
 
-### 4.2 {{Confidence modulation}}
+> **TODO (Table 1 — Main panel):** 6 model × 5 dataset 의 direction-follow / adopt / exact-match per cell. Source: `docs/insights/_data/main_panel_5dataset_per_cell.csv`.
 
-{{F2 — base prediction confidence 가 낮을수록 끌림이 큼. L1 6-bin monotonic gradient (5 dataset × 6 model 위 단조).}}
+### 4.2 Digit-pixel causal gate (via (a − m))
 
-### 4.3 {{Digit-pixel causal gate via (a − m)}}
+{{본 subsection 은 a / m / d 3-arm 의 anchoring metric 을 한 figure 에 나란히 제시한다. *anchor 추가의 총효과 (a − b)* / *digit-pixel 인과 효과 (a − m)* / *일반 distraction 통제 (d − b)* 의 분리를 시각적으로 보이고, m 과 d 가 거의 같은 수준이고 a 만 떨어진다는 visual 이 핵심 결론 — anchoring 의 인과 통로가 *오직 digit pixel* 임을 empirical 으로 닫는다.}}
 
-{{F3 — anchor 이미지의 digit pixel 만 가린 m 으로 비교 시 끌림이 일반 distractor 수준으로 사라짐. (a − m) gap 의 dataset/model 별 크기.}}
+> **TODO (Figure 2 — 3-arm comparison):** a / m / d 의 direction-follow per dataset, 6 model 색상 분리 bar chart. Source: 동일 `main_panel_5dataset_per_cell.csv`.
+
+### 4.3 Confidence modulation
+
+{{본 subsection 은 confidence axis 가 anchoring 의 *진짜 modulator* 임을 두 형태로 보인다 — primary 는 L1 6-bin monotonic gradient (continuous, B6 − B1 gap +19.5–23.5 pp on 5 dataset × 6 model = 80 cells), secondary 는 wrong-base vs correct-base binary projection (기존 anchoring literature 호환). 두 형태가 같은 direction 으로 작동. Binary projection 도입은 §6 mitigation 의 wrong-base calibration filter 와 paper-wide 일관성 확보.}}
+
+> **TODO (Figure 3 — 6-bin gradient):** L1 6-bin × 6 model heatmap 또는 line plot.
+> **TODO (Table 2 — binary projection):** wrong-base vs correct-base direction-follow + adopt per dataset (6 model).
 
 ---
 
