@@ -101,20 +101,56 @@
 
 {{본 subsection 은 6 model × 5 dataset main panel 위에서 anchoring 효과의 *전반적 크기* 와 *cross-panel robustness* 를 제시한다. Direction-follow 약 10–40 %, adopt 1.7–15.7 % 의 range 가 모든 모델 × 모든 dataset cell 에서 nontrivially 양수 임을 main panel table 한 장으로 입증 — 효과의 질량이 literal copy 가 아닌 graded pull 에 있고, 특정 architecture / domain artifact 가 아님.}}
 
-> **TODO (Table 1 — Main panel):** 6 model × 5 dataset 의 direction-follow / adopt / exact-match per cell. Source: `docs/insights/_data/main_panel_5dataset_per_cell.csv`.
+**Preview Figure 1 — Cross-dataset summary (S1 wrong-base).**
+<img src="../figures/paper_cross_dataset_summary.png" alt="cross-dataset summary" width="700"/>
+
+**Preview Table 1a — df(a) % across 6 models × 5 datasets:**
+
+| Model | TallyQA | ChartQA | MathVista | PlotQA | InfographicVQA |
+|---|---|---|---|---|---|
+| OneVision-7B (Main) | 9.9 | 18.9 | 20.5 | 20.6 | 19.0 |
+| Interleave-7B | 12.7 | 20.0 | 26.6 | 29.5 | 24.4 |
+| Qwen2.5-VL-7B | 8.5 | 18.7 | 16.2 | 17.4 | 12.3 |
+| Qwen2.5-VL-32B | 10.9 | 20.3 | 18.4 | 16.3 | 15.6 |
+| Gemma3-4B | 17.2 | 34.6 | 41.3 | 39.5 | 32.4 |
+| Gemma3-27B | 15.2 | 24.0 | 33.2 | 22.7 | 35.0 |
+
+**Preview Table 1b — adopt(a) % (literal copy rate):**
+
+| Model | TallyQA | ChartQA | MathVista | PlotQA | InfographicVQA |
+|---|---|---|---|---|---|
+| OneVision-7B (Main) | 3.2 | 3.3 | 8.4 | 9.0 | 2.0 |
+| Interleave-7B | 5.0 | 3.2 | 6.5 | 8.2 | 6.1 |
+| Qwen2.5-VL-7B | 3.0 | 3.5 | 2.6 | 2.4 | 2.5 |
+| Qwen2.5-VL-32B | 3.8 | 4.3 | 12.8 | 2.3 | 9.8 |
+| Gemma3-4B | 6.2 | 8.8 | 30.1 | 18.4 | 13.3 |
+| Gemma3-27B | 5.9 | 7.0 | 23.0 | 9.9 | 16.3 |
+
+> **TODO (Table 1 final):** Above tables are from current canonical CSV (`main_panel_5dataset_per_cell.csv`, M2 metric / C-form). DF formula update 시 re-aggregation 후 final 수치 확정 — `1.7–15.7 %` adopt range 도 그때 재검증.
 
 ### 4.2 Digit-pixel causal gate (via (a − m))
 
 {{본 subsection 은 a / m / d 3-arm 의 anchoring metric 을 한 figure 에 나란히 제시한다. *anchor 추가의 총효과 (a − b)* / *digit-pixel 인과 효과 (a − m)* / *일반 distraction 통제 (d − b)* 의 분리를 시각적으로 보이고, m 과 d 가 거의 같은 수준이고 a 만 떨어진다는 visual 이 핵심 결론 — anchoring 의 인과 통로가 *오직 digit pixel* 임을 empirical 으로 닫는다.}}
 
-> **TODO (Figure 2 — 3-arm comparison):** a / m / d 의 direction-follow per dataset, 6 model 색상 분리 bar chart. Source: 동일 `main_panel_5dataset_per_cell.csv`.
+**Preview Figure 2 — (a − m) adopt gap (2 panels: 6 model × PlotQA, 5 dataset × OneVision).**
+<img src="../figures/paper_4_2_digit_pixel_causality.png" alt="(a-m) digit-pixel causality" width="600"/>
+
+> **TODO (Figure 2 final):** 현재 preview 는 *adopt only* + *a vs m* 2-arm 비교. Final 은 3-arm (a/m/d) × direction-follow + adopt 묶음으로 *m ≈ d, a 만 떨어짐* visual 이 명확하도록 재빌드 필요.
 
 ### 4.3 Confidence modulation
 
 {{본 subsection 은 confidence axis 가 anchoring 의 *진짜 modulator* 임을 두 형태로 보인다 — primary 는 L1 6-bin monotonic gradient (continuous, B6 − B1 gap +19.5–23.5 pp on 5 dataset × 6 model = 80 cells), secondary 는 wrong-base vs correct-base binary projection (기존 anchoring literature 호환). 두 형태가 같은 direction 으로 작동. Binary projection 도입은 §6 mitigation 의 wrong-base calibration filter 와 paper-wide 일관성 확보.}}
 
-> **TODO (Figure 3 — 6-bin gradient):** L1 6-bin × 6 model heatmap 또는 line plot.
-> **TODO (Table 2 — binary projection):** wrong-base vs correct-base direction-follow + adopt per dataset (6 model).
+**Preview Figure 3a — Continuous L1 6-bin gradient (PlotQA × OneVision Main, single cell).**
+<img src="../figures/paper_L1_confidence_quartile.png" alt="L1 6-bin gradient" width="650"/>
+
+**Preview Figure 3b — Binary projection: wrong-base vs correct-base df(a) (PlotQA × 6 models).**
+<img src="../figures/paper_4_1_PlotQA_correct_vs_wrong_df.png" alt="wrong vs correct base" width="650"/>
+
+> **TODO (Figure 3 final):**
+> - 3a: 현재 single cell (PlotQA × OneVision). Final 은 5 dataset × 6 model 위 6-bin gradient heatmap or summary bar.
+> - 3b: 현재 single dataset (PlotQA × 6 model). Final 은 5 dataset 평균 또는 dataset-stratified panel + adopt 도 포함.
+> - Table 2 (binary projection 수치 표) 신규 빌드.
 
 ---
 
