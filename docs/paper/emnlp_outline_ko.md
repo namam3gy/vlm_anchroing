@@ -158,7 +158,7 @@
 
 > **TODO (Appendix table):** Layer × model probe-strength heatmap (5-model panel). 본문에는 cross-model 일관성 한 줄만, full panel data 는 appendix.
 
-### 5.2 Multi-direction representation within a layer
+### 5.2 K-subspace sweep: multi-direction within a layer
 
 {{본 subsection 은 within-layer single direction 만 제거하는 method 들 이 cross-dataset 에서 anchoring 을 충분히 줄이지 못함을 보인다. 한 layer 안에서도 anchoring representation 이 multi-direction 으로 분산되어 있다는 mechanism evidence — §6 의 *multi-direction subspace* (K>1) 설계의 직접 정당화. 본문 headline 은 K=1 / 2 / 4 / 8 SVD sweep 의 monotonic improvement (positive evidence); LEACE rank-1 / ActAdd 등 alternative single-direction method 들의 convergent failure 는 appendix 에서 보강.}}
 
@@ -415,19 +415,19 @@ Anchor 이미지의 digit bounding box 를 OpenCV `INPAINT_TELEA` [Telea, 2004] 
 
 **Setup.** Qwen3-VL 의 Thinking (γ) 와 Non-thinking (β) mode 의 같은 입력에 대한 layer-별 residual stream 차이 (γ − β) 의 SVD subspace 추출. 이 subspace 를 layer-projection 으로 적용 → anchoring 변화 (within-Thinking, anchor-specific) 측정. 데이터: re-calibrated **3-pool (TallyQA + PlotQA + InfoVQA, n_wrong=3,017)** V_K subspace, 7 layers × 6 K (K ∈ {1, 2, 4, 8, 12, 16}) × 2 stat (mean / max) = **84 cells**, paired sids 522, Bonferroni-corrected α = 0.000595 (vs primary 0.05).
 
-### E.1 Sign-reversal across layers (K=1, K=8, K=16)
+### E.1 Sign-reversal across layers (K=1, 2, 4, 8, 16)
 
-**Table E.1 — within-Thinking anchor-specific Δ across 7 layers, 3 K values (mean stat).** Source: `docs/insights/_data/gamma_beta_bridge_lk_sweep.csv`.
+**Table E.1 — within-Thinking anchor-specific Δ across 7 layers, 5 K values (mean stat).** Source: `docs/insights/_data/gamma_beta_bridge_lk_sweep.csv`.
 
-| Layer | K=1 | K=8 | K=16 | direction (cross-K) |
-|---|---:|---:|---:|---|
-| 14 | −0.041 ✓ | −0.049 ✓ | −0.052 | mid negative (consistent) |
-| **20** | **−0.152 ✓** | **−0.111 ✓** | **−0.058** | **mid BACKFIRE (consistent across K)** |
-| 25 | +0.213 ✓ | +0.188 | +0.183 | late positive (consistent) |
-| 29 | +0.446 ✓ | +0.418 | +0.363 | late positive (consistent) |
-| 30 | +0.477 ✓ | +0.413 | +0.327 | late positive (consistent) |
-| 33 | +0.284 ✓ | +0.057 | +0.253 | late positive (K=8 dip noise; K=1/16 robust) |
-| 34 | +0.707 | +0.828 | +1.259 | late positive (CI wide at high K) |
+| Layer | K=1 | K=2 | K=4 | K=8 | K=16 | direction (cross-K) |
+|---|---:|---:|---:|---:|---:|---|
+| 14 | −0.041 ✓ | −0.039 ✓ | −0.047 | −0.049 ✓ | −0.052 | mid negative (5/5 consistent) |
+| **20** | **−0.152 ✓** | **−0.127 ✓** | **−0.192 ✓** | **−0.111 ✓** | **−0.058** | **mid BACKFIRE (5/5 consistent)** |
+| 25 | +0.213 ✓ | +0.117 | +0.160 | +0.188 | +0.183 | late positive (5/5 consistent) |
+| 29 | +0.446 ✓ | +0.391 | +0.357 | +0.418 | +0.363 | late positive (5/5 consistent) |
+| 30 | +0.477 ✓ | +0.379 | +0.291 | +0.413 | +0.327 | late positive (5/5 consistent) |
+| 33 | +0.284 ✓ | +0.088 | −0.106 | +0.057 | +0.253 | late mostly positive (K=4 dip noise) |
+| 34 | +0.707 | +0.781 | +0.992 | +0.828 | +1.259 | late positive (CI wide, magnitude ↑ with K) |
 
 ✓ = Bonferroni-corrected CI excludes zero (α=0.000595 for 84 cells). 미✓ cells 도 거의 모두 primary 95 % CI excludes zero.
 
@@ -442,7 +442,19 @@ Anchor 이미지의 digit bounding box 를 OpenCV `INPAINT_TELEA` [Telea, 2004] 
 
 > Thinking trace 동안 subspace amplitude 가 uniform ramp+plateau, a-S1 (anchor) 과 d (neutral) 가 같은 trajectory — anchor-specificity 가 *L=33 paired-Δ* 측정 layer 의 within-Thinking signal 자체에 있음을 확인 (supplementary).
 
-### E.3 Scope
+### E.3 Note — K curve 가 §5.2 와 다른 이유
+
+Table E.1 에서 K=1 이 K=8 보다 강한 cell 이 있음 (예: L=30 K=1 +0.477 vs K=8 +0.413). 이는 §5.2 의 "K=8 우세, multi-direction 필요" 와 *상충하지 않음* — 두 sweep 의 *subspace 자체가 다른 구성*:
+
+| | §5.2 K sweep | E.1 K sweep |
+|---|---|---|
+| Subspace 출처 | (a − m) paired contrast | (γ − β) Thinking bridge |
+| Capture | anchoring-specific only | reasoning-mode shift (broader) |
+| Spectral structure | anchoring 의 multi-direction → K 늘수록 더 많은 variance 흡수 | Thinking shift 의 dominant principal direction → K=1 만으로 대부분 capture |
+
+→ K curve 차이는 *subspace spectrum* 차이지 anchoring 의 본질적 dimensionality 차이 아님. Appendix E 의 K-range column 은 *directional* prediction 의 K-robustness 검증용이지 K 선택의 정당화 아님 (그건 §5.2 + §6.2 에서 carry).
+
+### E.4 Scope
 
 본 verification 의 목적은 OneVision Main 위에서 합성된 routing-and-integration framework 의 *cross-architecture directional 일관성* 을 별도 architecture (Qwen3-VL) 의 self-calibration bridge 위에서 보강하는 것. *Magnitude transfer* (예: late-stack effect size 가 architecture 사이에서 동일) 는 claim 아님 — direction 만 cross-architecture verified.
 
