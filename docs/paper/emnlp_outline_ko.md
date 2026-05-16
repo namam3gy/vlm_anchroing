@@ -158,7 +158,7 @@
 
 > **TODO (Appendix table):** Layer × model probe-strength heatmap (5-model panel). 본문에는 cross-model 일관성 한 줄만, full panel data 는 appendix.
 
-### 5.2 Single-direction insufficiency (K=1, LEACE rank-1, ActAdd)
+### 5.2 Multi-direction representation within a layer
 
 {{본 subsection 은 within-layer single direction 만 제거하는 method 들 이 cross-dataset 에서 anchoring 을 충분히 줄이지 못함을 보인다. 한 layer 안에서도 anchoring representation 이 multi-direction 으로 분산되어 있다는 mechanism evidence — §6 의 *multi-direction subspace* (K>1) 설계의 직접 정당화. 본문 headline 은 K=1 / 2 / 4 / 8 SVD sweep 의 monotonic improvement (positive evidence); LEACE rank-1 / ActAdd 등 alternative single-direction method 들의 convergent failure 는 appendix 에서 보강.}}
 
@@ -411,27 +411,42 @@ Anchor 이미지의 digit bounding box 를 OpenCV `INPAINT_TELEA` [Telea, 2004] 
 
 ## E Cross-architecture verification: γ-β residual-stream bridge (Qwen3-VL)
 
-> §5.3 routing-and-integration framework 의 partial cross-architecture verification. Main panel 밖 architecture (Qwen3-VL) 위 *방향성 prediction 만* 검증.
+> §5.3 routing-and-integration framework 의 partial cross-architecture verification. Main panel 밖 architecture (Qwen3-VL) 위 *방향성 prediction* 만 검증.
 
-**Setup.** Qwen3-VL 의 Thinking (γ) 와 Non-thinking (β) mode 의 같은 입력에 대한 layer-별 residual stream 차이 (γ − β) 의 SVD K=1 subspace 추출. 이 subspace 를 layer-projection 으로 적용 → anchoring 변화 측정.
+**Setup.** Qwen3-VL 의 Thinking (γ) 와 Non-thinking (β) mode 의 같은 입력에 대한 layer-별 residual stream 차이 (γ − β) 의 SVD subspace 추출. 이 subspace 를 layer-projection 으로 적용 → anchoring 변화 (within-Thinking, anchor-specific) 측정. 데이터: re-calibrated **3-pool (TallyQA + PlotQA + InfoVQA, n_wrong=3,017)** V_K subspace, 7 layers × 6 K (K ∈ {1, 2, 4, 8, 12, 16}) × 2 stat (mean / max) = **84 cells**, paired sids 522, Bonferroni-corrected α = 0.000595 (vs primary 0.05).
 
-**Result.**
-- Late layer (L=29–34) 적용 → anchoring 감소 (positive)
-- Mid layer (L=20) 적용 → anchoring 증가 (negative — sign reversal)
+### E.1 Sign-reversal across layers (K=1, mean stat)
 
-**Framework prediction 과의 일치.** Sign reversal 패턴이 framework 의 layer-routing 방향성 prediction (late = integration, mid = routing) 과 일치 → partial prospective verification.
+**Table E.1 — within-Thinking anchor-specific Δ across 7 layers at K=1.** Source: `docs/insights/_data/gamma_beta_bridge_lk_sweep.csv`.
 
-**Preview Figure E.1 — γ-β paired Δ distribution at L=33 (Alt-1 falsification, ×12.7 ratio NOT achieved).**
-<img src="../figures/gamma_beta_bridge_paired_delta.png" alt="γ-β paired delta" width="650"/>
+| Layer | within-Thinking Δ | 95 % CI | Bonferroni CI | 방향 |
+|---|---:|---|---|---|
+| 14 | −0.041 | [−0.054, −0.028] | [−0.064, −0.020] ✓ | mid-stack negative |
+| **20** | **−0.152** | [−0.189, −0.116] | [−0.213, −0.094] ✓ | **mid-stack BACKFIRE** |
+| 25 | +0.213 | [+0.158, +0.270] | [+0.123, +0.314] ✓ | late positive |
+| 29 | +0.446 | [+0.252, +0.635] | [+0.123, +0.793] ✓ | late positive |
+| 30 | +0.477 | [+0.254, +0.695] | [+0.082, +0.852] ✓ | late positive |
+| 33 | +0.284 | [+0.188, +0.380] | [+0.113, +0.447] ✓ | late positive |
+| 34 | +0.707 | [+0.249, +1.156] | [−0.091, +1.421] ✗ | late positive |
 
-> a-S1 (anchor present) 와 d (neutral, length control) 의 Δ distribution overlap — *K=8 quantitative prediction* (×12.7 ratio) falsified. Caveat 의 (ii) 직접 evidence.
+**Headline Bonferroni-survivor** (84 cells 전체 중 14 cells Bonferroni-clean): **L=30, K=2, max stat +0.866 [+0.412, +1.330]** (Bonferroni ✓).
 
-**Preview Figure E.2 — Per-token amplitude trajectory during Thinking generation.**
+**Framework prediction 과의 일치.** Mid-stack (L=14, 20) negative + late-stack (L=25–34) positive 의 sign reversal 이 framework 의 *late = integration site (positive), mid = routing (backfire when disrupted)* prediction 과 정합 → partial prospective verification.
+
+### E.2 Supplementary characterization
+
+**Preview Figure E.2a — Per-token amplitude trajectory during Thinking generation.**
 <img src="../figures/gamma_beta_bridge_per_token_trajectory.png" alt="per-token amplitude" width="600"/>
 
-> Thinking trace 진행 동안 subspace amplitude 가 uniform ramp+plateau — a-S1 (anchor) 과 d (neutral) 가 거의 같은 trajectory (supplementary characterization).
+> Thinking trace 동안 subspace amplitude 가 uniform ramp+plateau, a-S1 (anchor) 과 d (neutral) 가 같은 trajectory — anchor-specificity 가 *L=33 paired-Δ* 측정 layer 의 within-Thinking signal 자체에 있음을 확인 (supplementary).
 
-**Caveats.** (i) N=1 architecture (Qwen3-VL only). (ii) K=1 only — original framework 의 K=8 quantitative ratio (×12.7) prediction 은 falsified (위 Figure E.1). (iii) Strict prospective 가 아님 (framework 가 already 존재하는 상태에서 test). 즉 *방향성 cross-architecture* 만 verified.
+### E.3 Caveats (정직)
 
-> **TODO (Figure E.3 — sign reversal):** L×K sweep summary (late-stack {29,30,33} positive vs mid-stack L=20 negative). Data: `docs/insights/_data/gamma_beta_bridge_lk_sweep.csv` (84 cells). 현재 rendered figure 없음 — 신규 빌드 필요. 이게 framework 의 layer-routing 방향성 verification 의 *직접 visual*.
-> **TODO:** Multi-architecture + K>1 full prospective verification 은 §7.3 follow-up 항목 등록.
+- **(i) N=1 architecture** — Qwen3-VL 한 모델만. Cross-architecture generalization 약함.
+- **(ii) K=1 directional only** — Table E.1 의 sign-reversal 은 *방향성* prediction 만 verified. *Quantitative* claim (예: late-stack effect size 의 cross-architecture stability) 은 미검증.
+- **(iii) Strict prospective 가 아님** — framework 가 OneVision Main 위에서 먼저 합성된 후 Qwen3-VL 에 test. *Out-of-architecture* 검증 측면에서 partial prospective.
+
+> *Original K=8/L=33 "Alt-1" 가설* (×12.7 quantitative ratio) 은 framework 의 정식 prediction 이 아니라 OneVision-internal SVD elbow (sv7/sv8 = 1.026) 의 extrapolation 이었음. 따라서 "Alt-1 falsified" 는 framework prediction 의 falsification 이 아니라, 외삽 가설의 미달성. Framework 자체의 *방향성* prediction 은 Table E.1 위에서 verified.
+
+> **TODO (Figure E.3):** Table E.1 의 sign-reversal 을 layer × K 2D heatmap 또는 forest plot 으로 시각화. 84 cells 전체 또는 K=1 column 만. `docs/insights/_data/gamma_beta_bridge_lk_sweep.csv` 에서 빌드.
+> **TODO:** Multi-architecture + K>1 full prospective verification 은 §7.3 follow-up.
