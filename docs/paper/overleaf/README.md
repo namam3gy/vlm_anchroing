@@ -18,12 +18,23 @@ for page-count estimation.
 
 ## Upload to Overleaf
 
+> **⚠️ CRITICAL: Compiler must be XeLaTeX.**
+> The Korean prose uses `xeCJK`, which **requires XeLaTeX**. If Overleaf uses
+> pdfLaTeX (the default), you get 100+ errors starting with
+> `Critical Package xeCJK Error: The xeCJK package requires XeTeX to function.`
+>
+> `main.tex` has `% !TeX program = xelatex` on line 1 so Overleaf normally
+> picks XeLaTeX automatically. If it doesn't (or you already created the
+> project before this magic comment was added):
+>
+> **Menu (left sidebar) → Settings → Compiler → XeLaTeX → Recompile.**
+
 Two equivalent paths.
 
 ### Option A — zip and upload as a new project
 1. `cd docs/paper/overleaf && zip -r overleaf.zip main.tex acl.sty acl_natbib.bst custom.bib figures/`
 2. Overleaf → **New Project** → **Upload Project** → drop `overleaf.zip`.
-3. Open project → **Menu** (left sidebar) → **Compiler** → set to **XeLaTeX**.
+3. **Menu (left sidebar) → Settings → Compiler → XeLaTeX**.
 4. **Recompile**.
 
 ### Option B — start from Overleaf's ACL template, then replace
@@ -31,7 +42,7 @@ Two equivalent paths.
 2. Delete the template's `acl_latex.tex` (or rename it out of the way).
 3. Drag in `main.tex` from this directory.
 4. Drag in the `figures/` folder (preserve directory structure).
-5. **Menu** → **Compiler** → **XeLaTeX**. **Recompile**.
+5. **Menu → Settings → Compiler → XeLaTeX → Recompile.**
 
 ## Why XeLaTeX?
 

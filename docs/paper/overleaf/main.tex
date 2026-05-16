@@ -1,15 +1,24 @@
+% !TeX program = xelatex
 % =============================================================
 % Pulled by Pixels: Cross-Modal Numerical Anchoring in VLMs
 % EMNLP submission outline -- compiled with XeLaTeX (Korean + English mix)
 %
 % Compile:  xelatex main.tex && bibtex main && xelatex main.tex && xelatex main.tex
-% Overleaf: set "Compiler" to XeLaTeX in Menu (left sidebar) before first build.
+% Overleaf: the magic comment on line 1 makes Overleaf pick XeLaTeX automatically.
+%          If it doesn't: Menu (left sidebar) -> Compiler -> XeLaTeX -> Recompile.
 % =============================================================
 
 \documentclass[11pt]{article}
 
+% Fail fast with a clear message if pdfLaTeX/LuaLaTeX is used by mistake.
+\RequirePackage{iftex}
+\RequireXeTeX
+
 % Change "review" to "final" for the camera-ready, "preprint" for non-anonymous with page numbers.
 \usepackage[review]{acl}
+
+% NOTE: acl.sty already loads xcolor, geometry, caption, natbib, hyperref, lineno (review).
+% Do NOT add \usepackage{hyperref} or \usepackage{url} -- they will clash.
 
 \usepackage{microtype}
 \usepackage{graphicx}
@@ -18,13 +27,11 @@
 \usepackage{array}
 \usepackage{amsmath}
 \usepackage{amssymb}
-\usepackage{url}
-\usepackage{hyperref}
 
-% --- Korean support (XeLaTeX) ---
+% --- Korean support (XeLaTeX only) ---
 \usepackage{xeCJK}
-% Noto Sans CJK KR ships with TeX Live on Overleaf. Falls back gracefully if absent.
-\setCJKmainfont[AutoFakeBold,AutoFakeSlant]{Noto Sans CJK KR}
+% Noto Sans CJK KR ships with TeX Live on Overleaf.
+\setCJKmainfont{Noto Sans CJK KR}
 \setCJKsansfont{Noto Sans CJK KR}
 \setCJKmonofont{Noto Sans Mono CJK KR}
 \XeTeXlinebreaklocale "ko"
