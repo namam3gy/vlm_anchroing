@@ -124,29 +124,7 @@
 **Preview Figure 1 — Cross-dataset summary (S1 wrong-base).**
 <img src="../figures/paper_cross_dataset_summary.png" alt="cross-dataset summary" width="700"/>
 
-**Preview Table 1a — df(a) % across 6 models × 5 datasets:**
-
-| Model | TallyQA | ChartQA | MathVista | PlotQA | InfographicVQA |
-|---|---|---|---|---|---|
-| OneVision-7B (Main) | 9.9 | 18.9 | 20.5 | 20.6 | 19.0 |
-| Interleave-7B | 12.7 | 20.0 | 26.6 | 29.5 | 24.4 |
-| Qwen2.5-VL-7B | 8.5 | 18.7 | 16.2 | 17.4 | 12.3 |
-| Qwen2.5-VL-32B | 10.9 | 20.3 | 18.4 | 16.3 | 15.6 |
-| Gemma3-4B | 17.2 | 34.6 | 41.3 | 39.5 | 32.4 |
-| Gemma3-27B | 15.2 | 24.0 | 33.2 | 22.7 | 35.0 |
-
-**Preview Table 1b — adopt(a) % (literal copy rate):**
-
-| Model | TallyQA | ChartQA | MathVista | PlotQA | InfographicVQA |
-|---|---|---|---|---|---|
-| OneVision-7B (Main) | 3.2 | 3.3 | 8.4 | 9.0 | 2.0 |
-| Interleave-7B | 5.0 | 3.2 | 6.5 | 8.2 | 6.1 |
-| Qwen2.5-VL-7B | 3.0 | 3.5 | 2.6 | 2.4 | 2.5 |
-| Qwen2.5-VL-32B | 3.8 | 4.3 | 12.8 | 2.3 | 9.8 |
-| Gemma3-4B | 6.2 | 8.8 | 30.1 | 18.4 | 13.3 |
-| Gemma3-27B | 5.9 | 7.0 | 23.0 | 9.9 | 16.3 |
-
-> **TODO (Table 1 final):** Above tables are from current canonical CSV (`main_panel_5dataset_per_cell.csv`, M2 metric / C-form). DF formula update 시 re-aggregation 후 final 수치 확정 — `1.7–15.7 %` adopt range 도 그때 재검증.
+> Per-cell df / adopt 수치 (6 model × 5 dataset grid) 는 **Appendix D.1 / D.2** 참조. DF formula update 시 re-aggregation 후 final 수치 확정 — `1.7–15.7 %` adopt range 도 그때 재검증.
 
 ### 4.2 Digit-pixel causal gate (via (a − m))
 
@@ -161,16 +139,12 @@
 
 {{본 subsection 은 confidence axis 가 anchoring 의 *진짜 modulator* 임을 두 형태로 보인다 — primary 는 L1 6-bin monotonic gradient (continuous, B6 − B1 gap +19.5–23.5 pp on 5 dataset × 6 model = 80 cells), secondary 는 wrong-base vs correct-base binary projection (기존 anchoring literature 호환). 두 형태가 같은 direction 으로 작동. Binary projection 도입은 §6 mitigation 의 wrong-base calibration filter 와 paper-wide 일관성 확보.}}
 
-**Preview Figure 3a — Continuous L1 6-bin gradient (PlotQA × OneVision Main, single cell).**
+**Preview Figure 3 — Continuous L1 6-bin gradient (PlotQA × OneVision Main, single cell).**
 <img src="../figures/paper_L1_confidence_quartile.png" alt="L1 6-bin gradient" width="650"/>
 
-**Preview Figure 3b — Binary projection: wrong-base vs correct-base df(a) (PlotQA × 6 models).**
-<img src="../figures/paper_4_1_PlotQA_correct_vs_wrong_df.png" alt="wrong vs correct base" width="650"/>
+> Binary projection (wrong-base vs correct-base df) 의 별도 figure 는 **Appendix D.3** 참조 — 본문은 한 줄 mention 으로 처리 ("기존 anchoring literature 의 wrong vs correct binary 와도 같은 direction 으로 작동").
 
-> **TODO (Figure 3 final):**
-> - 3a: 현재 single cell (PlotQA × OneVision). Final 은 5 dataset × 6 model 위 6-bin gradient heatmap or summary bar.
-> - 3b: 현재 single dataset (PlotQA × 6 model). Final 은 5 dataset 평균 또는 dataset-stratified panel + adopt 도 포함.
-> - Table 2 (binary projection 수치 표) 신규 빌드.
+> **TODO (Figure 3 final):** 현재 preview 는 single cell (PlotQA × OneVision). Final 은 5 dataset × 6 model 위 6-bin gradient heatmap or summary bar 로 cross-panel 일관성 시각화.
 
 ---
 
@@ -376,3 +350,42 @@ Anchor 이미지의 digit bounding box 를 OpenCV `INPAINT_TELEA` [Telea, 2004] 
 | InfoVQA | relative_s1 | 1 | 동일 |
 
 → **Main panel 은 close-distance single-stratum 만 사용** — anchor 가 GT 와 plausible 한 이웃 거리에 있는 cohort 위에서 효과를 측정 (anchoring 의 *worst-case* slot). 5-stratum full schedule 은 distance-decay 분석을 위한 OneVision-only extension (§{{section}}) 으로 별도 보고.
+
+---
+
+## D Per-cell main panel results + binary projection
+
+> 본문 §4.1 의 cross-dataset summary figure (Figure 1) 와 §4.3 의 6-bin gradient figure (Figure 3) 를 *수치 / 보조 figure* 로 보강. 본문 page-budget 절약 목적.
+
+### D.1 Direction-follow per cell — df(a) % across 6 models × 5 datasets
+
+| Model | TallyQA | ChartQA | MathVista | PlotQA | InfographicVQA |
+|---|---|---|---|---|---|
+| OneVision-7B (Main) | 9.9 | 18.9 | 20.5 | 20.6 | 19.0 |
+| Interleave-7B | 12.7 | 20.0 | 26.6 | 29.5 | 24.4 |
+| Qwen2.5-VL-7B | 8.5 | 18.7 | 16.2 | 17.4 | 12.3 |
+| Qwen2.5-VL-32B | 10.9 | 20.3 | 18.4 | 16.3 | 15.6 |
+| Gemma3-4B | 17.2 | 34.6 | 41.3 | 39.5 | 32.4 |
+| Gemma3-27B | 15.2 | 24.0 | 33.2 | 22.7 | 35.0 |
+
+### D.2 Adopt per cell — adopt(a) % (literal copy rate)
+
+| Model | TallyQA | ChartQA | MathVista | PlotQA | InfographicVQA |
+|---|---|---|---|---|---|
+| OneVision-7B (Main) | 3.2 | 3.3 | 8.4 | 9.0 | 2.0 |
+| Interleave-7B | 5.0 | 3.2 | 6.5 | 8.2 | 6.1 |
+| Qwen2.5-VL-7B | 3.0 | 3.5 | 2.6 | 2.4 | 2.5 |
+| Qwen2.5-VL-32B | 3.8 | 4.3 | 12.8 | 2.3 | 9.8 |
+| Gemma3-4B | 6.2 | 8.8 | 30.1 | 18.4 | 13.3 |
+| Gemma3-27B | 5.9 | 7.0 | 23.0 | 9.9 | 16.3 |
+
+> **TODO (D.1 / D.2 final):** 현재 canonical CSV (`main_panel_5dataset_per_cell.csv`, M2 / C-form) 기준. DF formula update 시 re-aggregation 후 final 수치 확정.
+
+### D.3 Binary projection — wrong-base vs correct-base df(a)
+
+**Preview Figure D.3 — PlotQA × 6 models (single-dataset preview).**
+<img src="../figures/paper_4_1_PlotQA_correct_vs_wrong_df.png" alt="wrong vs correct base" width="650"/>
+
+> 본문 §4.3 의 continuous L1 6-bin gradient (Figure 3) 의 *binary projection* 보조. Wrong-base 가 correct-base 보다 일관되게 높은 df(a) — 기존 anchoring literature (wrong vs correct) 의 framing 과 호환 + §6 mitigation 의 wrong-base calibration filter 의 사전 정당화.
+
+> **TODO (D.3 final):** 현재 single dataset (PlotQA × 6 model). Final 은 5 dataset 평균 또는 dataset-stratified panel + adopt 도 포함.
