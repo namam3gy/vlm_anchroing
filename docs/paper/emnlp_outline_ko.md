@@ -191,6 +191,8 @@
 
 {{본 subsection 은 calibrated subspace projection 의 algorithm 을 정의한다. (a − m) paired stimuli — *calibration pool: PlotQA + InfoVQA pooled (n ≈ 5,000 base-wrong)* — 의 residual stream 차이로부터 K=8 SVD top-direction subspace 를 추출 (calibration), inference 시 LM 후반부 (L=26, OneVision Main) residual 에 projection 으로 제거 (application). Design choice 의 근거 (site = L=26, K=8) 는 §5.1 layer probe + §5.2 K sweep 의 mechanism evidence 위에 구축. Algorithm box 포함.}}
 
+> **TODO (Algorithm box):** Calibration + inference pseudocode (LaTeX algorithm 환경). 한 column 안에 들어가는 5-10 줄.
+
 ### 6.2 Cross-dataset anchoring reduction
 
 {{본 subsection 은 5 dataset 위 anchoring 효과 감소를 제시한다. 5 dataset 의 구성:
@@ -199,11 +201,39 @@
 
 Primary metric Δdf(a) (negative = anchoring 감소), secondary Δadopt(a) + Δem(a). Paired bootstrap CI + Bonferroni-20 multiplicity correction. Headline: OneVision Main, L=26, K=8 위 *5/5 dataset Δem(b) sign-clean (Bonferroni ✓)* — non-anchored arm 정확도가 5 dataset 모두에서 sign-positive 한 multiplicity-robust 결과.}}
 
+**Preview Figure 6.2 — Stage-4 paired-bootstrap deltas (E6 cell: L=26, K=8, α=1.0).** Two panels: Δdf(a) anchoring effect (↓) + Δem(b) non-anchored arm capability gain (↑).
+<img src="../figures/paper_6_2_3_stage4_5dataset_paired_ci.png" alt="Stage-4 paired CI" width="700"/>
+
+**Preview Table 6.2 — Per-dataset paired-bootstrap Δ (95 % CI).** Source: `docs/insights/_data/stage4_final_per_dataset_ci.md` (B = 10,000 paired sids, OneVision Main, L=26 K=8 α=1.0, calibrated on PlotQA+InfoVQA pooled n5k).
+
+| Dataset | n | Δ adopt(a) | Δ df(a) | Δ em(a) | Δ em(b) | scope |
+|---|---:|---:|---:|---:|---:|---|
+| TallyQA | 4978 | −0.6 [−1.1, +0.0] | −0.3 [−1.3, +0.6] | +6.6 [+5.6, +7.5] | **+13.8** [+12.9, +14.8] | held-out |
+| PlotQA | 2306 | **−5.6** [−6.8, −4.4] | **−5.2** [−6.9, −3.4] | +2.4 [+1.5, +3.4] | **+4.7** [+3.8, +5.7] | within |
+| InfoVQA | 443 | +0.9 [−0.5, +2.5] | −0.7 [−4.7, +3.4] | +3.4 [+0.5, +6.3] | **+9.0** [+6.3, +11.7] | within |
+| ChartQA | 224 | **−3.3** [−6.0, −1.0] | −4.0 [−9.8, +1.8] | +4.0 [+0.0, +8.0] | **+7.1** [+3.6, +10.7] | held-out |
+| MathVista | 170 | −1.5 [−6.9, +3.7] | −4.1 [−11.8, +3.5] | +2.9 [−2.4, +8.2] | **+9.4** [+4.7, +14.7] | held-out |
+| **mean** | | **−2.0** | **−2.9** | **+3.9** | **+8.8** | |
+
+**Sign-clean count (CI excludes 0)**: Δ adopt(a) 2/5, Δ df(a) 1/5 (PlotQA only, sample-size-bound), Δ em(a) 3/5, **Δ em(b) 5/5** (Bonferroni-20 ✓ 5/5).
+
 ### 6.3 Capability preservation
 
-{{본 subsection 은 mitigation 의 capability preservation 을 *8 held-out benchmark* (HallusionBench, AMBER, POPE, MME, MMVet, MMMU 등) 위에서 검증한다 — STRICT_FREE_LUNCH protocol, n_total = 27,097. **매크로 평균 Δ = +0.31 pp** (positive). HallusionBench +2.21 pp [+1.14, +3.28] 와 AMBER +0.19 pp [+0.05, +0.33] 가 CI excludes zero — *hallucination axis* 에서 statistically significant positive. 나머지 benchmark 는 ±1 pp band 안 — capability 손상 없음.
+{{본 subsection 은 mitigation 의 capability preservation 을 6 held-out general capability benchmark 위에서 검증한다 — STRICT_FREE_LUNCH protocol, n_total = 10,507. **매크로 평균 Δ = +0.41 pp** (positive). HallusionBench +2.21 pp [+1.14, +3.28] 가 CI excludes zero — *hallucination axis* 에서 statistically significant positive. 나머지 benchmark 는 ±1 pp band 안 — capability 손상 없음.}}
 
-> **TODO (수치 일관성):** 본 +0.31 pp 는 E8 canonical 결과 ([[e8_capability_eval]]). Abstract / §1.3 의 "+0.41 pp" 와 mismatch — Abstract / §1.3 도 +0.31 pp 로 정정 필요 (또는 +0.41 의 source 확인).}}
+**Preview Table 6.3 — Per-benchmark capability deltas (95 % CI).** Source: `docs/insights/_data/capability_eval_per_benchmark.md`. OneVision Main, L=26 K=8 α=1.0 mitigation applied at inference.
+
+| Benchmark | n | baseline | +mit | Δ (pp) | 95 % CI |
+|---|---:|---:|---:|---:|---|
+| HallusionBench | 951 | 47.84 | 50.05 | **+2.21** | [+1.14, +3.28] ✓ |
+| RealWorldQA | 765 | 69.80 | 71.11 | +1.31 | [−0.27, +2.89] |
+| MMStar | 1500 | 61.67 | 61.80 | +0.13 | [−0.77, +1.04] |
+| POPE | 5127 | 92.16 | 92.10 | −0.06 | [−0.21, +0.09] |
+| MMBench-DEV-EN | 1164 | 82.04 | 81.70 | −0.34 | [−0.82, +0.13] |
+| OCRBench | 1000 | 63.40 | 62.60 | −0.80 | [−1.68, +0.08] |
+| **Macro** | 10,507 | | | **+0.41** | (STRICT_FREE_LUNCH) |
+
+> **TODO (8-bench extension):** Memory note 의 *E8 8-bench* (n=27,097, +0.31 pp, AMBER + MME 추가) 는 *canonical CSV 에 미반영* — config (`configs/capability_eval_mme_amber.yaml`) 만 있고 결과 CSV 없음. AMBER + MME 실행 + 통합 후 canonical 6-bench → 8-bench update 필요. 현재 본문 수치 (+0.41 pp) 는 6-bench canonical 결과로 Abstract / §1.3 와 일치.
 
 ---
 
