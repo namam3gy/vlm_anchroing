@@ -18,6 +18,7 @@
 \usepackage[utf8]{inputenc}
 \usepackage{microtype}
 \usepackage{graphicx}
+\usepackage[export]{adjustbox}    % for valign=c on includegraphics inside tabular
 \usepackage{booktabs}
 \usepackage{multirow}
 \usepackage{array}
@@ -118,18 +119,18 @@ Our mechanism analysis shows that the anchoring signal is distributed over sever
 \subsection{4-condition stimulus (b / a / m / d)}
 \todoNote{This subsection summarizes, in a single paragraph, the four-condition stimulus---b: target only / a: + anchor / m: + masked anchor / d: + neutral distractor---together with the design intent that specifies what each condition isolates. Concrete stimulus images, the prompt template, and the procedure for generating the masked image are deferred to Appendix~\ref{app:stimulus}.}
 
-\begin{figure}[t]
+\begin{figure*}[t]
   \centering
   \begin{tabular}{cccc}
-    \includegraphics[width=0.20\linewidth]{figures/demo_sample_01/target.png} &
-    \includegraphics[width=0.20\linewidth]{figures/demo_sample_01/anchor.png} &
-    \includegraphics[width=0.20\linewidth]{figures/demo_sample_01/masked.png} &
-    \includegraphics[width=0.20\linewidth]{figures/demo_sample_01/neutral.png} \\
+    \includegraphics[width=0.15\textwidth]{figures/demo_sample_01/target.png} &
+    \includegraphics[width=0.15\textwidth]{figures/demo_sample_01/anchor.png} &
+    \includegraphics[width=0.15\textwidth]{figures/demo_sample_01/masked.png} &
+    \includegraphics[width=0.15\textwidth]{figures/demo_sample_01/neutral.png} \\
     \small b (target only) & \small a (anchor) & \small m (masked) & \small d (neutral) \\
   \end{tabular}
   \caption{Four-condition preview (TallyQA \emph{``How many zebras\dots''}, gt$=3$, anchor$=4$). The preview displays only the \emph{second image} (paired with the target image at inference). The full input grid is in Appendix~\ref{app:stimulus}.}
   \label{fig:preview-4cond}
-\end{figure}
+\end{figure*}
 
 \subsection{(a $-$ m) paired contrast: isolating the digit-pixel causal path}
 \todoNote{This subsection explains the design logic of the (a $-$ m) paired contrast. Because the anchor image itself is identical and only the digit pixels differ, the (a $-$ m) difference isolates only the causal effect of the digit pixels, while ordinary distraction is independently controlled by the d arm. This substrate is reused on both sides---the digit-pixel causal gate finding in \S4 and the calibration signal in \S6---and serves as the organizational backbone of the paper.}
@@ -137,23 +138,25 @@ Our mechanism analysis shows that the anchoring signal is distributed over sever
 \subsection{Measuring anchoring (metrics)}
 \todoNote{This subsection defines the three metrics used to measure anchoring. The primary is \textit{direction-follow} (sign-based, gt-free); the secondaries are \textit{adopt} (literal-copy rate) and \textit{exact-match} (accuracy). For each metric we also briefly map the claim it carries in the body---direction-follow $=$ the graded-pull headline in \S4; adopt $=$ literal capture; exact-match $=$ the capability axis in \S6.4.}
 
-\paragraph{Notation.} For each sample $i$, let $gt_i$ denote the ground truth, $z_i$ the anchor digit value, and $p_i^c$ the parsed prediction under condition $c \in \{b, a, m, d\}$.
+\paragraph{Notation.} For each sample $i$, let $gt_i$ denote the ground truth, $z_i$ the anchor digit value, and $p_i^c$ the parsed prediction under condition $c \in \{b, a, m, d\}$. We use the subsets \emph{base-correct} $= \{i : p_i^b = gt_i\}$ and \emph{base-wrong} $= \{i : p_i^b \neq gt_i\}$.
 
-\begin{table}[t]
-  \centering
-  \small
-  \begin{tabular}{p{2cm} p{3.4cm} p{1.8cm}}
-    \toprule
-    \textbf{Metric} & \textbf{Definition} & \textbf{Role} \\
-    \midrule
-    Adopt$_c$ & $P[p_i^c = z_i \mid p_i^b \neq z_i]$ & Literal copy rate. Headline of the graded-vs-categorical contrast in \S4.1. \\
-    DF$_c$ & $P[(p_i^c - p_i^b)(z_i - p_i^b) > \epsilon \mid |z_i - p_i^b| > \epsilon]$ & Primary anchoring metric (sign-based, gt-free). Headline of \S4 and target of the \S6 mitigation. \\
-    EM$_c$ & $\#(p_i^c = gt_i) / \#(\text{numeric pair})$ & Capability axis. The b-arm is baseline accuracy; the a-arm is anchored accuracy. \\
-    \bottomrule
-  \end{tabular}
-  \caption{Metric definitions used throughout. Subsets: \emph{base-correct} $= \{ i : p_i^b = gt_i \}$, \emph{base-wrong} $= \{ i : p_i^b \neq gt_i \}$.}
-  \label{tab:metrics}
-\end{table}
+\paragraph{Adopt.}
+\begin{equation*}
+  \mathrm{Adopt}_c \;=\; P[\,p_i^c = z_i \;\mid\; p_i^b \neq z_i\,].
+\end{equation*}
+Literal copy rate; headline of the graded-vs-categorical contrast in \S4.1.
+
+\paragraph{Direction-follow (DF).}
+\begin{equation*}
+  \mathrm{DF}_c \;=\; P\!\left[\,(p_i^c - p_i^b)(z_i - p_i^b) > \epsilon \;\big|\; |z_i - p_i^b| > \epsilon\,\right].
+\end{equation*}
+Primary anchoring metric (sign-based, gt-free); headline of \S4 and target of the \S6 mitigation.
+
+\paragraph{Exact-match (EM).}
+\begin{equation*}
+  \mathrm{EM}_c \;=\; \#(p_i^c = gt_i) \,\big/\, \#(\text{numeric pair}).
+\end{equation*}
+Capability axis; the b-arm is baseline accuracy and the a-arm is anchored accuracy.
 
 \todoNote{TODO (DF formula): once the direction-follow expression is finalized as the epsilon-threshold form, re-aggregate the canonical CSVs and propagate the updated numbers throughout \S4 / \S5 / \S6 in a single sweep. The numbers in the current body are based on the old C-form.}
 
@@ -167,12 +170,12 @@ Our mechanism analysis shows that the anchoring signal is distributed over sever
 \subsection{Anchoring effect: graded pull and literal copy}
 \todoNote{This subsection presents, on the $6\;\text{models}\times 5\;\text{datasets}$ main panel, the \textit{overall magnitude} of the anchoring effect and its \textit{cross-panel robustness}. A single main-panel table is sufficient to demonstrate that direction-follow ($\approx$10--40\,\%) and adopt (1.7--15.7\,\%) ranges are non-trivially positive in every model $\times$ dataset cell---meaning that the mass of the effect lies in graded pull rather than literal copy and that it is not an artifact of a particular architecture or domain.}
 
-\begin{figure}[t]
+\begin{figure*}[t]
   \centering
-  \includegraphics[width=\linewidth]{figures/paper_cross_dataset_summary.png}
+  \includegraphics[width=0.92\textwidth]{figures/paper_cross_dataset_summary.png}
   \caption{Cross-dataset summary (S1 wrong-base). Per-cell df / adopt numerics are reported in Appendix~\ref{app:per-cell}.}
   \label{fig:cross-dataset-summary}
-\end{figure}
+\end{figure*}
 
 \subsection{Digit-pixel causal gate (via (a $-$ m))}
 \todoNote{This subsection presents anchoring metrics for the a / m / d 3-arm side by side in a single figure. The decomposition into \textit{the total effect of adding the anchor (a $-$ b)}, \textit{the digit-pixel causal effect (a $-$ m)}, and \textit{the ordinary-distraction control (d $-$ b)} is shown visually. The key conclusion is the qualitative visual---m and d are at nearly the same level and only a drops---which empirically closes the case that the causal path of anchoring runs \textit{exclusively through the digit pixels}.}
@@ -187,12 +190,12 @@ Our mechanism analysis shows that the anchoring signal is distributed over sever
 \subsection{Confidence modulation}
 \todoNote{This subsection shows, in two forms, that the confidence axis is the \textit{actual modulator} of anchoring. The primary form is the continuous L1 6-bin monotonic gradient (across $5\;\text{datasets}\times 6\;\text{models} = 80$ cells, with B6$-$B1 gap of $+$19.5--23.5\,pp). The secondary form is the binary projection of wrong-base versus correct-base, which is compatible with the existing anchoring literature. Both forms point in the same direction. Introducing the binary projection also harmonizes the body with the wrong-base calibration filter used by the mitigation in \S6.}
 
-\begin{figure}[t]
+\begin{figure*}[t]
   \centering
-  \includegraphics[width=\linewidth]{figures/paper_L1_confidence_quartile.png}
+  \includegraphics[width=0.85\textwidth]{figures/paper_L1_confidence_quartile.png}
   \caption{Continuous L1 6-bin gradient (PlotQA $\times$ OneVision Main, single cell). The binary projection (wrong vs.\ correct base) is reported separately in Appendix~\ref{app:per-cell}.}
   \label{fig:l1-6bin}
-\end{figure}
+\end{figure*}
 
 % =============================================================
 \section{Mechanism: Locating the Anchoring Representation}
@@ -214,12 +217,12 @@ Our mechanism analysis shows that the anchoring signal is distributed over sever
   \label{fig:K-progression}
 \end{figure}
 
-\begin{figure}[t]
+\begin{figure*}[t]
   \centering
-  \includegraphics[width=\linewidth]{figures/p4_layer_sweep_delta_df.png}
+  \includegraphics[width=0.95\textwidth]{figures/p4_layer_sweep_delta_df.png}
   \caption{$K = 8$ versus $K = 1$ fallback at $L = 26$ across five datasets (P4 verification). Blue $=$ $K = 8$ layer sweep; red $=$ $K = 1$ at $L = 26$. $K = 1$ is weaker than $K = 8$, providing a 5-dataset cross-check that a single direction is insufficient.}
   \label{fig:K8-vs-K1}
-\end{figure}
+\end{figure*}
 
 \todoNote{TODO (final body figure): combine the two previews above into a single figure (or build a new 5-dataset average $K = 1/2/4/8$ bar chart).}
 \todoNote{TODO (appendix): a per-dataset table reporting LEACE rank-1, ActAdd, and $K = 1$ SVD (convergent negative evidence).}
@@ -331,21 +334,23 @@ Figure~\ref{fig:appendix-a2} shows, for a single question, the actual input imag
 
 \textbf{Question:} \textit{How many zebras are there standing in the water?} \quad \textbf{Ground truth:} 3 \quad \textbf{Anchor value:} 4
 
-\begin{figure}[t]
+\begin{figure*}[t]
   \centering
+  \small
+  \setlength{\tabcolsep}{6pt}
   \begin{tabular}{@{}lcc@{}}
     \toprule
     \textbf{Cond.} & \textbf{Input image(s)} & \textbf{OneVision-7B} \\
     \midrule
-    b & \includegraphics[width=0.20\linewidth]{figures/demo_sample_01/target.png} & \textbf{3} $\checkmark$ \\
-    a & \includegraphics[width=0.20\linewidth]{figures/demo_sample_01/target.png}\,\includegraphics[width=0.20\linewidth]{figures/demo_sample_01/anchor.png} & \textbf{4} $\leftarrow$ anchor \\
-    m & \includegraphics[width=0.20\linewidth]{figures/demo_sample_01/target.png}\,\includegraphics[width=0.20\linewidth]{figures/demo_sample_01/masked.png} & \textbf{3} $\checkmark$ (recovered) \\
-    d & \includegraphics[width=0.20\linewidth]{figures/demo_sample_01/target.png}\,\includegraphics[width=0.20\linewidth]{figures/demo_sample_01/neutral.png} & \textbf{3} $\checkmark$ \\
+    b & \includegraphics[width=0.12\textwidth,valign=c]{figures/demo_sample_01/target.png} & \textbf{3} $\checkmark$ \\[4pt]
+    a & \includegraphics[width=0.12\textwidth,valign=c]{figures/demo_sample_01/target.png}\;\includegraphics[width=0.12\textwidth,valign=c]{figures/demo_sample_01/anchor.png} & \textbf{4} $\leftarrow$ anchor \\[4pt]
+    m & \includegraphics[width=0.12\textwidth,valign=c]{figures/demo_sample_01/target.png}\;\includegraphics[width=0.12\textwidth,valign=c]{figures/demo_sample_01/masked.png} & \textbf{3} $\checkmark$ (recovered) \\[4pt]
+    d & \includegraphics[width=0.12\textwidth,valign=c]{figures/demo_sample_01/target.png}\;\includegraphics[width=0.12\textwidth,valign=c]{figures/demo_sample_01/neutral.png} & \textbf{3} $\checkmark$ \\
     \bottomrule
   \end{tabular}
   \caption{The four-condition input grid for a TallyQA example. The full 6-model answer table is on the demo site. This single sample illustrates the (a $-$ m) paired contrast: the anchor pulls the answer ($3 \rightarrow 4$); masking the digit recovers the baseline ($3$); the neutral distractor has no effect.}
   \label{fig:appendix-a2}
-\end{figure}
+\end{figure*}
 
 \subsection{Masked stimulus generation}
 The digit bounding box in the anchor image is filled with OpenCV's \texttt{INPAINT\_TELEA} algorithm [Telea, 2004] to produce the \texttt{m} image. The area outside the mask is preserved exactly, so the \textit{paired contrast (a $-$ m)} isolates the effect of the digit pixels alone.
@@ -438,10 +443,9 @@ The digit bounding box in the anchor image is filled with OpenCV's \texttt{INPAI
 
 \subsection{Direction-follow per cell: df$_a$ (\%) across 6 models $\times$ 5 datasets}
 
-\begin{table}[h]
+\begin{table*}[h]
   \centering
   \small
-  \setlength{\tabcolsep}{4pt}
   \begin{tabular}{lrrrrr}
     \toprule
     \textbf{Model} & TallyQA & ChartQA & MathVista & PlotQA & InfoVQA \\
@@ -456,14 +460,13 @@ The digit bounding box in the anchor image is filled with OpenCV's \texttt{INPAI
   \end{tabular}
   \caption{df$_a$ (\%) per cell, on the 6-model $\times$ 5-dataset main panel.}
   \label{tab:df-per-cell}
-\end{table}
+\end{table*}
 
 \subsection{Adopt per cell: adopt$_a$ (\%, literal copy rate)}
 
-\begin{table}[h]
+\begin{table*}[h]
   \centering
   \small
-  \setlength{\tabcolsep}{4pt}
   \begin{tabular}{lrrrrr}
     \toprule
     \textbf{Model} & TallyQA & ChartQA & MathVista & PlotQA & InfoVQA \\
@@ -478,16 +481,16 @@ The digit bounding box in the anchor image is filled with OpenCV's \texttt{INPAI
   \end{tabular}
   \caption{adopt$_a$ (\%) per cell. \todoNote{The current numbers are under M2 / C-form (canonical CSV \texttt{main\_panel\_5dataset\_per\_cell.csv}); they will be re-aggregated once the DF formula is finalized.}}
   \label{tab:adopt-per-cell}
-\end{table}
+\end{table*}
 
 \subsection{Binary projection: wrong-base vs.\ correct-base df$_a$}
 
-\begin{figure}[h]
+\begin{figure*}[h]
   \centering
-  \includegraphics[width=\linewidth]{figures/paper_4_1_PlotQA_correct_vs_wrong_df.png}
+  \includegraphics[width=0.85\textwidth]{figures/paper_4_1_PlotQA_correct_vs_wrong_df.png}
   \caption{PlotQA $\times$ 6 models. The wrong-base df$_a$ is consistently higher than the correct-base df$_a$. This is the binary projection of the continuous L1 6-bin gradient (\S4.3); it also pre-justifies the wrong-base calibration filter used by the mitigation in \S6.}
   \label{fig:binary-projection}
-\end{figure}
+\end{figure*}
 
 \todoNote{TODO (D.3 final): extend the figure to a 5-dataset average or a dataset-stratified panel, and include adopt as well.}
 
