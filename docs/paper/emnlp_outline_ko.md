@@ -6,44 +6,29 @@
 
 ## Abstract
 
-> 목표 분량: ~180 단어. 아래 5개 beat을 한 문단으로 압축.
-
-- **Problem.** VLM에게 질문과 무관한 이미지를 함께 보여줄 때, 그 이미지에 숫자가 그려져 있다면 답이 그 숫자 쪽으로 끌리는가 — *cross-modal numerical anchoring*.
-- **Finding 1 (현상).** 6개 open-weight VLM × 5 dataset에서 약 4-23 % 의 응답이 anchor 숫자 쪽으로 *점진적으로* 끌리고, 그 중 일부 (약 1-13 %) 는 anchor 를 그대로 베끼기까지 한다 (per-model 평균; broad cohort 기준, base-wrong cohort 비교는 Appendix D.1 / D.2). 끌리는 정도는 base 답에 대한 모델 confidence 가 낮을수록 더 크다.
-- **Finding 2 (causal gate).** 같은 anchor 이미지에서 숫자 픽셀만 가린 *masked* 짝을 만들어 비교하면 위 끌림이 일반 distractor 수준으로 사라진다 — 즉 anchoring 은 *(보이는 digit) × (모델 uncertainty)* 두 조건의 conjunction.
-- **Method.** 본 논문은 anchored 와 masked 짝의 *paired contrast* 를 신호로 삼아 모델 내부의 anchoring representation 을 추정하고, inference 시 이를 제거하는 mitigation 을 제안한다.
-- **Result.** 5 dataset 위에서 anchoring 효과 감소 + anchor 가 있는 경우와 없는 경우 모두 정확도 동시 상승, 6 held-out capability benchmark 평균 보존 (+0.41 pp).
-- **Implication.** Mechanism 분석은 anchoring signal 이 *multi-layer redundant* 하게 routing 됨을 보여 (single-layer ablation null + per-model peak heterogeneity), model-specific integration site 에 *분리 및 제거 가능한 representation 단위* 로 통합되어 retraining 이나 prompt-level 방어 없이 inference 시 직접 개입할 수 있음을 시사한다.
+Vision-language model (VLM) 에게 숫자가 그려진 무관한 이미지를 함께 보여주면 모델의 수치 답이 그 숫자 쪽으로 이동한다 — *cross-modal numerical anchoring* 이라 부르는 이 현상은 6 open-weight VLM × 5 numeric VQA dataset 위에서 응답의 4–23% 를 graded 하게 끌어당기며, 모델의 baseline confidence 가 낮을수록 강해진다. 그 anchor 이미지에서 *digit 만 pixel 단위로 가리고* 나머지를 그대로 두면 unanchored 답이 회복되어, *digit pixels × 낮은 confidence* 가 인과 채널임을 isolate. 본 논문의 mitigation 은 이 anchored–masked paired contrast 를 calibration 신호로 삼아, 단일 model-specific integration site 의 residual stream 에서 anchoring 방향의 low-rank subspace 를 추정하고 inference 시 이를 projection 으로 제거한다. 배포 단계에서 anchor label 이 불필요하며, projection 은 5 dataset 위로 일반화된다 — anchoring 은 감소하고, anchored 와 non-anchored 입력 모두에서 정확도가 동시에 상승하며, 6 held-out capability benchmark 평균 성능은 보존된다 (+0.41 pp). Layer probe 가 이 설계의 이유를 설명한다 — anchoring 은 multi-layer 에 distributed (single causal site 없음) 되어 있으나 integration site 를 고정하면 low-dimensional 로 압축되므로, single-direction 개입은 undershoot 하고 작은 subspace 면 충분하다.
 
 ---
 
 ## 1 Introduction
 
-### 1.1 동기 (Motivation)
+### 1.1 Motivation
 
-- **Hook (model-behavior question).** Multi-image prompt 가 RAG / multi-screenshot Q&A / VLM-as-judge 등에서 일반화되는 가운데 — VLM 은 질문과 무관한 시각 입력을 *무시* 하는가, 아니면 그 정보가 답을 *흔드는가*?
-- **Phenomenon 명명.** *Cross-modal numerical anchoring* — 무관한 이미지의 digit pixel이 모델 답을 끌어당긴다.
-- **Cognitive grounding.** Anchoring 은 인간 [Tversky and Kahneman, 1974] 과 텍스트 LLM [Jones and Steinhardt, 2022; Echterhoff et al., 2024] 에서 잘 정립된 인지 편향. 그러나 *시각 modality* 위에서 — 즉 visual cue 가 모델의 답을 어떻게 끌어당기는지에 대해서는 체계적 평가가 부재. 위 deployment 시나리오 (RAG retrieval, multi-image Q&A, VLM-as-judge) 에서 무관한 시각 입력 노출이 자연스럽게 발생할 수 있어, 이 빈 칸은 cognitive 호기심을 넘어선 deployment relevance 를 가진다.
+*Anchoring* — 답을 결정하기 전에 주어진 임의의 cue 가 그 답을 *그 cue 쪽으로* 끌어당기는 현상 — 은 인간 의사결정 [Tversky and Kahneman, 1974; Mussweiler and Strack, 1999] 과 텍스트 LLM [Jones and Steinhardt, 2022; Echterhoff et al., 2024; Lou and Sun, 2024] 에서 가장 잘 정립된 인지 편향 중 하나다. 그러나 vision-language model (VLM) 의 *시각 modality* 위에서는 — 두 번째 이미지의 단순한 digit 이 모델의 수치 답에 미치는 영향에 대해서조차 — 체계적 평가가 부재하다. 이 빈 칸은 단순한 호기심을 넘어선다: retrieval-augmented QA, multi-screenshot 분석, VLM-as-judge 등 *질문과 직접 관련 없는 시각 입력* 이 자연스럽게 함께 입력되는 multi-image deployment 시나리오에서 anchoring 류 효과의 노출이 일상적으로 발생하기 때문이다. 본 논문은 이 빈 칸을 *cross-modal numerical anchoring* 으로 명명하고, 6 open-weight VLM × 5 numeric VQA dataset (이하 *main panel*) 위에서 행동 측정 + 인과 격리 + inference-time mitigation 까지 한 substrate 위에서 닫는다.
 
-### 1.2 본 논문의 발견 (Findings)
+### 1.2 Findings
 
-> Abstract 의 Finding 1 / Finding 2 를 본문 톤으로 한 단계 풀어서 서술. 4-condition 자극 (b: target only / a: + anchor / m: + masked anchor / d: + neutral distractor) 으로 6 open-weight VLM × 5 dataset 측정.
-- **F1 (graded pull).** 약 4-23 % 의 응답이 anchor 쪽으로 점진적으로 끌리고, 그 중 일부 (약 1-13 %) 는 anchor 를 그대로 베낀다 — 효과의 질량은 *literal copy* 가 아닌 *점진적 이동* 에 있다.
-- **F2 (uncertainty modulation).** 끌리는 정도는 base 답에 대한 모델 confidence 가 낮을수록 크다 (5 dataset × 6 model L1 6-bin 위 단조 monotonic gradient).
-- **F3 (digit-pixel causal gate).** Anchor 이미지에서 digit pixel 만 가린 *masked* 짝과 비교하면 끌림이 일반 distractor 수준으로 사라진다 — *digit pixel × uncertainty* 두 조건의 conjunction.
-- **F4 (mechanism).** Anchoring representation 은 *multi-layer redundant* 하며 (single-layer ablation null + per-model peak heterogeneity), mitigation 은 model-specific integration site (OneVision Main 의 경우 L=26) 에 작용.
+4-condition stimulus (b: target only / a: + anchor / m: + masked anchor / d: + neutral distractor) 위에서 main panel 의 finding 은 세 layer 로 정리된다. *Raw effect*: 응답의 약 4–23% 가 anchor 쪽으로 graded 하게 끌리고 그 중 약 1–13% 는 anchor 를 그대로 베낀다 — 효과의 질량은 *literal copy* 가 아닌 *점진적 이동* 에 있다. 끌림은 *base 답에 대한 모델 confidence 가 낮을수록* 단조 증가한다 (main panel × L1 6-bin gradient 80/80 cell sign-clean). *Causal isolation*: anchored 짝 (a) 와 *같은 anchor 이미지에서 digit pixel 만 가린* masked 짝 (m) 의 paired contrast — 이하 *(a − m)* — 위에서 끌림이 일반 distractor (d) 수준으로 사라져, anchoring 은 *(보이는 digit) × (낮은 confidence)* 두 조건의 conjunction 으로 좁혀진다. *Mechanism*: anchoring 신호는 *multi-layer redundant* 하게 분포해 single-layer ablation 으로는 null 이며 (per-model peak heterogeneity 동반), model-specific integration site (OneVision Main 의 경우 L=26) 에 통합되어 있다.
 
-### 1.3 접근과 결과 (Approach & Result)
+### 1.3 Approach & Result
 
-- *(a − m) paired contrast* 를 calibration 신호로 활용 → 모델 내부의 anchoring representation 을 추정 → inference 시 projection 으로 제거.
-- Calibration 은 별도 phase 에서 한 차례만 수행되고, 거기서 얻은 projection 은 이후 모든 inference 에 일괄 적용된다. 배포 단계부터는 입력 이미지에 anchor 가 포함되어 있는지 여부와 무관하게 동일한 projection 이 작동하므로, runtime 에 anchor 를 탐지하거나 라벨링할 필요가 없다 — 그대로 deployable 하다.
-- 이 mitigation 을 적용하면 5 dataset 위에서 anchoring 효과가 감소하며, 동시에 anchoring 과 *무관한* 6 개 general capability benchmark (held-out) 의 성능도 손상되지 않는다 (평균 변화 +0.41 pp) — 즉 mitigation 이 모델의 일반 능력을 해치지 않는다.
+본 논문은 *cross-modal numerical anchoring* 의 inference-time mitigation 을 제안한다 — 5 dataset 위에서 anchoring 효과를 감소시키면서 anchored 와 non-anchored 입력의 정확도를 동시에 끌어올리고, 6 개 held-out general capability benchmark 의 평균 성능을 +0.41 pp 보존한다. 핵심 idea 는 §1.2 의 *(a − m) paired contrast* 를 calibration 신호로 그대로 재사용하는 것: anchored 와 masked 입력의 residual stream 차이로부터 anchoring 방향의 low-rank subspace 를 한 차례 추정하고, inference 시 이를 projection 으로 제거한다. Calibration 은 별도 phase 에서 한 차례 수행되어 이후 모든 입력에 일괄 적용되므로, 배포 단계에서 anchor 탐지나 라벨링 없이 그대로 deployable 하다.
 
-### 1.4 기여 (Contributions)
+### 1.4 Contributions
 
-- **C1 (Phenomenon).** Cross-modal numerical anchoring 을 5 dataset × 6 open-weight VLM 위에서 정량 보고 — 약 4-23 % 의 응답이 무관한 이미지의 digit 으로 끌리며 (일부는 그대로 베끼고), 끌림은 모델 confidence 에 비례해 graded 되며, anchor 이미지에서 digit pixel 만 가리면 효과가 사라짐. 행동 + causal gate 동시 검증.
-- **C2 (Mitigation).** *(a − m) paired contrast* 를 calibration 신호로 활용해 model-specific integration site (OneVision Main 의 경우 L=26) 의 anchoring representation 을 한 차례 추정하고, inference 시 모든 입력에 projection 으로 일괄 적용. anchor label 이나 runtime 탐지 불필요. 5 dataset 에서 anchoring 효과 감소 + 6 일반 capability benchmark 평균 +0.41 pp 보존.
-- **C3 (Mechanism evidence).** Mechanism 분석으로 (i) anchoring representation 이 *multi-layer redundant* 하게 분포 (single-layer ablation null + per-model peak heterogeneity — single causal layer 부재), (ii) within-layer single direction 으로도 reduce 되지 않음을 보여 — §6 mitigation 의 *model-specific integration site* 와 *multi-direction subspace* 설계 모두에 근거를 제공.
+- **C1 (Phenomenon).** *Digit pixel × 낮은 confidence* 의 conjunction 이 VLM 수치 답을 끌어당기는 *인과 통로* 임을 *(a − m)* paired contrast 위에서 격리 — main panel 모든 cell 위 anchoring positive, masked-pair 위에서 일반 distractor 수준으로 사라짐.
+- **C2 (Mechanism evidence).** Anchoring representation 이 (i) *multi-layer redundant* 하게 분포 (single-layer ablation null + per-model peak heterogeneity) 하면서도 (ii) within-layer single direction 으로 reduce 되지 않음을 입증 — §6 mitigation 의 *model-specific integration site* 와 *multi-direction subspace* 설계 두 axis 에 mechanism 근거 제공.
+- **C3 (Mitigation).** Anchor-label-free inference-time projection mitigation 을 제안 — §1.2 *(a − m)* 의 diagnosis substrate 를 calibration 신호로 *그대로 carry* 하여 treatment 로 전환. 5 dataset 위 anchoring 감소 + anchored / non-anchored 양 arm 정확도 동시 상승 + 6 held-out capability benchmark 평균 +0.41 pp 보존 (cross-dataset + cross-benchmark 두 축으로 검증).
 
 ---
 
@@ -214,8 +199,6 @@ Primary metric Δdf(a) (negative = anchoring 감소), secondary Δadopt(a) + Δe
 | ChartQA | 224 | **−3.3** [−6.0, −1.0] | −4.0 [−9.8, +1.8] | +4.0 [+0.0, +8.0] | **+7.1** [+3.6, +10.7] | held-out |
 | MathVista | 170 | −1.5 [−6.9, +3.7] | −4.1 [−11.8, +3.5] | +2.9 [−2.4, +8.2] | **+9.4** [+4.7, +14.7] | held-out |
 | **mean** | | **−2.0** | **−2.9** | **+3.9** | **+8.8** | |
-
-**Sign-clean count (CI excludes 0)**: Δ adopt(a) 2/5, Δ df(a) 1/5 (PlotQA only, sample-size-bound), Δ em(a) 3/5, **Δ em(b) 5/5** (Bonferroni-20 ✓ 5/5).
 
 ### 6.3 Capability preservation
 
