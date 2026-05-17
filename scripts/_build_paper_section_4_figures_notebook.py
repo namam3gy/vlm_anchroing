@@ -32,9 +32,11 @@ the paper-facing snapshot at `outputs/paper/cross_model_cross_dataset/`.
 
 | Figure | Outline location | What it shows |
 |---|---|---|
-| **F1** `paper_cross_dataset_summary.png` | §4.1 main panel | 6 model × 5 dataset slope plot, base-wrong S1 df(a) + adopt(a) |
-| **F2** `paper_4_2_digit_pixel_causality.png` | §4.2 digit-pixel causality | Paired adopt(a) vs adopt(m) bars, two panels (PlotQA × 6 model + OneVision × 5 dataset) |
-| **F3** `paper_L1_confidence_quartile.png` | §4.3 confidence modulation | L1 6-bin gradient on the worked-example cell (PlotQA × OneVision × cross_entropy) |
+| **F1** `paper_cross_dataset_summary.pdf` | §4.1 main panel | 6 model × 5 dataset slope plot, S1 df(a) + adopt(a) |
+| **F2** `paper_4_2_digit_pixel_causality.pdf` | §4.2 digit-pixel causality | Paired adopt(a) vs adopt(m) bars, two panels (PlotQA × 6 model + OneVision × 5 dataset) |
+| **F3** `paper_L1_confidence_quartile.pdf` | §4.3 confidence modulation | L1 6-bin gradient on the worked-example cell (PlotQA × OneVision × cross_entropy) |
+
+Figures save as **PDF** (vector, LaTeX-friendly).
 
 **Scope.** Inference is *not* re-run — this notebook reads only:
 - `outputs/paper/cross_model_cross_dataset/predictions/{dataset}/{model}/predictions.csv` (raw per-row flags from `evaluate_sample`)
@@ -271,11 +273,10 @@ fig.legend([handle_map[m] for m in legend_order], legend_order,
            ncol=6, frameon=False, fontsize=10,
            handlelength=2.4, columnspacing=1.4)
 
-out1 = FIG_OUT / "paper_cross_dataset_summary.png"
+out1 = FIG_OUT / "paper_cross_dataset_summary.pdf"
 fig.savefig(out1, bbox_inches="tight")
-plt.close(fig)
 print(f"wrote {out1}")
-out1
+fig  # inline display
 """))
 
 # -- 4. Figure 2 -----------------------------------------------------------
@@ -353,13 +354,12 @@ draw_panel(axes[1], onevision,
 axes[0].legend(loc="upper right", fontsize=9, frameon=True)
 fig.tight_layout()
 
-out2 = FIG_OUT / "paper_4_2_digit_pixel_causality.png"
-fig.savefig(out2, dpi=160, bbox_inches="tight")
-plt.close(fig)
+out2 = FIG_OUT / "paper_4_2_digit_pixel_causality.pdf"
+fig.savefig(out2, bbox_inches="tight")
 print(f"wrote {out2}")
 print("\nPlotQA panel:");    print(plotqa.to_string(index=False))
 print("\nOneVision panel:"); print(onevision.to_string(index=False))
-out2
+fig  # inline display
 """))
 
 # -- 5. Figure 3 -----------------------------------------------------------
@@ -430,30 +430,15 @@ ax.grid(axis="y", linestyle=":", alpha=0.4)
 ax.set_ylim(-0.04, max(by_q_adopt.max(), by_q_df.max()) * 1.30)
 fig.tight_layout()
 
-out3 = FIG_OUT / "paper_L1_confidence_quartile.png"
+out3 = FIG_OUT / "paper_L1_confidence_quartile.pdf"
 fig.savefig(out3, bbox_inches="tight")
-plt.close(fig)
 print(f"wrote {out3}")
-out3
+fig  # inline display
 """))
 
-# -- 6. Display all three -------------------------------------------------
-cells.append(md("## 6 · All three figures"))
-
-cells.append(code(r"""
-from IPython.display import Image, display
-for p in [
-    FIG_OUT / "paper_cross_dataset_summary.png",
-    FIG_OUT / "paper_4_2_digit_pixel_causality.png",
-    FIG_OUT / "paper_L1_confidence_quartile.png",
-]:
-    print(f"=== {p.name} ===")
-    display(Image(filename=str(p)))
-"""))
-
-# -- 7. Cross-check ------------------------------------------------------
+# -- 6. Cross-check ------------------------------------------------------
 cells.append(md(r"""
-## 7 · Cross-check vs canonical CSV
+## 6 · Cross-check vs canonical CSV
 
 The base-wrong S1 metrics aggregated above (`PER_CELL`) must match
 `outputs/paper/cross_model_cross_dataset/summary/main_panel_per_cell.csv`
@@ -487,9 +472,9 @@ cells.append(md(r"""
 
 All three §4 figures rebuilt from `outputs/paper/cross_model_cross_dataset/`:
 
-- §4.1 `paper_cross_dataset_summary.png` — base-wrong df(a) + adopt(a) across 6×5 cells
-- §4.2 `paper_4_2_digit_pixel_causality.png` — paired (a − m) adopt gap, two panels
-- §4.3 `paper_L1_confidence_quartile.png` — L1 6-bin gradient on worked-example cell
+- §4.1 `paper_cross_dataset_summary.pdf` — df(a) + adopt(a) across 6 × 5 cells
+- §4.2 `paper_4_2_digit_pixel_causality.pdf` — paired (a − m) adopt gap, two panels
+- §4.3 `paper_L1_confidence_quartile.pdf` — L1 6-bin gradient on worked-example cell
 
 Figures land in `outputs/paper/section_4_figures/` (gitignored).
 Cross-check vs canonical CSV passes to ≤ 0.05 pp.
