@@ -122,7 +122,7 @@
 {{본 subsection 은 6 model × 5 dataset main panel 위에서 anchoring 효과의 *전반적 크기* 와 *cross-panel robustness* 를 제시한다. 모델별 평균 direction-follow 약 4-23 %, adopt 약 1-13 % 의 range 가 모든 모델 × 모든 dataset cell 에서 양수 임을 main panel table 한 장으로 입증 — 효과의 질량이 literal copy 가 아닌 graded pull 에 있고, 특정 architecture / domain artifact 가 아님.}}
 
 **Preview Figure 1 — Cross-dataset summary.**
-<img src="../figures/paper_cross_dataset_summary.png" alt="cross-dataset summary" width="700"/>
+<img src="../figures/paper_4_1_cross_dataset_summary.png" alt="cross-dataset summary" width="700"/>
 
 > Figure 1 의 두 panel 은 본문 `약 4-23 %` (df) / `약 1-13 %` (adopt) range 와 cell-by-cell 직접 대응한다. Per-cell 수치 (6 model × 5 dataset grid) 는 **Appendix D.1 / D.2** 참조 — D.1 / D.2 는 같은 metric 을 추가로 *base-wrong* subset 위에 병기한다. DF formula update 시 re-aggregation 후 final 수치 확정 — `약 1-13 %` adopt range 도 그때 재검증.
 
@@ -140,7 +140,7 @@
 {{본 subsection 은 confidence axis 가 anchoring 의 *진짜 modulator* 임을 두 형태로 보인다 — primary 는 L1 6-bin monotonic gradient (continuous, B6 − B1 gap +19.5–23.5 pp on 5 dataset × 6 model = 80 cells), secondary 는 wrong-base vs correct-base binary projection (기존 anchoring literature 호환). 두 형태가 같은 direction 으로 작동. Binary projection 도입은 §6 mitigation 의 wrong-base calibration filter 와 paper-wide 일관성 확보.}}
 
 **Preview Figure 3 — Continuous L1 6-bin gradient (PlotQA × OneVision Main, single cell).**
-<img src="../figures/paper_L1_confidence_quartile.png" alt="L1 6-bin gradient" width="650"/>
+<img src="../figures/paper_4_3_L1_confidence_quartile.png" alt="L1 6-bin gradient" width="650"/>
 
 > Binary projection (wrong-base vs correct-base df) 의 별도 figure 는 **Appendix D.3** 참조 — 본문은 한 줄 mention 으로 처리 ("기존 anchoring literature 의 wrong vs correct binary 와도 같은 direction 으로 작동").
 

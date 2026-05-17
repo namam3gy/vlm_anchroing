@@ -32,11 +32,13 @@ the paper-facing snapshot at `outputs/paper/cross_model_cross_dataset/`.
 
 | Figure | Outline location | What it shows |
 |---|---|---|
-| **F1** `paper_cross_dataset_summary.pdf` | §4.1 main panel | 6 model × 5 dataset slope plot, S1 df(a) + adopt(a) |
-| **F2** `paper_4_2_digit_pixel_causality.pdf` | §4.2 digit-pixel causality | Paired adopt(a) vs adopt(m) bars, two panels (PlotQA × 6 model + OneVision × 5 dataset) |
-| **F3** `paper_L1_confidence_quartile.pdf` | §4.3 confidence modulation | L1 6-bin gradient on the worked-example cell (PlotQA × OneVision × cross_entropy) |
+| **F1** `paper_4_1_cross_dataset_summary` | §4.1 main panel | 6 model × 5 dataset slope plot, S1 df(a) + adopt(a) |
+| **F2** `paper_4_2_digit_pixel_causality` | §4.2 digit-pixel causality | Paired adopt(a) vs adopt(m) bars, two panels (PlotQA × 6 model + OneVision × 5 dataset) |
+| **F3** `paper_4_3_L1_confidence_quartile` | §4.3 confidence modulation | L1 6-bin gradient on the worked-example cell (PlotQA × OneVision × cross_entropy) |
 
-Figures save as **PDF** (vector, LaTeX-friendly).
+Each figure is saved twice:
+- `outputs/paper/section_4_figures/<name>.pdf` (vector, for LaTeX `\includegraphics`)
+- `docs/figures/<name>.png` (raster, for outline.md `<img src>` preview)
 
 **Scope.** Inference is *not* re-run — this notebook reads only:
 - `outputs/paper/cross_model_cross_dataset/predictions/{dataset}/{model}/predictions.csv` (raw per-row flags from `evaluate_sample`)
@@ -75,17 +77,44 @@ def find_main_worktree() -> Path:
     return Path(common).resolve().parent
 
 
-REPO        = find_main_worktree()
-PAPER_DIR   = REPO / "outputs" / "paper" / "cross_model_cross_dataset"
+def find_worktree_root() -> Path:
+    # The current worktree's working tree top (== main when not in a linked
+    # worktree). Git-tracked outputs (e.g., docs/figures/) should land here
+    # so they are picked up by `git status` + the active branch's PR.
+    return Path(subprocess.check_output(
+        ["git", "rev-parse", "--show-toplevel"], cwd=Path.cwd(), text=True
+    ).strip()).resolve()
+
+
+MAIN        = find_main_worktree()
+WORKTREE    = find_worktree_root()
+PAPER_DIR   = MAIN / "outputs" / "paper" / "cross_model_cross_dataset"
 PRED_ROOT   = PAPER_DIR / "predictions"
 SUMMARY_DIR = PAPER_DIR / "summary"
-FIG_OUT     = REPO / "outputs" / "paper" / "section_4_figures"
-FIG_OUT.mkdir(parents=True, exist_ok=True)
+
+# PDF lives in the gitignored paper-facing snapshot; PNG lives in
+# docs/figures/ which is git-tracked and used by outline.md `<img src>`.
+PDF_OUT = MAIN     / "outputs" / "paper" / "section_4_figures"
+PNG_OUT = WORKTREE / "docs"    / "figures"
+PDF_OUT.mkdir(parents=True, exist_ok=True)
+PNG_OUT.mkdir(parents=True, exist_ok=True)
+
+
+def save_figure(fig, stem: str):
+    # Save PDF (LaTeX-ready vector) + PNG (outline.md / GitHub preview).
+    pdf = PDF_OUT / f"{stem}.pdf"
+    png = PNG_OUT / f"{stem}.png"
+    fig.savefig(pdf, bbox_inches="tight")
+    fig.savefig(png, bbox_inches="tight", dpi=160)
+    print(f"wrote {pdf}")
+    print(f"wrote {png}")
+
 
 assert PRED_ROOT.exists(), f"missing predictions snapshot: {PRED_ROOT}"
-print(f"REPO      = {REPO}")
-print(f"PRED_ROOT = {PRED_ROOT}")
-print(f"FIG_OUT   = {FIG_OUT}")
+print(f"MAIN      = {MAIN}")
+print(f"WORKTREE  = {WORKTREE}")
+print(f"PDF_OUT   = {PDF_OUT}")
+print(f"PNG_OUT   = {PNG_OUT}")
 """))
 
 cells.append(code(r"""
@@ -273,9 +302,7 @@ fig.legend([handle_map[m] for m in legend_order], legend_order,
            ncol=6, frameon=False, fontsize=10,
            handlelength=2.4, columnspacing=1.4)
 
-out1 = FIG_OUT / "paper_cross_dataset_summary.pdf"
-fig.savefig(out1, bbox_inches="tight")
-print(f"wrote {out1}")
+save_figure(fig, "paper_4_1_cross_dataset_summary")
 fig  # inline display
 """))
 
@@ -354,9 +381,7 @@ draw_panel(axes[1], onevision,
 axes[0].legend(loc="upper right", fontsize=9, frameon=True)
 fig.tight_layout()
 
-out2 = FIG_OUT / "paper_4_2_digit_pixel_causality.pdf"
-fig.savefig(out2, bbox_inches="tight")
-print(f"wrote {out2}")
+save_figure(fig, "paper_4_2_digit_pixel_causality")
 print("\nPlotQA panel:");    print(plotqa.to_string(index=False))
 print("\nOneVision panel:"); print(onevision.to_string(index=False))
 fig  # inline display
@@ -430,9 +455,7 @@ ax.grid(axis="y", linestyle=":", alpha=0.4)
 ax.set_ylim(-0.04, max(by_q_adopt.max(), by_q_df.max()) * 1.30)
 fig.tight_layout()
 
-out3 = FIG_OUT / "paper_L1_confidence_quartile.pdf"
-fig.savefig(out3, bbox_inches="tight")
-print(f"wrote {out3}")
+save_figure(fig, "paper_4_3_L1_confidence_quartile")
 fig  # inline display
 """))
 
@@ -472,9 +495,12 @@ cells.append(md(r"""
 
 All three §4 figures rebuilt from `outputs/paper/cross_model_cross_dataset/`:
 
-- §4.1 `paper_cross_dataset_summary.pdf` — df(a) + adopt(a) across 6 × 5 cells
-- §4.2 `paper_4_2_digit_pixel_causality.pdf` — paired (a − m) adopt gap, two panels
-- §4.3 `paper_L1_confidence_quartile.pdf` — L1 6-bin gradient on worked-example cell
+- §4.1 `paper_4_1_cross_dataset_summary` — df(a) + adopt(a) across 6 × 5 cells
+- §4.2 `paper_4_2_digit_pixel_causality` — paired (a − m) adopt gap, two panels
+- §4.3 `paper_4_3_L1_confidence_quartile` — L1 6-bin gradient on worked-example cell
+
+Each saved as `<name>.pdf` in `outputs/paper/section_4_figures/` (vector,
+LaTeX) **and** `<name>.png` in `docs/figures/` (raster, outline.md preview).
 
 Figures land in `outputs/paper/section_4_figures/` (gitignored).
 Cross-check vs canonical CSV passes to ≤ 0.05 pp.
