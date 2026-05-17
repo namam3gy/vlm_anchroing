@@ -128,7 +128,7 @@ PNG_OUT = WORKTREE / "docs"    / "figures"
 PDF_OUT.mkdir(parents=True, exist_ok=True)
 PNG_OUT.mkdir(parents=True, exist_ok=True)
 
-GPUS = os.environ.get("VLM_ANCHOR_GPUS", "0,1,2,3,4,5,6,7")  # 8 GPUs by default
+GPUS = os.environ.get("VLM_ANCHOR_GPUS", "0,1,2,3,4")  # 5 GPUs by default
 RUN_INFERENCE = False  # set True to invoke the heavy sharded drivers.
 
 # Pick the attention + e6_steering input roots based on the toggle
@@ -189,9 +189,8 @@ cells_51 += [
 `(model, dataset)` — i.e., the layer at which the model's
 text→second-image attention concentrates *on the digit-pixel patches
 of the anchor*, not on the full anchor image span. The bbox of the
-digit pixels is taken from `inputs/irrelevant_number_bboxes.json`,
-which is computed once by `scripts/compute_anchor_digit_bboxes.py`
-by diffing each anchor PNG against its masked counterpart.
+digit pixels is taken from `inputs/irrelevant_number_bboxes.json`
+(produced once by `scripts/compute_anchor_digit_bboxes.py`).
 
 Inside `extract_attention_mass.py --bbox-file ...` each per-step record
 gains an `image_anchor_digit` field (per-layer attention mass restricted
@@ -199,81 +198,202 @@ to the bbox patches); `analyze_cross_dataset_peaks.py --region
 image_anchor_digit` argmaxes the layer over the (anchor − neutral)
 delta on that field.
 
-Outline §5.1 expects the *5-model peak panel* (qwen2.5-vl-7b 's
-attention probe is paper-deferred; the figure reports 5 models).
+**Panel (5 models, 5-GPU cluster):**
 
-| Model | HF id | Encoder family | Expected peak depth |
-|---|---|---|---|
-| ConvLLaVA-7b      | `ConvLLaVA/ConvLLaVA-sft-1536`            | ConvNeXt encoder + LLaMA  | mid (L≈14 / 32) |
-| LLaVA-1.5-7b      | `llava-hf/llava-1.5-7b-hf`                | CLIP-ViT + LLaMA          | mid (L≈14 / 32) |
-| FastVLM-7b        | `apple/FastVLM-7B`                        | FastViT + Qwen2           | mid (L≈17 / 28) |
-| Gemma3-4b         | `google/gemma-3-4b-it`                    | SigLIP2 + Gemma           | early (L≈5 / 42) |
-| LLaVA-OneVision   | `llava-hf/llava-onevision-qwen2-7b-ov-hf` | AnyRes-CLIP + Qwen2       | late (L≈27 / 28 on PlotQA / TallyQA; L≈14 on InfoVQA) |
+| Model | HF id | Encoder family |
+|---|---|---|
+| Gemma3-4b           | `google/gemma-3-4b-it`                    | SigLIP2 + Gemma (42L)  |
+| Qwen2.5-VL-7b       | `Qwen/Qwen2.5-VL-7B-Instruct`             | window-attn ViT + Qwen2 (28L) |
+| LLaVA-OneVision-7b  | `llava-hf/llava-onevision-qwen2-7b-ov-hf` | AnyRes-CLIP + Qwen2 (28L) |
+| Gemma3-27b          | `google/gemma-3-27b-it`                   | SigLIP2 + Gemma (~46L) |
+| Qwen2.5-VL-32b      | `Qwen/Qwen2.5-VL-32B-Instruct`            | window-attn ViT + Qwen2 (~64L) |
 
-Datasets for §5.1:
-- **PlotQA** (primary, used for headline peak on every model)
-- **TallyQA** (OneVision-only, confirms late peak generalizes)
-- **InfoVQA** (OneVision-only, exposes dataset-dependent peak shift)
+LLaVA-Interleave is run separately (its multi-image AnyRes span is not
+perfect-square for the current bbox routing, requiring a follow-up
+patch). All five panel models are pre-verified to emit
+`image_anchor_digit` under the default perfect-square assumption.
 
-Hyperparameters identical to §4: `seed=42`, greedy decoding, `max_new_tokens=16` (TallyQA 8); §5.1 additionally forces `attn_implementation=eager` so the attention matrix is materialized for `extract_attention_mass.py`.
+**Datasets (5, in execution order):**
+
+PlotQA → InfoVQA → ChartQA → MathVista → TallyQA.
+
+Each model runs all 5 datasets sequentially within its dedicated GPU;
+the 5 models run in parallel across the 5 GPUs.
+
+Hyperparameters identical to §4: `seed=42`, greedy decoding,
+`max_new_tokens=16` (TallyQA: 8). §5.1 additionally forces
+`attn_implementation=eager` so the attention matrix is materialized
+for `extract_attention_mass.py`. `n=400 samples` per cell.
+
+**Resumable:** a marker file
+`<ATT_ROOT_FRESH>/<model>/_done_<dataset>.marker` is touched after a
+successful extract. If the pod restarts, re-running the launcher
+skips completed cells via the marker check.
 """),
     code(r"""
 MECH_PANEL = [
     # (label, internal name, HF id, attn_impl)
-    ("ConvLLaVA-7b",   "convllava-7b",                "ConvLLaVA/ConvLLaVA-sft-1536",            "eager"),
-    ("LLaVA-1.5-7b",   "llava-1.5-7b",                "llava-hf/llava-1.5-7b-hf",                "eager"),
-    ("FastVLM-7b",     "fastvlm-7b",                  "apple/FastVLM-7B",                        "eager"),
-    ("Gemma3-4b",      "gemma3-4b-it",                "google/gemma-3-4b-it",                    "eager"),
-    ("OneVision-7b",   "llava-onevision-qwen2-7b-ov", "llava-hf/llava-onevision-qwen2-7b-ov-hf", "eager"),
+    ("Gemma3-4b",         "gemma3-4b-it",                "google/gemma-3-4b-it",                    "eager"),
+    ("Qwen2.5-VL-7b",     "qwen2.5-vl-7b-instruct",      "Qwen/Qwen2.5-VL-7B-Instruct",             "eager"),
+    ("OneVision-7b",      "llava-onevision-qwen2-7b-ov", "llava-hf/llava-onevision-qwen2-7b-ov-hf", "eager"),
+    ("Gemma3-27b",        "gemma3-27b-it",               "google/gemma-3-27b-it",                   "eager"),
+    ("Qwen2.5-VL-32b",    "qwen2.5-vl-32b-instruct",     "Qwen/Qwen2.5-VL-32B-Instruct",            "eager"),
 ]
 
-# (dataset_tag, config, max_samples_for_attention_pass, applies_to_all_models)
+# (dataset_tag, config_slug) — executed in this order per model.
 PEAK_DATASETS = [
-    ("plotqa",   "experiment_e7_plotqa_full",         400, True),
-    ("tallyqa",  "experiment_e5e_tallyqa_full",       400, False),  # OneVision only by default
-    ("infovqa",  "experiment_e7_infographicvqa_full", 400, False),  # OneVision only by default
+    ("plotqa",     "experiment_e7_plotqa_full"),
+    ("infovqa",    "experiment_e7_infographicvqa_full"),
+    ("chartqa",    "experiment_e5e_chartqa_full"),
+    ("mathvista",  "experiment_e5e_mathvista_full"),
+    ("tallyqa",    "experiment_e5e_tallyqa_full"),
 ]
 
-ONEVISION = "llava-onevision-qwen2-7b-ov"
+N_PER_CELL = 400
+ONEVISION  = "llava-onevision-qwen2-7b-ov"
+
 for label, name, hf, attn in MECH_PANEL:
-    print(f"  {label:<16} → {name:<32} (attn={attn})")
+    print(f"  {label:<18} → {name:<32}  (attn={attn})")
+print()
+print(f"Datasets: {', '.join(d for d, _ in PEAK_DATASETS)}")
+print(f"n_per_cell = {N_PER_CELL}")
+print(f"5 models × 5 datasets = 25 cells; resumable via marker files.")
 """),
     md(r"""
-## 3 · Extract attention mass — `extract_attention_mass.py`
+## 3 · Extract attention mass — resumable 5-GPU launcher
 
-For each `(model, dataset)` cell we launch `extract_attention_mass.py`
-pinned to one GPU via `CUDA_VISIBLE_DEVICES`. Output JSONL records carry
-per-layer attention mass to the four input regions (target image, anchor
-image, prompt text, generated). With 5 models on 5 GPUs the per-model
-serial sweep across 3 datasets finishes in ≈ 3 GPU-hours of wall time.
+The 25 cells (5 models × 5 datasets) run as:
+- **5 parallel processes**, one per model, each pinned to a single GPU
+  via `CUDA_VISIBLE_DEVICES`.
+- **Within a model**, the 5 datasets run sequentially in PlotQA →
+  InfoVQA → ChartQA → MathVista → TallyQA order.
+- **Marker-based resume**: each cell touches
+  `<ATT_ROOT_FRESH>/<model>/_done_<dataset>.marker` on success. The
+  launcher always re-checks the marker before running, so restarting
+  after a pod crash picks up exactly where it left off.
+
+The next cell **writes** the launch script and prints the invocation
+commands. Run the script under tmux/screen (or as a nohup background
+job) so the inference survives an interactive disconnect.
 """),
     code(r"""
-import itertools
+LAUNCH_DIR    = ATT_ROOT_FRESH
+LAUNCH_DIR.mkdir(parents=True, exist_ok=True)
+LAUNCH_SCRIPT = LAUNCH_DIR / "_launch_section_5_1.sh"
+LAUNCH_LOG    = LAUNCH_DIR / "_launch_section_5_1.log"
 
-def extract_attention_for_cell(name: str, hf: str, attn: str,
-                               dataset_tag: str, config_slug: str,
-                               max_samples: int, gpu: int) -> int:
-    cmd = [
-        "uv", "run", "python", str(SCRIPTS / "extract_attention_mass.py"),
-        "--model", name, "--hf-model", hf,
-        "--config", str(CONFIGS / f"{config_slug}.yaml"),
-        "--attn-implementation", attn,
-        "--max-samples", str(max_samples),
-        "--dataset-tag", dataset_tag,
-        "--bbox-file", str(BBOX_FILE),         # emit image_anchor_digit per layer
-        "--output-root", str(ATT_ROOT_FRESH),  # isolate from legacy pooled tree
+
+def _build_launch_script() -> str:
+    gpus = [g.strip() for g in GPUS.split(",") if g.strip()]
+    assert len(gpus) >= len(MECH_PANEL), (
+        f"Need at least {len(MECH_PANEL)} GPUs for 1-GPU-per-model parallel; "
+        f"got VLM_ANCHOR_GPUS={GPUS}"
+    )
+
+    header = [
+        "#!/usr/bin/env bash",
+        "# Auto-generated by paper_section_5_1_attention_peaks.ipynb",
+        "# Each model runs in the background on its own GPU. Marker-based",
+        "# resume: re-running this script after a crash skips finished cells.",
+        "set -uo pipefail",
+        f"cd {MAIN}",
+        "",
+        "PIDS=()",
     ]
-    return run_cmd(cmd, dry=not RUN_INFERENCE,
-                   env={"CUDA_VISIBLE_DEVICES": str(gpu)})
+
+    bodies = []
+    for (label, name, hf, attn), gpu in zip(MECH_PANEL, gpus):
+        marker_dir = ATT_ROOT_FRESH / name
+        log = LAUNCH_DIR / f"_log_{name}.txt"
+        per_cell = []
+        for ds_tag, cfg_slug in PEAK_DATASETS:
+            marker = marker_dir / f"_done_{ds_tag}.marker"
+            cell = (
+                f'  if [ -f "{marker}" ]; then\n'
+                f'    echo "[{name}/{ds_tag}] skip (marker present)"\n'
+                f'  else\n'
+                f'    echo "[{name}/{ds_tag}] starting on GPU {gpu} at $(date)"\n'
+                f'    CUDA_VISIBLE_DEVICES={gpu} uv run python '
+                f'{SCRIPTS}/extract_attention_mass.py '
+                f'--model {name} --hf-model {hf} '
+                f'--config {CONFIGS}/{cfg_slug}.yaml '
+                f'--attn-implementation {attn} '
+                f'--max-samples {N_PER_CELL} '
+                f'--bbox-file {BBOX_FILE} '
+                f'--output-root {ATT_ROOT_FRESH} '
+                f'  && mkdir -p "{marker_dir}" && touch "{marker}" '
+                f'  && echo "[{name}/{ds_tag}] done at $(date)" '
+                f'  || echo "[{name}/{ds_tag}] FAILED at $(date)"\n'
+                f'  fi'
+            )
+            per_cell.append(cell)
+        body = "\n".join([
+            f"(",
+            f"  echo '=== {label} ({name}) on GPU {gpu} ===';",
+            *per_cell,
+            f"  echo '=== {label} complete ===';",
+            f") > '{log}' 2>&1 &",
+            f"PIDS+=($!)",
+        ])
+        bodies.append(body)
+
+    footer = [
+        "",
+        "echo \"launched ${#PIDS[@]} model jobs: ${PIDS[@]}\"",
+        "echo \"per-model logs under " + str(LAUNCH_DIR) + "/_log_*.txt\"",
+        "wait \"${PIDS[@]}\"",
+        "echo \"all done at $(date)\"",
+    ]
+    return "\n".join(header + bodies + footer) + "\n"
 
 
-gpu_iter = itertools.cycle([int(g) for g in GPUS.split(",")])
-for (_label, name, hf, attn) in MECH_PANEL:
-    gpu = next(gpu_iter)
-    for (ds_tag, cfg, n, applies_all) in PEAK_DATASETS:
-        if not applies_all and name != ONEVISION:
-            continue
-        extract_attention_for_cell(name, hf, attn, ds_tag, cfg, n, gpu)
+LAUNCH_SCRIPT.write_text(_build_launch_script())
+LAUNCH_SCRIPT.chmod(0o755)
+print(f"Launch script written: {LAUNCH_SCRIPT}")
+print()
+print("Run options (in this priority):")
+print(f"  # tmux (recommended) — survives terminal disconnect:")
+print(f"  tmux new -s sec5_1 'bash {LAUNCH_SCRIPT} 2>&1 | tee {LAUNCH_LOG}'")
+print()
+print(f"  # nohup background (also survives disconnect):")
+print(f"  nohup bash {LAUNCH_SCRIPT} > {LAUNCH_LOG} 2>&1 &")
+print()
+print(f"  # foreground (notebook will block):")
+print(f"  bash {LAUNCH_SCRIPT}")
+print()
+print(f"Per-model live logs under {LAUNCH_DIR}/_log_*.txt")
+print(f"Resumable: re-running the script skips any cell whose marker exists.")
+"""),
+
+    md(r"""
+### 3.1 · Status — completed-cell count
+
+Tally the per-(model, dataset) marker files to track progress across
+crashes / pod restarts. 25 cells total when complete.
+"""),
+    code(r"""
+def status_table() -> pd.DataFrame:
+    rows = []
+    for (label, name, hf, attn) in MECH_PANEL:
+        for ds_tag, _ in PEAK_DATASETS:
+            marker = ATT_ROOT_FRESH / name / f"_done_{ds_tag}.marker"
+            rows.append({
+                "model": name,
+                "dataset": ds_tag,
+                "done": marker.exists(),
+                "marker": str(marker.relative_to(MAIN)) if marker.exists() else "",
+            })
+    return pd.DataFrame(rows)
+
+
+S = status_table()
+n_done  = int(S["done"].sum())
+n_total = len(S)
+print(f"completed cells: {n_done}/{n_total} ({100*n_done/n_total:.0f}%)")
+S.pivot(index="model", columns="dataset", values="done").reindex(
+    index=[m for _, m, _, _ in MECH_PANEL],
+    columns=[d for d, _ in PEAK_DATASETS],
+).map(lambda v: "✓" if v else "·")
 """),
     md(r"""
 ## 4 · Aggregate → `cross_dataset_peaks.csv`
@@ -328,11 +448,11 @@ peaks
     code(r"""
 def fig_attention_peaks(peaks: pd.DataFrame) -> plt.Figure:
     PRETTY = {
-        "convllava-7b":                "ConvLLaVA-7b",
-        "llava-1.5-7b":                "LLaVA-1.5-7b",
-        "fastvlm-7b":                  "FastVLM-7b",
-        "gemma3-4b-it":                "Gemma3-4b",
-        "llava-onevision-qwen2-7b-ov": "OneVision-7b",
+        "gemma3-4b-it":                 "Gemma3-4b",
+        "qwen2.5-vl-7b-instruct":       "Qwen2.5-VL-7b",
+        "llava-onevision-qwen2-7b-ov":  "OneVision-7b",
+        "gemma3-27b-it":                "Gemma3-27b",
+        "qwen2.5-vl-32b-instruct":      "Qwen2.5-VL-32b",
     }
     df = peaks[peaks["model"].isin(PRETTY)].copy()
     # cross_dataset_peaks.csv has multiple rows per (model, dataset) — one per
@@ -342,18 +462,20 @@ def fig_attention_peaks(peaks: pd.DataFrame) -> plt.Figure:
         df = df[df["step"] == "answer"].copy()
     df["depth_norm"] = df["peak_layer"] / df["n_layers"]
 
-    fig, ax = plt.subplots(figsize=(11, 4.4), dpi=150)
-    ds_order = ["plotqa", "tallyqa", "infovqa"]
-    ds_color = {"plotqa": "#1F4FA8", "tallyqa": "#1A7F3F", "infovqa": "#C8102E"}
-    ds_label = {"plotqa": "PlotQA", "tallyqa": "TallyQA", "infovqa": "InfoVQA"}
+    fig, ax = plt.subplots(figsize=(12, 4.6), dpi=150)
+    ds_order = ["plotqa", "infovqa", "chartqa", "mathvista", "tallyqa"]
+    ds_color = {"plotqa": "#1F4FA8", "infovqa": "#C8102E",
+                "chartqa": "#F2A900", "mathvista": "#6C7280", "tallyqa": "#1A7F3F"}
+    ds_label = {"plotqa": "PlotQA", "infovqa": "InfoVQA",
+                "chartqa": "ChartQA", "mathvista": "MathVista", "tallyqa": "TallyQA"}
     model_order = list(PRETTY)
     x = np.arange(len(model_order))
-    width = 0.27
+    width = 0.16
 
     for i, ds in enumerate(ds_order):
         sub = df[df["dataset"] == ds].set_index("model").reindex(model_order)
         ys = sub["depth_norm"].values.astype(float)
-        ax.bar(x + (i - 1) * width, ys, width,
+        ax.bar(x + (i - 2) * width, ys, width,
                color=ds_color[ds], edgecolor="black", linewidth=0.4,
                label=ds_label[ds])
 
@@ -361,9 +483,8 @@ def fig_attention_peaks(peaks: pd.DataFrame) -> plt.Figure:
     ax.set_xticklabels([PRETTY[m] for m in model_order], rotation=15, ha="right")
     ax.set_ylabel("peak layer depth (peak_L / n_layers)")
     ax.set_ylim(0, 1.05)
-    ax.set_title("§5.1 — Per-model attention peak depth\n"
-                 "Heterogeneous integration sites: early (Gemma) → mid (ConvLLaVA, LLaVA-1.5, FastVLM) → late (OneVision)")
-    ax.legend(loc="upper left", frameon=False, ncol=3)
+    ax.set_title("§5.1 — Per-model attention peak depth (digit-pixel region, 5-model panel × 5 datasets)")
+    ax.legend(loc="upper left", frameon=False, ncol=5)
     ax.grid(axis="y", linestyle=":", alpha=0.4)
     fig.tight_layout()
     return fig
