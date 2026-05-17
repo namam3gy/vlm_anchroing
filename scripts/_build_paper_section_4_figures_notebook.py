@@ -138,21 +138,17 @@ ARMS = {
 
 # -- 2. Aggregation helper -------------------------------------------------
 cells.append(md(r"""
-## 2 · Per-cell aggregation (broad + base-wrong S1)
+## 2 · Per-cell aggregation
 
 Loads each `predictions.csv` and aggregates the per-row flags into
-`adopt(a) / adopt(m) / df(a) / df(m) / em(a) / em(m)` under **two
-cohorts**:
+`adopt(a) / adopt(m) / df(a) / df(m) / em(a) / em(m)`.
 
-- **broad** — all samples in the cell (`base-correct ∪ base-wrong`).
-- **base-wrong** — only samples where the b-arm `exact_match == 0`.
-  Identical to the canonical aggregator
-  `scripts/build_e5e_e7_5dataset_summary.py`.
-
-§4.1 Figure 1 below uses the **broad** cohort (fraction of *all* responses
-that direction-follow / adopt the anchor). §4.2 still uses base-wrong S1
-because the (a − m) contrast is defined on that paired cohort. §7
-cross-check uses the base-wrong columns against the canonical CSV.
+The default denominator covers **all samples in the cell** (the natural
+"fraction of responses" baseline used by both Figure 1 and Figure 2
+below). A `_wb` variant restricted to the base-wrong subset
+(`b`-arm `exact_match == 0`) is also computed — it matches the canonical
+aggregator `scripts/build_e5e_e7_5dataset_summary.py` and is used only
+by §7 (cross-check vs `main_panel_per_cell.csv`).
 """))
 
 cells.append(code(r"""
@@ -203,11 +199,9 @@ PER_CELL.head(6)
 
 # -- 3. Figure 1 -----------------------------------------------------------
 cells.append(md(r"""
-## 3 · §4.1 Figure 1 — cross-dataset summary (slope plot, broad cohort)
+## 3 · §4.1 Figure 1 — cross-dataset summary (slope plot)
 
-Two side-by-side panels: `df(a)` (left, headline) and `adopt(a)` (right),
-both on the **broad cohort** — i.e., the fraction of *all* responses
-that direction-follow / adopt the anchor (not restricted to base-wrong).
+Two side-by-side panels: `df(a)` (left, headline) and `adopt(a)` (right).
 Each model is one line across the 5 datasets, colored by encoder family.
 All 30 cells positive on both metrics ⇒ universality (outline §4.1).
 
@@ -237,8 +231,8 @@ mean_df = (PER_CELL_PRETTY.groupby("model_short")["df_a_broad"]
 plot_order = mean_df.index.tolist()
 
 metrics = [
-    ("df_a_broad",    "S1 direction-follow rate $df(a)$  (broad: all samples)"),
-    ("adopt_a_broad", "S1 adoption rate $adopt(a)$  (broad: all samples)"),
+    ("df_a_broad",    "S1 direction-follow rate $df(a)$"),
+    ("adopt_a_broad", "S1 adoption rate $adopt(a)$"),
 ]
 
 fig, axes = plt.subplots(1, 2, figsize=(14, 5.6), dpi=150)
@@ -263,7 +257,7 @@ n_models   = len(plot_order)
 n_datasets = len(DATASET_ORDER)
 fig.suptitle(
     f"5-dataset main matrix ({n_models} models × {n_datasets} datasets, "
-    f"{n_models * n_datasets} cells, S1 broad cohort, C-form). "
+    f"{n_models * n_datasets} cells, S1, C-form). "
     "All cells positive ⇒ universality (§4.1 Insight 1); "
     "Gemma 4B > 27B on 4/5 datasets, reversal on InfoVQA (Insight 2).",
     fontsize=11,
@@ -295,27 +289,28 @@ Two panels show the paired contrast `adopt(a) vs adopt(m)`:
 
 Δ = (a − m) in pp annotated above the larger bar. m ≪ a everywhere ⇒
 the *digit-pixel itself* is the causal channel, not generic distraction.
+Same denominator as Figure 1 (all samples in each cell).
 """))
 
 cells.append(code(r"""
 def plotqa_panel() -> pd.DataFrame:
     p = PER_CELL_PRETTY[PER_CELL_PRETTY["dataset"] == "PlotQA"].copy()
-    p["gap_pp"] = (p["adopt_a_wb"] - p["adopt_m_wb"]) * 100
-    p = p.sort_values("adopt_a_wb", ascending=False).reset_index(drop=True)
+    p["gap_pp"] = (p["adopt_a_broad"] - p["adopt_m_broad"]) * 100
+    p = p.sort_values("adopt_a_broad", ascending=False).reset_index(drop=True)
     p["label"] = p["model_short"]
-    return p[["label", "adopt_a_wb", "adopt_m_wb", "gap_pp", "n_pb_ne_anc_a_wb"]] \
-            .rename(columns={"adopt_a_wb": "a", "adopt_m_wb": "m",
-                             "n_pb_ne_anc_a_wb": "n_pb_ne_anc_a"})
+    return p[["label", "adopt_a_broad", "adopt_m_broad", "gap_pp", "n_pb_ne_anc_a_broad"]] \
+            .rename(columns={"adopt_a_broad": "a", "adopt_m_broad": "m",
+                             "n_pb_ne_anc_a_broad": "n_pb_ne_anc_a"})
 
 
 def onevision_panel() -> pd.DataFrame:
     p = PER_CELL_PRETTY[PER_CELL_PRETTY["model"] == "llava-onevision-qwen2-7b-ov"].copy()
-    p["gap_pp"] = (p["adopt_a_wb"] - p["adopt_m_wb"]) * 100
-    p = p.sort_values("adopt_a_wb", ascending=False).reset_index(drop=True)
+    p["gap_pp"] = (p["adopt_a_broad"] - p["adopt_m_broad"]) * 100
+    p = p.sort_values("adopt_a_broad", ascending=False).reset_index(drop=True)
     p["label"] = p["dataset"].replace({"InfographicVQA": "InfoVQA"})
-    return p[["label", "adopt_a_wb", "adopt_m_wb", "gap_pp", "n_pb_ne_anc_a_wb"]] \
-            .rename(columns={"adopt_a_wb": "a", "adopt_m_wb": "m",
-                             "n_pb_ne_anc_a_wb": "n_pb_ne_anc_a"})
+    return p[["label", "adopt_a_broad", "adopt_m_broad", "gap_pp", "n_pb_ne_anc_a_broad"]] \
+            .rename(columns={"adopt_a_broad": "a", "adopt_m_broad": "m",
+                             "n_pb_ne_anc_a_broad": "n_pb_ne_anc_a"})
 
 
 def draw_panel(ax, df: pd.DataFrame, title: str) -> None:
@@ -341,7 +336,7 @@ def draw_panel(ax, df: pd.DataFrame, title: str) -> None:
 
     ax.set_xticks(list(x))
     ax.set_xticklabels(df["label"].tolist(), rotation=15, ha="right", fontsize=9.5)
-    ax.set_ylabel("wrong-base × S1 paired adopt", fontsize=10)
+    ax.set_ylabel("S1 paired adopt", fontsize=10)
     ax.set_title(title, fontsize=11)
     ax.set_ylim(0, max(0.20, max(a.max(), m.max()) * 1.25))
     ax.grid(axis="y", linestyle=":", alpha=0.4)
@@ -352,11 +347,9 @@ onevision = onevision_panel()
 
 fig, axes = plt.subplots(2, 1, figsize=(10.5, 8.4))
 draw_panel(axes[0], plotqa,
-           "§4.2 (top) PlotQA × 6-model — digit-pixel (a−m) gap "
-           "(wrong-base × S1)")
+           "§4.2 (top) PlotQA × 6-model — digit-pixel (a−m) gap  (S1)")
 draw_panel(axes[1], onevision,
-           "§4.2 (bottom) LLaVA-OneVision × 5 datasets — digit-pixel (a−m) gap "
-           "(wrong-base × S1)")
+           "§4.2 (bottom) LLaVA-OneVision × 5 datasets — digit-pixel (a−m) gap  (S1)")
 axes[0].legend(loc="upper right", fontsize=9, frameon=True)
 fig.tight_layout()
 
