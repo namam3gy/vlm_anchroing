@@ -24,12 +24,18 @@ ATT_ROOT = PROJECT_ROOT / "outputs" / "attention_analysis"
 SUSC_DIR = PROJECT_ROOT / "docs" / "insights" / "_data"
 
 # Per-dataset susceptibility CSV (provides question_id → dataset mapping).
-DATASET_SUSC = {
-    "tallyqa": SUSC_DIR / "susceptibility_tallyqa_onevision.csv",
-    "plotqa": SUSC_DIR / "susceptibility_plotqa_onevision.csv",
-    "infovqa": SUSC_DIR / "susceptibility_infovqa_onevision.csv",
-    "vqav2": SUSC_DIR / "susceptibility_strata.csv",  # cross-model (covers VQAv2)
-}
+# Filled in main() after argparse so --susc-dir can override SUSC_DIR.
+DATASET_SUSC: dict[str, Path] = {}
+
+
+def _set_dataset_susc(susc_dir: Path) -> None:
+    global DATASET_SUSC
+    DATASET_SUSC = {
+        "tallyqa": susc_dir / "susceptibility_tallyqa_onevision.csv",
+        "plotqa":  susc_dir / "susceptibility_plotqa_onevision.csv",
+        "infovqa": susc_dir / "susceptibility_infovqa_onevision.csv",
+        "vqav2":   susc_dir / "susceptibility_strata.csv",  # cross-model (covers VQAv2)
+    }
 
 
 def _load_qid_set(path: Path) -> set[str]:
@@ -92,10 +98,18 @@ def _load_records(run_dir: Path) -> list[dict]:
     return out
 
 
-def _compute_peak(records: list[dict], step_label: str = "answer") -> dict | None:
+def _compute_peak(records: list[dict], step_label: str = "answer",
+                  region: str = "image_anchor") -> dict | None:
     """Replicates the peak-layer logic from analyze_attention_per_layer
     (number-vs-neutral delta on full population). Step label "answer"
-    locks onto the first answer-digit step; "step0" uses the prefill."""
+    locks onto the first answer-digit step; "step0" uses the prefill.
+
+    ``region`` picks the per-step attention vector to argmax over:
+      * "image_anchor"       — full anchor image span (legacy default).
+      * "image_anchor_digit" — only the digit-pixel patches inside the
+        anchor (requires source records to have been written with
+        ``extract_attention_mass.py --bbox-file``; legacy bbox-less runs
+        are silently skipped by the field-presence check below)."""
     # Group by (sid, condition) and compute per-layer anchor mass deltas.
     by_sid: dict[str, dict[str, dict]] = defaultdict(dict)
     for r in records:
@@ -124,10 +138,11 @@ def _compute_peak(records: list[dict], step_label: str = "answer") -> dict | Non
         per_step_d = d_rec.get("per_step", [])
         if step >= len(per_step_a) or step >= len(per_step_d):
             continue
-        # per_step[step]["image_anchor"] is the per-layer anchor-region mass
-        # (already aggregated over the bbox bands at extraction time).
-        layers_a = per_step_a[step].get("image_anchor") or []
-        layers_d = per_step_d[step].get("image_anchor") or []
+        # `region` selects the per-step attention vector. Records without
+        # that key (e.g., legacy runs extracted without --bbox-file lack
+        # image_anchor_digit) are silently skipped.
+        layers_a = per_step_a[step].get(region) or []
+        layers_d = per_step_d[step].get(region) or []
         if not layers_a or not layers_d:
             continue
         L = min(len(layers_a), len(layers_d))
@@ -180,11 +195,30 @@ def main() -> None:
         help="Override the destination CSV path. "
              "Defaults to docs/insights/_data/cross_dataset_peaks.csv.",
     )
+    parser.add_argument(
+        "--region", type=str, default="image_anchor",
+        choices=("image_anchor", "image_anchor_digit"),
+        help="Per-step attention region used for peak-layer detection. "
+             "image_anchor = full anchor image span (legacy default). "
+             "image_anchor_digit = digit-pixel patches only (requires "
+             "extract_attention_mass.py --bbox-file <bbox.json> upstream; "
+             "legacy bbox-less runs are silently skipped).",
+    )
+    parser.add_argument(
+        "--susc-dir", type=str, default=None,
+        help="Directory holding the per-dataset susceptibility CSVs "
+             "(question_id → dataset mapping). Defaults to "
+             "PROJECT_ROOT/docs/insights/_data. Override when running "
+             "from a linked worktree where _data/ is gitignored.",
+    )
     args = parser.parse_args()
 
-    global ATT_ROOT
+    global ATT_ROOT, SUSC_DIR
     if args.input_root:
         ATT_ROOT = Path(args.input_root).resolve()
+    if args.susc_dir:
+        SUSC_DIR = Path(args.susc_dir).resolve()
+    _set_dataset_susc(SUSC_DIR)
     out_csv = Path(args.output_csv).resolve() if args.output_csv else (SUSC_DIR / "cross_dataset_peaks.csv")
 
     dataset_qids = {ds: _load_qid_set(p) for ds, p in DATASET_SUSC.items()}
@@ -208,16 +242,18 @@ def main() -> None:
             per_dataset_records[ds].extend(_load_records(run_dir))
         for ds, recs in per_dataset_records.items():
             for step_label in ("answer", "step0"):
-                peak = _compute_peak(recs, step_label=step_label)
+                peak = _compute_peak(recs, step_label=step_label, region=args.region)
                 if peak is None:
                     continue
                 rows.append({
                     "model": model_dir.name,
                     "dataset": ds,
                     "step": step_label,
+                    "region": args.region,
                     **peak,
                 })
                 print(f"  {model_dir.name:<32} {ds:<10} {step_label:<6} "
+                      f"region={args.region:<20} "
                       f"n={peak['n_records']:>5} L={peak['peak_layer']}/{peak['n_layers']} "
                       f"frac={peak['peak_layer_frac']:.2f} delta={peak['peak_delta']:+.4f}")
 

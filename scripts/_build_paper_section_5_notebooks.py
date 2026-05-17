@@ -88,8 +88,11 @@ MAIN     = find_main_worktree()
 WORKTREE = find_worktree_root()
 
 # Outputs live under MAIN (gitignored); figures land under WORKTREE so they ride the active branch.
-SCRIPTS    = MAIN / "scripts"
-CONFIGS    = MAIN / "configs"
+# Scripts + configs come from WORKTREE so the active branch's edits are used
+# (subprocess invocations would otherwise hit the stale main-worktree copies
+# until the active PR merges).
+SCRIPTS    = WORKTREE / "scripts"
+CONFIGS    = WORKTREE / "configs"
 DATA_DIR   = MAIN / "docs" / "insights" / "_data"
 PRED_ROOT  = MAIN / "outputs" / "paper" / "cross_model_cross_dataset" / "predictions"
 
@@ -98,15 +101,22 @@ PRED_ROOT  = MAIN / "outputs" / "paper" / "cross_model_cross_dataset" / "predict
 # `aggregate_e6_*.py` scripts also hardcode this root).
 E6_ROOT = MAIN / "outputs" / "e6_steering"
 
-# Reproducer-isolated output roots — the legacy `outputs/attention_analysis/`
-# tree pools many old runs that the §5.1 aggregators would otherwise mix in.
-# §5.1 stages all point at this fresh root so the §5.1 notebook's outputs
-# only reflect *this* re-run.
-ATT_ROOT_FRESH = MAIN / "outputs" / "paper" / "section_5_attention"
-PEAKS_CSV      = MAIN / "outputs" / "paper" / "section_5_attention" / "_data" / "cross_dataset_peaks.csv"
+# §5.1 attention input root selection:
+#   - RUN_INFERENCE=False: read pre-existing bbox-with runs from
+#     legacy outputs/attention_analysis/ (the docstring header in
+#     `extract_attention_mass.py` confirms each model has multiple
+#     timestamped runs carrying `image_anchor_digit`; the analyzer
+#     auto-skips bbox-less records via field-presence check).
+#   - RUN_INFERENCE=True: write new runs to a fresh isolated tree so
+#     they do not commingle with the legacy pool.
+ATT_ROOT_LEGACY = MAIN / "outputs" / "attention_analysis"
+ATT_ROOT_FRESH  = MAIN / "outputs" / "paper" / "section_5_attention"
+PEAKS_CSV       = MAIN / "outputs" / "paper" / "section_5_attention" / "_data" / "cross_dataset_peaks.csv"
+BBOX_FILE       = MAIN / "inputs" / "irrelevant_number_bboxes.json"
 
 ATT_ROOT_FRESH.mkdir(parents=True, exist_ok=True)
 PEAKS_CSV.parent.mkdir(parents=True, exist_ok=True)
+assert BBOX_FILE.exists(), f"missing digit-pixel bbox JSON: {BBOX_FILE}"
 
 PDF_OUT = MAIN     / "outputs" / "paper" / "section_5_figures"
 PNG_OUT = WORKTREE / "docs"    / "figures"
@@ -115,6 +125,9 @@ PNG_OUT.mkdir(parents=True, exist_ok=True)
 
 GPUS = os.environ.get("VLM_ANCHOR_GPUS", "0,1,2,3,4,5,6,7")  # 8 GPUs by default
 RUN_INFERENCE = False  # set True to invoke the heavy sharded drivers.
+
+# Pick the attention input root based on the toggle (resolved AFTER RUN_INFERENCE).
+ATT_ROOT = ATT_ROOT_FRESH if RUN_INFERENCE else ATT_ROOT_LEGACY
 
 print(f"MAIN     = {MAIN}")
 print(f"WORKTREE = {WORKTREE}")
@@ -163,6 +176,20 @@ cells_51: list[dict] = _setup_cells(
 cells_51 += [
     md(r"""
 ## 2 · Mechanism panel + datasets
+
+§5.1 reports the **digit-pixel region** attention peak per
+`(model, dataset)` — i.e., the layer at which the model's
+text→second-image attention concentrates *on the digit-pixel patches
+of the anchor*, not on the full anchor image span. The bbox of the
+digit pixels is taken from `inputs/irrelevant_number_bboxes.json`,
+which is computed once by `scripts/compute_anchor_digit_bboxes.py`
+by diffing each anchor PNG against its masked counterpart.
+
+Inside `extract_attention_mass.py --bbox-file ...` each per-step record
+gains an `image_anchor_digit` field (per-layer attention mass restricted
+to the bbox patches); `analyze_cross_dataset_peaks.py --region
+image_anchor_digit` argmaxes the layer over the (anchor − neutral)
+delta on that field.
 
 Outline §5.1 expects the *5-model peak panel* (qwen2.5-vl-7b 's
 attention probe is paper-deferred; the figure reports 5 models).
@@ -225,6 +252,7 @@ def extract_attention_for_cell(name: str, hf: str, attn: str,
         "--attn-implementation", attn,
         "--max-samples", str(max_samples),
         "--dataset-tag", dataset_tag,
+        "--bbox-file", str(BBOX_FILE),         # emit image_anchor_digit per layer
         "--output-root", str(ATT_ROOT_FRESH),  # isolate from legacy pooled tree
     ]
     return run_cmd(cmd, dry=not RUN_INFERENCE,
@@ -248,22 +276,22 @@ CSVs to identify the peak layer and its 95 % CI per `(model, dataset)`.
 """),
     code(r"""
 def aggregate_attention() -> None:
-    # Both aggregators read --input-root and write into the isolated tree.
-    rc = run_cmd(
-        ["uv", "run", "python", str(SCRIPTS / "analyze_attention_per_layer.py"),
-         "--input-root", str(ATT_ROOT_FRESH),
-         "--out-dir",   str(ATT_ROOT_FRESH / "_per_layer")],
-        dry=not RUN_INFERENCE,
-    )
-    if rc and RUN_INFERENCE:
-        raise RuntimeError(f"analyze_attention_per_layer.py exited {rc}")
+    # `ATT_ROOT` resolves at notebook runtime to either the fresh isolated
+    # tree (when RUN_INFERENCE=True) or the legacy `outputs/attention_analysis/`
+    # tree (which already contains bbox-with runs for every mechanism model).
     rc = run_cmd(
         ["uv", "run", "python", str(SCRIPTS / "analyze_cross_dataset_peaks.py"),
-         "--input-root", str(ATT_ROOT_FRESH),
-         "--output-csv", str(PEAKS_CSV)],
-        dry=not RUN_INFERENCE,
+         "--input-root", str(ATT_ROOT),
+         "--output-csv", str(PEAKS_CSV),
+         "--region",     "image_anchor_digit",
+         # Susceptibility CSVs live under the main worktree (gitignored under
+         # docs/insights/_data/), so point the analyzer there explicitly.
+         "--susc-dir",   str(DATA_DIR)],
+        # The peak analyzer is light + fast (no GPU); always run so the
+        # `image_anchor_digit` peak table reflects the chosen input root.
+        dry=False,
     )
-    if rc and RUN_INFERENCE:
+    if rc:
         raise RuntimeError(f"analyze_cross_dataset_peaks.py exited {rc}")
 
 
