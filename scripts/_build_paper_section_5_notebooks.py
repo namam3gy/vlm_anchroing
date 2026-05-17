@@ -96,10 +96,15 @@ CONFIGS    = WORKTREE / "configs"
 DATA_DIR   = MAIN / "docs" / "insights" / "_data"
 PRED_ROOT  = MAIN / "outputs" / "paper" / "cross_model_cross_dataset" / "predictions"
 
-# Legacy pooled trees — §5.2 subspace sweep still writes here. §5.2
-# isolation is tracked as a follow-up (the sharded drivers and the two
-# `aggregate_e6_*.py` scripts also hardcode this root).
-E6_ROOT = MAIN / "outputs" / "e6_steering"
+# §5.2 e6_steering input root selection (same toggle as §5.1 above):
+#   - RUN_INFERENCE=False: read pre-existing sweep dirs from legacy
+#     `outputs/e6_steering/` (the aggregators have always filtered by
+#     subdirectory name, so the legacy tree won't pollute results even
+#     when read-only).
+#   - RUN_INFERENCE=True: write new calibrate / sweep dirs to an isolated
+#     tree so this run doesn't commingle with the legacy pool.
+E6_ROOT_LEGACY = MAIN / "outputs" / "e6_steering"
+E6_ROOT_FRESH  = MAIN / "outputs" / "paper" / "section_5_e6_steering"
 
 # §5.1 attention input root selection:
 #   - RUN_INFERENCE=False: read pre-existing bbox-with runs from
@@ -126,8 +131,11 @@ PNG_OUT.mkdir(parents=True, exist_ok=True)
 GPUS = os.environ.get("VLM_ANCHOR_GPUS", "0,1,2,3,4,5,6,7")  # 8 GPUs by default
 RUN_INFERENCE = False  # set True to invoke the heavy sharded drivers.
 
-# Pick the attention input root based on the toggle (resolved AFTER RUN_INFERENCE).
+# Pick the attention + e6_steering input roots based on the toggle
+# (resolved AFTER RUN_INFERENCE).
 ATT_ROOT = ATT_ROOT_FRESH if RUN_INFERENCE else ATT_ROOT_LEGACY
+E6_ROOT  = E6_ROOT_FRESH  if RUN_INFERENCE else E6_ROOT_LEGACY
+E6_ROOT_FRESH.mkdir(parents=True, exist_ok=True)
 
 print(f"MAIN     = {MAIN}")
 print(f"WORKTREE = {WORKTREE}")
@@ -445,6 +453,7 @@ def calibrate_subspace(dataset_tag: str, config_slug: str):
         raise FileNotFoundError(
             f"missing predictions: {pred} — run paper_cross_model_cross_dataset.ipynb first."
         )
+    out_dir = E6_ROOT / ONEVISION / f"calibration_{dataset_tag}"
     cmd = [
         "uv", "run", "python", str(SCRIPTS / "run_calibrate_subspace_sharded.py"),
         "--config", str(CONFIGS / f"{config_slug}.yaml"),
@@ -453,6 +462,7 @@ def calibrate_subspace(dataset_tag: str, config_slug: str):
         "--dataset-tag", dataset_tag,
         "--max-calibrate-pairs", str(CALIB_MAX_PAIRS // 2),
         "--gpus", GPUS,
+        "--out-dir", str(out_dir),  # isolate to E6_ROOT
     ]
     return run_cmd(cmd, dry=not RUN_INFERENCE)
 
@@ -461,6 +471,9 @@ calibrate_subspace("plotqa",  "experiment_e7_plotqa_full")
 calibrate_subspace("infovqa", "experiment_e7_infographicvqa_full")
 
 # Merge per-dataset subspaces into the pooled basis used by all downstream sweeps.
+# `merge_calibrate_subspaces.py` reads from `outputs/e6_steering/<model>/`; the
+# call here is informational — when running with the isolated E6_ROOT_FRESH
+# tree, replicate or symlink the calibration_<tag> dirs first.
 run_cmd(
     ["uv", "run", "python", str(SCRIPTS / "merge_calibrate_subspaces.py"),
      "--model", ONEVISION, "--scope", CALIB_SCOPE,
@@ -478,6 +491,7 @@ time on 8 × H200 ≈ 4–6 GPU-hours.
     code(r"""
 def sweep_pilot():
     subspace_path = E6_ROOT / ONEVISION / "_subspace" / f"subspace_{CALIB_SCOPE}.pt"
+    out_dir = E6_ROOT / ONEVISION / "pilot_grid_plotqa_n250"
     cmd = [
         "uv", "run", "python", str(SCRIPTS / "run_sweep_subspace_sharded.py"),
         "--config", str(CONFIGS / "experiment_e7_plotqa_full.yaml"),
@@ -486,11 +500,12 @@ def sweep_pilot():
         "--dataset-tag", "plotqa",
         "--subspace-path", str(subspace_path),
         "--subspace-scope", CALIB_SCOPE,
-        "--sweep-layers", *[str(L) for L in PILOT_LAYERS],
-        "--sweep-alphas", *[str(a) for a in PILOT_ALPHAS],
-        "--sweep-ks",     *[str(k) for k in PILOT_KS],
+        "--sweep-layers", ",".join(str(L) for L in PILOT_LAYERS),
+        "--sweep-alphas", ",".join(str(a) for a in PILOT_ALPHAS),
+        "--sweep-ks",     ",".join(str(k) for k in PILOT_KS),
         "--max-samples", "250",
         "--gpus", GPUS,
+        "--out-dir", str(out_dir),  # isolate to E6_ROOT
     ]
     return run_cmd(cmd, dry=not RUN_INFERENCE)
 
@@ -498,7 +513,9 @@ def sweep_pilot():
 sweep_pilot()
 run_cmd(
     ["uv", "run", "python", str(SCRIPTS / "aggregate_e6_pilot_grid.py"),
-     "--model", ONEVISION, "--dataset", "plotqa", "--scope", CALIB_SCOPE],
+     "--e6-root", str(E6_ROOT),
+     "--out-csv", str(MAIN / "outputs" / "paper" / "section_5_e6_steering" / "_data" / "E6_pilot_grid_27cells.csv"),
+     "--fig-dir", str(MAIN / "outputs" / "paper" / "section_5_figures")],
     dry=not RUN_INFERENCE,
 )
 """),
@@ -566,6 +583,7 @@ def sweep_5dataset_layer():
     subspace_path = E6_ROOT / ONEVISION / "_subspace" / f"subspace_{CALIB_SCOPE}.pt"
     for ds_tag, cfg_slug in SWEEP_DATASETS_5D:
         pred = PRED_ROOT / ds_tag / ONEVISION / "predictions.jsonl"
+        out_dir = E6_ROOT / ONEVISION / f"sweep_subspace_{ds_tag}_{CALIB_SCOPE}_p4_layer_sweep_K1_layers_K8"
         cmd = [
             "uv", "run", "python", str(SCRIPTS / "run_sweep_subspace_sharded.py"),
             "--config", str(CONFIGS / f"{cfg_slug}.yaml"),
@@ -574,15 +592,20 @@ def sweep_5dataset_layer():
             "--dataset-tag", ds_tag,
             "--subspace-path", str(subspace_path),
             "--subspace-scope", CALIB_SCOPE,
-            "--sweep-layers", *[str(L) for L in SWEEP_LAYERS_5D],
+            "--sweep-layers", ",".join(str(L) for L in SWEEP_LAYERS_5D),
             "--sweep-alphas", str(SWEEP_ALPHA_5D),
-            "--sweep-ks", *[str(k) for k in SWEEP_KS_5D],
+            "--sweep-ks", ",".join(str(k) for k in SWEEP_KS_5D),
             "--gpus", GPUS,
+            "--out-dir", str(out_dir),  # isolate to E6_ROOT
         ]
         run_cmd(cmd, dry=not RUN_INFERENCE)
 
-    run_cmd(["uv", "run", "python", str(SCRIPTS / "aggregate_e6_layer_sweep_p4.py")],
-            dry=not RUN_INFERENCE)
+    run_cmd(
+        ["uv", "run", "python", str(SCRIPTS / "aggregate_e6_layer_sweep_p4.py"),
+         "--e6-root", str(E6_ROOT),
+         "--out-data", str(MAIN / "outputs" / "paper" / "section_5_e6_steering" / "_data")],
+        dry=not RUN_INFERENCE,
+    )
 
 
 sweep_5dataset_layer()

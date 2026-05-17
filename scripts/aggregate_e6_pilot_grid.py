@@ -243,17 +243,25 @@ def main() -> None:
     ap.add_argument(
         "--fig-dir", default=str(PROJECT_ROOT / "docs" / "figures")
     )
+    ap.add_argument(
+        "--e6-root", type=str, default=None,
+        help="Override `outputs/e6_steering/` (where the pilot-sweep "
+             "`<model>/pilot_grid_*/predictions.jsonl` files live). "
+             "Reproducer notebooks point this at an isolated tree.",
+    )
     args = ap.parse_args()
     out_csv = Path(args.out_csv)
     fig_dir = Path(args.fig_dir)
     out_csv.parent.mkdir(parents=True, exist_ok=True)
     fig_dir.mkdir(parents=True, exist_ok=True)
 
+    e6_root = Path(args.e6_root).resolve() if args.e6_root else (
+        PROJECT_ROOT / "outputs" / "e6_steering"
+    )
+
     rows: list[dict] = []
     for calib_tag, calib_label, dirname in PILOTS:
-        pilot_dir = (
-            PROJECT_ROOT / "outputs" / "e6_steering" / MODEL / dirname
-        )
+        pilot_dir = e6_root / MODEL / dirname
         pred = pilot_dir / "predictions.jsonl"
         if not pred.exists():
             print(f"[skip] {calib_label}: missing {pred}")

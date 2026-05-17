@@ -60,9 +60,11 @@ METRICS = ("adopt", "df", "em_a", "em_b")
 
 
 def _per_cell_rows(label: str, ds_tag: str, sweep_subtag: str,
-                    bootstrap: int, seed: int) -> tuple[list[dict], dict[str, np.ndarray]]:
+                    bootstrap: int, seed: int,
+                    e6_root: Path | None = None) -> tuple[list[dict], dict[str, np.ndarray]]:
+    base = e6_root if e6_root is not None else (PROJECT_ROOT / "outputs" / "e6_steering")
     sweep_dir = (
-        PROJECT_ROOT / "outputs" / "e6_steering" / MODEL
+        base / MODEL
         / f"sweep_subspace_{ds_tag}_{SCOPE}_{SWEEP_TAG}_{sweep_subtag}"
     )
     pred = sweep_dir / "predictions.jsonl"
@@ -233,19 +235,28 @@ def main() -> None:
     ap.add_argument("--seed", type=int, default=20260511)
     ap.add_argument("--out-data", default=str(PROJECT_ROOT / "docs" / "insights" / "_data"))
     ap.add_argument("--out-fig", default=str(PROJECT_ROOT / "docs" / "figures"))
+    ap.add_argument(
+        "--e6-root", type=str, default=None,
+        help="Override `outputs/e6_steering/` (where the per-dataset "
+             "sweep_subspace_<ds>_<scope>_<subtag>/predictions.jsonl "
+             "files live). Reproducer notebooks point this at an "
+             "isolated tree.",
+    )
     args = ap.parse_args()
 
     out_data = Path(args.out_data)
     out_fig = Path(args.out_fig)
     out_data.mkdir(parents=True, exist_ok=True)
     out_fig.mkdir(parents=True, exist_ok=True)
+    e6_root = Path(args.e6_root).resolve() if args.e6_root else None
 
     all_rows: list[dict] = []
     all_draws: dict[str, np.ndarray] = {}
 
     for label, ds_tag, sweep_subtag in SWEEP_DIRS:
         rows, draws = _per_cell_rows(label, ds_tag, sweep_subtag,
-                                       bootstrap=args.bootstrap, seed=args.seed)
+                                       bootstrap=args.bootstrap, seed=args.seed,
+                                       e6_root=e6_root)
         all_rows.extend(rows)
         all_draws.update(draws)
 
