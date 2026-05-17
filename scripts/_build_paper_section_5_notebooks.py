@@ -91,9 +91,22 @@ WORKTREE = find_worktree_root()
 SCRIPTS    = MAIN / "scripts"
 CONFIGS    = MAIN / "configs"
 DATA_DIR   = MAIN / "docs" / "insights" / "_data"
-ATT_ROOT   = MAIN / "outputs" / "attention_analysis"
-E6_ROOT    = MAIN / "outputs" / "e6_steering"
 PRED_ROOT  = MAIN / "outputs" / "paper" / "cross_model_cross_dataset" / "predictions"
+
+# Legacy pooled trees — §5.2 subspace sweep still writes here. §5.2
+# isolation is tracked as a follow-up (the sharded drivers and the two
+# `aggregate_e6_*.py` scripts also hardcode this root).
+E6_ROOT = MAIN / "outputs" / "e6_steering"
+
+# Reproducer-isolated output roots — the legacy `outputs/attention_analysis/`
+# tree pools many old runs that the §5.1 aggregators would otherwise mix in.
+# §5.1 stages all point at this fresh root so the §5.1 notebook's outputs
+# only reflect *this* re-run.
+ATT_ROOT_FRESH = MAIN / "outputs" / "paper" / "section_5_attention"
+PEAKS_CSV      = MAIN / "outputs" / "paper" / "section_5_attention" / "_data" / "cross_dataset_peaks.csv"
+
+ATT_ROOT_FRESH.mkdir(parents=True, exist_ok=True)
+PEAKS_CSV.parent.mkdir(parents=True, exist_ok=True)
 
 PDF_OUT = MAIN     / "outputs" / "paper" / "section_5_figures"
 PNG_OUT = WORKTREE / "docs"    / "figures"
@@ -212,6 +225,7 @@ def extract_attention_for_cell(name: str, hf: str, attn: str,
         "--attn-implementation", attn,
         "--max-samples", str(max_samples),
         "--dataset-tag", dataset_tag,
+        "--output-root", str(ATT_ROOT_FRESH),  # isolate from legacy pooled tree
     ]
     return run_cmd(cmd, dry=not RUN_INFERENCE,
                    env={"CUDA_VISIBLE_DEVICES": str(gpu)})
@@ -234,19 +248,41 @@ CSVs to identify the peak layer and its 95 % CI per `(model, dataset)`.
 """),
     code(r"""
 def aggregate_attention() -> None:
-    for script in ("analyze_attention_per_layer.py", "analyze_cross_dataset_peaks.py"):
-        rc = run_cmd(["uv", "run", "python", str(SCRIPTS / script)],
-                     dry=not RUN_INFERENCE)
-        if rc and RUN_INFERENCE:
-            raise RuntimeError(f"{script} exited {rc}")
+    # Both aggregators read --input-root and write into the isolated tree.
+    rc = run_cmd(
+        ["uv", "run", "python", str(SCRIPTS / "analyze_attention_per_layer.py"),
+         "--input-root", str(ATT_ROOT_FRESH),
+         "--out-dir",   str(ATT_ROOT_FRESH / "_per_layer")],
+        dry=not RUN_INFERENCE,
+    )
+    if rc and RUN_INFERENCE:
+        raise RuntimeError(f"analyze_attention_per_layer.py exited {rc}")
+    rc = run_cmd(
+        ["uv", "run", "python", str(SCRIPTS / "analyze_cross_dataset_peaks.py"),
+         "--input-root", str(ATT_ROOT_FRESH),
+         "--output-csv", str(PEAKS_CSV)],
+        dry=not RUN_INFERENCE,
+    )
+    if rc and RUN_INFERENCE:
+        raise RuntimeError(f"analyze_cross_dataset_peaks.py exited {rc}")
+
 
 aggregate_attention()
 """),
     md("## 5 · Inspect `cross_dataset_peaks.csv`"),
     code(r"""
-peaks_path = DATA_DIR / "cross_dataset_peaks.csv"
+peaks_path = PEAKS_CSV
+if not peaks_path.exists():
+    # Reproducer notebooks normally write the fresh CSV under the isolated tree;
+    # fall back to the legacy canonical for smoke-only viewing.
+    fallback = DATA_DIR / "cross_dataset_peaks.csv"
+    if fallback.exists():
+        print(f"  (fresh CSV missing; reading legacy {fallback} for smoke-only preview)")
+        peaks_path = fallback
+
 if peaks_path.exists():
     peaks = pd.read_csv(peaks_path)
+    print(f"  source: {peaks_path}")
 else:
     print(f"missing: {peaks_path}")
     peaks = pd.DataFrame()
@@ -609,13 +645,18 @@ L=26 the K=1 fallback fails to clear the anchoring effect across 5
 datasets — single direction is insufficient (Figure §5.2b).
 """),
     code(r"""
-peaks_path = DATA_DIR / "cross_dataset_peaks.csv"
+peaks_path = PEAKS_CSV  # isolated reproducer artifact, falls back to legacy below
+if not peaks_path.exists():
+    legacy = DATA_DIR / "cross_dataset_peaks.csv"
+    if legacy.exists():
+        print(f"  (fresh CSV missing; reading legacy {legacy} for smoke-only preview)")
+        peaks_path = legacy
 sweep_path = DATA_DIR / "p4_layer_sweep_per_cell_ci.csv"
 pilot_path = DATA_DIR / "e6_pilot_grid_plotqa.csv"
 
 if peaks_path.exists():
     peaks = pd.read_csv(peaks_path)
-    print(f"§5.1 peaks rows: {len(peaks)}")
+    print(f"§5.1 peaks rows: {len(peaks)} (source: {peaks_path})")
 else:
     print(f"missing: {peaks_path} — run paper_section_5_1_attention_peaks.ipynb first.")
 if pilot_path.exists():
