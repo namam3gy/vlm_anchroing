@@ -178,17 +178,29 @@ held-out eval reserved for Stage 4 on the chosen cell.
 **Output**: `outputs/e6_steering/qwen2.5-vl-7b-instruct/_pilot_27cells/`
 with per-cell summary + `docs/insights/_data/E6_pilot_grid_27cells_qwen.csv`.
 
-### Phase 2 — Stage-4 5-dataset paired-bootstrap eval (`~2 H200-day`)
+### Phase 2 — Stage-4 5-dataset paired-bootstrap eval (`~10-12h wall on 3-GPU`, **chain auto-launch 2026-05-18 03:46**)
 
-At the chosen cell from Phase 1, run full 5-dataset eval
+> **Pre-decision (2026-05-18 03:37 KST)**: chosen cell = **L=26 K=8 α=1.0** — identical to OneVision. Partial Phase 1 aggregator (PlotQA full + InfoVQA L=14/L=20 full + L=25 partial) showed L26_K08_a1.0 ranked #1 with mean Δdf = −4.95pp, +1.78pp margin over rank-2 (L27_K04_a1.0). Final Phase 1 ranking will not flip per user direction. **Cross-arch finding**: recipe-portable with zero retuning.
+
+At the chosen cell from Phase 1, run full-N 5-dataset eval
 (TallyQA + PlotQA + InfoVQA + ChartQA + MathVista) with paired-bootstrap
-B=10,000 CI on Δdf(a), Δadopt(a), Δem(a), Δem(b). Same script as
-OneVision: `scripts/build_e6_stage4_summary.py` +
-`scripts/build_e6_stage4_bootstrap_ci.py` extended with `--model
-qwen2.5-vl-7b-instruct` switch.
+B=10,000 CI on Δdf(a), Δadopt(a), Δem(a), Δem(b).
 
-**Output**: `docs/insights/_data/stage4_final_per_dataset_ci_qwen.{csv,md}`
-+ insight `docs/insights/E6-cross-arch-qwen-stage4.md`.
+Driver: `scripts/run_e6_cross_arch_qwen25vl_phase2.sh` —
+per-dataset Stage-4 sweep at chosen cell, then env-var-patched
+`scripts/build_e6_stage4_summary.py` + `scripts/build_e6_stage4_bootstrap_ci.py`
+(`E6_STAGE4_MODEL=qwen2.5-vl-7b-instruct E6_STAGE4_SCOPE=plotqa_infovqa_pooled
+E6_STAGE4_OUTPUT_SUFFIX=_qwen` — OneVision defaults preserved for backward compat).
+
+Chain auto-launch via `scripts/_chain_qwen25vl_phase2_after_phase1.sh`
+(polls Phase 1 completion markers every 120s, then kicks Phase 2). Phase 2
+order: mathvista → chartqa → infographicvqa → plotqa → tallyqa (smallest
+to largest), each sharded 3-way across GPUs 0/1/2.
+
+**Output**: `docs/insights/_data/stage4_final_per_dataset_qwen.{csv,md}` +
+`docs/insights/_data/stage4_final_per_dataset_ci_qwen.{csv,md}` +
+`docs/insights/_data/stage4_final_bootstrap_draws_qwen.npz` +
+insight doc `docs/insights/E6-cross-arch-qwen25vl-phase2.md` (TBD).
 
 ### Phase 3 — Capability preservation eval (`~2 H200-day`)
 

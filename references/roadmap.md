@@ -802,6 +802,29 @@ contingent on P0-1 bridge experiment.
 
 ## 10. Changelog
 
+- **2026-05-18 dawn (cross-arch E6 Phase 1.5 pre-decision + Phase 2 chain auto-launch).**
+  Partial Phase 1 aggregator at 03:37 KST (PlotQA full 46,000 records +
+  InfoVQA L=14/L=20 full + L=25 partial 5/9 cells covered): top-5 pooled
+  ranking shows **L26_K08_a1.0** at #1 with mean Δdf = −4.95pp, +1.78pp
+  margin over rank-2 (L27_K04_a1.0 −3.17pp). Other top cells: L20_K08_a0.5
+  (−2.68pp), L25_K02_a2.0/L25_K04_a1.0 (−2.62pp). All 45 cells pass em-drop
+  deal-breaker (0/45 rejected — same as OneVision 0/27). User direction:
+  proceed to Phase 2 with chosen cell **L=26 K=8 α=1.0** — *identical to
+  OneVision*. Cross-arch finding strengthened: recipe-portable with zero
+  retuning across encoder families (Qwen2-ViT NaViT vs SigLIP) when LM
+  backbone shared (both 28-layer Qwen2.5-7B). L=14 cells weak (rank 14+),
+  L=20 cells partial-replicate §5.4 P4 mid-stack negative signal at
+  smaller magnitude. Phase 1 InfoVQA still running in background (53-72%
+  per shard at 03:46 KST); Phase 2 auto-launches via chain script
+  `scripts/_chain_qwen25vl_phase2_after_phase1.sh` (polls Phase 1
+  markers every 120s). Phase 2 driver
+  `scripts/run_e6_cross_arch_qwen25vl_phase2.sh` runs Stage-4 chosen-cell
+  × 5 datasets sharded 3-way on GPUs 0/1/2 (~10-12h wall), then
+  env-var-patched stage-4 builders emit `_qwen` suffixed outputs
+  (OneVision defaults preserved). Patches:
+  `scripts/build_e6_stage4_{summary,bootstrap_ci}.py` accept
+  `E6_STAGE4_MODEL/SCOPE/OUTPUT_SUFFIX` env-var overrides.
+
 - **2026-05-17 PM (cross-arch E6 Phase 1 pilot grid launched — 45 cells, L=14,20,25,26,27).**
   User-driven expansion of pilot grid topology: original 27-cell
   L ∈ {25, 26, 27} extended to **45-cell L ∈ {14, 20, 25, 26, 27}**.

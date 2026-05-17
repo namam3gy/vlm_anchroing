@@ -21,12 +21,15 @@ from __future__ import annotations
 
 import csv
 import json
+import os
 from collections import defaultdict
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-MODEL = "llava-onevision-qwen2-7b-ov"
-SCOPE = "plotqa_infovqa_pooled_n5k"
+# Env-var override for cross-arch reuse (defaults preserve OneVision behavior).
+MODEL = os.environ.get("E6_STAGE4_MODEL", "llava-onevision-qwen2-7b-ov")
+SCOPE = os.environ.get("E6_STAGE4_SCOPE", "plotqa_infovqa_pooled_n5k")
+OUTPUT_SUFFIX = os.environ.get("E6_STAGE4_OUTPUT_SUFFIX", "")
 
 DATASETS = [
     ("TallyQA", "tallyqa"),
@@ -186,7 +189,7 @@ def main() -> None:
         "delta_adopt", "delta_df", "delta_em_a", "delta_em_b",
     )}
 
-    csv_path = out_dir / "stage4_final_per_dataset.csv"
+    csv_path = out_dir / f"stage4_final_per_dataset{OUTPUT_SUFFIX}.csv"
     with csv_path.open("w", newline="") as f:
         w = csv.DictWriter(f, fieldnames=list(rows[0].keys()))
         w.writeheader()
@@ -194,7 +197,7 @@ def main() -> None:
             w.writerow(r)
     print(f"[write] {csv_path}")
 
-    md_path = out_dir / "stage4_final_per_dataset.md"
+    md_path = out_dir / f"stage4_final_per_dataset{OUTPUT_SUFFIX}.md"
     lines = []
     lines.append("# Stage 4-final mitigation — per-dataset Δ table")
     lines.append("")
