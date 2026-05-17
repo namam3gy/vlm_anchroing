@@ -240,13 +240,16 @@ MECH_PANEL = [
     ("Qwen2.5-VL-32b",    "qwen2.5-vl-32b-instruct",     "Qwen/Qwen2.5-VL-32B-Instruct",            "eager"),
 ]
 
-# (dataset_tag, config_slug) — executed in this order per model.
+# (dataset_tag, config_slug, susceptibility_csv) — per-dataset susceptibility CSV
+# tells `extract_attention_mass.py` which question_ids to sample (top-decile
+# susceptible + bottom-decile resistant); without an explicit path it would
+# fall back to the VQAv2 default. Executed in this order per model.
 PEAK_DATASETS = [
-    ("plotqa",     "experiment_e7_plotqa_full"),
-    ("infovqa",    "experiment_e7_infographicvqa_full"),
-    ("chartqa",    "experiment_e5e_chartqa_full"),
-    ("mathvista",  "experiment_e5e_mathvista_full"),
-    ("tallyqa",    "experiment_e5e_tallyqa_full"),
+    ("plotqa",     "experiment_e7_plotqa_full",         "susceptibility_plotqa_onevision.csv"),
+    ("infovqa",    "experiment_e7_infographicvqa_full", "susceptibility_infovqa_onevision.csv"),
+    ("chartqa",    "experiment_e5e_chartqa_full",       "susceptibility_chartqa_onevision.csv"),
+    ("mathvista",  "experiment_e5e_mathvista_full",     "susceptibility_mathvista_onevision.csv"),
+    ("tallyqa",    "experiment_e5e_tallyqa_full",       "susceptibility_tallyqa_onevision.csv"),
 ]
 
 N_PER_CELL = 400
@@ -255,7 +258,7 @@ ONEVISION  = "llava-onevision-qwen2-7b-ov"
 for label, name, hf, attn in MECH_PANEL:
     print(f"  {label:<18} → {name:<32}  (attn={attn})")
 print()
-print(f"Datasets: {', '.join(d for d, _ in PEAK_DATASETS)}")
+print(f"Datasets: {', '.join(d for d, _, _ in PEAK_DATASETS)}")
 print(f"n_per_cell = {N_PER_CELL}")
 print(f"5 models × 5 datasets = 25 cells; resumable via marker files.")
 """),
@@ -306,8 +309,12 @@ def _build_launch_script() -> str:
         marker_dir = ATT_ROOT_FRESH / name
         log = LAUNCH_DIR / f"_log_{name}.txt"
         per_cell = []
-        for ds_tag, cfg_slug in PEAK_DATASETS:
+        for ds_tag, cfg_slug, susc_csv in PEAK_DATASETS:
             marker = marker_dir / f"_done_{ds_tag}.marker"
+            susc_path = DATA_DIR / susc_csv
+            # extract_attention_mass.py auto-loads eager via EagerAttentionRunner
+            # (no --attn-implementation flag). --susceptibility-csv selects which
+            # question_ids enter the top/bottom-decile sample pool.
             cell = (
                 f'  if [ -f "{marker}" ]; then\n'
                 f'    echo "[{name}/{ds_tag}] skip (marker present)"\n'
@@ -317,7 +324,7 @@ def _build_launch_script() -> str:
                 f'{SCRIPTS}/extract_attention_mass.py '
                 f'--model {name} --hf-model {hf} '
                 f'--config {CONFIGS}/{cfg_slug}.yaml '
-                f'--attn-implementation {attn} '
+                f'--susceptibility-csv {susc_path} '
                 f'--max-samples {N_PER_CELL} '
                 f'--bbox-file {BBOX_FILE} '
                 f'--output-root {ATT_ROOT_FRESH} '
@@ -375,7 +382,7 @@ crashes / pod restarts. 25 cells total when complete.
 def status_table() -> pd.DataFrame:
     rows = []
     for (label, name, hf, attn) in MECH_PANEL:
-        for ds_tag, _ in PEAK_DATASETS:
+        for ds_tag, _cfg, _susc in PEAK_DATASETS:
             marker = ATT_ROOT_FRESH / name / f"_done_{ds_tag}.marker"
             rows.append({
                 "model": name,
@@ -392,7 +399,7 @@ n_total = len(S)
 print(f"completed cells: {n_done}/{n_total} ({100*n_done/n_total:.0f}%)")
 S.pivot(index="model", columns="dataset", values="done").reindex(
     index=[m for _, m, _, _ in MECH_PANEL],
-    columns=[d for d, _ in PEAK_DATASETS],
+    columns=[d for d, _c, _s in PEAK_DATASETS],
 ).map(lambda v: "✓" if v else "·")
 """),
     md(r"""
