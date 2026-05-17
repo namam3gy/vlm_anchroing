@@ -51,22 +51,87 @@ Gemma3-27B-it deferred — same SigLIP encoder as OneVision makes it a
 
 ## Recipe — exact OneVision §6.1 replica
 
-### Phase 0 — Peak-layer probe (`~2 H100-hour`, prerequisite)
+### Phase 0 — E6 calibration + peak-layer pick (`~4 H200-hour`, **✅ 완료 2026-05-17**)
 
-Outline §5.1 protocol on Qwen2.5-VL-7B: extract text → second-image
-attention on PlotQA n=200 to identify integration site `L*_qwen`. This
-is **not a K-sanity check** (which user rejected) — it is the same probe
-OneVision recipe used to pick L=26. Without it, the L bin
-({25,26,27} for OneVision was *anchored at* L=26 via §5.1) has no
-principled center on Qwen2.5-VL.
+> **Result**: L\*_qwen = 26 (top-1 by ‖v_wrong[L]‖, single-peak monotonic ramp).
+> Top-5 = {23, 24, 25, 26, 27}. **27-cell pilot L bin = {25, 26, 27} —
+> identical to OneVision.** Pooled n_wrong = 1,148 (PlotQA 926 + InfoVQA 222,
+> OneVision 2,757 대비 42 %). Full evidence:
+> [`docs/insights/E6-cross-arch-qwen25vl-phase0.md`](../insights/E6-cross-arch-qwen25vl-phase0.md).
+> **Wall-time observation**: calibrate-subspace 30 min on Qwen2.5-VL vs ~4 min
+> on OneVision (~7.5× slower — Qwen2-ViT NaViT dynamic-resolution longer
+> visual sequences). Phase 1+2+3 total budget revised ~7 → ~10–12 H200-day.
 
-**Output**: single `L*_qwen` integer + per-layer attention curve plot.
-Persist to `outputs/attention_analysis/qwen2.5-vl-7b-instruct/plotqa_n200/`.
 
-**Fallback rule** (cheap escape if probe is non-informative): if
-attention curve is monotonic or has multiple comparable peaks, use
-depth-norm proxy `L*_qwen = round(0.93 × num_layers) = 26` (matching
-OneVision's depth-norm position).
+**Recipe**: identical to OneVision's pooled calibration chain
+(`scripts/run_p0_1_resume_b3.sh` Steps B3a/B3b/B4 used by P0-1
+γ-β bridge for Qwen3-VL; same pipeline on Qwen2.5-VL substitutes
+the model id + HF id + predictions paths). Three sub-steps:
+
+**Step 0a — calibrate-subspace on PlotQA + InfoVQA (in parallel)**:
+```
+uv run python scripts/e6_steering_vector.py \
+    --phase calibrate-subspace \
+    --model qwen2.5-vl-7b-instruct \
+    --hf-model Qwen/Qwen2.5-VL-7B-Instruct \
+    --e5c-run-dir outputs/experiment_e7_plotqa_full/qwen2.5-vl-7b-instruct/<ts> \
+    --predictions-path outputs/experiment_e7_plotqa_full/qwen2.5-vl-7b-instruct/<ts>/predictions.jsonl \
+    --config configs/experiment_e7_plotqa_full.yaml \
+    --dataset-tag plotqa \
+    --max-calibrate-pairs 5000
+```
+Same for InfoVQA with `--dataset-tag infovqa` and the matching
+predictions path.
+
+Reads from existing E7 (b/a-S1/m-S1/d) predictions
+(`outputs/experiment_e7_plotqa_full/qwen2.5-vl-7b-instruct/20260502-022631/`
++ `outputs/experiment_e7_infographicvqa_full/qwen2.5-vl-7b-instruct/20260502-071849/`)
+— no new prediction inference required. Outputs per-source
+D matrices to `outputs/e6_steering/qwen2.5-vl-7b-instruct/calibration_{plotqa,infovqa}/D_*.pt`.
+
+**Step 0b — SVD pool**:
+```
+uv run python scripts/e6_compute_subspace.py \
+    --model qwen2.5-vl-7b-instruct \
+    --scope plotqa_infovqa_pooled \
+    --tags plotqa,infovqa \
+    --K-max 16
+```
+Pools per-source D matrices and emits the canonical
+`outputs/e6_steering/qwen2.5-vl-7b-instruct/_subspace/subspace_plotqa_infovqa_pooled_K16.pt`
++ a `calibration_plotqa_infovqa_pooled/v.pt + v_meta.json + norms_per_layer.csv`
+identical-schema to OneVision's
+`outputs/e6_steering/llava-onevision-qwen2-7b-ov/calibration_plotqa_infovqa_pooled/`.
+
+**Step 0c — peak-layer pick**:
+```
+uv run python scripts/e6_pick_peak_layers.py \
+    --model qwen2.5-vl-7b-instruct \
+    --tag plotqa_infovqa_pooled \
+    --top-k 5 \
+    --out outputs/e6_steering/qwen2.5-vl-7b-instruct/_subspace/peak_layers_plotqa_infovqa_pooled.json
+```
+Picks top-K layers ranked by `‖v_wrong[L]‖` (per-layer (a − m) residual
+diff norm). Output JSON `[L*_1, ..., L*_5]` ordered by norm.
+
+**Output**: `L*_qwen` = top-1 layer; the 27-cell pilot L bin =
+`{L*_qwen − 1, L*_qwen, L*_qwen + 1}`. If peak is at boundary
+(L=0 or L=27), shift the bin inward.
+
+> **No depth-norm proxy fallback.** Peak is determined empirically
+> from the calibration-norm — per user direction (2026-05-17), Phase 0
+> must actually find the layer, not assume L=26 by depth match.
+
+**Cross-checks against OneVision norm profile**: outline §5.1 reports
+OneVision integration site at L=27/28 (depth-norm 96%) on PlotQA/TallyQA
+and L=14/28 (50%) on InfoVQA — dataset-dependent. If Qwen2.5-VL
+returns a peak that disagrees with OneVision's depth-norm, that's a
+genuine cross-arch finding (and may appear in outline §5.1 peak-heterogeneity
+discussion as a Qwen2.5-VL row).
+
+**Eligibility filter alignment**: calibrate-subspace internally tightens
+to "wrong-base + all 4 conditions present" per memory
+[[feedback_qao_q_d_alignment]] — matches OneVision's calibration eligibility.
 
 ### Phase 1 — 27-cell pilot grid (`~3 H200-day`)
 
