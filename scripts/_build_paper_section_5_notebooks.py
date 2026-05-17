@@ -115,8 +115,11 @@ E6_ROOT_FRESH  = MAIN / "outputs" / "paper" / "section_5_e6_steering"
 #   - RUN_INFERENCE=True: write new runs to a fresh isolated tree so
 #     they do not commingle with the legacy pool.
 ATT_ROOT_LEGACY = MAIN / "outputs" / "attention_analysis"
-ATT_ROOT_FRESH  = MAIN / "outputs" / "paper" / "section_5_attention"
-PEAKS_CSV       = MAIN / "outputs" / "paper" / "section_5_attention" / "_data" / "cross_dataset_peaks.csv"
+# `section_5_attention` is the n=400 root (n=400 spec was the first run).
+# `section_5_attention_n1000` is the n=1000 extension. After n=1000 completes,
+# n=400 is to be retired and only the n=1000 tree kept.
+ATT_ROOT_FRESH  = MAIN / "outputs" / "paper" / "section_5_attention_n1000"
+PEAKS_CSV       = MAIN / "outputs" / "paper" / "section_5_attention_n1000" / "_data" / "cross_dataset_peaks.csv"
 BBOX_FILE       = MAIN / "inputs" / "irrelevant_number_bboxes.json"
 
 ATT_ROOT_FRESH.mkdir(parents=True, exist_ok=True)
@@ -131,10 +134,12 @@ PNG_OUT.mkdir(parents=True, exist_ok=True)
 GPUS = os.environ.get("VLM_ANCHOR_GPUS", "0,1,2,3,4")  # 5 GPUs by default
 RUN_INFERENCE = False  # set True to invoke the heavy sharded drivers.
 
-# Pick the attention + e6_steering input roots based on the toggle
-# (resolved AFTER RUN_INFERENCE).
-ATT_ROOT = ATT_ROOT_FRESH if RUN_INFERENCE else ATT_ROOT_LEGACY
-E6_ROOT  = E6_ROOT_FRESH  if RUN_INFERENCE else E6_ROOT_LEGACY
+# Pick the attention + e6_steering input roots.
+# `ATT_ROOT_FRESH` (section_5_attention_n1000) holds the canonical §5.1
+# inference output, so always read from it — the RUN_INFERENCE toggle
+# only gates whether a new launch script *adds* to that tree.
+ATT_ROOT = ATT_ROOT_FRESH
+E6_ROOT  = E6_ROOT_FRESH if RUN_INFERENCE else E6_ROOT_LEGACY
 E6_ROOT_FRESH.mkdir(parents=True, exist_ok=True)
 
 print(f"MAIN     = {MAIN}")
@@ -235,6 +240,7 @@ MECH_PANEL = [
     # (label, internal name, HF id, attn_impl)
     ("Gemma3-4b",         "gemma3-4b-it",                "google/gemma-3-4b-it",                    "eager"),
     ("Qwen2.5-VL-7b",     "qwen2.5-vl-7b-instruct",      "Qwen/Qwen2.5-VL-7B-Instruct",             "eager"),
+    ("Interleave-7b",     "llava-next-interleaved-7b",   "llava-hf/llava-interleave-qwen-7b-hf",    "eager"),
     ("OneVision-7b",      "llava-onevision-qwen2-7b-ov", "llava-hf/llava-onevision-qwen2-7b-ov-hf", "eager"),
     ("Gemma3-27b",        "gemma3-27b-it",               "google/gemma-3-27b-it",                   "eager"),
     ("Qwen2.5-VL-32b",    "qwen2.5-vl-32b-instruct",     "Qwen/Qwen2.5-VL-32B-Instruct",            "eager"),
@@ -252,7 +258,7 @@ PEAK_DATASETS = [
     ("tallyqa",    "experiment_e5e_tallyqa_full",       "susceptibility_tallyqa_onevision.csv"),
 ]
 
-N_PER_CELL = 400
+N_PER_CELL = 1000   # top-decile 500 + bottom-decile 500 (n=400 extended)
 ONEVISION  = "llava-onevision-qwen2-7b-ov"
 
 for label, name, hf, attn in MECH_PANEL:
@@ -288,10 +294,10 @@ LAUNCH_LOG    = LAUNCH_DIR / "_launch_section_5_1.log"
 
 def _build_launch_script() -> str:
     gpus = [g.strip() for g in GPUS.split(",") if g.strip()]
-    assert len(gpus) >= len(MECH_PANEL), (
-        f"Need at least {len(MECH_PANEL)} GPUs for 1-GPU-per-model parallel; "
-        f"got VLM_ANCHOR_GPUS={GPUS}"
-    )
+    # Round-robin GPU assignment when the panel grows past the GPU count
+    # (e.g., 6-model panel on a 5-GPU cluster). The script still runs each
+    # model loop in the background; the rotated GPU just shares with another
+    # model. Marker-based resume + per-model logs handle the overlap.
 
     header = [
         "#!/usr/bin/env bash",
@@ -305,7 +311,8 @@ def _build_launch_script() -> str:
     ]
 
     bodies = []
-    for (label, name, hf, attn), gpu in zip(MECH_PANEL, gpus):
+    for i, (label, name, hf, attn) in enumerate(MECH_PANEL):
+        gpu = gpus[i % len(gpus)]
         marker_dir = ATT_ROOT_FRESH / name
         log = LAUNCH_DIR / f"_log_{name}.txt"
         per_cell = []
@@ -325,6 +332,8 @@ def _build_launch_script() -> str:
                 f'--model {name} --hf-model {hf} '
                 f'--config {CONFIGS}/{cfg_slug}.yaml '
                 f'--susceptibility-csv {susc_path} '
+                f'--top-decile-n {N_PER_CELL // 2} '
+                f'--bottom-decile-n {N_PER_CELL // 2} '
                 f'--max-samples {N_PER_CELL} '
                 f'--bbox-file {BBOX_FILE} '
                 f'--output-root {ATT_ROOT_FRESH} '
@@ -457,6 +466,7 @@ def fig_attention_peaks(peaks: pd.DataFrame) -> plt.Figure:
     PRETTY = {
         "gemma3-4b-it":                 "Gemma3-4b",
         "qwen2.5-vl-7b-instruct":       "Qwen2.5-VL-7b",
+        "llava-next-interleaved-7b":    "Interleave-7b",
         "llava-onevision-qwen2-7b-ov":  "OneVision-7b",
         "gemma3-27b-it":                "Gemma3-27b",
         "qwen2.5-vl-32b-instruct":      "Qwen2.5-VL-32b",

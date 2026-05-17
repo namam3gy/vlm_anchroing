@@ -31,10 +31,11 @@ DATASET_SUSC: dict[str, Path] = {}
 def _set_dataset_susc(susc_dir: Path) -> None:
     global DATASET_SUSC
     DATASET_SUSC = {
-        "tallyqa": susc_dir / "susceptibility_tallyqa_onevision.csv",
-        "plotqa":  susc_dir / "susceptibility_plotqa_onevision.csv",
-        "infovqa": susc_dir / "susceptibility_infovqa_onevision.csv",
-        "vqav2":   susc_dir / "susceptibility_strata.csv",  # cross-model (covers VQAv2)
+        "tallyqa":   susc_dir / "susceptibility_tallyqa_onevision.csv",
+        "plotqa":    susc_dir / "susceptibility_plotqa_onevision.csv",
+        "infovqa":   susc_dir / "susceptibility_infovqa_onevision.csv",
+        "chartqa":   susc_dir / "susceptibility_chartqa_onevision.csv",
+        "mathvista": susc_dir / "susceptibility_mathvista_onevision.csv",
     }
 
 
