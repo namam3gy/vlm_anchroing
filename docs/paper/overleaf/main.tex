@@ -50,62 +50,26 @@
 
 % =============================================================
 \begin{abstract}
-\todoNote{Target length $\sim$180 words. Condense the five beats below into a single paragraph.}
-\textbf{Problem.}
-When a vision--language model (VLM) is shown a question together with an irrelevant image that contains a number, is the model's numeric answer pulled toward that number---a phenomenon we call \textit{cross-modal numerical anchoring}?
-\textbf{Finding 1 (phenomenon).}
-Across six open-weight VLMs and five datasets, roughly 4--23\,\% of responses are \textit{gradually} pulled toward the anchor digit, and a subset (about 1--13\,\%) is even copied verbatim (per-model averages; broad cohort, with the base-wrong comparison in Appendix~D.1 / D.2). The magnitude of the pull is larger when the model's confidence in its base answer is lower.
-\textbf{Finding 2 (causal gate).}
-When we construct a \textit{masked} counterpart of the anchor image that retains every pixel except the digit, the pull collapses to the level of an ordinary distractor---establishing that anchoring requires the conjunction of two conditions: \textit{a visible digit} and \textit{model uncertainty}.
-\textbf{Method.}
-We use the \textit{paired contrast} between the anchored and masked stimuli as a calibration signal to estimate the model's internal anchoring representation and remove it at inference time.
-\textbf{Result.}
-Across the same five datasets, our intervention reduces the anchoring effect while simultaneously improving accuracy both when anchors are present and when they are absent; it also preserves average performance on six held-out capability benchmarks ($+0.41$\,pp).
-\textbf{Implication.}
-Our mechanism analysis shows that the anchoring signal is routed \textit{redundantly across multiple layers} (single-layer ablation null and per-model peak heterogeneity) and is integrated at a model-specific site into a \textit{separable and removable representation unit}, which can be intervened on at inference time without retraining or prompt-level defenses.
+When a vision--language model (VLM) is shown an irrelevant image that contains a number alongside a numeric question, the model's numeric answer shifts toward that number. We call this phenomenon \textit{cross-modal numerical anchoring}: across six open-weight VLMs and five numeric VQA datasets, it pulls 4--23\,\% of responses in a graded fashion and grows stronger as the model's baseline confidence decreases. When we mask \textit{only the digit pixels} of the same anchor image while keeping everything else intact, the unanchored answer is recovered---isolating \textit{digit pixels} $\times$ \textit{low confidence} as the causal channel. We propose a mitigation that reuses this anchored--masked paired contrast as a calibration signal: it estimates the low-rank subspace spanning the anchoring direction at a single model-specific integration site of the residual stream and removes it at inference time via a projection. No anchor labels are required at deployment, and the projection generalizes across the five datasets---anchoring decreases, accuracy rises simultaneously on both anchored and non-anchored inputs, and average performance on six held-out capability benchmarks is preserved ($+0.41$\,pp). Layer probes explain the design: anchoring is distributed multi-layer (no single causal site), but fixing the integration site collapses it into a low-dimensional subspace, so single-direction interventions undershoot while a small subspace suffices.
 \end{abstract}
 
 % =============================================================
 \section{Introduction}
 
 \subsection{Motivation}
-\begin{itemize}
-  \item \textbf{Hook (model-behavior question).}
-    Multi-image prompting has become routine in retrieval-augmented generation (RAG), multi-screenshot question answering, and the use of VLMs as judges. In this setting, does a VLM \textit{ignore} visual inputs that are irrelevant to the question, or do they \textit{sway} the answer?
-  \item \textbf{Naming the phenomenon.}
-    We refer to this effect as \textit{cross-modal numerical anchoring}: the digit pixels in an irrelevant image pull the model's answer.
-  \item \textbf{Cognitive grounding.}
-    Anchoring is a well-established cognitive bias in humans [Tversky and Kahneman, 1974] and in text large language models (LLMs) [Jones and Steinhardt, 2022; Echterhoff et al., 2024]. Yet there has been no systematic evaluation of whether---and how---a \textit{visual cue} pulls a VLM's answer. Because exposure to irrelevant visual inputs arises naturally in the deployment scenarios above (RAG retrieval, multi-image Q\&A, VLM-as-judge), filling this gap is not merely a matter of cognitive curiosity but has direct deployment relevance.
-\end{itemize}
+\textit{Anchoring}---the phenomenon by which an arbitrary cue presented before a decision pulls that decision \textit{toward the cue}---is one of the most firmly established cognitive biases, both in human decision-making [Tversky and Kahneman, 1974; Mussweiler and Strack, 1999] and in text-only large language models (LLMs) [Jones and Steinhardt, 2022; Echterhoff et al., 2024; Lou and Sun, 2024]. Yet, in the \textit{visual modality} of vision--language models (VLMs), no systematic evaluation exists---not even of the influence that a simple digit in a second image exerts on the model's numeric answer. This gap goes beyond curiosity: in multi-image deployment scenarios such as retrieval-augmented QA, multi-screenshot analysis, and VLM-as-judge, where \textit{visual inputs not directly related to the question} are routinely co-presented, exposure to anchoring-type effects arises as a matter of course. We name this gap \textit{cross-modal numerical anchoring} and close it on a benchmark of $6\;\text{open-weight VLMs}\times 5\;\text{numeric VQA datasets}$---hereafter the \textit{main panel}---spanning behavioral measurement, causal isolation, and inference-time mitigation on a single substrate.
 
-\subsection{Findings of this paper}
-\todoNote{Expand Findings~1 and 2 from the abstract into the body register one level deeper. The measurements use a 4-condition stimulus---b: target only / a: + anchor / m: + masked anchor / d: + neutral distractor---across six open-weight VLMs and five datasets.}
-\begin{itemize}
-  \item \textbf{F1 (graded pull).}
-    Approximately 4--23\,\% of responses are gradually pulled toward the anchor, and a subset of these (about 1--13\,\%) is copied verbatim. The mass of the effect lies in \textit{graded shift}, not \textit{literal copy}.
-  \item \textbf{F2 (uncertainty modulation).}
-    The magnitude of the pull grows as the model's confidence in its base answer decreases (a monotonic gradient is observed across the L1 6-bin partition over $5\;\text{datasets}\times 6\;\text{models} = 80$ cells).
-  \item \textbf{F3 (digit-pixel causal gate).}
-    When the digit pixels in the anchor image are masked, while everything else is preserved, the pull collapses to the level of an ordinary distractor---revealing a conjunction of \textit{digit pixels} and \textit{uncertainty}.
-  \item \textbf{F4 (mechanism).}
-    The anchoring representation is \textit{multi-layer redundant} (single-layer ablation null and per-model peak heterogeneity), and the mitigation operates at a model-specific integration site (for OneVision Main, $L=26$).
-\end{itemize}
+\subsection{Findings}
+On the 4-condition stimulus---b: target only / a: $+$ anchor / m: $+$ masked anchor / d: $+$ neutral distractor---the main-panel findings organize into three layers. \textit{Raw effect.} Approximately 4--23\,\% of responses are pulled toward the anchor in a graded manner, and about 1--13\,\% of these are copied verbatim---the mass of the effect lies in \textit{gradual shift}, not \textit{literal copy}. The pull increases monotonically as the model's confidence in the base answer decreases (main panel $\times$ L1 6-bin gradient, 80/80 cells sign-clean). \textit{Causal isolation.} On the paired contrast between the anchored counterpart (a) and the masked counterpart (m)---obtained from the same anchor image with only the digit pixels masked, hereafter \textit{(a $-$ m)}---the pull collapses to the level of an ordinary distractor (d), narrowing anchoring to the conjunction of two conditions: \textit{a visible digit} and \textit{low confidence}. \textit{Mechanism.} The anchoring signal is distributed \textit{multi-layer redundantly}, so single-layer ablations yield null effects (accompanied by per-model peak heterogeneity), while it is integrated at a model-specific site (for OneVision Main, $L=26$).
 
-\subsection{Approach and Results}
-\begin{itemize}
-  \item We use the \textit{(a $-$ m) paired contrast} as a calibration signal to estimate the model's internal anchoring representation and remove it at inference time via a projection.
-  \item Calibration is performed once, in a separate phase; the resulting projection is applied uniformly to all subsequent inferences. From the moment of deployment onward, the same projection runs regardless of whether the input image contains an anchor---no anchor detection or labeling at runtime is required. The intervention is directly deployable.
-  \item When applied, our mitigation reduces the anchoring effect on the five datasets while \textit{preserving} average performance on six general-capability benchmarks (held out, average change $+0.41$\,pp). That is, the mitigation does not impair the model's general competence.
-\end{itemize}
+\subsection{Approach \& Result}
+We propose an inference-time mitigation for \textit{cross-modal numerical anchoring}: it reduces the anchoring effect on five datasets while simultaneously raising accuracy on both anchored and non-anchored inputs, and preserves average performance on six held-out general-capability benchmarks ($+0.41$\,pp). The core idea is to reuse the \textit{(a $-$ m) paired contrast} from \S1.2 directly as a calibration signal: from the residual-stream difference between anchored and masked inputs, we estimate a low-rank subspace spanning the anchoring direction in a single calibration pass, and remove it at inference time via a projection. Because calibration is performed once in a separate phase and the resulting projection is applied uniformly to all subsequent inputs, no anchor detection or labeling is required at deployment---the intervention is directly deployable.
 
 \subsection{Contributions}
 \begin{itemize}
-  \item \textbf{C1 (Phenomenon).}
-    We quantify cross-modal numerical anchoring across $5\;\text{datasets}\times 6\;\text{open-weight VLMs}$: roughly 4--23\,\% of responses are pulled toward the digit in an irrelevant image (a subset is copied verbatim); the pull is graded by model confidence; and masking only the digit pixels in the anchor image eliminates the effect. Behavior and causal gate are verified jointly.
-  \item \textbf{C2 (Mitigation).}
-    We use the \textit{(a $-$ m) paired contrast} as a calibration signal to estimate the anchoring representation at a model-specific integration site (for OneVision Main, $L=26$) in a single calibration pass and apply it as an inference-time projection to every input. No anchor labels and no runtime detection are required. We obtain reduced anchoring on the five datasets and an average $+0.41$\,pp preservation on six general-capability benchmarks.
-  \item \textbf{C3 (Mechanism evidence).}
-    Our mechanism analysis shows that (i) the anchoring representation is distributed \textit{multi-layer redundantly} (single-layer ablation null and per-model peak heterogeneity---no single causal layer), and (ii) within those layers, it is not reducible to a single direction. These two facts directly motivate the \textit{model-specific integration site} and the \textit{multi-direction subspace} design choices of the mitigation in \S6.
+  \item \textbf{C1 (Phenomenon).} We isolate the conjunction \textit{digit pixel $\times$ low confidence} as the \textit{causal channel} by which an irrelevant image pulls a VLM's numeric answer, using the \textit{(a $-$ m)} paired contrast---anchoring is positive on every cell of the main panel, and on the masked pair the effect collapses to the level of an ordinary distractor.
+  \item \textbf{C2 (Mechanism evidence).} We demonstrate that the anchoring representation (i) is distributed \textit{multi-layer redundantly} (single-layer ablation null and per-model peak heterogeneity), while (ii) it does not reduce to a within-layer single direction either---thereby providing mechanism evidence on both axes of the \S6 mitigation design: the \textit{model-specific integration site} and the \textit{multi-direction subspace}.
+  \item \textbf{C3 (Mitigation).} We propose an anchor-label-free, inference-time projection mitigation that \textit{carries over} the diagnosis substrate \textit{(a $-$ m)} of \S1.2 directly as a calibration signal and converts it into a treatment. It yields reduced anchoring on five datasets, a simultaneous accuracy rise on both anchored and non-anchored arms, and average preservation of $+0.41$\,pp on six held-out capability benchmarks (verified along two axes: cross-dataset and cross-benchmark).
 \end{itemize}
 
 % =============================================================
