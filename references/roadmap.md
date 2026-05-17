@@ -48,7 +48,54 @@ Predictions are written `pred_b / pred_a / pred_m / pred_d`; ground truth is
 | **H6** | Cross-modal failures decouple into two orthogonal axes — `anchor-pull` vs. `multi-image distraction` | `adopt_rate(a)` and `acc_drop_d_vs_b` perfectly correlated → H6 fails | ✅ 6-model main matrix (5 datasets): gemma3 family = anchoring corner (high adopt, no distraction); llava-onevision-7b + qwen2.5-vl-{7b,32b} = distraction corner; llava-interleave-7b mixed. See `docs/insights/_data/H6_2axis_per_model.csv` and `docs/figures/H6_2axis_scatter_5dataset.png`. |
 | **H7** ⚙ | `direction_follow_rate` is monotonic with `pred_b`-token logit / probability — i.e. uncertainty modulates anchor pull on a **continuous** confidence scale, of which wrong/correct (H2) is a coarse projection | `direction_follow_rate` flat across confidence quartiles | ✅ Confirmed for non-reasoning panel — `L1-confidence-modulation-evidence.md` reports `entropy_top_k` Q4 − Q1 mean df = +0.152 on E5b/E5c/E5e, 23/35 anchor cells fully monotone. **Boundary case**: H7 monotonicity *collapses* under reasoning mode (`E5e-mathvista-reasoning-evidence.md` §3.1) — deserves §6 prose paragraph distinguishing "uncertainty-modulated graded pull" from "reasoning-induced graded pull". |
 
-## 3. Status snapshot — where we are (2026-05-09 — 5-round paper review loop complete)
+## 3. Status snapshot — where we are (2026-05-17 — cross-arch E6 worked-example replication started)
+
+### 3.0f Post-§4-figures state + cross-arch E6 launch (2026-05-17)
+
+**Cross-arch E6 worked example replication on Qwen2.5-VL-7B-Instruct
+started 2026-05-17** — paper canonical doc is now
+`docs/paper/emnlp_outline_ko.md` (not `emnlp_draft_ko.md`; see memory
+[[feedback_paper_outline_canonical]]). Roadmap §7 P2-7 promoted from
+*P2 pending* to *P1 active*, scaffolded in worktree
+`worktree-e6-cross-arch-qwen25vl` (this branch). Bar-raiser
+conditional-Main accept (per
+`docs/paper/reviews/_final_summary.md` "Main-tier conditional on
+cross-architecture E6 instantiation (§8.4 item 2)") hinges on this
+landing positive.
+
+**Why Qwen2.5-VL-7B-Instruct (not Gemma):**
+- Different encoder family (Qwen2 ViT NaViT-style vs OneVision SigLIP) →
+  *encoder-family transfer* test. Gemma3-27B-it shares SigLIP with
+  OneVision → positive-control only, deferred.
+- Same LM depth (Qwen2.5-7B 28-layer = OneVision 28-layer) → exact
+  L bin replica feasible after Phase-0 attention probe.
+- Already in main panel (`outline §3.4`) → anchoring measurement already
+  characterized.
+- Single-model cost ~7 H200-day (tighter than roadmap §7 P2-7 estimate
+  of ~10 H200-day for first model).
+
+**Plan**: `docs/experiments/E6-cross-arch-design.md` (4-phase pipeline:
+peak-layer probe → 27-cell pilot → Stage-4 5-dataset paired CI →
+6-bench capability eval, identical OneVision §6.1 recipe).
+
+**Outline edits landed in this PR (scaffolding only):**
+- §6.4 placeholder subsection — Stage-4 + capability tables TBD after
+  Phase 2 + Phase 3.
+- §8 Limitations "Mitigation scope" — *후속 작업* → *진행 중* prose
+  update with §6.4 cross-reference.
+
+**Decision rule unchanged**: outline §6.2.3 4-clause free-lunch. ≥1
+cell passing on Qwen2.5-VL closes outline §8 magnitude-transfer gap;
+0/27 passing is a bounded recipe-portability null (paper stays
+Findings, §6.4 documents the null).
+
+**Other state preserved:**
+- §4 figure reproducer + paper-facing snapshot (PR #50/#52 merged
+  2026-05-17) — broad-cohort default, `paper_4_X_*` PDF+PNG dual-save
+  via `notebooks/paper_section_4_figures.ipynb`.
+- §3 notation convention (2026-05-16, memory
+  [[project_paper_notation_2026-05]]) — epsilon-threshold DF form
+  finalization pending, full canonical CSV reaggregation queued.
 
 ### 3.0e Post-judge-pilot state (2026-05-13/14 — closed-API VLM-as-judge anchoring demo landed)
 
@@ -540,6 +587,7 @@ gt range (no [0,8] restriction).
 | **E6 Stage 4-final eval (chosen cell × 5 datasets)** | Apply L=26 K=8 α=1.0 to OneVision on 5-dataset full gt range, n=5000 wrong-base subset per dataset. Compare baseline vs mitigation arm directly (same predictions.jsonl, two cells). Δ-table generator: `scripts/build_e6_stage4_summary.py`. | ✅ shipped 2026-05-03 (commit `9f9dfa0`). Paired wrong-base avg Δdf=-2.9pp, **Δem(a)=+3.9pp benefit, Δem(b)=+8.8pp recovery → free-lunch** (paper task #38; earlier "-2.4pp em(a) cost" framing was a hand-copy error, retracted 2026-05-04). |
 | **E6 P4 follow-up — §5.4 framework verification (layer sweep K=8 + K=1 falsification)** | 7-cell × 5-dataset paired-bootstrap sweep on OneVision Main, same calibration scope. Cells: L∈{5,10,15,20,25,27}×K=8×α=1.0 (P3 layer sweep) + L=26×K=1×α=1.0 (P2 single-direction falsification). Generator `scripts/aggregate_e6_layer_sweep_p4.py`, launcher `scripts/_p4_layer_sweep_K1_followup.sh`. | ✅ shipped 2026-05-12 (PR #39, branch `worktree-paper-section6-2-4-p4-layer-sweep`). **Headlines**: (P3) PlotQA L=5/10/15 null + L=20 -4.7 [-6.4, -3.0] sig + L=25 -3.0 [-4.8, -1.2] sig + L=27 -0.7 ns (sharp peak L=20-26 plateau); TallyQA L=20 -1.1 [-2.0, -0.2] sig single-peak. (P2) TallyQA K=1 +1.4 [+0.5, +2.2] sig BACKFIRE vs K=8 -0.3 ns (sign-flip, OneVision-internal mirror of §6.4 LEACE rank-1 ChartQA reversal); PlotQA K=1 -0.4 ns vs K=8 chosen -5.2 sig gap 4.85 pp = 4.4σ. **Caveat**: Δem(b) all-layer positive on every dataset incl L=5 — §6.3 Insight 1.5 Alt-1 (general regularization) reaffirmed but not falsified, random-K=8 baseline (Phase 5 P1-5) remains the resolution. **Drift**: eager→SDPA precision shift (commit `5c2f52b` 2026-05-03) ~2 % boundary samples — P4 internally consistent, §6.2.3 cited as separate ref. Full evidence `docs/insights/P4-framework-verification-evidence.md` + experiment writeup `docs/experiments/P4-framework-verification.md`. Lands paper §6.2.4 (new sub-section, Table P4.1 + P4.2 + Figure 13). |
 | **E6 Pilot validation (2026-05-01, llava n=200, historical)** | Existing Tally-calibrated subspace tested on PlotQA + InfoVQA pilots: PlotQA gt∈[1,8] Δdf −60%, em +3.85pp; InfoVQA gt∈[1,8] Δdf −24%, em +1.09pp. | ✅ historical |
+| **E6 cross-arch replication — Qwen2.5-VL-7B-Instruct** (2026-05-17 scaffolding landed, execution pending) | Exact §6.1 recipe replica on a different encoder family (Qwen2 ViT NaViT vs OneVision SigLIP). Phase 0 attention probe (PlotQA n=200) → Phase 1 27-cell pilot grid (L ∈ {L*_qwen ± 1} × K ∈ {2, 4, 8} × α ∈ {0.5, 1.0, 2.0}) on PlotQA+InfoVQA pooled wrong-base → Phase 2 Stage-4 5-dataset paired CI → Phase 3 6-bench STRICT_FREE_LUNCH capability. Closes outline §8 "Mitigation scope" magnitude-transfer + R4 CRIT-1 (N=1 → N=2). | 🟡 Phase 0–3 pending — scaffolding (plan + outline §6.4 + §8) on branch `worktree-e6-cross-arch-qwen25vl`. Plan: `docs/experiments/E6-cross-arch-design.md`. Budget: ~7 H200-day total. |
 
 ### 6.6 §8 — Future work (scope only)
 
@@ -625,7 +673,7 @@ contingent on P0-1 bridge experiment.
 | **P1** | P1-4 | CAA at K=1 + ITI at attention-head — actual Table 7 rows | §6.5 + new evidence doc | ~3 H200-day | Closes R4 MAJ-5 (structural Note → empirical). |
 | **P1** | P1-5 | Random-K=8 baseline for §6.3 (Alt-1 falsification) — *priority elevated 2026-05-12*: P4 follow-up (PR #39) verified Δem(b) is **all-layer positive** (including L=5 K=8 cells where Δdf is null), reaffirming Alt-1 hypothesis without falsifying it. Random-K=8 is now the only path to anchor-specificity attribution of §6.3 Insight 1 b-arm em gain. | §6.3 Insight 1.5 + §6.2.4 caveat | ~2 H100-day | Closes R4 CRIT-3. |
 | ~~**P1**~~ | ~~P1-6~~ | ~~§A.5 27-cell pilot grid 4-metric heatmap aggregation~~ | ~~§A.5 + new canonical CSV~~ | ✅ landed 2026-05-10 (branch `worktree-paper+p1-defense-r4`) | Closes R4 CRIT-2 (cherry-pick concern). New script `scripts/aggregate_e6_pilot_grid.py`; canonical CSV `docs/insights/_data/E6_pilot_grid_27cells.csv` + `_selection_replay.md`; figures `docs/figures/E6_pilot_grid_{plotqa,infographicvqa}_heatmap.png`; insight `docs/insights/E6-pilot-grid-aggregation.md`. Em-deal-breaker rule non-binding on the grid (no cell rejected); chosen cell #17 ranks first by combined `|Δdf(a)|` under the same ex ante rule. |
-| **P2** | P2-7 | E6 cross-architecture replication on Qwen2.5-VL-7B (different encoder archetype) | §6.6 + §1.4 framing | ~10 H200-day | Partial close of R4 CRIT-1 (N=1 → N=2). |
+| **P1** | P2-7 | E6 cross-architecture replication on Qwen2.5-VL-7B-Instruct (different encoder archetype) — *promoted P2 → P1 2026-05-17, scaffolding landed on branch `worktree-e6-cross-arch-qwen25vl`*; plan `docs/experiments/E6-cross-arch-design.md`; outline §6.4 placeholder + §8 "Mitigation scope" prose updated; bar-raiser conditional-Main accept hinges on this | outline §6.4 + §8 + roadmap §6.5 | ~7 H200-day revised (was ~10) | Partial close of R4 CRIT-1 (N=1 → N=2); closes outline §8 magnitude-transfer gap if any cell passes 4-clause. |
 | **P3** | P3-8 | Paraphrase robustness (5 prompts × 5 datasets) | §A.X + §8.2 | ~3 H200-day | Defuses single-prompt critique. |
 | **P3** | P3-9 | Closed-source defuse (~500 sample on GPT-4o or Gemini 2.5) | §3.6 + §4.* | ~1-2 day + ~$15 API | Defuses open-only critique. |
 | **P3** | P3-10 | Encoder-family promotion to top-line contribution (camera-ready prose) | §1 + §1.5 + §5 | ~half-day | Camera-ready polish. |
@@ -716,6 +764,26 @@ contingent on P0-1 bridge experiment.
   `predictions.jsonl` only.
 
 ## 10. Changelog
+
+- **2026-05-17 (cross-arch E6 worked example replication started — Qwen2.5-VL-7B-Instruct scaffolding).**
+  Paper canonical doc switched to `docs/paper/emnlp_outline_ko.md`
+  (was `emnlp_draft_ko.md`; memory
+  [[feedback_paper_outline_canonical]]). §7 P2-7 promoted P2 → P1
+  active, branched `worktree-e6-cross-arch-qwen25vl` from
+  `worktree.baseRef = fresh` (origin/master) for scaffolding-only
+  PR. Plan doc `docs/experiments/E6-cross-arch-design.md` (4-phase
+  pipeline: peak probe → 27-cell pilot → Stage-4 → 6-bench capability;
+  budget ~7 H200-day total). Outline §6.4 placeholder + §8 "Mitigation
+  scope" prose updated to reflect cross-arch *진행 중*. §6.5 §7.4.5
+  E6 table extended with cross-arch row. **Why now**: bar-raiser
+  conditional-Main accept (`docs/paper/reviews/_final_summary.md`
+  "Main-tier conditional on cross-architecture E6 instantiation")
+  hinges on this landing positive — R4 over-correction filter pass
+  (empirical answer NOT yet provided; §8.4 deferred). **Decision**:
+  Qwen2.5-VL-7B-Instruct first (encoder-family transfer test vs
+  OneVision SigLIP), Gemma3-27b SigLIP-shared deferred to subsequent
+  cell. User-confirmed no K=1 sanity prelim — straight to 27-cell
+  pilot per §6.1 recipe. Branch tip TBD (first commit).
 
 - **2026-05-16 (§4.3 Insight 2/3 prose drift fix + InternViT 잔존 reference 제거).**
   PR #42 (Figure 4 슬로프 플롯) merge 시 surface 된 두 prose drift 를
