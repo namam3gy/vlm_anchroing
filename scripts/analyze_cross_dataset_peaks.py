@@ -167,6 +167,26 @@ def _compute_peak(records: list[dict], step_label: str = "answer") -> dict | Non
 
 
 def main() -> None:
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--input-root", type=str, default=None,
+        help="Override ATT_ROOT (where per-model run directories live). "
+             "Defaults to PROJECT_ROOT/outputs/attention_analysis. "
+             "Reproducer notebooks point this at an isolated fresh-run tree.",
+    )
+    parser.add_argument(
+        "--output-csv", type=str, default=None,
+        help="Override the destination CSV path. "
+             "Defaults to docs/insights/_data/cross_dataset_peaks.csv.",
+    )
+    args = parser.parse_args()
+
+    global ATT_ROOT
+    if args.input_root:
+        ATT_ROOT = Path(args.input_root).resolve()
+    out_csv = Path(args.output_csv).resolve() if args.output_csv else (SUSC_DIR / "cross_dataset_peaks.csv")
+
     dataset_qids = {ds: _load_qid_set(p) for ds, p in DATASET_SUSC.items()}
     print(f"[info] loaded susceptibility CSVs:")
     for ds, qs in dataset_qids.items():
@@ -201,8 +221,8 @@ def main() -> None:
                       f"n={peak['n_records']:>5} L={peak['peak_layer']}/{peak['n_layers']} "
                       f"frac={peak['peak_layer_frac']:.2f} delta={peak['peak_delta']:+.4f}")
 
-    out_csv = SUSC_DIR / "cross_dataset_peaks.csv"
     df = pd.DataFrame(rows)
+    out_csv.parent.mkdir(parents=True, exist_ok=True)
     df.to_csv(out_csv, index=False)
     print(f"\n[done] wrote {len(df)} rows to {out_csv}")
     if not df.empty:

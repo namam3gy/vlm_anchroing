@@ -339,6 +339,12 @@ def _parse_args() -> argparse.Namespace:
                              "(Accelerate pipeline parallel). Required for OneVision "
                              "AnyRes which OOMs on any single GPU due to large "
                              "stored attention tensors.")
+    parser.add_argument("--output-root", type=Path, default=None,
+                        help="Root directory for per-run output. Defaults to "
+                             "PROJECT_ROOT/outputs/attention_analysis. The run "
+                             "lands at <output-root>/<model>/<timestamp>/ so "
+                             "reproducer notebooks can isolate fresh runs from "
+                             "the legacy pooled tree.")
     parser.add_argument("--bbox-file", type=Path, default=None,
                         help="JSON of digit-pixel bboxes per anchor value (E1-patch). "
                              "Produced by scripts/compute_anchor_digit_bboxes.py. "
@@ -1224,7 +1230,8 @@ def main() -> None:
     # processes for the same model launch in the same wall-clock second
     # (Phase D parallel datasets bug, 2026-05-03).
     run_id = datetime.now().strftime("%Y%m%d-%H%M%S-%f") + f"-p{os.getpid()}"
-    out_root = PROJECT_ROOT / "outputs" / "attention_analysis" / args.model / run_id
+    base = args.output_root if args.output_root is not None else (PROJECT_ROOT / "outputs" / "attention_analysis")
+    out_root = base / args.model / run_id
     out_root.mkdir(parents=True, exist_ok=True)
     out_jsonl = out_root / "per_step_attention.jsonl"
     print(f"[setup] writing to {out_jsonl}")
