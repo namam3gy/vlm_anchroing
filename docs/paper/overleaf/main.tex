@@ -29,6 +29,17 @@
 % Convenience macro for outline placeholders that still need authoring.
 \newcommand{\todoNote}[1]{\textit{\textcolor[rgb]{0.45,0.45,0.45}{[#1]}}}
 
+% Relax float placement: many wide figures/tables in the bundle would otherwise
+% all defer to the end. Allows up to 4 floats top/bottom and lets LaTeX use
+% almost the full page for floats when needed.
+\setcounter{topnumber}{4}
+\setcounter{bottomnumber}{4}
+\setcounter{totalnumber}{8}
+\renewcommand{\topfraction}{0.95}
+\renewcommand{\bottomfraction}{0.9}
+\renewcommand{\textfraction}{0.05}
+\renewcommand{\floatpagefraction}{0.7}
+
 \title{Pulled by Pixels: Cross-Modal Numerical Anchoring in VLMs}
 
 \author{Anonymous Submission \\
@@ -581,26 +592,25 @@ The denominator $p_i^b \neq z_i$ is applied identically in both cohorts; only th
 
 \subsection{Sign-reversal across layers ($K=1, 2, 4, 8, 16$)}
 
-\begin{table}[h]
+\begin{table*}[h]
   \centering
   \small
-  \setlength{\tabcolsep}{3pt}
   \begin{tabular}{lrrrrrl}
     \toprule
     $L$ & $K{=}1$ & $K{=}2$ & $K{=}4$ & $K{=}8$ & $K{=}16$ & direction \\
     \midrule
-    14 & $-0.041$\checkmark & $-0.039$\checkmark & $-0.047$ & $-0.049$\checkmark & $-0.052$ & mid neg (5/5) \\
-    \textbf{20} & $\mathbf{-0.152}$\checkmark & $\mathbf{-0.127}$\checkmark & $\mathbf{-0.192}$\checkmark & $\mathbf{-0.111}$\checkmark & $\mathbf{-0.058}$ & \textbf{mid BACKFIRE (5/5)} \\
-    25 & $+0.213$\checkmark & $+0.117$ & $+0.160$ & $+0.188$ & $+0.183$ & late pos (5/5) \\
-    29 & $+0.446$\checkmark & $+0.391$ & $+0.357$ & $+0.418$ & $+0.363$ & late pos (5/5) \\
-    30 & $+0.477$\checkmark & $+0.379$ & $+0.291$ & $+0.413$ & $+0.327$ & late pos (5/5) \\
-    33 & $+0.284$\checkmark & $+0.088$ & $-0.106$ & $+0.057$ & $+0.253$ & mostly pos ($K{=}4$ dip) \\
+    14 & $-0.041$\,\checkmark & $-0.039$\,\checkmark & $-0.047$ & $-0.049$\,\checkmark & $-0.052$ & mid neg (5/5) \\
+    \textbf{20} & $\mathbf{-0.152}$\,\checkmark & $\mathbf{-0.127}$\,\checkmark & $\mathbf{-0.192}$\,\checkmark & $\mathbf{-0.111}$\,\checkmark & $\mathbf{-0.058}$ & \textbf{mid BACKFIRE (5/5)} \\
+    25 & $+0.213$\,\checkmark & $+0.117$ & $+0.160$ & $+0.188$ & $+0.183$ & late pos (5/5) \\
+    29 & $+0.446$\,\checkmark & $+0.391$ & $+0.357$ & $+0.418$ & $+0.363$ & late pos (5/5) \\
+    30 & $+0.477$\,\checkmark & $+0.379$ & $+0.291$ & $+0.413$ & $+0.327$ & late pos (5/5) \\
+    33 & $+0.284$\,\checkmark & $+0.088$ & $-0.106$ & $+0.057$ & $+0.253$ & mostly pos ($K{=}4$ dip) \\
     34 & $+0.707$ & $+0.781$ & $+0.992$ & $+0.828$ & $+1.259$ & late pos (mag $\uparrow$ $K$) \\
     \bottomrule
   \end{tabular}
   \caption{Within-Thinking anchor-specific $\Delta$ across 7 layers and 5 $K$ values (mean stat). \checkmark $=$ Bonferroni-corrected CI excludes zero ($\alpha=0.000595$ for 84 cells). Even cells without \checkmark almost all exclude zero under the primary 95\,\% CI. Source: \texttt{docs/insights/\_data/gamma\_beta\_bridge\_lk\_sweep.csv}.}
   \label{tab:gamma-beta-lk}
-\end{table}
+\end{table*}
 
 \noindent\textbf{Headline Bonferroni-survivor} (14 of 84 cells Bonferroni-clean): \textbf{$L=30$, $K=2$, max stat $+0.866$ [$+0.412$, $+1.330$]} (Bonferroni \checkmark).
 
@@ -661,24 +671,24 @@ The purpose of this verification is to reinforce the \textit{cross-architecture 
 \begin{table*}[h]
   \centering
   \small
-  \begin{tabular}{p{0.32\textwidth} p{0.60\textwidth}}
+  \begin{tabular}{@{}p{0.30\textwidth} p{0.62\textwidth}@{}}
     \toprule
     \textbf{Claim location} & \textbf{Source CSV / md} \\
     \midrule
-    \S4 main panel (df, adopt, em per cell) & \texttt{docs/insights/\_data/main\_panel\_5dataset\_per\_cell.csv} \\
-    \S4.3 L1 6-bin confidence gradient & \texttt{docs/insights/\_data/L1\_proxy\_monotonicity\_6bin.csv} \\
+    \S4 main panel (df, adopt, em per cell) & \path{docs/insights/_data/main_panel_5dataset_per_cell.csv} \\
+    \S4.3 L1 6-bin confidence gradient & \path{docs/insights/_data/L1_proxy_monotonicity_6bin.csv} \\
     \S5.2 $K$-subspace sweep (OneVision) & \todoNote{TODO---new 5-dataset $K$-sweep CSV to be generated} \\
-    \S6.2 stage-4 paired-bootstrap CI & \texttt{docs/insights/\_data/stage4\_final\_per\_dataset\_ci.\{csv,md\}} \\
-    \S6.3 per-benchmark capability & \texttt{docs/insights/\_data/capability\_eval\_per\_benchmark.\{csv,md\}} \\
-    Appendix D.1/D.2 per-cell tables (base-wrong cohort) & same \texttt{main\_panel\_5dataset\_per\_cell.csv} \\
-    Appendix D.1/D.2 per-cell tables (broad cohort) & \texttt{docs/insights/\_data/experiment\_\{e5e\_tallyqa, e5e\_chartqa, e5e\_mathvista, e7\_plotqa, e7\_infographicvqa\}\_full\_per\_cell.csv} (combine \texttt{base\_correct$\in$\{True, False\}} rows, S1, \texttt{cond\_class='a'}; cell reproduction in \texttt{notebooks/paper\_cross\_model\_cross\_dataset.ipynb} \S11--\S13) \\
-    Appendix E $\gamma$-$\beta$ bridge $L \times K$ sweep & \texttt{docs/insights/\_data/gamma\_beta\_bridge\_lk\_sweep.\{csv,md\}} \\
-    Appendix G attention peak per (model, dataset) & \texttt{docs/insights/\_data/cross\_dataset\_peaks.csv} \\
-    Appendix H LEACE rank-1 / ActAdd / $K{=}1$ SVD per-dataset & \texttt{docs/insights/\_data/leace\_recal\_per\_dataset\_ci.\{csv,md\}}, \texttt{actadd\_recal\_per\_dataset\_ci.\{csv,md\}}, \texttt{p4\_layer\_sweep\_per\_cell\_ci.csv} \\
-    Appendix J closed-API judge pilot $5{\times}2{\times}3{\times}200$ & \texttt{docs/insights/judge-pilot-results.md} \\
+    \S6.2 stage-4 paired-bootstrap CI & \path{docs/insights/_data/stage4_final_per_dataset_ci.{csv,md}} \\
+    \S6.3 per-benchmark capability & \path{docs/insights/_data/capability_eval_per_benchmark.{csv,md}} \\
+    Appendix D.1/D.2 per-cell tables (base-wrong cohort) & same as the \S4 main panel CSV above \\
+    Appendix D.1/D.2 per-cell tables (broad cohort) & \path{docs/insights/_data/experiment_{e5e_tallyqa, e5e_chartqa, e5e_mathvista, e7_plotqa, e7_infographicvqa}_full_per_cell.csv}; combine \texttt{base\_correct} $\in \{$True, False$\}$ rows, S1, \texttt{cond\_class='a'}; reproduce in \path{notebooks/paper_cross_model_cross_dataset.ipynb} \S11--\S13 \\
+    Appendix E $\gamma$-$\beta$ bridge $L \times K$ sweep & \path{docs/insights/_data/gamma_beta_bridge_lk_sweep.{csv,md}} \\
+    Appendix G attention peak per (model, dataset) & \path{docs/insights/_data/cross_dataset_peaks.csv} \\
+    Appendix H LEACE rank-1 / ActAdd / $K{=}1$ SVD per-dataset & \path{docs/insights/_data/leace_recal_per_dataset_ci.{csv,md}}; \path{actadd_recal_per_dataset_ci.{csv,md}}; \path{p4_layer_sweep_per_cell_ci.csv} \\
+    Appendix J closed-API judge pilot $5{\times}2{\times}3{\times}200$ & \path{docs/insights/judge-pilot-results.md} \\
     \bottomrule
   \end{tabular}
-  \caption{Canonical evidence pointers from each body claim to its underlying CSV / md file.}
+  \caption{Canonical evidence pointers from each body claim to its underlying CSV / md file. Paths use \texttt{\textbackslash path\{\ldots\}} so they break at \texttt{/} and \texttt{\_}.}
   \label{tab:evidence-pointers}
 \end{table*}
 
@@ -782,15 +792,15 @@ The fact that three methods with different designs (closed-form erasure / mean s
 \begin{table}[h]
   \centering
   \small
-  \begin{tabular}{ll}
+  \begin{tabular}{@{}p{1.5cm} p{5.5cm}@{}}
     \toprule
     \textbf{Item} & \textbf{Value} \\
     \midrule
-    Datasets & \textbf{VLFeedback} (\texttt{MMInstruction/VLFeedback}) $+$ \textbf{VL-RewardBench} (\texttt{MMInstruction/VL-RewardBench}), $n=200$ each \\
-    Anchor & digit ``1'' (\texttt{inputs/irrelevant\_number/1.png}); m-arm $=$ same image, digit pixels Telea-masked \\
+    Datasets & VLFeedback (\path{MMInstruction/VLFeedback}) and VL-RewardBench (\path{MMInstruction/VL-RewardBench}); $n=200$ each \\
+    Anchor & digit ``1'' (\path{inputs/irrelevant_number/1.png}); m-arm uses the same image with digit pixels Telea-masked \\
     Judges & gpt-4o, gpt-5.1, gemini-2.5-pro, gemini-2.5-flash, claude-sonnet-4-5-20250929 \\
-    Reasoning & gpt-5.1 $+$ flash via \texttt{reasoning\_effort=minimal} (non-reasoning); gemini-2.5-pro reasoning ON (provider policy) \\
-    Gateway & \texttt{gateway.letsur.ai/v1} (Staix, OpenAI-compat); 2026-05-13/14 access \\
+    Reasoning & gpt-5.1, flash via \texttt{reasoning\_effort=minimal} (non-reasoning); gemini-2.5-pro reasoning ON (provider policy) \\
+    Gateway & \path{gateway.letsur.ai/v1} (Staix, OpenAI-compat); 2026-05-13/14 access \\
     \bottomrule
   \end{tabular}
   \caption{Closed-API judge pilot configuration.}
@@ -825,16 +835,17 @@ The fact that three methods with different designs (closed-form erasure / mean s
 \begin{table}[h]
   \centering
   \small
-  \begin{tabular}{p{1.6cm} l l l p{2.3cm}}
+  \setlength{\tabcolsep}{4pt}
+  \begin{tabular}{@{}p{1.7cm} c c c p{1.9cm}@{}}
     \toprule
-    \textbf{Pattern} & \textbf{$\Delta(a{-}b)$} & \textbf{$\Delta(m{-}b)$} & \textbf{$\Delta(a{-}m)$} & \textbf{Judges} \\
+    \textbf{Pattern} & \textbf{$\Delta_{ab}$} & \textbf{$\Delta_{mb}$} & \textbf{$\Delta_{am}$} & \textbf{Judges} \\
     \midrule
-    \textbf{Digit-specific} & large neg & $\approx 0$ & large neg & gpt-4o (VLF / VLB $\Delta(a{-}m)$ $-0.47$ / $-0.62$) \\
-    \textbf{Distractor-general} & large neg & $\approx \Delta(a{-}b)$ & $\approx 0$ & gemini-2.5-flash ($\Delta(m{-}b) \approx \Delta(a{-}b)$) \\
-    Null on both & $\approx 0$ & $\approx 0$ & $\approx 0$ & gpt-5.1 / gemini-2.5-pro / claude-sonnet-4-5 \\
+    \textbf{Digit-specific}      & $\ll 0$ & $\approx 0$        & $\ll 0$    & gpt-4o \\
+    \textbf{Distract.-general}   & $\ll 0$ & $\approx \Delta_{ab}$ & $\approx 0$ & gemini-2.5-flash \\
+    Null on both                 & $\approx 0$ & $\approx 0$    & $\approx 0$ & gpt-5.1, gemini-2.5-pro, claude-sonnet-4-5 \\
     \bottomrule
   \end{tabular}
-  \caption{Attack-pattern classification of judges.}
+  \caption{Attack-pattern classification of judges. Subscripts: $\Delta_{ab} = \Delta(\text{a}-\text{b})$ etc. gpt-4o detail: VLF / VLB $\Delta_{am} = -0.47 / -0.62$. gemini-2.5-flash detail: $\Delta_{mb} \approx \Delta_{ab}$.}
   \label{tab:judge-attack-patterns}
 \end{table}
 
