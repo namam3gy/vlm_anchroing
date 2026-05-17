@@ -133,12 +133,28 @@ discussion as a Qwen2.5-VL row).
 to "wrong-base + all 4 conditions present" per memory
 [[feedback_qao_q_d_alignment]] — matches OneVision's calibration eligibility.
 
-### Phase 1 — 27-cell pilot grid (`~3 H200-day`)
+### Phase 1 — 45-cell pilot grid (`~3 H200-day`, **expanded 2026-05-17 PM**)
 
-Grid: `L ∈ {L*_qwen − 1, L*_qwen, L*_qwen + 1}` × `K ∈ {2, 4, 8}` ×
-`α ∈ {0.5, 1.0, 2.0}` (27 cells), exact topology of OneVision §A.5
-pilot grid (`docs/insights/_data/E6_pilot_grid_27cells.csv` for
-OneVision reference).
+> **Grid expansion**: L bin extended from {25, 26, 27} (OneVision exact
+> replica) to **{14, 20, 25, 26, 27}** — adds two mid-stack layers per
+> user direction (2026-05-17):
+> - **L=14**: tests OneVision-internal "dataset-dependent peak" finding
+>   (outline §5.3 — OneVision integration site shifts from L=27 on
+>   PlotQA/TallyQA to L=14 on InfoVQA). Does Qwen2.5-VL show similar
+>   mid-stack alternative integration?
+> - **L=20**: tests outline §5.4 P4 framework finding ("PlotQA L=20
+>   −4.7 sig + L=25 −3.0 sig + L=27 ns sharp peak" on OneVision-internal
+>   per memory [[project_p4_framework_verification_2026-05-12]]). Does
+>   the mid-stack negative-effect signal replicate cross-arch?
+> Phase 0 `‖v_wrong[L]‖` norms at these layers (Qwen2.5-VL): L14 = 0.92,
+> L20 = 3.46, L25 = 7.01, L26 = 8.52, L27 = 5.81 — L14/L20 are *below*
+> the calibration-norm peak but tested for cross-arch routing-pathway
+> heterogeneity.
+
+Grid: `L ∈ {14, 20, 25, 26, 27}` × `K ∈ {2, 4, 8}` ×
+`α ∈ {0.5, 1.0, 2.0}` (**45 cells**), extends OneVision's §A.5 27-cell
+pilot topology with two mid-stack layers (`docs/insights/_data/E6_pilot_grid_27cells.csv`
+for OneVision reference).
 
 **Calibration pool**: PlotQA + InfoVQA pooled wrong-base + 4-cond
 eligible. n is *not* guaranteed equal to OneVision's ~5,000 —

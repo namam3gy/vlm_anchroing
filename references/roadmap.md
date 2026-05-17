@@ -81,8 +81,24 @@ landing positive.
   1+2 calibrate-subspace, then pool D matrices, SVD, peak-pick).
 - Evidence: `docs/insights/E6-cross-arch-qwen25vl-phase0.md`.
 
-**Next**: Phase 1 27-cell pilot grid on L ∈ {25, 26, 27} × K ∈ {2, 4, 8}
-× α ∈ {0.5, 1.0, 2.0}, sharded across 5 GPUs.
+**Phase 1 in-flight (2026-05-17 PM)**: pilot grid **expanded from 27 cells
+→ 45 cells** per user direction. L bin extended {25, 26, 27} → **{14, 20,
+25, 26, 27}** to test two paper-level cross-arch predictions:
+- **L=14**: §5.3 OneVision-internal "dataset-dependent peak" finding
+  (InfoVQA peak shifts to L=14 on OneVision) — does Qwen2.5-VL show
+  similar mid-stack alternative integration site?
+- **L=20**: §5.4 P4 framework finding (PlotQA L=20 −4.7 pp Bonferroni
+  sig on OneVision-internal, memory [[project_p4_framework_verification_2026-05-12]])
+  — does the mid-stack negative-effect signal replicate cross-arch?
+
+K ∈ {2, 4, 8} × α ∈ {0.5, 1.0, 2.0} unchanged. Sharded 5-way across
+GPUs 0..4 via `run_sweep_subspace_sharded.py`. Two datasets (PlotQA n=250,
+InfoVQA n=250) sequential, ~2 h wall total estimated. Cell-selection
+aggregator `analyze_e6_pilot_cells.py` writes
+`docs/insights/_data/pilot_grid_cell_selection_qwen25vl.csv` (em-drop
+deal-breaker 0.06 + combined |Δdf(a)| ranking) on completion.
+
+Driver: `scripts/run_e6_cross_arch_qwen25vl_phase1.sh`.
 
 **Why Qwen2.5-VL-7B-Instruct (not Gemma):**
 - Different encoder family (Qwen2 ViT NaViT-style vs OneVision SigLIP) →
@@ -608,7 +624,7 @@ gt range (no [0,8] restriction).
 | **E6 Stage 4-final eval (chosen cell × 5 datasets)** | Apply L=26 K=8 α=1.0 to OneVision on 5-dataset full gt range, n=5000 wrong-base subset per dataset. Compare baseline vs mitigation arm directly (same predictions.jsonl, two cells). Δ-table generator: `scripts/build_e6_stage4_summary.py`. | ✅ shipped 2026-05-03 (commit `9f9dfa0`). Paired wrong-base avg Δdf=-2.9pp, **Δem(a)=+3.9pp benefit, Δem(b)=+8.8pp recovery → free-lunch** (paper task #38; earlier "-2.4pp em(a) cost" framing was a hand-copy error, retracted 2026-05-04). |
 | **E6 P4 follow-up — §5.4 framework verification (layer sweep K=8 + K=1 falsification)** | 7-cell × 5-dataset paired-bootstrap sweep on OneVision Main, same calibration scope. Cells: L∈{5,10,15,20,25,27}×K=8×α=1.0 (P3 layer sweep) + L=26×K=1×α=1.0 (P2 single-direction falsification). Generator `scripts/aggregate_e6_layer_sweep_p4.py`, launcher `scripts/_p4_layer_sweep_K1_followup.sh`. | ✅ shipped 2026-05-12 (PR #39, branch `worktree-paper-section6-2-4-p4-layer-sweep`). **Headlines**: (P3) PlotQA L=5/10/15 null + L=20 -4.7 [-6.4, -3.0] sig + L=25 -3.0 [-4.8, -1.2] sig + L=27 -0.7 ns (sharp peak L=20-26 plateau); TallyQA L=20 -1.1 [-2.0, -0.2] sig single-peak. (P2) TallyQA K=1 +1.4 [+0.5, +2.2] sig BACKFIRE vs K=8 -0.3 ns (sign-flip, OneVision-internal mirror of §6.4 LEACE rank-1 ChartQA reversal); PlotQA K=1 -0.4 ns vs K=8 chosen -5.2 sig gap 4.85 pp = 4.4σ. **Caveat**: Δem(b) all-layer positive on every dataset incl L=5 — §6.3 Insight 1.5 Alt-1 (general regularization) reaffirmed but not falsified, random-K=8 baseline (Phase 5 P1-5) remains the resolution. **Drift**: eager→SDPA precision shift (commit `5c2f52b` 2026-05-03) ~2 % boundary samples — P4 internally consistent, §6.2.3 cited as separate ref. Full evidence `docs/insights/P4-framework-verification-evidence.md` + experiment writeup `docs/experiments/P4-framework-verification.md`. Lands paper §6.2.4 (new sub-section, Table P4.1 + P4.2 + Figure 13). |
 | **E6 Pilot validation (2026-05-01, llava n=200, historical)** | Existing Tally-calibrated subspace tested on PlotQA + InfoVQA pilots: PlotQA gt∈[1,8] Δdf −60%, em +3.85pp; InfoVQA gt∈[1,8] Δdf −24%, em +1.09pp. | ✅ historical |
-| **E6 cross-arch replication — Qwen2.5-VL-7B-Instruct** (Phase 0 ✅ 2026-05-17, Phase 1–3 pending) | Exact §6.1 recipe replica on a different encoder family (Qwen2 ViT NaViT vs OneVision SigLIP). Phase 0 = E6 calibrate-subspace → SVD pool → peak-pick from `‖v_wrong[L]‖`; Phase 1 = 27-cell pilot grid (L ∈ {L*_qwen ± 1} × K ∈ {2, 4, 8} × α ∈ {0.5, 1.0, 2.0}) on PlotQA+InfoVQA pooled wrong-base; Phase 2 = Stage-4 5-dataset paired CI; Phase 3 = 6-bench STRICT_FREE_LUNCH capability. Closes outline §8 "Mitigation scope" magnitude-transfer + R4 CRIT-1 (N=1 → N=2). | 🟡 Phase 1–3 pending. **Phase 0 result: L\*_qwen = 26 (= OneVision)**, n_wrong pooled = 1,148 (PlotQA 926 + InfoVQA 222), monotonic ramp 0.1 → 8.52 → 5.81 across L0..L27 (depth-norm 93 % integration site preserved). Evidence: `docs/insights/E6-cross-arch-qwen25vl-phase0.md`. **Budget revised: ~7 → ~10–12 H200-day** (Qwen2-ViT NaViT dynamic-resolution ~7.5× slower per forward pass vs OneVision SigLIP). Plan: `docs/experiments/E6-cross-arch-design.md`. |
+| **E6 cross-arch replication — Qwen2.5-VL-7B-Instruct** (Phase 0 ✅ 2026-05-17, Phase 1 in-flight 2026-05-17 PM, Phase 2–3 pending) | Exact §6.1 recipe replica on a different encoder family (Qwen2 ViT NaViT vs OneVision SigLIP), with L bin expansion to test §5.3 + §5.4 cross-arch predictions. Phase 0 = E6 calibrate-subspace → SVD pool → peak-pick from `‖v_wrong[L]‖`; Phase 1 = **45-cell pilot grid** (L ∈ **{14, 20, 25, 26, 27}** × K ∈ {2, 4, 8} × α ∈ {0.5, 1.0, 2.0}) on PlotQA+InfoVQA pooled wrong-base (L=14 tests §5.3 dataset-dependent peak heterogeneity, L=20 tests §5.4 P4 mid-stack negative-effect signal); Phase 2 = Stage-4 5-dataset paired CI; Phase 3 = 6-bench STRICT_FREE_LUNCH capability. Closes outline §8 "Mitigation scope" magnitude-transfer + R4 CRIT-1 (N=1 → N=2). | 🟡 Phase 1–3 pending. **Phase 0 result: L\*_qwen = 26 (= OneVision)**, n_wrong pooled = 1,148 (PlotQA 926 + InfoVQA 222), monotonic ramp 0.1 → 8.52 → 5.81 across L0..L27 (depth-norm 93 % integration site preserved). Evidence: `docs/insights/E6-cross-arch-qwen25vl-phase0.md`. **Budget revised: ~7 → ~10–12 H200-day** (Qwen2-ViT NaViT dynamic-resolution ~7.5× slower per forward pass vs OneVision SigLIP). Plan: `docs/experiments/E6-cross-arch-design.md`. |
 
 ### 6.6 §8 — Future work (scope only)
 
@@ -785,6 +801,22 @@ contingent on P0-1 bridge experiment.
   `predictions.jsonl` only.
 
 ## 10. Changelog
+
+- **2026-05-17 PM (cross-arch E6 Phase 1 pilot grid launched — 45 cells, L=14,20,25,26,27).**
+  User-driven expansion of pilot grid topology: original 27-cell
+  L ∈ {25, 26, 27} extended to **45-cell L ∈ {14, 20, 25, 26, 27}**.
+  Two added mid-stack layers test cross-arch predictions:
+  L=14 → outline §5.3 OneVision-internal dataset-dependent peak
+  (InfoVQA L=14) cross-arch replication; L=20 → outline §5.4 P4
+  framework mid-stack negative-effect signal (PlotQA L=20 −4.7 pp
+  Bonferroni sig on OneVision per memory
+  [[project_p4_framework_verification_2026-05-12]]) cross-arch generality.
+  Driver `scripts/run_e6_cross_arch_qwen25vl_phase1.sh` (mirrors
+  `scripts/_phase1_pilot_grid.sh` OneVision version), sharded 5-way
+  across GPUs 0..4 via `run_sweep_subspace_sharded.py`. PlotQA n=250 +
+  InfoVQA n=250 sequential, ~2h wall total estimated. Cell-selection
+  aggregator writes `docs/insights/_data/pilot_grid_cell_selection_qwen25vl.csv`
+  on completion.
 
 - **2026-05-17 evening (cross-arch E6 Phase 0 complete — L\*_qwen = 26, identical to OneVision).**
   Driver `scripts/run_e6_cross_arch_qwen25vl_phase0.sh` ran calibrate-subspace
