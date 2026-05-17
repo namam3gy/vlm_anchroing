@@ -339,6 +339,12 @@ def _parse_args() -> argparse.Namespace:
                              "(Accelerate pipeline parallel). Required for OneVision "
                              "AnyRes which OOMs on any single GPU due to large "
                              "stored attention tensors.")
+    parser.add_argument("--output-root", type=Path, default=None,
+                        help="Root directory for per-run output. Defaults to "
+                             "PROJECT_ROOT/outputs/attention_analysis. The run "
+                             "lands at <output-root>/<model>/<timestamp>/ so "
+                             "reproducer notebooks can isolate fresh runs from "
+                             "the legacy pooled tree.")
     parser.add_argument("--bbox-file", type=Path, default=None,
                         help="JSON of digit-pixel bboxes per anchor value (E1-patch). "
                              "Produced by scripts/compute_anchor_digit_bboxes.py. "
@@ -383,6 +389,40 @@ def _find_image_token_spans(input_ids: torch.LongTensor, image_token_id: int) ->
 def _is_onevision_processor(processor: Any) -> bool:
     """Detect LLaVA-OneVision by class name (avoids hard import dep)."""
     return type(processor).__name__ == "LlavaOnevisionProcessor"
+
+
+def _is_interleave_processor(processor: Any) -> bool:
+    """Detect LLaVA-Interleave (LLaVA-Interleave-Qwen) by class names.
+
+    The Interleave-Qwen-7b checkpoint uses the plain `LlavaProcessor` wrapping
+    a `SiglipImageProcessor` (SigLIP-L/14-384), unlike LLaVA-1.5 which wraps
+    `CLIPImageProcessor`. Each image is a perfect-square 27×27=729 patch grid;
+    multiple images are emitted as a single concatenated token run, just like
+    OneVision. We detect on the (LlavaProcessor, SiglipImageProcessor) pair
+    to avoid catching LLaVA-1.5.
+    """
+    if type(processor).__name__ != "LlavaProcessor":
+        return False
+    ip = getattr(processor, "image_processor", None)
+    return ip is not None and type(ip).__name__ == "SiglipImageProcessor"
+
+
+def _split_interleave_image_run(
+    big_span: tuple[int, int],
+    n_images: int,
+) -> list[tuple[int, int]]:
+    """Split a single concatenated image-token run into equal per-image spans.
+
+    Interleave-Qwen uses fixed-size 27×27=729 patches per image (SigLIP-L/14
+    base, no AnyRes). With N images packed adjacently the run width is exactly
+    N × 729, so equal-split is correct.
+    """
+    n_tokens = big_span[1] - big_span[0]
+    if n_images <= 0 or n_tokens % n_images != 0:
+        return []
+    per_image = n_tokens // n_images
+    return [(big_span[0] + i * per_image, big_span[0] + (i + 1) * per_image)
+            for i in range(n_images)]
 
 
 def _split_onevision_image_run(
@@ -891,6 +931,17 @@ def _process_sample_hf(
                 base_grid_dim = g
         except Exception:
             base_grid_dim = None
+    elif _is_interleave_processor(runner.processor):
+        # Same single-concat-run shape as OneVision but fixed-size per image
+        # (SigLIP-L/14, no AnyRes); equal-split is correct + the per-image
+        # span is itself a perfect square, so base_grid_dim derives from it.
+        if len(image_spans) == 1 and n_images > 1:
+            image_spans = _split_interleave_image_run(image_spans[0], n_images)
+        if image_spans:
+            per_image = image_spans[0][1] - image_spans[0][0]
+            g = int(math.isqrt(per_image))
+            if g * g == per_image:
+                base_grid_dim = g  # 27 for SigLIP-L/14-384
 
     bbox_info = _bbox_for_anchor(sample.get("anchor_value"))
 
@@ -1224,7 +1275,8 @@ def main() -> None:
     # processes for the same model launch in the same wall-clock second
     # (Phase D parallel datasets bug, 2026-05-03).
     run_id = datetime.now().strftime("%Y%m%d-%H%M%S-%f") + f"-p{os.getpid()}"
-    out_root = PROJECT_ROOT / "outputs" / "attention_analysis" / args.model / run_id
+    base = args.output_root if args.output_root is not None else (PROJECT_ROOT / "outputs" / "attention_analysis")
+    out_root = base / args.model / run_id
     out_root.mkdir(parents=True, exist_ok=True)
     out_jsonl = out_root / "per_step_attention.jsonl"
     print(f"[setup] writing to {out_jsonl}")

@@ -371,11 +371,23 @@ def _parse_args() -> argparse.Namespace:
         type=str,
         default="outputs/attention_analysis/_per_layer",
     )
+    parser.add_argument(
+        "--input-root",
+        type=str,
+        default=None,
+        help="Override ATT_ROOT (where per-model run directories live). "
+             "Defaults to PROJECT_ROOT/outputs/attention_analysis. "
+             "Reproducer notebooks point this at an isolated fresh-run tree.",
+    )
     return parser.parse_args()
 
 
 def main() -> None:
     args = _parse_args()
+
+    global ATT_ROOT
+    if args.input_root:
+        ATT_ROOT = Path(args.input_root).resolve()
 
     susc_path = PROJECT_ROOT / args.susceptibility_csv
     susc_df = pd.read_csv(susc_path)

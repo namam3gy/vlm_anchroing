@@ -53,6 +53,13 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--max-samples", type=int, default=5000)
     p.add_argument("--max-new-tokens", type=int, default=8)
     p.add_argument("--gpus", required=True, help="Comma-separated GPU ids.")
+    p.add_argument(
+        "--out-dir",
+        default=None,
+        help="Override final sweep_subspace_<tag>_<scope> directory. "
+             "Default = outputs/e6_steering/<model>/sweep_subspace_<dataset_tag>_<subspace_scope>. "
+             "Reproducer notebooks point this at an isolated tree.",
+    )
     return p.parse_args()
 
 
@@ -73,8 +80,13 @@ def main() -> None:
     pred_path = _resolve_path(args.predictions_path)
     subspace_path = _resolve_path(args.subspace_path)
 
-    final_dir = (PROJECT_ROOT / "outputs" / "e6_steering" / args.model
-                 / f"sweep_subspace_{args.dataset_tag}_{args.subspace_scope}")
+    if args.out_dir is not None:
+        final_dir = Path(args.out_dir)
+        if not final_dir.is_absolute():
+            final_dir = (PROJECT_ROOT / final_dir).resolve()
+    else:
+        final_dir = (PROJECT_ROOT / "outputs" / "e6_steering" / args.model
+                     / f"sweep_subspace_{args.dataset_tag}_{args.subspace_scope}")
     final_dir.mkdir(parents=True, exist_ok=True)
     shards_root = final_dir / "_shards"
     shards_root.mkdir(parents=True, exist_ok=True)
