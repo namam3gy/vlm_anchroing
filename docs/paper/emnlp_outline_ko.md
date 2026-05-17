@@ -154,9 +154,9 @@
 
 ### 5.1 Layer-wise probes: per-model peak heterogeneity
 
-{{본 subsection 은 6-model mechanism panel (convllava-7b, fastvlm-7b, gemma4-e4b, llava-1.5-7b, qwen2.5-vl-7b, OneVision Main; §3.4 main 6-model panel 과 architecture 선정 기준이 달라 partially overlapping) 위 calibration dataset (PlotQA) 에서 model 별 (text → 두 번째 이미지) attention peak layer 를 식별 (qwen2.5-vl-7b 는 paper evaluation suite 위 attention probe 미측정 → 5 model 위 peak heterogeneity 묘사). 각 모델의 peak 은 *1-2 layer 로 명확히 좁혀지나 위치는 model-dependent* — gemma4-e4b L=5/42 (early), llava-1.5 / convllava L=14/32 (mid), fastvlm L=17/28 (mid), OneVision Main L=27/28 (late on PlotQA / TallyQA; *OneVision 만 dataset-dependent peak* — InfoVQA 에서는 L=14). 이 *peak heterogeneity* (cross-model + OneVision-internal cross-dataset; single uniform causal site 부재) 가 §5.3 routing-and-integration framework 의 직접 supporting evidence — model / dataset 별 다른 peak 위치가 *routing pathway 가 multi-layer + integration site 가 architecture / data-dependent* 라는 framework prediction 과 일관. Model-specific peak 은 §5.2 single-layer ablation 의 target 으로 사용.}}
+{{본 subsection 은 §3.4 main 6-model panel (Gemma3-4b / 27b, Qwen2.5-VL-7b / 32b, LLaVA-Interleave-7b, LLaVA-OneVision-7b Main) 위에서 5 dataset (PlotQA, InfoVQA, ChartQA, MathVista, TallyQA) 의 *(text → 두 번째 이미지의 digit-pixel patches)* attention peak layer 를 식별한다. Per-model peak depth-norm (= peak_L / n_layers) 가 architecture 별로 극단적으로 달라 — Qwen2.5-VL-7b L=3/28 (0.11, very early on 4/5 dataset) ↔ Interleave-7b L=31/32 (0.97, very late on 5/5 dataset) — *single uniform causal site 부재*. 일부 모델은 dataset 안에서도 peak 가 이동 (OneVision Main: PlotQA L=22 vs 나머지 4 dataset L=14; Qwen2.5-VL-32b: mid L=29 on PlotQA/MathVista vs late L=63 on InfoVQA/ChartQA/TallyQA; Gemma3-4b: L=12 on Plot/Info/Chart vs L=5-6 on Math/Tally). 반면 Interleave-7b, Gemma3-27b 는 5 dataset 모두 동일 peak. 이 *peak heterogeneity* (cross-model + intra-model cross-dataset 두 축 모두) 가 §5.3 routing-and-integration framework 의 직접 supporting evidence — *routing pathway 가 multi-layer + integration site 가 architecture / data-dependent* 라는 framework prediction 과 일관. Model-specific peak 은 §5.2 single-layer ablation 의 target 으로 사용. 측정은 `extract_attention_mass.py --bbox-file inputs/irrelevant_number_bboxes.json` 으로 anchor image 의 digit-pixel patches 만 골라 layer-별 attention mass 산출; sample pool 은 OneVision Main 의 dataset 별 susceptibility CSV top-decile-500 + bottom-decile-500 (max n=1000, dataset 별 cap 적용).}}
 
-> Per-(model, dataset) peak layer 표 (5 model × 3 dataset, n_layers / peak L / depth-norm / peak Δ / 95 % CI) 는 **Appendix G** 참조.
+> Per-(model, dataset) peak layer 표 (6 model × 5 dataset = 30 cells, n_layers / peak L / depth-norm / peak Δ / 95 % CI) 는 **Appendix G** 참조.
 
 ### 5.2 K-subspace sweep: multi-direction within a layer
 
@@ -535,33 +535,48 @@ Table E.1 에서 K=1 이 K=8 보다 강한 cell 이 있음 (예: L=30 K=1 +0.477
 
 ## G Layer-wise attention peak per (model, calibration dataset)
 
-> §5.1 supporting evidence. Mechanism panel 5 model × 3 dataset 의 (text → 두 번째 이미지) attention peak layer 와 magnitude 를 한 표로 정리. qwen2.5-vl-7b 는 paper evaluation suite (TallyQA / ChartQA / PlotQA / InfoVQA / MathVista) 위 attention probe 미측정으로 본 표에서 제외 — mechanism panel membership 자체는 유지 (§3.4 architecture coverage 목적).
+> §5.1 supporting evidence. §3.4 main 6-model panel × 5 evaluation dataset = 30 cell 의 *(text → 두 번째 이미지의 digit-pixel patches)* attention peak layer 와 magnitude 를 한 표로 정리.
 
-**Definition.** 각 모델 × dataset 위에서 generation 의 *answer step* (final-numeric-token 생성 step) 의 layer-별 attention mass 를 anchor 와 distractor 조건에서 측정 — `peak_Δ = (anchor-arm − distractor-arm)` second-image-token attention. `peak_layer` = 그 Δ 가 최대값을 가지는 layer, `depth-norm = peak_layer / n_layers`. 95 % CI 는 sample-instance bootstrap.
+**Definition.** 각 모델 × dataset 위에서 generation 의 *answer step* (final-numeric-token 생성 step) 의 layer-별 attention mass 를 anchor 와 distractor (neutral) 조건에서 측정. Anchor image 의 digit-pixel patches 만 (image_anchor_digit field; `extract_attention_mass.py --bbox-file inputs/irrelevant_number_bboxes.json`) 를 분모로 사용 — `peak_Δ = (anchor-arm − distractor-arm)` 의 layer-별 평균. `peak_layer` = 그 Δ 가 최대값을 가지는 layer, `depth-norm = peak_layer / n_layers`. 95 % CI 는 sample-instance bootstrap. Sample pool = OneVision Main 의 dataset 별 susceptibility CSV top-decile-500 + bottom-decile-500 (cap=1000, small dataset 은 stratum 크기 한계로 실제 n < 1000).
 
-**Table G.1 — Per-(model, dataset) attention peak (answer step).** Source: `docs/insights/_data/cross_dataset_peaks.csv`.
+**Table G.1 — Per-(model, dataset) attention peak (answer step, image_anchor_digit region, n=1000 spec).** Source: `docs/insights/_data/cross_dataset_peaks.csv`.
 
 | Model | n_layers | Dataset | n | peak L | depth-norm | peak Δ | 95 % CI |
 |---|---:|---|---:|---:|---:|---:|---|
-| convllava-7b | 32 | TallyQA | 200 | 7 | 0.22 | +0.027 | [+0.025, +0.028] |
-| convllava-7b | 32 | **PlotQA** | 189 | **14** | 0.45 | +0.090 | [+0.084, +0.097] |
-| convllava-7b | 32 | InfoVQA | 190 | 12 | 0.39 | +0.029 | [+0.025, +0.032] |
-| fastvlm-7b | 28 | TallyQA | 50 | 23 | 0.85 | +0.030 | [+0.022, +0.038] |
-| fastvlm-7b | 28 | **PlotQA** | 205 | **17** | 0.63 | +0.051 | [+0.047, +0.055] |
-| fastvlm-7b | 28 | InfoVQA | 186 | 27 | 1.00 | +0.024 | [+0.019, +0.029] |
-| gemma4-e4b | 42 | TallyQA | 200 | 5 | 0.12 | +0.051 | [+0.048, +0.055] |
-| gemma4-e4b | 42 | **PlotQA** | 205 | **5** | 0.12 | +0.037 | [+0.034, +0.040] |
-| gemma4-e4b | 42 | InfoVQA | 200 | 5 | 0.12 | +0.033 | [+0.031, +0.036] |
-| llava-1.5-7b | 32 | TallyQA | 192 | 8 | 0.26 | +0.018 | [+0.016, +0.019] |
-| llava-1.5-7b | 32 | **PlotQA** | 205 | **14** | 0.45 | +0.039 | [+0.036, +0.043] |
-| llava-1.5-7b | 32 | InfoVQA | 198 | 8 | 0.26 | +0.017 | [+0.015, +0.019] |
-| OneVision-7B (Main) | 28 | TallyQA | 79 † | 27 | 1.00 | +0.031 | [+0.024, +0.037] |
-| OneVision-7B (Main) | 28 | **PlotQA** | 204 | **27** | 1.00 | +0.027 | [+0.023, +0.030] |
-| OneVision-7B (Main) | 28 | InfoVQA | 200 | 14 | 0.52 | +0.010 | [+0.009, +0.012] |
+| Gemma3-4b | 34 | **PlotQA** | 200 | **12** | 0.36 | +0.0781 | [+0.0713, +0.0849] |
+| Gemma3-4b | 34 | InfoVQA | 195 | 12 | 0.36 | +0.0739 | [+0.0671, +0.0807] |
+| Gemma3-4b | 34 | ChartQA | 192 | 12 | 0.36 | +0.0644 | [+0.0576, +0.0713] |
+| Gemma3-4b | 34 | MathVista | 191 | 5 | 0.15 | +0.0569 | [+0.0533, +0.0606] |
+| Gemma3-4b | 34 | TallyQA | 185 | 6 | 0.18 | +0.0742 | [+0.0697, +0.0787] |
+| Qwen2.5-VL-7b | 28 | **PlotQA** | 205 | **14** | 0.50 | +0.0096 | [+0.0085, +0.0108] |
+| Qwen2.5-VL-7b | 28 | InfoVQA | 200 | 3 | 0.11 | +0.0094 | [+0.0088, +0.0099] |
+| Qwen2.5-VL-7b | 28 | ChartQA | 200 | 3 | 0.11 | +0.0096 | [+0.0090, +0.0101] |
+| Qwen2.5-VL-7b | 28 | MathVista | 200 | 3 | 0.11 | +0.0113 | [+0.0108, +0.0119] |
+| Qwen2.5-VL-7b | 28 | TallyQA | 200 | 3 | 0.11 | +0.0137 | [+0.0131, +0.0142] |
+| Interleave-7b | 32 | **PlotQA** | 195 | **31** | 0.97 | +0.0314 | [+0.0299, +0.0328] |
+| Interleave-7b | 32 | InfoVQA | 197 | 31 | 0.97 | +0.0337 | [+0.0324, +0.0351] |
+| Interleave-7b | 32 | ChartQA | 196 | 31 | 0.97 | +0.0298 | [+0.0283, +0.0313] |
+| Interleave-7b | 32 | MathVista | 143 | 31 | 0.97 | +0.0290 | [+0.0272, +0.0308] |
+| Interleave-7b | 32 | TallyQA | 200 | 31 | 0.97 | +0.0281 | [+0.0268, +0.0294] |
+| OneVision-7b (Main) | 28 | **PlotQA** | 204 | **22** | 0.81 | +0.0102 | [+0.0079, +0.0124] |
+| OneVision-7b (Main) | 28 | InfoVQA | 200 | 14 | 0.52 | +0.0045 | [+0.0040, +0.0050] |
+| OneVision-7b (Main) | 28 | ChartQA | 200 | 14 | 0.52 | +0.0073 | [+0.0067, +0.0079] |
+| OneVision-7b (Main) | 28 | MathVista | 189 | 14 | 0.52 | +0.0144 | [+0.0124, +0.0163] |
+| OneVision-7b (Main) | 28 | TallyQA | 79 † | 14 | 0.52 | +0.0153 | [+0.0134, +0.0172] |
+| Gemma3-27b | 62 | **PlotQA** | 205 | **26** | 0.43 | +0.0283 | [+0.0257, +0.0310] |
+| Gemma3-27b | 62 | InfoVQA | 200 | 26 | 0.43 | +0.0288 | [+0.0253, +0.0322] |
+| Gemma3-27b | 62 | ChartQA | 200 | 26 | 0.43 | +0.0213 | [+0.0190, +0.0237] |
+| Gemma3-27b | 62 | MathVista | 200 | 26 | 0.43 | +0.0283 | [+0.0252, +0.0314] |
+| Gemma3-27b | 62 | TallyQA | 200 | 26 | 0.43 | +0.0207 | [+0.0179, +0.0235] |
+| Qwen2.5-VL-32b | 64 | **PlotQA** | 205 | **29** | 0.46 | +0.0156 | [+0.0139, +0.0174] |
+| Qwen2.5-VL-32b | 64 | InfoVQA | 200 | 63 | 1.00 | +0.0121 | [+0.0110, +0.0133] |
+| Qwen2.5-VL-32b | 64 | ChartQA | 200 | 63 | 1.00 | +0.0125 | [+0.0116, +0.0134] |
+| Qwen2.5-VL-32b | 64 | MathVista | 200 | 29 | 0.46 | +0.0147 | [+0.0121, +0.0174] |
+| Qwen2.5-VL-32b | 64 | TallyQA | 200 | 63 | 1.00 | +0.0101 | [+0.0093, +0.0110] |
 
-**Bold** = §5.1 본문에서 reference 되는 calibration dataset 선택 (PlotQA). † = n_low (OneVision TallyQA attention-trace pool 이 작음); peak L 는 OneVision 의 두 *late-peak* dataset (PlotQA, TallyQA) 모두 L=27 / InfoVQA L=14 로 일관 — 직접 magnitude 비교는 주의.
+**Bold** = §5.1 본문에서 reference 되는 calibration dataset 선택 (PlotQA). † = n_low (OneVision Main 의 TallyQA top/bottom-decile susceptible 풀 자체가 작음; peak L 는 다른 4 dataset 과 동일 L=14 로 일관 — magnitude 직접 비교만 주의).
 
-**Observation.** Calibration-dataset peak depth-norm 범위 = 0.12 (gemma4-e4b, 3/3 dataset) → 1.00 (fastvlm InfoVQA, OneVision PlotQA / TallyQA). Cross-model heterogeneity (5 model 의 peak depth-norm 이 early / mid / late 전 범위 cover) + OneVision intra-model heterogeneity (PlotQA / TallyQA 에서 L=27, InfoVQA 에서 L=14) 가 §5.1 *peak heterogeneity* claim 의 직접 수치 backing — *single uniform causal site 부재* 는 model / dataset 별 routing pathway 변동에 의한 자연 결과 (§5.3 framework prediction).
+**Observation.** Peak depth-norm 범위 = 0.11 (Qwen2.5-VL-7b, 4/5 dataset) → 1.00 (Qwen2.5-VL-32b 3/5 dataset). Two heterogeneity axis 동시 관찰: (i) **cross-model** — 6 model 의 peak depth-norm 이 early (Qwen-7b, Gemma3-4b 일부) / mid (Gemma3-27b, OneVision Main, Qwen-32b 일부) / late (Interleave-7b 5/5, Qwen-32b 3/5) 전 범위 cover; (ii) **intra-model cross-dataset** — OneVision Main (PlotQA L=22 vs 나머지 L=14), Qwen2.5-VL-32b (PlotQA/MathVista L=29 vs 나머지 L=63), Qwen2.5-VL-7b (PlotQA L=14 vs 나머지 L=3), Gemma3-4b (Plot/Info/Chart L=12 vs Math/Tally L=5–6). 나머지 2 model (Interleave-7b, Gemma3-27b) 은 5/5 dataset 동일 peak — intra-model 안정. *Single uniform causal site 부재* 는 model / dataset 별 routing pathway 변동에 의한 자연 결과 (§5.3 framework prediction).
 
 ---
 
