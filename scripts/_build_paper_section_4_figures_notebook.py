@@ -138,12 +138,21 @@ ARMS = {
 
 # -- 2. Aggregation helper -------------------------------------------------
 cells.append(md(r"""
-## 2 · Per-cell aggregation (base-wrong S1, paper-canonical)
+## 2 · Per-cell aggregation (broad + base-wrong S1)
 
-Loads each `predictions.csv`, restricts to base-wrong sids (samples where
-the b-arm `exact_match == 0`), and aggregates the per-row flags into
-`adopt(a) / adopt(m) / df(a) / df(m) / em(a) / em(m)` — identical to
-the canonical aggregator `scripts/build_e5e_e7_5dataset_summary.py`.
+Loads each `predictions.csv` and aggregates the per-row flags into
+`adopt(a) / adopt(m) / df(a) / df(m) / em(a) / em(m)` under **two
+cohorts**:
+
+- **broad** — all samples in the cell (`base-correct ∪ base-wrong`).
+- **base-wrong** — only samples where the b-arm `exact_match == 0`.
+  Identical to the canonical aggregator
+  `scripts/build_e5e_e7_5dataset_summary.py`.
+
+§4.1 Figure 1 below uses the **broad** cohort (fraction of *all* responses
+that direction-follow / adopt the anchor). §4.2 still uses base-wrong S1
+because the (a − m) contrast is defined on that paired cohort. §7
+cross-check uses the base-wrong columns against the canonical CSV.
 """))
 
 cells.append(code(r"""
@@ -170,11 +179,12 @@ def per_cell_metrics(sub: pd.DataFrame) -> dict:
 
     out = {"n_base_wrong": len(base_wrong_sids)}
     for arm_code, arm_cond in ARMS.items():
-        arm = sub[(sub["condition"] == arm_cond)
-                  & (sub["sample_instance_id"].isin(base_wrong_sids))]
-        agg = _aggregate(arm)
-        for k, v in agg.items():
-            out[f"{k}_{arm_code}"] = v
+        arm_all = sub[sub["condition"] == arm_cond]
+        arm_wb  = arm_all[arm_all["sample_instance_id"].isin(base_wrong_sids)]
+        for tag, rows in (("broad", arm_all), ("wb", arm_wb)):
+            agg = _aggregate(rows)
+            for k, v in agg.items():
+                out[f"{k}_{arm_code}_{tag}"] = v
     return out
 
 
@@ -193,9 +203,11 @@ PER_CELL.head(6)
 
 # -- 3. Figure 1 -----------------------------------------------------------
 cells.append(md(r"""
-## 3 · §4.1 Figure 1 — cross-dataset summary (slope plot)
+## 3 · §4.1 Figure 1 — cross-dataset summary (slope plot, broad cohort)
 
-Two side-by-side panels: `df(a)` (left, headline) and `adopt(a)` (right).
+Two side-by-side panels: `df(a)` (left, headline) and `adopt(a)` (right),
+both on the **broad cohort** — i.e., the fraction of *all* responses
+that direction-follow / adopt the anchor (not restricted to base-wrong).
 Each model is one line across the 5 datasets, colored by encoder family.
 All 30 cells positive on both metrics ⇒ universality (outline §4.1).
 
@@ -220,13 +232,13 @@ x_labels = [dataset_label.get(d, d) for d in DATASET_ORDER]
 x_pos    = np.arange(len(DATASET_ORDER))
 
 # Plot order: most-robust (lowest mean df) drawn last so it sits on top.
-mean_df = (PER_CELL_PRETTY.groupby("model_short")["df_a"]
+mean_df = (PER_CELL_PRETTY.groupby("model_short")["df_a_broad"]
                           .mean().sort_values(ascending=False))
 plot_order = mean_df.index.tolist()
 
 metrics = [
-    ("df_a",    "S1 wrong-base direction-follow rate $df(a)$"),
-    ("adopt_a", "S1 wrong-base adoption rate $adopt(a)$"),
+    ("df_a_broad",    "S1 direction-follow rate $df(a)$  (broad: all samples)"),
+    ("adopt_a_broad", "S1 adoption rate $adopt(a)$  (broad: all samples)"),
 ]
 
 fig, axes = plt.subplots(1, 2, figsize=(14, 5.6), dpi=150)
@@ -251,7 +263,7 @@ n_models   = len(plot_order)
 n_datasets = len(DATASET_ORDER)
 fig.suptitle(
     f"5-dataset main matrix ({n_models} models × {n_datasets} datasets, "
-    f"{n_models * n_datasets} cells, S1 wrong-base, C-form). "
+    f"{n_models * n_datasets} cells, S1 broad cohort, C-form). "
     "All cells positive ⇒ universality (§4.1 Insight 1); "
     "Gemma 4B > 27B on 4/5 datasets, reversal on InfoVQA (Insight 2).",
     fontsize=11,
@@ -288,20 +300,22 @@ the *digit-pixel itself* is the causal channel, not generic distraction.
 cells.append(code(r"""
 def plotqa_panel() -> pd.DataFrame:
     p = PER_CELL_PRETTY[PER_CELL_PRETTY["dataset"] == "PlotQA"].copy()
-    p["gap_pp"] = (p["adopt_a"] - p["adopt_m"]) * 100
-    p = p.sort_values("adopt_a", ascending=False).reset_index(drop=True)
+    p["gap_pp"] = (p["adopt_a_wb"] - p["adopt_m_wb"]) * 100
+    p = p.sort_values("adopt_a_wb", ascending=False).reset_index(drop=True)
     p["label"] = p["model_short"]
-    return p[["label", "adopt_a", "adopt_m", "gap_pp", "n_pb_ne_anc_a"]] \
-            .rename(columns={"adopt_a": "a", "adopt_m": "m"})
+    return p[["label", "adopt_a_wb", "adopt_m_wb", "gap_pp", "n_pb_ne_anc_a_wb"]] \
+            .rename(columns={"adopt_a_wb": "a", "adopt_m_wb": "m",
+                             "n_pb_ne_anc_a_wb": "n_pb_ne_anc_a"})
 
 
 def onevision_panel() -> pd.DataFrame:
     p = PER_CELL_PRETTY[PER_CELL_PRETTY["model"] == "llava-onevision-qwen2-7b-ov"].copy()
-    p["gap_pp"] = (p["adopt_a"] - p["adopt_m"]) * 100
-    p = p.sort_values("adopt_a", ascending=False).reset_index(drop=True)
+    p["gap_pp"] = (p["adopt_a_wb"] - p["adopt_m_wb"]) * 100
+    p = p.sort_values("adopt_a_wb", ascending=False).reset_index(drop=True)
     p["label"] = p["dataset"].replace({"InfographicVQA": "InfoVQA"})
-    return p[["label", "adopt_a", "adopt_m", "gap_pp", "n_pb_ne_anc_a"]] \
-            .rename(columns={"adopt_a": "a", "adopt_m": "m"})
+    return p[["label", "adopt_a_wb", "adopt_m_wb", "gap_pp", "n_pb_ne_anc_a_wb"]] \
+            .rename(columns={"adopt_a_wb": "a", "adopt_m_wb": "m",
+                             "n_pb_ne_anc_a_wb": "n_pb_ne_anc_a"})
 
 
 def draw_panel(ax, df: pd.DataFrame, title: str) -> None:
@@ -460,8 +474,8 @@ canon_a["adopt_pct"] = canon_a["adopt_M2"] * 100
 canon_a["df_pct"]    = canon_a["direction_follow_M2"] * 100
 
 ours = PER_CELL.copy()
-ours["adopt_pct"] = ours["adopt_a"] * 100
-ours["df_pct"]    = ours["df_a"]    * 100
+ours["adopt_pct"] = ours["adopt_a_wb"] * 100
+ours["df_pct"]    = ours["df_a_wb"]    * 100
 
 merged = canon_a.merge(
     ours[["dataset", "model", "adopt_pct", "df_pct"]],
