@@ -1,6 +1,7 @@
 % =============================================================
 % Pulled by Pixels: Cross-Modal Numerical Anchoring in VLMs
 % EMNLP submission outline -- full English translation of emnlp_outline_ko.md
+% Generated from origin/master commit aa45d6e.
 % Compiles with standard pdfLaTeX (ACL/EMNLP default).
 %
 % Compile: pdflatex main.tex && bibtex main && pdflatex main.tex && pdflatex main.tex
@@ -42,7 +43,7 @@
 \textbf{Problem.}
 When a vision--language model (VLM) is shown a question together with an irrelevant image that contains a number, is the model's numeric answer pulled toward that number---a phenomenon we call \textit{cross-modal numerical anchoring}?
 \textbf{Finding 1 (phenomenon).}
-Across six open-weight VLMs and five datasets, roughly 10--40\,\% of responses are \textit{gradually} pulled toward the anchor digit, and a subset (1.7--15.7\,\%) is even copied verbatim. The magnitude of the pull is larger when the model's confidence in its base answer is lower.
+Across six open-weight VLMs and five datasets, roughly 4--23\,\% of responses are \textit{gradually} pulled toward the anchor digit, and a subset (about 1--13\,\%) is even copied verbatim (per-model averages; broad cohort, with the base-wrong comparison in Appendix~D.1 / D.2). The magnitude of the pull is larger when the model's confidence in its base answer is lower.
 \textbf{Finding 2 (causal gate).}
 When we construct a \textit{masked} counterpart of the anchor image that retains every pixel except the digit, the pull collapses to the level of an ordinary distractor---establishing that anchoring requires the conjunction of two conditions: \textit{a visible digit} and \textit{model uncertainty}.
 \textbf{Method.}
@@ -50,7 +51,7 @@ We use the \textit{paired contrast} between the anchored and masked stimuli as a
 \textbf{Result.}
 Across the same five datasets, our intervention reduces the anchoring effect while simultaneously improving accuracy both when anchors are present and when they are absent; it also preserves average performance on six held-out capability benchmarks ($+0.41$\,pp).
 \textbf{Implication.}
-Our mechanism analysis shows that the anchoring signal is distributed over several late layers of the language model rather than confined to a single layer, suggesting that vision-modality bias exists as a \textit{separable and removable representation unit} in the late language model and can be intervened on at inference time without retraining or prompt-level defenses.
+Our mechanism analysis shows that the anchoring signal is routed \textit{redundantly across multiple layers} (single-layer ablation null and per-model peak heterogeneity) and is integrated at a model-specific site into a \textit{separable and removable representation unit}, which can be intervened on at inference time without retraining or prompt-level defenses.
 \end{abstract}
 
 % =============================================================
@@ -70,13 +71,13 @@ Our mechanism analysis shows that the anchoring signal is distributed over sever
 \todoNote{Expand Findings~1 and 2 from the abstract into the body register one level deeper. The measurements use a 4-condition stimulus---b: target only / a: + anchor / m: + masked anchor / d: + neutral distractor---across six open-weight VLMs and five datasets.}
 \begin{itemize}
   \item \textbf{F1 (graded pull).}
-    Approximately 10--40\,\% of responses are gradually pulled toward the anchor, and a subset of these (1.7--15.7\,\%) is copied verbatim. The mass of the effect lies in \textit{graded shift}, not \textit{literal copy}.
+    Approximately 4--23\,\% of responses are gradually pulled toward the anchor, and a subset of these (about 1--13\,\%) is copied verbatim. The mass of the effect lies in \textit{graded shift}, not \textit{literal copy}.
   \item \textbf{F2 (uncertainty modulation).}
     The magnitude of the pull grows as the model's confidence in its base answer decreases (a monotonic gradient is observed across the L1 6-bin partition over $5\;\text{datasets}\times 6\;\text{models} = 80$ cells).
   \item \textbf{F3 (digit-pixel causal gate).}
     When the digit pixels in the anchor image are masked, while everything else is preserved, the pull collapses to the level of an ordinary distractor---revealing a conjunction of \textit{digit pixels} and \textit{uncertainty}.
   \item \textbf{F4 (mechanism).}
-    The internal representation of anchoring is formed in the late layers of the language model. This location becomes the site at which our mitigation operates.
+    The anchoring representation is \textit{multi-layer redundant} (single-layer ablation null and per-model peak heterogeneity), and the mitigation operates at a model-specific integration site (for OneVision Main, $L=26$).
 \end{itemize}
 
 \subsection{Approach and Results}
@@ -89,11 +90,11 @@ Our mechanism analysis shows that the anchoring signal is distributed over sever
 \subsection{Contributions}
 \begin{itemize}
   \item \textbf{C1 (Phenomenon).}
-    We quantify cross-modal numerical anchoring across $5\;\text{datasets}\times 6\;\text{open-weight VLMs}$: roughly 10--40\,\% of responses are pulled toward the digit in an irrelevant image (a subset is copied verbatim); the pull is graded by model confidence; and masking only the digit pixels in the anchor image eliminates the effect. Behavior and causal gate are verified jointly.
+    We quantify cross-modal numerical anchoring across $5\;\text{datasets}\times 6\;\text{open-weight VLMs}$: roughly 4--23\,\% of responses are pulled toward the digit in an irrelevant image (a subset is copied verbatim); the pull is graded by model confidence; and masking only the digit pixels in the anchor image eliminates the effect. Behavior and causal gate are verified jointly.
   \item \textbf{C2 (Mitigation).}
-    We use the \textit{(a $-$ m) paired contrast} as a calibration signal to estimate the late-LM anchoring representation in a single calibration pass and apply it as an inference-time projection to every input. No anchor labels and no runtime detection are required. We obtain reduced anchoring on the five datasets and an average $+0.41$\,pp preservation on six general-capability benchmarks.
+    We use the \textit{(a $-$ m) paired contrast} as a calibration signal to estimate the anchoring representation at a model-specific integration site (for OneVision Main, $L=26$) in a single calibration pass and apply it as an inference-time projection to every input. No anchor labels and no runtime detection are required. We obtain reduced anchoring on the five datasets and an average $+0.41$\,pp preservation on six general-capability benchmarks.
   \item \textbf{C3 (Mechanism evidence).}
-    Our mechanism analysis shows that (i) the anchoring representation is located in the late layers of the language model, and (ii) within those layers, it is not reducible to a single direction. These two facts directly motivate the \textit{operating site} and the \textit{multi-direction subspace} design choices of the mitigation in \S6.
+    Our mechanism analysis shows that (i) the anchoring representation is distributed \textit{multi-layer redundantly} (single-layer ablation null and per-model peak heterogeneity---no single causal layer), and (ii) within those layers, it is not reducible to a single direction. These two facts directly motivate the \textit{model-specific integration site} and the \textit{multi-direction subspace} design choices of the mitigation in \S6.
 \end{itemize}
 
 % =============================================================
@@ -135,6 +136,8 @@ Our mechanism analysis shows that the anchoring signal is distributed over sever
 \subsection{(a $-$ m) paired contrast: isolating the digit-pixel causal path}
 \todoNote{This subsection explains the design logic of the (a $-$ m) paired contrast. Because the anchor image itself is identical and only the digit pixels differ, the (a $-$ m) difference isolates only the causal effect of the digit pixels, while ordinary distraction is independently controlled by the d arm. This substrate is reused on both sides---the digit-pixel causal gate finding in \S4 and the calibration signal in \S6---and serves as the organizational backbone of the paper.}
 
+The 4-condition preview in \S3.1 visually confirms that the anchor and masked stimuli differ only in their digit pixels; no separate figure is required here.
+
 \subsection{Measuring anchoring (metrics)}
 \todoNote{This subsection defines the three metrics used to measure anchoring. The primary is \textit{direction-follow} (sign-based, gt-free); the secondaries are \textit{adopt} (literal-copy rate) and \textit{exact-match} (accuracy). For each metric we also briefly map the claim it carries in the body---direction-follow $=$ the graded-pull headline in \S4; adopt $=$ literal capture; exact-match $=$ the capability axis in \S6.4.}
 
@@ -168,12 +171,12 @@ Capability axis; the b-arm is baseline accuracy and the a-arm is anchored accura
 \todoNote{What happens $\rightarrow$ what gates it $\rightarrow$ what modulates it. Effect $\rightarrow$ causal gate $\rightarrow$ trigger condition, a narrative arc.}
 
 \subsection{Anchoring effect: graded pull and literal copy}
-\todoNote{This subsection presents, on the $6\;\text{models}\times 5\;\text{datasets}$ main panel, the \textit{overall magnitude} of the anchoring effect and its \textit{cross-panel robustness}. A single main-panel table is sufficient to demonstrate that direction-follow ($\approx$10--40\,\%) and adopt (1.7--15.7\,\%) ranges are non-trivially positive in every model $\times$ dataset cell---meaning that the mass of the effect lies in graded pull rather than literal copy and that it is not an artifact of a particular architecture or domain.}
+\todoNote{This subsection presents, on the $6\;\text{models}\times 5\;\text{datasets}$ main panel, the \textit{overall magnitude} of the anchoring effect and its \textit{cross-panel robustness}. A single main-panel table demonstrates that the per-model averages of direction-follow ($\approx$4--23\,\%) and adopt ($\approx$1--13\,\%) are positive in every model $\times$ dataset cell---meaning that the mass of the effect lies in graded pull rather than literal copy and that it is not an artifact of a particular architecture or domain.}
 
 \begin{figure*}[t]
   \centering
   \includegraphics[width=0.92\textwidth]{figures/paper_cross_dataset_summary.png}
-  \caption{Cross-dataset summary (S1 wrong-base). Per-cell df / adopt numerics are reported in Appendix~\ref{app:per-cell}.}
+  \caption{Cross-dataset summary (S1 wrong-base). Per-cell df / adopt numerics, paired by broad and base-wrong cohort, are reported in Appendix~\ref{app:per-cell}.}
   \label{fig:cross-dataset-summary}
 \end{figure*}
 
@@ -199,15 +202,16 @@ Capability axis; the b-arm is baseline accuracy and the a-arm is anchored accura
 
 % =============================================================
 \section{Mechanism: Locating the Anchoring Representation}
-\todoNote{Two axes---\textit{location} (which layer) and \textit{dimensionality} (how many directions within a layer)---characterize the mechanism of the anchoring representation. These two axes supply the evidence for the two design choices of the \S6 mitigation: the operating site and the subspace design.}
+\todoNote{We characterize the mechanism of the anchoring representation along two axes---\textit{location distribution} (per-model peak heterogeneity and multi-layer redundancy) and \textit{dimensionality} (multi-direction within a layer)---in order to supply evidence for the two design choices of the \S6 mitigation: the model-specific integration site and the subspace design.}
 
-\subsection{Layer-wise probes: a late-LM peak}
-\todoNote{This subsection uses layer-wise linear probes to measure which layer most strongly encodes the anchoring representation. The result is a peak in the late layers of the language model, providing the mechanism evidence for the \textit{operating site} of the mitigation (late LM layer) in \S6. The late peak is consistent across 5 of 5 models, simultaneously confirming cross-model robustness.}
+\subsection{Layer-wise probes: per-model peak heterogeneity}
+\label{sec:layer-probes}
+\todoNote{This subsection identifies, on a 6-model mechanism panel (convllava-7b, fastvlm-7b, gemma4-e4b, llava-1.5-7b, qwen2.5-vl-7b, OneVision Main; partially overlapping with the main 6-model panel of \S3.4 due to a different architecture-selection criterion) and on the calibration dataset (PlotQA), the (text $\rightarrow$ second-image) attention peak layer for each model. Because qwen2.5-vl-7b is not measured by the attention probe on the paper's evaluation suite, the peak-heterogeneity description is given over the remaining five models. The peaks are \textit{clearly localized to 1--2 layers per model, but their positions are model-dependent}: gemma4-e4b $L=5/42$ (early), llava-1.5 and convllava $L=14/32$ (mid), fastvlm $L=17/28$ (mid), and OneVision Main $L=27/28$ (late on PlotQA / TallyQA; \textit{OneVision alone shows a dataset-dependent peak}---on InfoVQA, $L=14$). This \textit{peak heterogeneity} (cross-model, and cross-dataset within OneVision; no single uniform causal site) is direct supporting evidence for the routing-and-integration framework in \S5.3---a model- and dataset-dependent peak location is consistent with a framework prediction that the routing pathway is multi-layer and that the integration site is architecture- and data-dependent. The model-specific peaks then serve as the targets of the single-layer ablations in \S5.2.}
 
-\todoNote{TODO (Appendix table): a layer $\times$ model probe-strength heatmap (5-model panel). The body keeps only a one-line statement of cross-model consistency; the full panel data is deferred to the appendix.}
+Per-(model, dataset) peak-layer tables (5 models $\times$ 3 datasets, with $n_\text{layers}$, peak $L$, depth-norm, peak $\Delta$, and 95\,\% CI) appear in Appendix~\ref{app:attention-peak}.
 
-\subsection{Single-direction insufficiency (K=1, LEACE rank-1, ActAdd)}
-\label{sec:single-direction}
+\subsection{K-subspace sweep: multi-direction within a layer}
+\label{sec:k-subspace}
 \todoNote{This subsection shows that methods that remove only a single within-layer direction do not sufficiently reduce anchoring across datasets. This is mechanism evidence that, even within a single layer, the anchoring representation is distributed over multiple directions---direct justification for the \textit{multi-direction subspace} ($K>1$) design in \S6. The body headline is the monotonic improvement of the SVD sweep at $K = 1, 2, 4, 8$ (positive evidence); the convergent failures of alternative single-direction methods (LEACE rank-1, ActAdd) are reinforced in the appendix.}
 
 \begin{figure}[t]
@@ -225,66 +229,133 @@ Capability axis; the b-arm is baseline accuracy and the a-arm is anchored accura
 \end{figure*}
 
 \todoNote{TODO (final body figure): combine the two previews above into a single figure (or build a new 5-dataset average $K = 1/2/4/8$ bar chart).}
-\todoNote{TODO (appendix): a per-dataset table reporting LEACE rank-1, ActAdd, and $K = 1$ SVD (convergent negative evidence).}
+
+A per-dataset $\Delta \mathrm{df}_a$ comparison table for LEACE rank-1, ActAdd, and $K=1$ SVD (convergent negative evidence) is reported in Appendix~\ref{app:single-direction}; all three methods share the same \textit{TallyQA-backfire + PlotQA-undershoot} failure profile.
 
 \subsection{Multi-layer routing-and-integration (post-hoc characterization)}
-\todoNote{This subsection synthesizes the two observations---the single-layer ablation null and the late-layer probe peak---into a \textit{routing-and-integration} framework: a multi-layer attention pathway \textit{routes} (processes) the anchoring signal, and the late-layer residual stream \textit{integrates} (aggregates) it into a unified representation. This is a post-hoc characterization of the global structure of the anchoring representation; it ties together the findings of \S5.1 and \S5.2 rather than driving the design.}
+\todoNote{This subsection synthesizes the three mechanism findings from \S5.1 (\textit{per-model peak heterogeneity}), \S5.2 (\textit{single-layer ablation null} and \textit{K-subspace sweep}) into a \textit{routing-and-integration} framework: the anchoring signal is \textit{routed} through a multi-layer attention pathway (the multi-layer processing passes through model-specific sites) and is \textit{integrated} at a single model-specific site in the residual stream. \textit{Heterogeneity} and the \textit{single-layer null} are natural predictions of the framework: the absence of a uniform causal site is a direct consequence of multi-layer routing, and an architecture-dependent integration site is consistent with the same interpretation. For OneVision Main, the integration site is $L=26$ in the $L \times K$ sweep of \S6.2.4 (the 93rd percentile of the 28-layer Qwen2 stack, i.e., the late residual). This is a post-hoc characterization of the global structure of the anchoring representation, tying together the findings of \S5.1 and \S5.2.}
 
 Cross-architecture partial verification (Qwen3-VL $\gamma$-$\beta$ residual-stream bridge) is reported in Appendix~\ref{app:gamma-beta}.
 
 % =============================================================
-\section{Mitigation}
-\todoNote{Method, cross-dataset results, and capability preservation are all consolidated into a single section.}
+\section{Mitigation: Calibrated Subspace Projection}
+\todoNote{Building on the mechanism findings of \S5 (multi-layer routing, model-specific integration site, and within-layer multi-direction), we construct a \textit{calibrated subspace projection} mitigation. For OneVision Main, the integration site is $L=26$ (the 93rd percentile of 28 layers, in the late residual). The mitigation requires one calibration pass and is deployable at inference time without anchor labels.}
 
-\subsection{Method: subspace projection from (a $-$ m) calibration}
-\todoNote{The SVD top-$K$ subspace of the (a $-$ m) difference vectors is removed by a projection on the late-LM residual stream. Algorithm box.}
+\subsection{Method (algorithm + (a $-$ m) calibration recipe)}
+\label{sec:mitigation-method}
+\todoNote{This subsection defines the algorithm of the calibrated subspace projection. From the residual-stream differences of (a $-$ m) paired stimuli---\textit{calibration pool: PlotQA + InfoVQA pooled, $n \approx 5{,}000$ base-wrong}---we extract the top-$K$ ($K = 8$) SVD subspace (calibration). At inference time, this subspace is removed from the late-LM residual ($L = 26$ for OneVision Main) by projection (application). The design choices ($\text{site} = L = 26$, $K = 8$) are grounded in the mechanism evidence from the layer probe in \S5.1 and the $K$-sweep in \S5.2. We include an algorithm box.}
 
-\subsection{Calibration setup and hyperparameters}
-\todoNote{Calibration set (one or two auxiliary datasets), projection rank $K$, and the rationale for layer selection.}
+\todoNote{TODO (algorithm box): calibration + inference pseudocode in a \texttt{algorithm} environment, 5--10 lines fitting one column.}
 
-\subsection{Cross-dataset reduction of anchoring}
-\todoNote{Changes in the anchoring effect across the five datasets ($\Delta$df, $\Delta$adopt). Paired-bootstrap confidence intervals.}
+\subsection{Cross-dataset anchoring reduction}
+\label{sec:mitigation-results}
+\todoNote{This subsection presents the reduction in anchoring across five datasets. The five datasets are composed as:}
+\begin{itemize}
+  \item \textbf{Within calibration distribution.} PlotQA, InfoVQA---the same distribution as the calibration pool in \S6.1. Measures \textit{in-distribution efficacy}.
+  \item \textbf{Held out from the calibration distribution.} TallyQA, ChartQA, MathVista---measures \textit{true cross-dataset generalization}.
+\end{itemize}
+\todoNote{The primary metric is $\Delta \mathrm{df}_a$ (negative $=$ anchoring reduction); secondaries are $\Delta \mathrm{adopt}_a$ and $\Delta \mathrm{em}_a$. We report paired-bootstrap CIs and a Bonferroni-20 multiplicity correction. Headline: on OneVision Main, $L=26$, $K=8$, \textit{$\Delta \mathrm{em}_b$ is sign-clean on 5/5 datasets under the Bonferroni correction}---the non-anchored arm's accuracy is sign-positive on all five datasets, a multiplicity-robust result.}
 
-\subsection{Capability preservation (held-out benchmarks)}
-\todoNote{Average performance change on six general-capability benchmarks (HallusionBench, AMBER, POPE, MME, etc.) is $+0.41$\,pp.}
+\begin{figure*}[t]
+  \centering
+  \includegraphics[width=0.92\textwidth]{figures/paper_6_2_3_stage4_5dataset_paired_ci.png}
+  \caption{Stage-4 paired-bootstrap deltas (E6 cell: $L=26$, $K=8$, $\alpha=1.0$). Two panels: $\Delta \mathrm{df}_a$ anchoring-effect reduction ($\downarrow$) and $\Delta \mathrm{em}_b$ non-anchored-arm capability gain ($\uparrow$).}
+  \label{fig:stage4-paired-ci}
+\end{figure*}
+
+\begin{table*}[t]
+  \centering
+  \small
+  \begin{tabular}{lrrrrrl}
+    \toprule
+    \textbf{Dataset} & \textbf{$n$} & \textbf{$\Delta \mathrm{adopt}_a$} & \textbf{$\Delta \mathrm{df}_a$} & \textbf{$\Delta \mathrm{em}_a$} & \textbf{$\Delta \mathrm{em}_b$} & \textbf{scope} \\
+    \midrule
+    TallyQA   & 4978 & $-0.6$ [$-1.1$, $+0.0$] & $-0.3$ [$-1.3$, $+0.6$]  & $+6.6$ [$+5.6$, $+7.5$]  & $\mathbf{+13.8}$ [$+12.9$, $+14.8$] & held-out \\
+    PlotQA    & 2306 & $\mathbf{-5.6}$ [$-6.8$, $-4.4$] & $\mathbf{-5.2}$ [$-6.9$, $-3.4$] & $+2.4$ [$+1.5$, $+3.4$] & $\mathbf{+4.7}$ [$+3.8$, $+5.7$] & within \\
+    InfoVQA   & 443  & $+0.9$ [$-0.5$, $+2.5$] & $-0.7$ [$-4.7$, $+3.4$]  & $+3.4$ [$+0.5$, $+6.3$]  & $\mathbf{+9.0}$ [$+6.3$, $+11.7$]  & within \\
+    ChartQA   & 224  & $\mathbf{-3.3}$ [$-6.0$, $-1.0$] & $-4.0$ [$-9.8$, $+1.8$] & $+4.0$ [$+0.0$, $+8.0$] & $\mathbf{+7.1}$ [$+3.6$, $+10.7$]  & held-out \\
+    MathVista & 170  & $-1.5$ [$-6.9$, $+3.7$] & $-4.1$ [$-11.8$, $+3.5$] & $+2.9$ [$-2.4$, $+8.2$]  & $\mathbf{+9.4}$ [$+4.7$, $+14.7$]  & held-out \\
+    \midrule
+    \textbf{mean} &      & $\mathbf{-2.0}$ &  $\mathbf{-2.9}$ & $\mathbf{+3.9}$ & $\mathbf{+8.8}$ &     \\
+    \bottomrule
+  \end{tabular}
+  \caption{Per-dataset paired-bootstrap $\Delta$ (95\,\% CI). Source: \texttt{docs/insights/\_data/stage4\_final\_per\_dataset\_ci.md} ($B=10{,}000$ paired sids, OneVision Main, $L=26$, $K=8$, $\alpha=1.0$, calibrated on PlotQA$+$InfoVQA pooled $n=5\text{k}$). \textbf{Sign-clean count (CI excludes 0):} $\Delta \mathrm{adopt}_a$ 2/5, $\Delta \mathrm{df}_a$ 1/5 (PlotQA only, sample-size-bound), $\Delta \mathrm{em}_a$ 3/5, \textbf{$\Delta \mathrm{em}_b$ 5/5} (Bonferroni-20 \checkmark).}
+  \label{tab:stage4-per-dataset}
+\end{table*}
+
+\subsection{Capability preservation}
+\label{sec:capability}
+\todoNote{This subsection verifies the capability preservation of the mitigation on six held-out general-capability benchmarks under the STRICT\_FREE\_LUNCH protocol, $n_\text{total} = 10{,}507$. \textbf{Macro-average $\Delta = +0.41$\,pp} (positive). HallusionBench $+2.21$\,pp [$+1.14$, $+3.28$] has a CI that excludes zero---statistically significant positive on the \textit{hallucination axis}. The other benchmarks lie within a $\pm 1$\,pp band, indicating no capability degradation.}
+
+\begin{table*}[t]
+  \centering
+  \small
+  \begin{tabular}{lrrrrl}
+    \toprule
+    \textbf{Benchmark} & \textbf{$n$} & \textbf{baseline} & \textbf{$+$mit} & \textbf{$\Delta$ (pp)} & \textbf{95\,\% CI} \\
+    \midrule
+    HallusionBench       & 951    & 47.84 & 50.05 & $\mathbf{+2.21}$ & [$+1.14$, $+3.28$] \checkmark \\
+    RealWorldQA          & 765    & 69.80 & 71.11 & $+1.31$ & [$-0.27$, $+2.89$] \\
+    MMStar               & 1500   & 61.67 & 61.80 & $+0.13$ & [$-0.77$, $+1.04$] \\
+    POPE                 & 5127   & 92.16 & 92.10 & $-0.06$ & [$-0.21$, $+0.09$] \\
+    MMBench-DEV-EN       & 1164   & 82.04 & 81.70 & $-0.34$ & [$-0.82$, $+0.13$] \\
+    OCRBench             & 1000   & 63.40 & 62.60 & $-0.80$ & [$-1.68$, $+0.08$] \\
+    \midrule
+    \textbf{Macro}       & 10{,}507 &      &        & $\mathbf{+0.41}$ & (STRICT\_FREE\_LUNCH) \\
+    \bottomrule
+  \end{tabular}
+  \caption{Per-benchmark capability deltas (95\,\% CI). Source: \texttt{docs/insights/\_data/capability\_eval\_per\_benchmark.md}. OneVision Main, $L=26$, $K=8$, $\alpha=1.0$ mitigation applied at inference.}
+  \label{tab:capability-per-benchmark}
+\end{table*}
+
+\todoNote{TODO (8-bench extension): the \textit{E8 8-bench} extension noted in memory ($n=27{,}097$, $+0.31$\,pp, adds AMBER + MME) is \textit{not yet committed to the canonical CSV}---only the config (\texttt{configs/capability\_eval\_mme\_amber.yaml}) exists, with no result CSV. Once AMBER + MME are run and integrated, update the canonical 6-bench numbers to 8-bench. The body number $+0.41$\,pp is the canonical 6-bench result and is consistent with the Abstract and \S1.3.}
 
 % =============================================================
 \section{Discussion}
 
-\subsection{Implications}
-\todoNote{}
+\subsection{Implications (including ecological validity)}
+\todoNote{This subsection synthesizes the behavioral, mechanism, and mitigation findings of the paper into a \textit{single narrative}, and concludes with a supplementary verification of \textit{ecological validity} (a closed-API VLM-as-judge pilot). Pilot results (5 judges $\times$ 2 datasets $\times$ $n=200$): anchoring is observed in gpt-4o and gemini-2.5-flash, while gpt-5.1, gemini-2.5-pro, and Claude are robust. The phenomenon is not an open-weight artifact and surfaces partially in frontier judges---reinforcing the deployment relevance of the mitigation---without overclaiming that \textit{every} system is affected.}
 
-\subsection{Comparison with other approaches}
-\todoNote{}
+The per-judge headline matrix (5 judges $\times$ 2 datasets $\times$ 3 arms), the two attack patterns (digit-specific vs.\ distractor-general), within-vendor ablations (OpenAI generation, Google reasoning), and caveats are in Appendix~\ref{app:judge-pilot}.
 
 \subsection{Future work}
-\todoNote{}
-
-\subsection{Ecological validity: closed-API VLM-as-judge pilot}
-\begin{itemize}
-  \item A supplementary verification of the deployment-relevance hook in \S1.1. Five closed-API judges $\times$ two datasets $\times$ three arms $\times$ $n = 200$ pilot.
-  \item The result is mixed: anchoring is observed in gpt-4o (digit-specific) and gemini-2.5-flash (distractor-general); gpt-5.1, gemini-2.5-pro, and Claude are robust.
-  \item Take-home message: the phenomenon is not an open-weight artifact and partially surfaces in frontier judges---reinforcing the deployment relevance of the mitigation---without overclaiming that \textit{every} system is affected.
-\end{itemize}
+\todoNote{This subsection presents the most likely interpretation of the \textit{unexpected finding} in \S6.2---that the mitigation also raises accuracy on inputs without anchors, with $\Delta \mathrm{em}_b$ positive on 5/5 datasets, mean $+8.8$\,pp---and defines follow-up work. Interpretation: the (a $-$ m) subspace captures \textit{broader distraction directions beyond the anchor-specific one}. Anchors are one instance of distraction, and the paired contrast incidentally learns more general distraction handling. The positive transfer on the hallucination axis in \S6.3 (HallusionBench $+2.21$\,pp) supports this interpretation, since hallucination is itself a form of \textit{visual-distraction handling failure}. Mechanistic verification---of the generality of our mitigation and the extensibility to other vision-modality biases---is the key future work.}
 
 % =============================================================
 \section{Conclusion}
-\todoNote{A single-paragraph summary of what we did, what we showed, and why it matters.}
+\todoNote{This paper quantifies \textit{cross-modal numerical anchoring} in VLMs across six open-weight models and five datasets (graded pull, digit-pixel causal gate, and confidence modulation), establishes its mechanism via mechanism analysis (\textit{multi-layer redundant routing and within-layer multi-direction representation}), and builds a \textit{calibrated subspace projection} mitigation from the (a $-$ m) paired contrast on the model-specific integration site of OneVision Main ($L=26$). The mitigation reduces anchoring on five datasets and preserves average performance on six capability benchmarks ($+0.41$\,pp)---deployable at inference \textit{without anchor labels}, after a single calibration pass. Code/data: \texttt{\{\{repo URL\}\}}.}
 
 % =============================================================
 \section*{Limitations}
-\todoNote{Required EMNLP section. \textit{Outside} the page limit. Honest, specific, non-defensive. Itemize limitations along data, model, generalization, statistics, and reproducibility.}
-\begin{itemize}
-  \item \todoNote{Limitation 1}
-  \item \todoNote{Limitation 2}
-  \item \todoNote{Limitation 3}
-\end{itemize}
+\paragraph{Mitigation scope.}
+The subspace projection mitigation is a worked example on LLaVA-OneVision-7B Main. The cross-architecture \textit{directional} verification of the framework is provided by the $\gamma$-$\beta$ bridge (Qwen3-VL, Appendix~\ref{app:gamma-beta}); \textit{magnitude} transfer is left to future work. The mitigation reduces the anchoring effect \textit{partially} (mean $\Delta \mathrm{df}_a = -2.9$\,pp); complete elimination lies outside the scope of representation-level inference-time intervention---the choice of $K$ and $\alpha$ is a balance between anchoring reduction and capability preservation.
+
+\paragraph{Statistical scope.}
+The multiplicity-robust headline is the \textit{capability gain} ($\Delta \mathrm{em}_b$)---sign-clean on 5/5 datasets under the Bonferroni-20 corrected CI. The \textit{anchoring reduction} ($\Delta \mathrm{df}_a$) is sample-size-bound: only PlotQA ($n=2{,}306$) has a CI-clean single-dataset signal, while the four small-$n$ datasets show consistent point estimates with CIs at the border.
+
+\paragraph{Capability coverage.}
+On 6 held-out benchmarks ($n=10{,}507$), the macro $\Delta = +0.41$\,pp (HallusionBench $+2.21$\,pp, CI-clean positive). An AMBER $+$ MME extension to 8 benchmarks has its config ready.
+
+\paragraph{Phenomenon scope.}
+The phenomenon is universal across the open-weight main panel; the closed-API pilot in \S7.1 confirms partial robustness on the frontier (3/5 robust). The open-weight focus is an \textit{intentional design choice}---it permits full mechanism access and is the primary target for cost-sensitive production deployment.
+
+\paragraph{Methodological in-progress.}
+The direction-follow metric is in the process of being finalized as an epsilon-threshold form (\S3.3); the directional conclusions are form-invariant, while the magnitudes are form-dependent.
 
 % =============================================================
 \section*{Ethics Statement}
-\todoNote{Recommended section. Outside the page limit. Rather than declaring ``no ethical concerns identified'' when there are none, the standard practice is to address data sourcing, licenses, potential misuse, and the environmental cost briefly.}
-
-\todoNote{Data licensing, human subjects, potential misuse, and the compute / carbon footprint.}
+\begin{itemize}
+  \item \textbf{Dataset licenses.}
+    The five evaluation datasets we use (TallyQA, ChartQA, PlotQA, InfoVQA, MathVista) and the six held-out capability benchmarks (HallusionBench, RealWorldQA, MMStar, POPE, MMBench-DEV-EN, OCRBench) are all public academic datasets. \todoNote{Specify each license (Apache 2.0 / MIT / CC-BY / etc.).}
+  \item \textbf{Closed-API usage.}
+    The closed-API VLM-as-judge pilot of \S7.1 ecological validity (5 judges $\times$ 2 datasets $\times$ $n=200$) cost approximately \$XX. Users with restricted closed-API access cannot directly reproduce this pilot---however, the open-weight main panel results can be reproduced by anyone.
+  \item \textbf{Potential misuse.}
+    Our mitigation is designed in the direction of \textit{reducing} anchoring. An inverse projection could in principle be used to \textit{amplify} anchoring (a trivial modification)---however, the net positive of the bias-measurement and bias-mitigation contributions of this paper justifies this risk.
+  \item \textbf{Compute budget.}
+    The combined cost of OneVision Main mitigation calibration $+$ 5-dataset evaluation $+$ 6-benchmark capability eval is approximately \todoNote{XX} GPU-hours (NVIDIA A100). The $\gamma$-$\beta$ bridge (Qwen3-VL, Appendix~\ref{app:gamma-beta}) adds approximately \todoNote{XX} hours.
+  \item \textbf{AI assistant disclosure.}
+    Anthropic Claude was used as an assistant tool for \textit{experimental code writing} and \textit{Korean--English translation} in this paper. All experiment design, results, analysis, interpretation, and writing remain the \textit{intellectual responsibility} of the authors.
+\end{itemize}
 
 % =============================================================
 \section*{Acknowledgments}
@@ -379,7 +450,7 @@ The digit bounding box in the anchor image is filled with OpenCV's \texttt{INPAI
 
 \noindent\textbf{PlotQA stratification.} A seed$=$42 stratified subset of 1{,}228{,}313 samples (1{,}000 per bin $\times$ 5 GT bins: $(0, 8], (8, 20], (20, 100], (100, 1{,}000], (1{,}000, 10{,}000]$), with a range filter of $[0, 10000]$.
 
-\noindent\textbf{GT distribution.} ChartQA is skewed toward small / round values; PlotQA is balanced by design; InfoVQA is natural with a mild right skew; MathVista is mixed (counting + arithmetic); TallyQA is strongly skewed toward small values (1--4 dominate).
+\noindent\textbf{GT distribution.} ChartQA is skewed toward small / round values; PlotQA is balanced by design; InfoVQA (full name: InfographicVQA) is natural with a mild right skew; MathVista is mixed (counting $+$ arithmetic); TallyQA is strongly skewed toward small values (1--4 dominate).
 
 \noindent For all datasets we enforce \texttt{require\_single\_numeric\_gt=true}: only samples whose GT candidates are all identical numeric values are retained. The \texttt{answer\_range} cutoffs are matched to the anchor inventory (Appendix~\ref{app:anchors}).
 
@@ -441,47 +512,53 @@ The digit bounding box in the anchor image is filled with OpenCV's \texttt{INPAI
 
 \todoNote{Reinforces the cross-dataset summary figure in \S4.1 and the 6-bin gradient figure in \S4.3 with \textit{numerical / auxiliary} figures. The purpose is to save body page budget.}
 
-\subsection{Direction-follow per cell: df$_a$ (\%) across 6 models $\times$ 5 datasets}
+\paragraph{Two cohorts shown side by side.} Appendices D.1 and D.2 report the same metric ($\mathrm{df}_a$, $\mathrm{adopt}_a$) on two cohorts paired in every cell as \textbf{\texttt{broad / base-wrong}}. \textbf{Broad} is the rate over \textit{all} samples in the cell (base-correct $\cup$ base-wrong) and corresponds directly to the body ranges \mbox{``$\approx$4--23\,\%''} and \mbox{``$\approx$1--13\,\%''} in \S4.1. \textbf{Base-wrong} is the rate over samples for which the b-arm prediction differs from the GT and matches the value the canonical aggregator (\texttt{scripts/build\_e5e\_e7\_5dataset\_summary.py}) writes to \texttt{main\_panel\_5dataset\_per\_cell.csv}. Cell-by-cell reproduction of both cohorts is in \texttt{notebooks/paper\_cross\_model\_cross\_dataset.ipynb} \S11--\S13.
+
+\subsection{Direction-follow per cell: df$_a$ (\%, broad / base-wrong)}
 
 \begin{table*}[h]
   \centering
   \small
-  \begin{tabular}{lrrrrr}
+  \begin{tabular}{lcccccr}
     \toprule
-    \textbf{Model} & TallyQA & ChartQA & MathVista & PlotQA & InfoVQA \\
+    \textbf{Model} & TallyQA & ChartQA & MathVista & PlotQA & InfoVQA & \textbf{Mean} \\
     \midrule
-    OneVision-7B (Main) & 9.9 & 18.9 & 20.5 & 20.6 & 19.0 \\
-    Interleave-7B & 12.7 & 20.0 & 26.6 & 29.5 & 24.4 \\
-    Qwen2.5-VL-7B & 8.5 & 18.7 & 16.2 & 17.4 & 12.3 \\
-    Qwen2.5-VL-32B & 10.9 & 20.3 & 18.4 & 16.3 & 15.6 \\
-    Gemma3-4B & 17.2 & 34.6 & 41.3 & 39.5 & 32.4 \\
-    Gemma3-27B & 15.2 & 24.0 & 33.2 & 22.7 & 35.0 \\
+    OneVision-7B (Main) & 3.9 / 9.9  & 6.6 / 18.9  & 15.3 / 20.5 & 10.9 / 20.6 & 11.2 / 19.0 & \textbf{9.6 / 17.8} \\
+    Interleave-7B       & 6.6 / 12.7 & 15.2 / 20.0 & 20.5 / 26.6 & 27.2 / 29.5 & 22.3 / 24.4 & \textbf{18.4 / 22.6} \\
+    Qwen2.5-VL-7B       & 2.9 / 8.5  & 5.1 / 18.7  & 7.2 / 16.2  & 4.0 / 17.4  & 3.1 / 12.3  & \textbf{4.4 / 14.6} \\
+    Qwen2.5-VL-32B      & 3.6 / 10.9 & 5.0 / 20.3  & 8.3 / 18.4  & 4.0 / 16.3  & 3.8 / 15.6  & \textbf{4.9 / 16.3} \\
+    Gemma3-4B           & 9.8 / 17.2 & 19.0 / 34.6 & 34.5 / 41.3 & 28.7 / 39.5 & 23.4 / 32.4 & \textbf{23.1 / 33.0} \\
+    Gemma3-27B          & 7.3 / 15.2 & 9.6 / 24.0  & 21.6 / 33.2 & 11.7 / 22.7 & 18.3 / 35.0 & \textbf{13.7 / 26.0} \\
     \bottomrule
   \end{tabular}
-  \caption{df$_a$ (\%) per cell, on the 6-model $\times$ 5-dataset main panel.}
+  \caption{df$_a$ (\%) per cell, in the format \textbf{\texttt{broad / base-wrong}}. Per-model mean range---broad: $\mathbf{4.4\text{--}23.1}$ (matches the \S4.1 ``$\approx$4--23\,\%''); base-wrong: $\mathbf{14.6\text{--}33.0}$ (the magnitude shift comes from narrowing the denominator to base-wrong). The cell-wise sign is positive on all 30/30 cells in both cohorts.}
   \label{tab:df-per-cell}
 \end{table*}
 
-\subsection{Adopt per cell: adopt$_a$ (\%, literal copy rate)}
+\subsection{Adopt per cell: adopt$_a$ (\%, broad / base-wrong)}
+
+The denominator $p_i^b \neq z_i$ is applied identically in both cohorts; only the cohort sample set differs.
 
 \begin{table*}[h]
   \centering
   \small
-  \begin{tabular}{lrrrrr}
+  \begin{tabular}{lcccccr}
     \toprule
-    \textbf{Model} & TallyQA & ChartQA & MathVista & PlotQA & InfoVQA \\
+    \textbf{Model} & TallyQA & ChartQA & MathVista & PlotQA & InfoVQA & \textbf{Mean} \\
     \midrule
-    OneVision-7B (Main) & 3.2 & 3.3 & 8.4 & 9.0 & 2.0 \\
-    Interleave-7B & 5.0 & 3.2 & 6.5 & 8.2 & 6.1 \\
-    Qwen2.5-VL-7B & 3.0 & 3.5 & 2.6 & 2.4 & 2.5 \\
-    Qwen2.5-VL-32B & 3.8 & 4.3 & 12.8 & 2.3 & 9.8 \\
-    Gemma3-4B & 6.2 & 8.8 & 30.1 & 18.4 & 13.3 \\
-    Gemma3-27B & 5.9 & 7.0 & 23.0 & 9.9 & 16.3 \\
+    OneVision-7B (Main) & 1.2 / 3.2 & 1.5 / 3.3 & 10.8 / 8.4  & 5.9 / 9.0  & 2.3 / 2.0  & \textbf{4.3 / 5.2} \\
+    Interleave-7B       & 2.6 / 5.0 & 2.8 / 3.2 & 6.6 / 6.5   & 8.1 / 8.2  & 6.0 / 6.1  & \textbf{5.2 / 5.8} \\
+    Qwen2.5-VL-7B       & 1.1 / 3.0 & 1.7 / 3.5 & 2.0 / 2.6   & 1.3 / 2.4  & 0.9 / 2.5  & \textbf{1.4 / 2.8} \\
+    Qwen2.5-VL-32B      & 1.3 / 3.8 & 1.7 / 4.3 & 8.0 / 12.8  & 1.1 / 2.3  & 2.8 / 9.8  & \textbf{3.0 / 6.6} \\
+    Gemma3-4B           & 3.3 / 6.2 & 5.9 / 8.8 & 27.6 / 30.1 & 15.4 / 18.4 & 10.5 / 13.3 & \textbf{12.5 / 15.3} \\
+    Gemma3-27B          & 2.7 / 5.9 & 3.7 / 7.0 & 17.6 / 23.0 & 6.3 / 9.9   & 10.3 / 16.3 & \textbf{8.1 / 12.4} \\
     \bottomrule
   \end{tabular}
-  \caption{adopt$_a$ (\%) per cell. \todoNote{The current numbers are under M2 / C-form (canonical CSV \texttt{main\_panel\_5dataset\_per\_cell.csv}); they will be re-aggregated once the DF formula is finalized.}}
+  \caption{adopt$_a$ (\%) per cell, in the format \textbf{\texttt{broad / base-wrong}}. Per-model mean range---broad: $\mathbf{1.4\text{--}12.5}$ (matches the \S4.1 ``$\approx$1--13\,\%''); base-wrong: $\mathbf{2.8\text{--}15.3}$.}
   \label{tab:adopt-per-cell}
 \end{table*}
+
+\todoNote{TODO (D.1 / D.2 final): current numbers use the canonical aggregation (M2 / C-form). Once the DF formula is finalized, both cohorts will be re-aggregated.}
 
 \subsection{Binary projection: wrong-base vs.\ correct-base df$_a$}
 
@@ -498,23 +575,285 @@ The digit bounding box in the anchor image is filled with OpenCV's \texttt{INPAI
 \section{Cross-architecture verification: the $\gamma$-$\beta$ residual-stream bridge (Qwen3-VL)}
 \label{app:gamma-beta}
 
-\todoNote{A partial cross-architecture verification of the routing-and-integration framework in \S5.3. On an architecture outside the main panel (Qwen3-VL), we verify the \textit{directional prediction} only.}
+\todoNote{A partial cross-architecture verification of the routing-and-integration framework in \S5.3. On an architecture outside the main panel (Qwen3-VL), we verify the \textit{directional} prediction only.}
 
-\paragraph{Setup.} For Qwen3-VL, we take the layer-wise residual-stream difference $\gamma - \beta$ between the Thinking ($\gamma$) and Non-thinking ($\beta$) modes on identical inputs. We extract the $K = 1$ SVD subspace of this difference and apply it as a layer projection. We then measure the resulting change in anchoring.
+\paragraph{Setup.} For Qwen3-VL, we take the layer-wise residual-stream difference $\gamma - \beta$ between the Thinking ($\gamma$) and Non-thinking ($\beta$) modes on identical inputs, and extract the SVD subspace of this difference. We then apply this subspace as a layer projection and measure the change in anchoring (within-Thinking, anchor-specific). Data: re-calibrated \textbf{3-pool (TallyQA + PlotQA + InfoVQA, $n_\text{wrong} = 3{,}017$)} $V_K$ subspace, 7 layers $\times$ 6 $K$ values ($K \in \{1, 2, 4, 8, 12, 16\}$) $\times$ 2 statistics (mean / max) $=$ \textbf{84 cells}, paired sids 522, Bonferroni-corrected $\alpha = 0.000595$ (vs.\ primary 0.05).
 
-\paragraph{Result.}
+\subsection{Sign-reversal across layers ($K=1, 2, 4, 8, 16$)}
+
+\begin{table}[h]
+  \centering
+  \small
+  \setlength{\tabcolsep}{3pt}
+  \begin{tabular}{lrrrrrl}
+    \toprule
+    $L$ & $K{=}1$ & $K{=}2$ & $K{=}4$ & $K{=}8$ & $K{=}16$ & direction \\
+    \midrule
+    14 & $-0.041$\checkmark & $-0.039$\checkmark & $-0.047$ & $-0.049$\checkmark & $-0.052$ & mid neg (5/5) \\
+    \textbf{20} & $\mathbf{-0.152}$\checkmark & $\mathbf{-0.127}$\checkmark & $\mathbf{-0.192}$\checkmark & $\mathbf{-0.111}$\checkmark & $\mathbf{-0.058}$ & \textbf{mid BACKFIRE (5/5)} \\
+    25 & $+0.213$\checkmark & $+0.117$ & $+0.160$ & $+0.188$ & $+0.183$ & late pos (5/5) \\
+    29 & $+0.446$\checkmark & $+0.391$ & $+0.357$ & $+0.418$ & $+0.363$ & late pos (5/5) \\
+    30 & $+0.477$\checkmark & $+0.379$ & $+0.291$ & $+0.413$ & $+0.327$ & late pos (5/5) \\
+    33 & $+0.284$\checkmark & $+0.088$ & $-0.106$ & $+0.057$ & $+0.253$ & mostly pos ($K{=}4$ dip) \\
+    34 & $+0.707$ & $+0.781$ & $+0.992$ & $+0.828$ & $+1.259$ & late pos (mag $\uparrow$ $K$) \\
+    \bottomrule
+  \end{tabular}
+  \caption{Within-Thinking anchor-specific $\Delta$ across 7 layers and 5 $K$ values (mean stat). \checkmark $=$ Bonferroni-corrected CI excludes zero ($\alpha=0.000595$ for 84 cells). Even cells without \checkmark almost all exclude zero under the primary 95\,\% CI. Source: \texttt{docs/insights/\_data/gamma\_beta\_bridge\_lk\_sweep.csv}.}
+  \label{tab:gamma-beta-lk}
+\end{table}
+
+\noindent\textbf{Headline Bonferroni-survivor} (14 of 84 cells Bonferroni-clean): \textbf{$L=30$, $K=2$, max stat $+0.866$ [$+0.412$, $+1.330$]} (Bonferroni \checkmark).
+
+\paragraph{Agreement with the framework prediction.}
+The sign reversal---mid-stack ($L=14, 20$) negative and late-stack ($L=25$--$34$) positive---is consistent across $K=1$, $K=8$, and $K=16$. The framework's directional prediction (late $=$ integration site, positive; mid $=$ routing, backfire when disrupted) is therefore verified robustly across the $K$ range.
+
+\subsection{Supplementary characterization}
+
+\begin{figure*}[t]
+  \centering
+  \includegraphics[width=0.75\textwidth]{figures/gamma_beta_bridge_per_token_trajectory.png}
+  \caption{Per-token amplitude trajectory during Thinking generation. The subspace amplitude shows a uniform ramp$+$plateau during the Thinking trace; the a-S1 (anchor) and d (neutral) arms follow the same trajectory---confirming that anchor specificity lies in the within-Thinking signal at the $L=33$ paired-$\Delta$ measurement layer (supplementary).}
+  \label{fig:gamma-beta-per-token}
+\end{figure*}
+
+\subsection{Note: why the $K$ curve differs from \S5.2}
+
+In Table~\ref{tab:gamma-beta-lk}, some cells have $K=1$ stronger than $K=8$ (e.g., at $L=30$: $K{=}1$ gives $+0.477$ vs.\ $K{=}8$'s $+0.413$). This does \textit{not} contradict the ``$K=8$ dominant, multi-direction required'' claim of \S5.2---the two sweeps draw from \textit{different subspaces}:
+
+\begin{table}[h]
+  \centering
+  \small
+  \begin{tabular}{p{1.7cm} p{2.5cm} p{2.5cm}}
+    \toprule
+     & \S5.2 $K$ sweep & E.1 $K$ sweep \\
+    \midrule
+    Subspace source & (a $-$ m) paired contrast & ($\gamma - \beta$) Thinking bridge \\
+    Captures & anchoring-specific only & reasoning-mode shift (broader) \\
+    Spectral structure & multi-direction anchoring---$K$ ramp absorbs more variance & dominant principal direction of the Thinking shift---$K=1$ captures most \\
+    \bottomrule
+  \end{tabular}
+  \caption{Subspace-source comparison for the $K$ curves of \S5.2 vs.\ Appendix E.}
+  \label{tab:gamma-beta-vs-section5}
+\end{table}
+
+The difference in $K$ curves is therefore a \textit{subspace-spectrum} difference, not a difference in the intrinsic dimensionality of anchoring. The $K$-range column of Appendix~E exists to verify the \textit{directional} prediction's $K$-robustness, not to justify a particular $K$ choice---the latter is carried by \S5.2 and \S6.2.
+
+\subsection{Scope}
+The purpose of this verification is to reinforce the \textit{cross-architecture directional consistency} of the routing-and-integration framework synthesized on OneVision Main, using the self-calibration bridge on a different architecture (Qwen3-VL). \textit{Magnitude transfer} (e.g., that the late-stack effect size is identical across architectures) is not claimed---only direction is verified across architectures.
+
+\todoNote{TODO (Figure E.3): visualize the cross-$K$ sign reversal in Table~\ref{tab:gamma-beta-lk} as a layer $\times$ $K$ 2D heatmap or a forest plot (all 84 cells or just the mean stat). Build from \texttt{docs/insights/\_data/gamma\_beta\_bridge\_lk\_sweep.csv}.}
+
+% -----------------------------------------------------------
+\section{Reproducibility checklist}
+\label{app:reproducibility}
+
 \begin{itemize}
-  \item Late layers ($L = 29$--$34$) $\rightarrow$ anchoring \emph{decreases} (positive).
-  \item A mid layer ($L = 20$) $\rightarrow$ anchoring \emph{increases} (negative---sign reversal).
+  \item \textbf{Code release.} \todoNote{repo link / anonymized link for double-blind submission.} All experiment driver scripts (\texttt{scripts/run\_experiment.py}), analysis notebooks (\texttt{notebooks/}), the mitigation calibration pipeline (\texttt{scripts/calibrate\_subspace.py}), and the capability eval harness are included.
+  \item \textbf{Data release.} Per-condition predictions (\texttt{outputs/\{experiment\}/\{model\}/predictions.\{jsonl,csv\}}) and summary aggregates (\texttt{docs/insights/\_data/*.csv}) are released. The stimulus inventory (anchor digit images, masked variants, neutral distractors) is cached in \texttt{inputs/irrelevant\_number/}, \texttt{inputs/irrelevant\_number\_masked/}, and \texttt{inputs/irrelevant\_neutral/}.
+  \item \textbf{Seeds.} All seeds for random sampling are reported---stimulus generation (FLUX \texttt{--seed 42}), anchor stratification (per-question RNG \texttt{seed=42}), bootstrap CI ($B=10{,}000$, \texttt{seed=20260510}), and JSON parse fallback.
+  \item \textbf{Hardware.} NVIDIA A100 80\,GB $\times$ \todoNote{$N$} GPUs.
+  \item \textbf{Compute budget.} Total approximately \todoNote{XX} GPU-hours (breakdown: main 6-model $\times$ 5-dataset inference \todoNote{$X$}\,h, mitigation calibration \todoNote{$X$}\,h, 6-bench capability eval \todoNote{$X$}\,h, $\gamma$-$\beta$ bridge sweep \todoNote{$X$}\,h).
+  \item \textbf{Statistical protocol.} Paired bootstrap CI ($B=10{,}000$, paired sample-instance-id resampling); Bonferroni-20 multiplicity correction for 5 datasets $\times$ 4 metric families (\S6.2); Bonferroni-corrected $\alpha = 0.000595$ for the 84-cell Appendix~E sweep.
 \end{itemize}
 
-\paragraph{Agreement with the framework prediction.} The sign-reversal pattern matches the directionality of the framework's layer-routing prediction (late $=$ integration, mid $=$ routing) $\rightarrow$ a partial prospective verification.
+\paragraph{Canonical evidence pointer table (body claim $\leftrightarrow$ underlying CSV).}
+
+\begin{table*}[h]
+  \centering
+  \small
+  \begin{tabular}{p{0.32\textwidth} p{0.60\textwidth}}
+    \toprule
+    \textbf{Claim location} & \textbf{Source CSV / md} \\
+    \midrule
+    \S4 main panel (df, adopt, em per cell) & \texttt{docs/insights/\_data/main\_panel\_5dataset\_per\_cell.csv} \\
+    \S4.3 L1 6-bin confidence gradient & \texttt{docs/insights/\_data/L1\_proxy\_monotonicity\_6bin.csv} \\
+    \S5.2 $K$-subspace sweep (OneVision) & \todoNote{TODO---new 5-dataset $K$-sweep CSV to be generated} \\
+    \S6.2 stage-4 paired-bootstrap CI & \texttt{docs/insights/\_data/stage4\_final\_per\_dataset\_ci.\{csv,md\}} \\
+    \S6.3 per-benchmark capability & \texttt{docs/insights/\_data/capability\_eval\_per\_benchmark.\{csv,md\}} \\
+    Appendix D.1/D.2 per-cell tables (base-wrong cohort) & same \texttt{main\_panel\_5dataset\_per\_cell.csv} \\
+    Appendix D.1/D.2 per-cell tables (broad cohort) & \texttt{docs/insights/\_data/experiment\_\{e5e\_tallyqa, e5e\_chartqa, e5e\_mathvista, e7\_plotqa, e7\_infographicvqa\}\_full\_per\_cell.csv} (combine \texttt{base\_correct$\in$\{True, False\}} rows, S1, \texttt{cond\_class='a'}; cell reproduction in \texttt{notebooks/paper\_cross\_model\_cross\_dataset.ipynb} \S11--\S13) \\
+    Appendix E $\gamma$-$\beta$ bridge $L \times K$ sweep & \texttt{docs/insights/\_data/gamma\_beta\_bridge\_lk\_sweep.\{csv,md\}} \\
+    Appendix G attention peak per (model, dataset) & \texttt{docs/insights/\_data/cross\_dataset\_peaks.csv} \\
+    Appendix H LEACE rank-1 / ActAdd / $K{=}1$ SVD per-dataset & \texttt{docs/insights/\_data/leace\_recal\_per\_dataset\_ci.\{csv,md\}}, \texttt{actadd\_recal\_per\_dataset\_ci.\{csv,md\}}, \texttt{p4\_layer\_sweep\_per\_cell\_ci.csv} \\
+    Appendix J closed-API judge pilot $5{\times}2{\times}3{\times}200$ & \texttt{docs/insights/judge-pilot-results.md} \\
+    \bottomrule
+  \end{tabular}
+  \caption{Canonical evidence pointers from each body claim to its underlying CSV / md file.}
+  \label{tab:evidence-pointers}
+\end{table*}
+
+% -----------------------------------------------------------
+\section{Layer-wise attention peak per (model, calibration dataset)}
+\label{app:attention-peak}
+
+\todoNote{Supporting evidence for \S5.1. We collect, in a single table, the (text $\rightarrow$ second-image) attention peak layer and magnitude for the 5 models $\times$ 3 datasets of the mechanism panel. \texttt{qwen2.5-vl-7b} is excluded because the attention probe was not measured on the paper evaluation suite (TallyQA / ChartQA / PlotQA / InfoVQA / MathVista); its mechanism-panel membership is preserved (for architecture coverage in \S3.4).}
+
+\paragraph{Definition.} For each (model, dataset) pair, we measure the per-layer attention mass on the second-image tokens at the generation \textit{answer step} (the final-numeric-token generation step), under the anchor and distractor conditions. We define $\text{peak}_\Delta = (\text{anchor-arm} - \text{distractor-arm})$, $\text{peak}_L = \arg\max_L \text{peak}_\Delta$, and $\text{depth-norm} = \text{peak}_L / n_\text{layers}$. The 95\,\% CIs come from sample-instance bootstrap.
+
+\begin{table*}[h]
+  \centering
+  \small
+  \begin{tabular}{llrrrrrl}
+    \toprule
+    \textbf{Model} & \textbf{$n_\text{layers}$} & \textbf{Dataset} & \textbf{$n$} & \textbf{peak $L$} & \textbf{depth-norm} & \textbf{peak $\Delta$} & \textbf{95\,\% CI} \\
+    \midrule
+    convllava-7b & 32 & TallyQA & 200 & 7 & 0.22 & $+0.027$ & [$+0.025$, $+0.028$] \\
+    convllava-7b & 32 & \textbf{PlotQA} & 189 & \textbf{14} & 0.45 & $+0.090$ & [$+0.084$, $+0.097$] \\
+    convllava-7b & 32 & InfoVQA & 190 & 12 & 0.39 & $+0.029$ & [$+0.025$, $+0.032$] \\
+    fastvlm-7b   & 28 & TallyQA & 50 & 23 & 0.85 & $+0.030$ & [$+0.022$, $+0.038$] \\
+    fastvlm-7b   & 28 & \textbf{PlotQA} & 205 & \textbf{17} & 0.63 & $+0.051$ & [$+0.047$, $+0.055$] \\
+    fastvlm-7b   & 28 & InfoVQA & 186 & 27 & 1.00 & $+0.024$ & [$+0.019$, $+0.029$] \\
+    gemma4-e4b   & 42 & TallyQA & 200 & 5 & 0.12 & $+0.051$ & [$+0.048$, $+0.055$] \\
+    gemma4-e4b   & 42 & \textbf{PlotQA} & 205 & \textbf{5} & 0.12 & $+0.037$ & [$+0.034$, $+0.040$] \\
+    gemma4-e4b   & 42 & InfoVQA & 200 & 5 & 0.12 & $+0.033$ & [$+0.031$, $+0.036$] \\
+    llava-1.5-7b & 32 & TallyQA & 192 & 8 & 0.26 & $+0.018$ & [$+0.016$, $+0.019$] \\
+    llava-1.5-7b & 32 & \textbf{PlotQA} & 205 & \textbf{14} & 0.45 & $+0.039$ & [$+0.036$, $+0.043$] \\
+    llava-1.5-7b & 32 & InfoVQA & 198 & 8 & 0.26 & $+0.017$ & [$+0.015$, $+0.019$] \\
+    OneVision-7B (Main) & 28 & TallyQA & 79$^\dagger$ & 27 & 1.00 & $+0.031$ & [$+0.024$, $+0.037$] \\
+    OneVision-7B (Main) & 28 & \textbf{PlotQA} & 204 & \textbf{27} & 1.00 & $+0.027$ & [$+0.023$, $+0.030$] \\
+    OneVision-7B (Main) & 28 & InfoVQA & 200 & 14 & 0.52 & $+0.010$ & [$+0.009$, $+0.012$] \\
+    \bottomrule
+  \end{tabular}
+  \caption{Per-(model, dataset) attention peak at the answer step. \textbf{Bold} $=$ the calibration-dataset choice referenced in the \S5.1 body (PlotQA). $\dagger$ $=$ small $n$ (OneVision TallyQA attention-trace pool is small); peak $L$ is consistent at $L=27$ on OneVision's two \textit{late-peak} datasets (PlotQA, TallyQA), and $L=14$ on InfoVQA, so direct magnitude comparison should be interpreted with care. Source: \texttt{docs/insights/\_data/cross\_dataset\_peaks.csv}.}
+  \label{tab:attention-peak}
+\end{table*}
+
+\paragraph{Observation.} The calibration-dataset peak depth-norm spans from $0.12$ (gemma4-e4b, 3/3 datasets) to $1.00$ (fastvlm on InfoVQA, OneVision on PlotQA / TallyQA). Cross-model heterogeneity (the five models' peak depth-norms cover the early / mid / late ranges of the stack) and OneVision's intra-model heterogeneity ($L=27$ on PlotQA / TallyQA, $L=14$ on InfoVQA) directly back the \S5.1 \textit{peak heterogeneity} claim numerically---the \textit{absence of a single uniform causal site} is a natural consequence of routing-pathway variation across models and datasets (\S5.3 framework prediction).
+
+% -----------------------------------------------------------
+\section{Single-direction methods: convergent negative evidence (\S5.2)}
+\label{app:single-direction}
+
+\todoNote{Supporting evidence for \S5.2. Three methods that remove only a single within-layer direction fail to sufficiently reduce anchoring across five datasets---direct evidence for \textit{within-layer multi-direction representation} and justification for the $K=8$ design in \S6.}
+
+\paragraph{Methods compared (all on OneVision Main, injection site $L=26$, $\alpha=1.0$).}
+
+\begin{table}[h]
+  \centering
+  \small
+  \begin{tabular}{p{1.8cm} p{4.4cm}}
+    \toprule
+    \textbf{Method} & \textbf{Description} \\
+    \midrule
+    \textbf{LEACE rank-1} & Closed-form linear erasure [Belrose 2023]. $X_\text{neg} = h^b$, $X_\text{pos} = h^b + (h^a - h^m)$, PlotQA $+$ InfoVQA pool. \\
+    \textbf{ActAdd} & Paired-contrast mean shift (CAA-style) [Panickssery 2024], wrong-base filter, PlotQA $+$ InfoVQA pool. \\
+    \textbf{$K{=}1$ SVD} & Top-1 singular direction of the $(h^a - h^m)$ paired residual matrix, PlotQA $+$ InfoVQA pooled $n5\text{k}$. \\
+    \textbf{$K{=}8$ SVD} & Top-8 singular directions (\S6 chosen cell). \\
+    \bottomrule
+  \end{tabular}
+  \caption{Method definitions for the comparison in Appendix~H.}
+  \label{tab:single-direction-methods}
+\end{table}
+
+\begin{table*}[h]
+  \centering
+  \small
+  \begin{tabular}{lrrrr}
+    \toprule
+    \textbf{Dataset} & \textbf{LEACE rank-1} & \textbf{ActAdd} & \textbf{$K{=}1$ SVD} & \textbf{$K{=}8$ SVD (ref)} \\
+    \midrule
+    TallyQA   & $+0.60$ [$+0.00$, $+1.24$]   & $+0.23$ [$-0.04$, $+0.50$]   & $\mathbf{+1.35}$ [$+0.52$, $+2.17$]  & $-0.3$ [$-1.3$, $+0.6$] \\
+    PlotQA    & $-0.52$ [$-1.34$, $+0.30$]   & $-0.39$ [$-1.04$, $+0.26$]   & $-0.35$ [$-1.65$, $+0.91$]            & $\mathbf{-5.2}$ [$-6.9$, $-3.4$] \\
+    InfoVQA   & $-0.68$ [$-2.48$, $+1.35$]   & $+1.35$ [$-0.23$, $+3.16$]   & $-1.35$ [$-4.51$, $+1.81$]            & $-0.7$ [$-4.7$, $+3.4$] \\
+    ChartQA   & $-2.23$ [$-4.46$, $+0.00$]   & $-1.34$ [$-4.02$, $+1.34$]   & $-2.68$ [$-6.70$, $+1.34$]            & $-4.0$ [$-9.8$, $+1.8$] \\
+    MathVista & $0.00$ [$-3.53$, $+3.53$]    & $0.00$ [$-3.53$, $+3.53$]    & $+5.29$ [$-2.35$, $+12.94$]           & $-4.1$ [$-11.8$, $+3.5$] \\
+    \bottomrule
+  \end{tabular}
+  \caption{$\Delta \mathrm{df}_a$ [95\,\% CI] per dataset (pp). \textbf{Bold} $=$ 95\,\% CI excludes 0 (sign-clean). $n_\text{paired}$ differs by method (LEACE TallyQA $n=2493$, eraser-eligible filter; ActAdd $n=8146$, wrong-base only; $K{=}1$ / $K{=}8$ SVD $n \approx 4975$, 4-condition wrong-base eligible). Variants at $\alpha \in \{0.5, 2.0\}$ are in the source CSV with qualitatively identical patterns.}
+  \label{tab:single-direction-deltas}
+\end{table*}
+
+\paragraph{Convergent pattern.} The three single-direction methods share two dataset-specific failure patterns:
+\begin{itemize}
+  \item \textbf{(i) TallyQA backfire.} 3/3 methods produce a point-estimate $\Delta \mathrm{df}_a > 0$ at $\alpha = 1.0$ (LEACE $+0.60$, ActAdd $+0.23$, $K{=}1$ SVD $+1.35$; only $K{=}1$ SVD's 95\,\% CI is strictly sign-clean). The $K{=}8$ SVD at the same site is $-0.3$\,pp---the backfire is resolved.
+  \item \textbf{(ii) PlotQA undershoot.} 3/3 methods give $|\Delta| < 0.6$\,pp with 95\,\% CIs overlapping 0; the $K{=}8$ SVD's PlotQA $\Delta \mathrm{df}_a = -5.2$\,pp [$-6.9$, $-3.4$] (sign-clean) is roughly $10 \times$ stronger.
+\end{itemize}
+
+The fact that three methods with different designs (closed-form erasure / mean shift / single SVD) reproduce the \textit{same dataset-specific failure profile} provides \textit{method-independent corroboration} of the \S5.2 mechanism claim that the anchoring representation does not reduce to a single within-layer direction. At the same injection site ($L=26$), expanding the dimension from $K=1$ to $K=8$ amplifies the PlotQA $\Delta \mathrm{df}_a$ by roughly $10 \times$ and resolves the TallyQA backfire---direct justification for the \textit{multi-direction subspace ($K=8$)} choice in \S6.
+
+% -----------------------------------------------------------
+\section{VLM-as-judge anchoring pilot (closed-API)}
+\label{app:judge-pilot}
+
+\todoNote{Supplementary verification for \S7.1 ecological validity. We check whether cross-modal anchoring surfaces on closed-API frontier judges, reinforcing that the open-weight main-panel finding is not an architecture artifact but a phenomenon present in \textit{deployment-realistic} scenarios. This is supplementary to the \S7.1 \textit{deployment-relevance} reading, not a replacement for the \S4 / \S5 / \S6 contributions.}
+
+\paragraph{Setup.} 5 closed-API judges $\times$ 2 standard judge benchmarks $\times$ 3 arms (b: image only / a: $+$ anchor digit ``1'' / m: $+$ Telea-masked anchor) $\times$ $n=200$ paired samples per cell. Judge task $=$ \textit{Visual Faithfulness 1--5 rating} (VLFeedback Silkie native rubric). Response selector $=$ chosen (VLFeedback: max average GPT-4V rating; VL-RewardBench: argmax human ranking)---an adversarial worst case (high-baseline samples preserve room for the anchor to push).
+
+\begin{table}[h]
+  \centering
+  \small
+  \begin{tabular}{ll}
+    \toprule
+    \textbf{Item} & \textbf{Value} \\
+    \midrule
+    Datasets & \textbf{VLFeedback} (\texttt{MMInstruction/VLFeedback}) $+$ \textbf{VL-RewardBench} (\texttt{MMInstruction/VL-RewardBench}), $n=200$ each \\
+    Anchor & digit ``1'' (\texttt{inputs/irrelevant\_number/1.png}); m-arm $=$ same image, digit pixels Telea-masked \\
+    Judges & gpt-4o, gpt-5.1, gemini-2.5-pro, gemini-2.5-flash, claude-sonnet-4-5-20250929 \\
+    Reasoning & gpt-5.1 $+$ flash via \texttt{reasoning\_effort=minimal} (non-reasoning); gemini-2.5-pro reasoning ON (provider policy) \\
+    Gateway & \texttt{gateway.letsur.ai/v1} (Staix, OpenAI-compat); 2026-05-13/14 access \\
+    \bottomrule
+  \end{tabular}
+  \caption{Closed-API judge pilot configuration.}
+  \label{tab:judge-pilot-config}
+\end{table}
+
+\begin{table*}[h]
+  \centering
+  \small
+  \begin{tabular}{llrrrrrl}
+    \toprule
+    \textbf{Dataset} & \textbf{Judge} & \textbf{$n$} & \textbf{b $\rightarrow$ a $\rightarrow$ m mean} & \textbf{$\Delta$(a$-$b)} & \textbf{$\Delta$(m$-$b)} & \textbf{$\Delta$(a$-$m)} & \textbf{$P(\text{score}{=}1)$ b $\rightarrow$ a} \\
+    \midrule
+    VLFeedback & \textbf{gpt-4o}              & 199 & $4.49 \rightarrow 3.94 \rightarrow 4.41$ & $\mathbf{-0.55}$ & $-0.08$ & $\mathbf{-0.47}$ & 5\,\% $\rightarrow$ 25\,\% ($+21$\,pp) \\
+    VLFeedback & gpt-5.1                       & 199 & $3.89 \rightarrow 3.85 \rightarrow 3.86$ & $-0.04$           & $-0.03$ & $-0.01$           & 12\,\% $\rightarrow$ 13\,\% ($+0.5$\,pp) \\
+    VLFeedback & gemini-2.5-pro                & 193 & $3.67 \rightarrow 3.68 \rightarrow 3.77$ & $+0.02$           & $+0.10$ & $-0.08$           & 20\,\% $\rightarrow$ 22\,\% ($+1.6$\,pp) \\
+    VLFeedback & \textbf{gemini-2.5-flash}     & 198 & $4.32 \rightarrow 3.89 \rightarrow 3.98$ & $\mathbf{-0.41}$  & $-0.34$ & $-0.07$           & 14\,\% $\rightarrow$ 26\,\% ($+12$\,pp) \\
+    VLFeedback & claude-sonnet-4-5             & 193 & $3.88 \rightarrow 3.83 \rightarrow 3.86$ & $-0.05$           & $-0.02$ & $-0.03$           & 8\,\% $\rightarrow$ 12\,\% ($+3.6$\,pp) \\
+    VL-RewardBench & \textbf{gpt-4o}           & 199 & $4.61 \rightarrow 3.65 \rightarrow 4.27$ & $\mathbf{-0.96}$  & $-0.34$ & $\mathbf{-0.62}$  & 2\,\% $\rightarrow$ 32\,\% ($+30$\,pp) \\
+    VL-RewardBench & gpt-5.1                   & 199 & $3.35 \rightarrow 3.40 \rightarrow 3.23$ & $+0.05$           & $-0.12$ & $+0.17$           & 14\,\% $\rightarrow$ 11\,\% ($-3.0$\,pp) \\
+    VL-RewardBench & gemini-2.5-pro            & 165$^\dagger$ & $2.67 \rightarrow 2.62 \rightarrow 2.77$ & $+0.04$ & $+0.23$ & $-0.19$           & 36\,\% $\rightarrow$ 37\,\% ($+0.6$\,pp) \\
+    VL-RewardBench & \textbf{gemini-2.5-flash} & 197 & $4.35 \rightarrow 3.75 \rightarrow 3.79$ & $\mathbf{-0.58}$  & $-0.54$ & $-0.04$           & 8\,\% $\rightarrow$ 25\,\% ($+17$\,pp) \\
+    VL-RewardBench & claude-sonnet-4-5         & 198 & $3.26 \rightarrow 3.11 \rightarrow 3.14$ & $-0.15$           & $-0.12$ & $-0.03$           & 5\,\% $\rightarrow$ 11\,\% ($+5.6$\,pp) \\
+    \bottomrule
+  \end{tabular}
+  \caption{Headline matrix (5 judge $\times$ 2 dataset $\times$ 3 arm). \textbf{Bold} $=$ $|\Delta(\text{a}-\text{b})| \geq 0.4$ (substantial effect). Source: \texttt{docs/insights/judge-pilot-results.md}.}
+  \label{tab:judge-headline}
+\end{table*}
+
+\paragraph{Two distinct attack patterns} (via the $\Delta(\text{a}-\text{m})$ vs.\ $\Delta(\text{m}-\text{b})$ split):
+
+\begin{table}[h]
+  \centering
+  \small
+  \begin{tabular}{p{1.6cm} l l l p{2.3cm}}
+    \toprule
+    \textbf{Pattern} & \textbf{$\Delta(a{-}b)$} & \textbf{$\Delta(m{-}b)$} & \textbf{$\Delta(a{-}m)$} & \textbf{Judges} \\
+    \midrule
+    \textbf{Digit-specific} & large neg & $\approx 0$ & large neg & gpt-4o (VLF / VLB $\Delta(a{-}m)$ $-0.47$ / $-0.62$) \\
+    \textbf{Distractor-general} & large neg & $\approx \Delta(a{-}b)$ & $\approx 0$ & gemini-2.5-flash ($\Delta(m{-}b) \approx \Delta(a{-}b)$) \\
+    Null on both & $\approx 0$ & $\approx 0$ & $\approx 0$ & gpt-5.1 / gemini-2.5-pro / claude-sonnet-4-5 \\
+    \bottomrule
+  \end{tabular}
+  \caption{Attack-pattern classification of judges.}
+  \label{tab:judge-attack-patterns}
+\end{table}
+
+The \textit{digit-specific} pattern (gpt-4o) is isolated by the (a $-$ m) paired contrast with the same sign as in \S3.2 / \S4.2---our mechanism partially detects this on closed-API as well. The \textit{distractor-general} pattern (flash) is a distinct threat model (a multi-image instruction-following weakness against \textit{any} second image).
+
+\paragraph{Within-vendor ablations.}
+\begin{itemize}
+  \item \textbf{OpenAI generation (gpt-4o $\rightarrow$ gpt-5.1).} Within a vendor, a newer generation effectively eliminates anchor susceptibility (mean $\Delta(a{-}b)$ drops from $\sim 1$\,pt to noise). The cause (RLHF / scale / instruction-following) cannot be disentangled.
+  \item \textbf{Google reasoning toggle (pro vs.\ flash).} Within a family, reasoning ON (pro) is robust while reasoning OFF (flash) is highly susceptible---directional support for the hypothesis that \textit{reasoning provides anchor-resistance}. A pro-vs-flash capability gap acts as a confound (a clean ablation would require pro-with-reasoning-disabled, which provider policy disallows).
+\end{itemize}
 
 \paragraph{Caveats.}
-(i) $N = 1$ architecture (Qwen3-VL only).
-(ii) $K = 1$ only---the quantitative ratio of the original $K = 8$ prediction ($\times 12.7$) is \emph{falsified}.
-(iii) The verification is not strictly prospective (the framework already existed at test time)---only the \emph{directional} cross-architecture verification holds.
+\begin{itemize}
+  \item Anchor $=$ ``1''---a \textit{single anchor digit}. An anchor $=$ ``5'' ceiling-push expansion was not run (an earlier 2-judge run was null due to a score-5 ceiling).
+  \item The chosen-response selector is worst-case adversarial on the high-baseline cohort---the random-response selector attenuates the effect by approximately $10 \times$ (the anchor effect is \textit{baseline-conditional}).
+  \item $\dagger$ gemini-2.5-pro VL-RewardBench: parse fail rate 10\,\% (longer reasoning chain $\times$ \texttt{max\_output\_tokens=2048} budget) $\rightarrow$ $n_\text{pair} = 165$; sufficient for the null reading but use care for direct magnitude comparison.
+  \item Only gateway aliases are exposed---except for claude-sonnet-4-5-20250929, other models are cited by alias $+$ access-date pattern.
+\end{itemize}
 
-\todoNote{TODO: a multi-architecture, $K > 1$, full prospective verification is registered as a \S7.3 follow-up.}
+This pilot is \textit{supplementary} to the \S7.1 \textit{ecological validity} discussion---it shows that anchoring surfaces on \textit{some} closed-API frontier judges (gpt-4o, gemini-2.5-flash), reinforcing the deployment relevance of the mitigation. It does \textit{not} replace the \S4--\S7 contributions.
 
 \end{document}
