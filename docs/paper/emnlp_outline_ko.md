@@ -218,6 +218,25 @@ Primary metric Δdf(a) (negative = anchoring 감소), secondary Δadopt(a) + Δe
 
 > **TODO (8-bench extension):** Memory note 의 *E8 8-bench* (n=27,097, +0.31 pp, AMBER + MME 추가) 는 *canonical CSV 에 미반영* — config (`configs/capability_eval_mme_amber.yaml`) 만 있고 결과 CSV 없음. AMBER + MME 실행 + 통합 후 canonical 6-bench → 8-bench update 필요. 현재 본문 수치 (+0.41 pp) 는 6-bench canonical 결과로 Abstract / §1.3 와 일치.
 
+### 6.4 Cross-architecture replication on Qwen2.5-VL-7B-Instruct
+
+> **Status (2026-05-18):** Phase 0 완료, Phase 1.5 chosen cell L=26 K=8 α=1.0 (OneVision 와 identical, recipe-portable), Phase 2 Stage-4 **prompt-format 의 confound 로 inconclusive** (mean Δdf=−0.10pp, OneVision −2.9pp 의 ~3%). 진단 chain (B/C/D/E) 결과 cross-arch 효과 부재의 *진짜 원인은 architectural difference 가 아니라 응답 format 차이*임을 확인 — JSON-strict system prompt 위에서 LLaVA family 는 raw number 출력 (hook 가 step 0 = digit token 에 직접 작용), Qwen + Gemma family 는 JSON-compliant `{"result": N}` 출력 (hook 가 step 0 = `{"` 에 작용, digit 은 step 4 에 묻혀 effect ≈ 0 propagate). 본 subsection 은 **Option K (raw-number prompt 위 3-model panel full re-run, 새 branch `worktree-e6-prompt-controlled-rerun`) 결과** 로 갱신될 예정. 진단 evidence: `docs/insights/E6-cross-arch-prompt-confound-2026-05-18.md`. Phase 0 secondary finding (LM-backbone-determined integration depth) 는 prompt 와 무관, 유효: `docs/insights/E6-cross-arch-qwen25vl-phase0.md`.
+
+{{본 subsection 은 §6.1 calibrated subspace projection mitigation recipe 를 **Qwen2.5-VL-7B-Instruct** 위에 instantiate 한다. OneVision (SigLIP encoder + Qwen2 28-layer LM) 과 Qwen2.5-VL (Qwen2 ViT NaViT-style dynamic resolution + Qwen2 28-layer LM) 은 *encoder-family 가 다른* 두 architecture — *encoder-family transfer* 의 첫 측정. Recipe 는 §6.1 과 거의 identical — (a − m) paired-inpaint calibration, 45-cell pilot grid (L ∈ **{14, 20, 25, 26, 27}** × K ∈ {2, 4, 8} × α ∈ {0.5, 1.0, 2.0}; **L\*_qwen = 26** Phase 0 calibrate-subspace + SVD pool 후 `‖v_wrong[L]‖` top-1 으로 식별, evidence doc 위 단조 ramp 확인), Δem(a) ≥ −6pp deal-breaker + combined |Δdf(a)| ranking 으로 cell 선정 — *hyperparameter retuning 없이 동일 recipe portability 검증*. **Grid 는 OneVision 27-cell topology (L ∈ {25, 26, 27}) 를 두 mid-stack layer 로 확장**: L=14 는 §5.3 OneVision-internal "dataset-dependent peak" 결과 (InfoVQA 위 L=14) 의 cross-arch replication 검증, L=20 는 §5.4 P4 framework finding ("PlotQA L=20 −4.7 pp Bonferroni sig" OneVision-internal) 의 cross-arch generality 검증. Design + budget detail 은 `docs/experiments/E6-cross-arch-design.md`.}}
+
+**Phase 0 — L\*_qwen 식별 (2026-05-17 완료).** Calibration pool = PlotQA + InfoVQA pooled wrong-base + 4-cond eligible, **n_wrong = 1,148** (PlotQA 926 + InfoVQA 222; OneVision 2,757 대비 ~42 % — Qwen2.5-VL anchor-resistance 가 outline §D.1 df 0.146 vs 0.178 에서 예측한 그대로 작용; sample-size implication 은 Phase 2 statistical headline 절에서 §8 "Statistical scope" 와 연계). Per-layer `‖v_wrong[L]‖` 분포는 L0 ≈ 0.1 → L26 = 8.52 단조 ramp + L27 = 5.81 sharp drop — **late-residual integration site L=26, depth-norm 93 %, OneVision 과 동일 depth**. *Encoder-family transfer 의 첫 정성 결과*: SigLIP (OneVision) vs Qwen2-ViT-NaViT (Qwen2.5-VL) encoder 가 달라도 integration site L 은 같다 — §5.3 routing-and-integration framework 의 "integration 은 LM residual downstream, encoder-independent" 라는 prediction 직접 supporting evidence.
+
+**Preview Table 6.4 — Per-dataset paired-bootstrap Δ (95 % CI).** TBD — Phase 2 결과 landing 후 populate. OneVision §6.2 Table 6.2 와 동일 schema (Δ adopt(a) / Δ df(a) / Δ em(a) / Δ em(b) per dataset, B=10,000 paired sids).
+
+**Preview Table 6.4 (cont.) — 6-bench capability deltas.** TBD — Phase 3 결과 landing 후 populate. STRICT_FREE_LUNCH protocol, §6.3 Table 6.3 와 동일 schema.
+
+**Decision rule (verbatim from §6.2.3 4-clause):** (i) Δdf(a) < 0 with ≥ 1 dataset 95 % CI excludes 0; (ii) Δem(a) ≥ 0 mean AND Δem(b) ≥ 0 mean across 5 datasets; (iii) 6-bench macro Δ ≥ −0.5 pp; (iv) ≥ 1 cell in 27-cell pilot passes (i)+(ii)+(iii).
+
+> **Outcome 시나리오 (paper-wide implication):**
+> - **All 3 clauses pass on ≥ 1 cell**: §8 "Mitigation scope" 의 *magnitude transfer 는 후속 작업* 절 closed, paper Findings → Main conditional met (R4 CRIT-1 N=1 → N=2 close).
+> - **Clause (i)+(iii) pass, (ii) Em(b) fails**: anchoring reduction 은 transfer, capability gain (§6.3 +0.41 pp / §6.2 Em(b) +8.8 pp) 은 OneVision-specific 으로 §6.3 / §7.2 future-work prose 재서술.
+> - **Clause (i) fails (0/27 cells reduce anchoring)**: bounded *recipe portability* 결과 — 동일 recipe 가 cross-encoder transfer 되지 않으므로 (L*, K, α) re-tuning 이 *operational requirement* 임을 §8 + §7.2 에서 명시 (paper Findings 유지).
+
 ---
 
 ## 7 Discussion
@@ -244,7 +263,7 @@ Primary metric Δdf(a) (negative = anchoring 감소), secondary Δadopt(a) + Δe
 
 > EMNLP 필수 섹션. 페이지 제한 *밖*.
 
-**Mitigation scope.** Subspace projection mitigation 은 LLaVA-OneVision-7B Main 위 worked example — cross-architecture *directional* framework verification 은 γ-β bridge (Qwen3-VL, Appendix E) 에서 제공; *magnitude* transfer 는 후속 작업. Mitigation 은 anchoring effect 를 *부분적으로* 감소 (Δdf(a) mean -2.9 pp), 완전 elimination 은 representation-level inference-time intervention 의 scope 밖 — K / α 선택은 anchoring reduction 과 capability preservation 의 균형점.
+**Mitigation scope.** Subspace projection mitigation 은 LLaVA-OneVision-7B Main 위 worked example — cross-architecture *directional* framework verification 은 γ-β bridge (Qwen3-VL, Appendix E) 에서 제공; *magnitude* transfer 는 §6.4 Qwen2.5-VL-7B-Instruct replication 으로 **진행 중** (2026-05-17 design landed; Phase 0–3 execution 후 본 절 갱신). Mitigation 은 anchoring effect 를 *부분적으로* 감소 (Δdf(a) mean -2.9 pp), 완전 elimination 은 representation-level inference-time intervention 의 scope 밖 — K / α 선택은 anchoring reduction 과 capability preservation 의 균형점.
 
 **Statistical scope.** Multiplicity-robust headline 은 *capability gain* (Δem(b)) — 5/5 dataset × Bonferroni-20 corrected CI sign-clean. *Anchoring reduction* (Δdf(a)) 는 sample-size-bound — PlotQA (n=2,306) single-dataset CI-clean, 나머지 4 small-n dataset 은 점추정 일관 + CI border.
 
