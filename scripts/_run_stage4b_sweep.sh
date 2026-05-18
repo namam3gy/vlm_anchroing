@@ -47,6 +47,17 @@ echo "Using GPUs: $VLM_ANCHOR_GPUS  (busy with §5.1 or other: ${BUSY_GPUS:-none
 # RUN_INFERENCE toggle in the notebook reads this env var.
 export VLM_ANCHOR_RUN_INFERENCE=1
 
+# Per-shard CPU thread cap to avoid GIL/futex contention. On a 128-core
+# node with 8 shards, torch's default 64-thread pool per shard floods
+# the cores with 8 × 64 = 512 threads (4× oversubscription), causing
+# threads to spend most time waiting on futex_wait_queue and GPU util
+# to crater. 4 OMP threads per shard × 8 = 32 OMP threads + 16 PIL
+# prefetch workers per shard × 8 = 128 PIL workers ≈ 160 threads,
+# matching the 128 cores with light overhead margin.
+export OMP_NUM_THREADS=4
+export MKL_NUM_THREADS=4
+export NUMEXPR_NUM_THREADS=4
+
 # Pre-check: H1 subspace tensor must exist (Stage 4b.1+2 must have run)
 SUBSPACE_PATH=$MAIN/outputs/e6_steering/llava-onevision-qwen2-7b-ov/_subspace/subspace_plotqa_infovqa_pooled_h1_K16.pt
 if [ ! -f "$SUBSPACE_PATH" ]; then
