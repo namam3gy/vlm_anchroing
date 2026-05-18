@@ -170,6 +170,19 @@ def _parse_args() -> argparse.Namespace:
     # default outputs/e6_steering/<model>/<...>/ layout. The driver
     # provides one shard subdir per launched subprocess.
     ap.add_argument("--output-dir", default=None)
+    # Calibration eligibility filter for `--phase calibrate-subspace`. Determines
+    # which sids contribute to D_wrong (the "priority subset" used for SVD/v_wrong).
+    # Backward-compat default is wrong-base; anchor-positive uses adopt(a) OR df(a)
+    # for outcome-conditioned calibration (see plan
+    # docs/insights/E6-cross-arch-prompt-confound-2026-05-18.md Option Tier 2).
+    ap.add_argument("--calibration-filter", default="wrong-base",
+                    choices=["wrong-base", "anchor-positive"],
+                    help="Eligibility filter for the SVD-priority subset. "
+                         "wrong-base: target_only exact_match==0; "
+                         "anchor-positive: adopt(a) OR df(a) on a-arm vs b-arm. "
+                         "File naming (D_wrong.pt, v.pt) preserved for "
+                         "downstream e6_compute_subspace.py + e6_pick_peak_layers.py "
+                         "compatibility — file *names* are semantically 'priority subset'.")
     return ap.parse_args()
 
 
@@ -1280,9 +1293,44 @@ def _calibrate_subspace_from_predictions(args, config) -> None:
     ]
     wrong_sids = {sid for sid in eligible_sids
                   if by_sid_cond[sid]["target_only"].get("exact_match") == 0}
-    print(f"[setup] {len(eligible_sids)} eligible sids, {len(wrong_sids)} wrong-base")
 
-    # Prioritize wrong-base sids so D_wrong gets max coverage before hitting max_pairs
+    # Compute the "priority subset" based on --calibration-filter. File naming
+    # preserves D_wrong / wrong_sids semantics so downstream scripts work, but
+    # the SET is what the chosen filter dictates.
+    filter_choice = getattr(args, "calibration_filter", "wrong-base")
+    if filter_choice == "anchor-positive":
+        def _try_float(v):
+            try: return float(v)
+            except (TypeError, ValueError): return None
+        anchor_pos_sids: set[str] = set()
+        for sid in eligible_sids:
+            b = by_sid_cond[sid]["target_only"]
+            a = by_sid_cond[sid]["target_plus_irrelevant_number_S1"]
+            pb = _try_float(b.get("parsed_number") or b.get("prediction"))
+            pa = _try_float(a.get("parsed_number") or a.get("prediction"))
+            z = _try_float(a.get("anchor_value"))
+            if pb is None or pa is None or z is None:
+                continue
+            adopt = (pa == z) and (pb != z)
+            df = ((pa - pb) * (z - pb) > 0) and (pa != pb)
+            if adopt or df:
+                anchor_pos_sids.add(sid)
+        priority_sids = anchor_pos_sids
+        print(f"[setup] {len(eligible_sids)} eligible sids, "
+              f"{len(wrong_sids)} wrong-base, "
+              f"{len(priority_sids)} anchor-positive (filter={filter_choice})")
+    else:
+        priority_sids = wrong_sids
+        print(f"[setup] {len(eligible_sids)} eligible sids, "
+              f"{len(priority_sids)} wrong-base (filter={filter_choice})")
+
+    # Re-bind wrong_sids to the chosen priority set for downstream reuse
+    # (D_wrong inclusion check + ordered_sids prioritization). This preserves
+    # existing file-naming and downstream-script compatibility.
+    wrong_sids = priority_sids
+
+    # Prioritize priority-subset sids so D_wrong gets max coverage before
+    # hitting max_pairs
     ordered_sids = ([s for s in eligible_sids if s in wrong_sids]
                     + [s for s in eligible_sids if s not in wrong_sids])
 
