@@ -182,14 +182,21 @@ cells.append(code(r"""
 from __future__ import annotations
 import json
 import math
+import subprocess
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 
-# Allow running this notebook from either repo root or notebooks/.
-THIS = Path.cwd()
-REPO = THIS if (THIS / "outputs" / "paper2" / "cross_model_cross_dataset").exists() else THIS.parent
+# Gitignored artifacts (outputs/, docs/insights/_data/) live in the MAIN
+# worktree even when this notebook is opened from a linked worktree.
+def _find_main_worktree() -> Path:
+    common = subprocess.check_output(
+        ["git", "rev-parse", "--git-common-dir"], cwd=Path.cwd(), text=True
+    ).strip()
+    return Path(common).resolve().parent
+
+REPO = _find_main_worktree()
 PAPER_DIR = REPO / "outputs" / "paper2" / "cross_model_cross_dataset"
 PRED_ROOT = PAPER_DIR / "predictions"
 CANON_PER_CELL = REPO / "docs" / "insights" / "_data" / "main_panel_5dataset_per_cell.csv"
@@ -632,15 +639,34 @@ for ds in DATASETS:
 
 PER_CELL = pd.DataFrame(cell_rows)
 
-# Persist the per-cell aggregate at two canonical locations so
-# downstream non-notebook consumers (`scripts/build_paper_figures.py`)
-# and the §4-figures notebook cross-check can read it.
+# Persist the per-cell aggregate at two canonical locations.
+# Schema-compatible with legacy `scripts/build_e5e_e7_5dataset_summary.py`
+# (long format: cond_class × stratum × base_correct=False = base-wrong
+# is the paper-canonical subset; broad metrics stay in PER_CELL display
+# only). Consumed by `build_paper_figures.py` + the §4-figures notebook
+# cross-check at the tail of this notebook.
+_canon_rows = []
+for _, r in PER_CELL.iterrows():
+    for _cond in ("a", "m"):
+        _canon_rows.append({
+            "dataset":              r["dataset"],
+            "model":                r["model"],
+            "cond_class":           _cond,
+            "stratum":              "S1",
+            "base_correct":         False,
+            "n":                    int(r[f"n_{_cond}_wb"]) if pd.notna(r.get(f"n_{_cond}_wb")) else 0,
+            "adopt_M2":             r[f"adopt_{_cond}_wb"],
+            "direction_follow_M2":  r[f"df_{_cond}_wb"],
+            "exact_match":          r[f"em_{_cond}_wb"],
+        })
+_canon_long = pd.DataFrame(_canon_rows)
+
 _SUMMARY_DIR = REPO / "outputs" / "paper2" / "cross_model_cross_dataset" / "summary"
 _SUMMARY_DIR.mkdir(parents=True, exist_ok=True)
 CANON_PER_CELL.parent.mkdir(parents=True, exist_ok=True)
-PER_CELL.to_csv(_SUMMARY_DIR / "main_panel_per_cell.csv", index=False)
-PER_CELL.to_csv(CANON_PER_CELL, index=False)
-print(f"wrote {_SUMMARY_DIR / 'main_panel_per_cell.csv'}")
+_canon_long.to_csv(_SUMMARY_DIR / "main_panel_per_cell.csv", index=False)
+_canon_long.to_csv(CANON_PER_CELL, index=False)
+print(f"wrote {_SUMMARY_DIR / 'main_panel_per_cell.csv'}  ({len(_canon_long)} rows long format)")
 print(f"wrote {CANON_PER_CELL}")
 
 PER_CELL.head(6)

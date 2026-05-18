@@ -38,17 +38,11 @@ fi
 
 echo ""
 echo "=== Stage 3.2 · paper_cross_model_cross_dataset.ipynb (canonical CSV emit) ==="
-$PY -m jupyter nbconvert \
-  --to notebook --execute --inplace \
-  --ExecutePreprocessor.timeout=900 \
-  notebooks/paper_cross_model_cross_dataset.ipynb
+$PY scripts/_exec_notebook.py notebooks/paper_cross_model_cross_dataset.ipynb
 
 echo ""
 echo "=== Stage 3.3 · paper_section_4_figures.ipynb (Figure 1/2/4) ==="
-$PY -m jupyter nbconvert \
-  --to notebook --execute --inplace \
-  --ExecutePreprocessor.timeout=600 \
-  notebooks/paper_section_4_figures.ipynb
+$PY scripts/_exec_notebook.py notebooks/paper_section_4_figures.ipynb
 
 echo ""
 echo "=== Stage 3 outputs ==="

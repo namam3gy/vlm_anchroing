@@ -49,10 +49,7 @@ cp -v "$CANON_DIR/L1_confidence_quartile_long_6bin.csv" \
 
 echo ""
 echo "=== Stage 3b.4 · Refresh §4 figures (Figure 4 picks up new L1 CSV) ==="
-$PY -m jupyter nbconvert \
-  --to notebook --execute --inplace \
-  --ExecutePreprocessor.timeout=600 \
-  notebooks/paper_section_4_figures.ipynb
+$PY scripts/_exec_notebook.py notebooks/paper_section_4_figures.ipynb
 
 echo ""
 echo "=== Stage 3b outputs ==="
