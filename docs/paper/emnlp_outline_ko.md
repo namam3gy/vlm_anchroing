@@ -345,10 +345,11 @@ Anchor 이미지의 digit bounding box 를 OpenCV `INPAINT_TELEA` [Telea, 2004] 
 | PlotQA | test | seed=42 stratified subset of 1,228,313 (1,000/bin × 5 GT bins (0,8] (8,20] (20,100] (100,1k] (1k,10k]) | range [0, 10000] | **5,000** | 0–10000 | bins 균등 (sampled by design) |
 | InfoVQA (full: InfographicVQA) | val | fetch-time numeric-only subset of 1,147 | range [0, 10000] | **1,147** | 0–10000 | natural, mild right-skew |
 | MathVista | testmini | full split (1,000) | `answer_type=integer`, range [0, 1000] | **385** | 0–1000 | mixed (도형 counting + 산술) |
-| TallyQA | test | full split (38,589) | numeric GT, range [0, 8] | **38,245** | 0–8 (counting) | strongly skewed small (1–4 dominant) |
+| TallyQA | test | deterministic 5,000-cap of 38,245 eligible from full split (38,589); first 5,000 question_ids in loader order | numeric GT, range [0, 8] | **5,000** | 0–8 (counting) | strongly skewed small (1–4 dominant) |
 
 - *Eligible samples (n)* = filter 통과한 sample 수, 모든 모델 공통. 이 pool 위에서 4-condition (b/a/m/d) 자극이 구성된다.
 - 모든 dataset 에 공통으로 `require_single_numeric_gt=true` — GT 후보가 모두 동일 numeric value 인 sample 만 채택. `answer_range` cutoff 는 anchor inventory (Appendix C) 와 정합되도록 설정.
+- TallyQA 는 38,245 eligible 풀이 다른 4 dataset 보다 자릿수가 한 단계 크기 때문에 6-model × 4-condition compute budget 정렬을 위해 5,000 cap 을 적용 — `configs/experiment_e5e_tallyqa_full.yaml` 의 `vqa_dataset.max_samples: 5000`. 사용된 정확한 question_id 5,000 개는 `docs/insights/_data/tallyqa_5k_sids.json` 에 audit receipt 로 commit 되어 있으며, `scripts/build_tallyqa_5k_sids.py` 로 결정론적으로 재생성 가능.
 
 ---
 
