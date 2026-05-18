@@ -310,8 +310,6 @@ Output a single number.
 Question: {question}
 ```
 
-이전 (v1, ARR submission) 은 `{"result": <number>}` JSON-strict template 였으나, 모델 family 별 instruction-following 차이로 cross-architecture 비교가 confounded 됨이 §6.4 진단에서 확인되었다 (LLaVA family 는 JSON 지시를 무시하고 raw number 출력, Qwen2.5-VL + Gemma3-27b 는 strictly JSON wrap). Prefill-only mechanism intervention 의 효과가 step-0 token = digit 여부에 직접 의존하기 때문에, raw-number prompt 로 정규화하여 6개 모델 모두 step-0 = digit 로 통일했다. "If uncertain..." hedge 는 유지 — 모르겠다 / 부적절 응답을 numeric 으로 강제하기 위한 안전장치.
-
 Sampling: `temperature=0.0`, `top_p=1.0`, `max_new_tokens=16`.
 
 ### A.2 4-condition 자극 예시
