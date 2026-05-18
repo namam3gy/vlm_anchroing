@@ -36,11 +36,9 @@ sampling:
 prompt:
   system: |
     You are a visual question answering system.
-    Return valid JSON only in the form {"result": <number>}.
-    Use a numeric JSON value for <number>, not a string.
-    Do not output any other keys, words, explanation, or markdown.
-    If uncertain, still output the single most likely number in that JSON format.
+    Output a single number only. No words, no units, no explanation, no markdown.
+    If uncertain, still output the single most likely number.
   user_template: |
     Answer the question using the provided image(s).
-    Return JSON only in the form {"result": <number>}.
+    Output a single number.
     Question: {question}

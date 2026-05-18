@@ -1,30 +1,48 @@
-"""Per-sample evaluation and condition-level summarisation under M2 metrics.
+"""Per-sample evaluation and condition-level summarisation.
 
-Canonical definitions (`docs/insights/M2-metric-definition-evidence.md`):
+Canonical metric definitions (current = eps=0 form, decided 2026-05-18 as
+part of Option H1; see [[option-h1-prompt-df-full-rerun]] and
+`docs/insights/M2-metric-definition-evidence.md` for the migration trail
+from M2 C-form → eps=0):
 
-    adopt_rate            = #(pa == anchor AND pb != anchor) / #(pb != anchor)
-    direction_follow_rate = #( (pa-pb)·(anchor-pb) > 0  AND  pa != pb )
-                            / #(numeric pair AND anchor present)
-    exact_match           = #(pa == gt) / #(numeric pair)
-    anchor_effect_M       = M(a-arm) - M(d-arm)
+    adopt_rate     = #(pa == z AND pb != z)   /  #(pb != z)
+    DF_a (eps=0)   = #( (pa-pb)·(z-pb) > 0 )  /  #(numeric pair AND pb != z)
+    exact_match    = #(pa == gt)              /  #(numeric pair)
+    anchor_effect  = M(a-arm) - M(d-arm)
 
-The ``direction_follow_rate`` numerator measures whether ``pa`` (the
-anchor-condition prediction) shifted **from the baseline ``pb`` toward the
-anchor stimulus**. Using ``pb`` (not ``gt``) as the reference makes the
-metric depend only on model outputs and the anchor draw — a direct measure
-of anchor pull, robust to per-question stimulus variability.
+The ``DF_a`` numerator measures whether ``pa`` (the anchor-condition
+prediction) shifted **from the baseline ``pb`` toward the anchor stimulus
+``z``**. Using ``pb`` (not ``gt``) as the reference makes the metric
+depend only on model outputs and the anchor draw — a direct measure of
+anchor pull, robust to per-question stimulus variability.
+
+The eps=0 form excludes the ``pb == z`` rows (base already matches the
+anchor) from the DF denominator. The earlier M2 C-form left those rows
+in the denominator with forced-zero numerator (because (pa-pb)·(z-pb)=0
+on pb==z), diluting the rate. Eps=0 closes that asymmetry — new DF ≥
+old DF, with equality iff no pb==z row in the subset.
 
 Per-row flags persisted to ``predictions.jsonl``:
 
     anchor_adopted                       — paired numerator (M1)
-    anchor_direction_followed            — DF_raw, sign-based
-    anchor_direction_followed_moved      — DF_moved (= DF_raw AND pa_ne_pb)
-    pred_b_equal_anchor                  — pb_eq_a
+    anchor_direction_followed            — DF strict-positive sign indicator
+    anchor_direction_followed_moved      — = anchor_direction_followed under eps=0
+                                           (strict ``>`` already implies pa != pb)
+    pred_b_equal_anchor                  — pb_eq_z (used to gate DF denominator)
     pred_diff_from_base                  — pa_ne_pb
-    numeric_distance_to_anchor
+    numeric_distance_to_anchor           — numeric-pair-with-anchor gate
 
-Aggregated rates use the new flags; legacy raw rates remain available
-under ``*_marginal`` / ``*_raw`` names for back-compat audit.
+Aggregated rates: ``anchor_direction_follow_rate`` is the canonical eps=0
+DF. The pre-eps M2 C-form rate is retained as
+``anchor_direction_follow_rate_legacy`` for audit and migration
+diff-checks; do not cite the legacy field in new analysis.
+
+Note on ``_raw`` vs ``_legacy``: under eps=0 the strict ``>`` predicate
+forces ``direction_followed = direction_followed_moved`` on every real
+record, so on production data ``anchor_direction_follow_rate_raw`` ≡
+``anchor_direction_follow_rate_legacy``. Both fields are retained for
+pre-eps audit and for the migration diff-check; either can be dropped
+once the migration trail closes.
 """
 from __future__ import annotations
 
@@ -82,9 +100,10 @@ def evaluate_sample(
     Adopt numerator (paired, M1):
         anchor_adopted = (pa == anchor) AND (pb != anchor)
 
-    Direction-follow numerators (C-form, gt-free):
+    Direction-follow numerators (eps=0, gt-free):
         anchor_direction_followed       = (pa - pb) * (anchor - pb) > 0
-        anchor_direction_followed_moved = anchor_direction_followed AND (pa != pb)
+        anchor_direction_followed_moved = same value as above under eps=0
+                                          (strict ``>`` implies pa != pb)
 
     Denominator filters live in ``summarize_condition``; this function only
     populates the per-row indicators.
@@ -146,17 +165,23 @@ def evaluate_sample(
 
 
 def summarize_condition(records: list[dict], condition_name: str) -> dict:
-    """Per-condition aggregate statistics under M2 metrics.
+    """Per-condition aggregate statistics.
 
-    Headline rates use M2 denominators:
+    Headline rates use eps=0 denominators (canonical since 2026-05-18):
 
-        anchor_adoption_rate       =  Σ anchor_adopted                          /  Σ (pred_b != anchor)
-        anchor_direction_follow_rate = Σ anchor_direction_followed_moved        /  Σ (numeric pair AND anchor present)
+        anchor_adoption_rate           =  Σ anchor_adopted                  /  Σ (pred_b != anchor)
+        anchor_direction_follow_rate   =  Σ anchor_direction_followed_moved
+                                          /  Σ (numeric pair AND pred_b != anchor)
+                                                                      ↑ eps=0 gate
 
-    Legacy / pre-M2 forms also reported for audit:
+    Legacy / pre-eps forms retained for audit (do NOT cite in new analysis):
 
-        anchor_adoption_rate_marginal      =  Σ anchor_adopted                / count_subset (D_all)
-        anchor_direction_follow_rate_raw   =  Σ anchor_direction_followed     / Σ (numeric pair AND anchor present)
+        anchor_adoption_rate_marginal        =  Σ anchor_adopted          / count_subset
+        anchor_direction_follow_rate_legacy  =  Σ anchor_direction_followed_moved
+                                                /  Σ (numeric pair AND anchor present)
+                                                                  ↑ old M2 C-form denominator
+        anchor_direction_follow_rate_raw     =  Σ anchor_direction_followed
+                                                /  Σ (numeric pair AND anchor present)
     """
     subset = [r for r in records if r["condition"] == condition_name]
     if not subset:
@@ -172,9 +197,19 @@ def summarize_condition(records: list[dict], condition_name: str) -> dict:
 
     # numeric_distance_to_anchor is set IFF pa and anchor are both int-parseable
     # AND anchor is present (see evaluate_sample line 117); gt does NOT gate
-    # the predicate. Reuse it as the "numeric pair AND anchor present" denominator
-    # for direction_follow_rate.
+    # the predicate.
     n_numeric_with_anchor = sum(1 for r in subset if r.get("numeric_distance_to_anchor") is not None)
+
+    # Eps=0 DF denominator: numeric pair AND anchor present AND pb != anchor.
+    # Excluding pb==anchor rows closes the dilution where (pa-pb)·(z-pb)=0
+    # was forced into the denominator with no possibility of contributing
+    # to the numerator. See module docstring.
+    n_df_eps0 = sum(
+        1
+        for r in subset
+        if r.get("numeric_distance_to_anchor") is not None
+        and not _flag(r, "pred_b_equal_anchor")
+    )
 
     sum_adopt = sum(_flag(r, "anchor_adopted") for r in subset)
     sum_df_raw = sum(_flag(r, "anchor_direction_followed") for r in subset)
@@ -187,9 +222,11 @@ def summarize_condition(records: list[dict], condition_name: str) -> dict:
         "accuracy_exact": mean(r["exact_match"] for r in subset),
         "n_pb_ne_anchor_denominator": n_pb_ne_a,
         "n_numeric_anchor_denominator": n_numeric_with_anchor,
+        "n_df_eps0_denominator": n_df_eps0,
         "anchor_adoption_rate": (sum_adopt / n_pb_ne_a) if n_pb_ne_a else None,
         "anchor_adoption_rate_marginal": sum_adopt / n,
-        "anchor_direction_follow_rate": (sum_df_moved / n_numeric_with_anchor) if n_numeric_with_anchor else None,
+        "anchor_direction_follow_rate": (sum_df_moved / n_df_eps0) if n_df_eps0 else None,
+        "anchor_direction_follow_rate_legacy": (sum_df_moved / n_numeric_with_anchor) if n_numeric_with_anchor else None,
         "anchor_direction_follow_rate_raw": (sum_df_raw / n_numeric_with_anchor) if n_numeric_with_anchor else None,
         "median_distance_to_anchor": median(
             r["numeric_distance_to_anchor"] for r in subset if r["numeric_distance_to_anchor"] is not None

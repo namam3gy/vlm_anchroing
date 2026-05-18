@@ -47,7 +47,11 @@ logs/
 # Generated artifacts and writing in docs/ — kept local only, regenerable
 # or user-managed outside the repo. Markdown summaries elsewhere stay
 # tracked.
-docs/insights/_data/
+docs/insights/_data/*
+# Option H1 audit receipt — paired-sids list for the TallyQA cap=5000
+# re-inference; ships with the repo so reviewers can verify the exact
+# sub-sample without re-running `scripts/build_tallyqa_5k_sids.py`.
+!docs/insights/_data/tallyqa_5k_sids.json
 docs/paper/*
 # ...except the iterative review trail (audit-traceable)
 !docs/paper/reviews/

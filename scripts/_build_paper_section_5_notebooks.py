@@ -95,9 +95,17 @@ SCRIPTS    = WORKTREE / "scripts"
 CONFIGS    = WORKTREE / "configs"
 DATA_DIR   = MAIN / "docs" / "insights" / "_data"
 
-# §5.2 reads predictions.jsonl from canonical per-experiment legacy run dirs
-# (cross_model_cross_dataset snapshots only carry the CSV). Each tuple maps the
-# §5.2 dataset_tag to the legacy run dir for OneVision-Main.
+# §5.2 reads predictions.jsonl. Under H1 (raw-number prompt + eps=0 DF)
+# point at the paper2 snapshot. Legacy timestamped run dirs preserved as
+# fallback for audit-trail / direct rerun-without-H1 reproduction.
+H1_PRED_ROOT = MAIN / "outputs" / "paper2" / "cross_model_cross_dataset" / "predictions"
+H1_PRED_ROOTS = {
+    "plotqa":         H1_PRED_ROOT / "plotqa"         / "llava-onevision-qwen2-7b-ov",
+    "infographicvqa": H1_PRED_ROOT / "infographicvqa" / "llava-onevision-qwen2-7b-ov",
+    "chartqa":        H1_PRED_ROOT / "chartqa"        / "llava-onevision-qwen2-7b-ov",
+    "mathvista":      H1_PRED_ROOT / "mathvista"      / "llava-onevision-qwen2-7b-ov",
+    "tallyqa":        H1_PRED_ROOT / "tallyqa"        / "llava-onevision-qwen2-7b-ov",
+}
 LEGACY_PRED_ROOTS = {
     "plotqa":         MAIN / "outputs" / "experiment_e7_plotqa_full"         / "llava-onevision-qwen2-7b-ov" / "20260502-132624",
     "infographicvqa": MAIN / "outputs" / "experiment_e7_infographicvqa_full" / "llava-onevision-qwen2-7b-ov" / "20260502-152105",
@@ -110,6 +118,10 @@ LEGACY_PRED_ROOTS = {
 def legacy_pred(ds_tag: str) -> Path:
     return LEGACY_PRED_ROOTS[ds_tag] / "predictions.jsonl"
 
+
+def h1_pred(ds_tag: str) -> Path:
+    return H1_PRED_ROOTS[ds_tag] / "predictions.jsonl"
+
 # §5.2 e6_steering input root selection (same toggle as §5.1 above):
 #   - RUN_INFERENCE=False: read pre-existing sweep dirs from legacy
 #     `outputs/e6_steering/` (the aggregators have always filtered by
@@ -118,7 +130,7 @@ def legacy_pred(ds_tag: str) -> Path:
 #   - RUN_INFERENCE=True: write new calibrate / sweep dirs to an isolated
 #     tree so this run doesn't commingle with the legacy pool.
 E6_ROOT_LEGACY = MAIN / "outputs" / "e6_steering"
-E6_ROOT_FRESH  = MAIN / "outputs" / "paper" / "section_5_e6_steering"
+E6_ROOT_FRESH  = MAIN / "outputs" / "paper2" / "section_5_e6_steering"
 
 # §5.1 attention input root selection:
 #   - RUN_INFERENCE=False: read pre-existing bbox-with runs from
@@ -132,21 +144,21 @@ ATT_ROOT_LEGACY = MAIN / "outputs" / "attention_analysis"
 # `section_5_attention` is the n=400 root (n=400 spec was the first run).
 # `section_5_attention_n1000` is the n=1000 extension. After n=1000 completes,
 # n=400 is to be retired and only the n=1000 tree kept.
-ATT_ROOT_FRESH  = MAIN / "outputs" / "paper" / "section_5_attention_n1000"
-PEAKS_CSV       = MAIN / "outputs" / "paper" / "section_5_attention_n1000" / "_data" / "cross_dataset_peaks.csv"
+ATT_ROOT_FRESH  = MAIN / "outputs" / "paper2" / "section_5_attention_n1000"
+PEAKS_CSV       = MAIN / "outputs" / "paper2" / "section_5_attention_n1000" / "_data" / "cross_dataset_peaks.csv"
 BBOX_FILE       = MAIN / "inputs" / "irrelevant_number_bboxes.json"
 
 ATT_ROOT_FRESH.mkdir(parents=True, exist_ok=True)
 PEAKS_CSV.parent.mkdir(parents=True, exist_ok=True)
 assert BBOX_FILE.exists(), f"missing digit-pixel bbox JSON: {BBOX_FILE}"
 
-PDF_OUT = MAIN     / "outputs" / "paper" / "section_5_figures"
+PDF_OUT = MAIN     / "outputs" / "paper2" / "section_5_figures"
 PNG_OUT = WORKTREE / "docs"    / "figures"
 PDF_OUT.mkdir(parents=True, exist_ok=True)
 PNG_OUT.mkdir(parents=True, exist_ok=True)
 
 GPUS = os.environ.get("VLM_ANCHOR_GPUS", "0,1,2,3,4")  # 5 GPUs by default
-RUN_INFERENCE = False  # set True to invoke the heavy sharded drivers.
+RUN_INFERENCE = os.environ.get("VLM_ANCHOR_RUN_INFERENCE", "").lower() in ("1", "true", "yes")  # set VLM_ANCHOR_RUN_INFERENCE=1 to invoke the heavy sharded drivers.
 
 # Pick the attention + e6_steering input roots.
 # `ATT_ROOT_FRESH` (section_5_attention_n1000) holds the canonical §5.1
@@ -571,11 +583,11 @@ improvement). The 5-dataset sweep adds 5 datasets × 4 layers at K=8 +
 ONEVISION    = "llava-onevision-qwen2-7b-ov"
 ONEVISION_HF = "llava-hf/llava-onevision-qwen2-7b-ov-hf"
 
-PILOT_LAYERS = [14, 20, 22, 26]
+PILOT_LAYERS = [14, 16, 20, 26]  # H1 §5.1 peak: OneVision=14 (Main), qwen2.5-7b=16; 20/26 retained per user spec
 PILOT_ALPHAS = [0.5, 1.0, 2.0]
 PILOT_KS     = [1, 2, 4, 8]
 
-CALIB_SCOPE       = "plotqa_infovqa_pooled_n5k"
+CALIB_SCOPE       = "plotqa_infovqa_pooled_h1"
 CALIB_MAX_PAIRS   = 2500
 
 # Batched generate. B=16 validated via _smoke_batched_vs_sequential.py
@@ -583,7 +595,7 @@ CALIB_MAX_PAIRS   = 2500
 # cells). B=1 falls back to the legacy per-sample path. Prefetch workers
 # parallelise PIL.Image.open across the batch and pipeline the next chunk
 # while the current chunk runs on GPU.
-SWEEP_BATCH_SIZE     = 16
+SWEEP_BATCH_SIZE     = 1   # batched generate causes bf16 drift on OneVision AnyRes — see [[batched-generate-onevision-anyres]]
 SWEEP_PREFETCH_WORKERS = 16
 
 SWEEP_DATASETS_5D = [
@@ -593,7 +605,7 @@ SWEEP_DATASETS_5D = [
     ("chartqa",   "experiment_e5e_chartqa_full"),
     ("mathvista", "experiment_e5e_mathvista_full"),
 ]
-SWEEP_LAYERS_5D = [14, 20, 22, 26]
+SWEEP_LAYERS_5D = [14, 16, 20, 26]
 SWEEP_KS_5D     = [8, 1]   # K=8 sweep + K=1 fallback at L=26
 SWEEP_ALPHA_5D  = 1.0
 """),
@@ -653,7 +665,7 @@ def sweep_pilot():
         "uv", "run", "python", str(SCRIPTS / "run_sweep_subspace_sharded.py"),
         "--config", str(CONFIGS / "experiment_e7_plotqa_full.yaml"),
         "--model", ONEVISION, "--hf-model", ONEVISION_HF,
-        "--predictions-path", str(legacy_pred("plotqa")),
+        "--predictions-path", str(h1_pred("plotqa")),
         "--dataset-tag", "plotqa",
         "--subspace-path", str(subspace_path),
         "--subspace-scope", CALIB_SCOPE,
@@ -677,7 +689,7 @@ run_cmd(
      "--ks",     ",".join(str(k) for k in PILOT_KS),
      "--alphas", ",".join(str(a) for a in PILOT_ALPHAS),
      "--out-csv", str(PILOT_OUT_CSV),
-     "--fig-dir", str(MAIN / "outputs" / "paper" / "section_5_figures")],
+     "--fig-dir", str(MAIN / "outputs" / "paper2" / "section_5_figures")],
     dry=not RUN_INFERENCE,
 )
 """),
@@ -761,7 +773,7 @@ def sweep_5dataset_layer():
                 "tallyqa": "tallyqa", "chartqa": "chartqa",
                 "mathvista": "mathvista"}
     for ds_tag, cfg_slug in SWEEP_DATASETS_5D:
-        pred = legacy_pred(pred_key[ds_tag])
+        pred = h1_pred(pred_key[ds_tag])
         out_dir = E6_ROOT_FRESH / ONEVISION / f"sweep_subspace_{ds_tag}_{CALIB_SCOPE}_p4_layer_sweep_K1_layers_K8"
         cmd = [
             "uv", "run", "python", str(SCRIPTS / "run_sweep_subspace_sharded.py"),
@@ -783,7 +795,7 @@ def sweep_5dataset_layer():
         ["uv", "run", "python", str(SCRIPTS / "aggregate_e6_layer_sweep_p4.py"),
          "--e6-root", str(E6_ROOT_FRESH),
          "--out-data", str(SWEEP_OUT_DATA),
-         "--out-fig", str(MAIN / "outputs" / "paper" / "section_5_figures")],
+         "--out-fig", str(MAIN / "outputs" / "paper2" / "section_5_figures")],
         dry=not RUN_INFERENCE,
     )
 

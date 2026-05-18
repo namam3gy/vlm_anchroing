@@ -341,12 +341,19 @@ def main():
     if args.dry_run:
         for p in paths:
             status = "skip (already processed)" if (not args.force and already_processed(p)) else "process"
-            print(f"  {status}: {p.relative_to(PROJECT_ROOT)}")
+            try:
+                rel = p.relative_to(PROJECT_ROOT)
+            except ValueError:
+                rel = p
+            print(f"  {status}: {rel}")
         return
 
     total_n = total_found = total_missing = total_skipped = 0
     for p in paths:
-        rel = p.relative_to(PROJECT_ROOT)
+        try:
+            rel = p.relative_to(PROJECT_ROOT)
+        except ValueError:
+            rel = p  # absolute path display when run on outputs outside the worktree
         if not args.force and already_processed(p):
             print(f"[skip] {rel}  (already has span proxies)")
             total_skipped += 1

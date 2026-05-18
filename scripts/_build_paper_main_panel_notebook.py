@@ -33,7 +33,7 @@ cells.append(md(r"""
 phenomenon panel that underpins paper §4 (Anchoring effect: graded pull
 and literal copy) and Appendix D.1 / D.2.
 
-**Data location.** `outputs/paper/cross_model_cross_dataset/` (this
+**Data location.** `outputs/paper2/cross_model_cross_dataset/` (this
 notebook reads it top-to-bottom, no other dependencies).
 
 **Spec source-of-truth.** `docs/paper/emnlp_outline_ko.md` §3.4 (panel),
@@ -67,19 +67,24 @@ cells.append(md(r"""
 
 ```
 You are a visual question answering system.
-Return valid JSON only in the form {"result": <number>}.
-Use a numeric JSON value for <number>, not a string.
-Do not output any other keys, words, explanation, or markdown.
-If uncertain, still output the single most likely number in that JSON format.
+Output a single number only. No words, no units, no explanation, no markdown.
+If uncertain, still output the single most likely number.
 ```
 
 **User template:**
 
 ```
 Answer the question using the provided image(s).
-Return JSON only in the form {"result": <number>}.
+Output a single number.
 Question: {question}
 ```
+
+Replaces the prior JSON-strict prompt (which forced LLaVA-family raw-number
+compliance but left Qwen2.5-VL + Gemma3-27b at 99–100 % JSON output — see
+`docs/insights/E6-cross-arch-prompt-confound-2026-05-18.md`). Under this
+raw-number prompt, all 6 panel models emit a single number at step 0 of
+generation, equalising the prefill-only hook's direct-channel access across
+architectures.
 
 Number of images attached:
 - `b` (target_only): 1 image
@@ -136,7 +141,7 @@ Implementation: `src/vlm_anchor/data.py` → `compute_strata()` + `sample_strati
 
 # -- 5. Metrics ------------------------------------------------------------
 cells.append(md(r"""
-## 5 · Metrics (C-form, current canonical) — restricted to base-wrong subset
+## 5 · Metrics (eps=0 form, current canonical) — restricted to base-wrong subset
 
 Outline §3.3 defines two subsets:
 - **base-correct** = { i | pb_i == gt_i }
@@ -155,16 +160,19 @@ $$
 $$
 
 $$
-\text{DF}_c = \frac{ \#\{i : (p^c_i - pb_i)(z_i - pb_i) > 0 \text{ and } p^c_i \neq pb_i\} }{ \#\{i : \text{numeric pair and anchor present}\} }
+\text{DF}_c = \frac{ \#\{i : (p^c_i - pb_i)(z_i - pb_i) > 0\} }{ \#\{i : \text{numeric pair} \text{ and } z_i \text{ present} \text{ and } pb_i \neq z_i\} }
 $$
 
 $$
 \text{EM}_c        = \frac{ \#\{i : p^c_i = gt_i\} }{ \#\{i : \text{numeric}\} }
 $$
 
-> **Note.** Outline §3.3 finalizes DF to the epsilon-threshold form
-> `P[(p^c−pb)(z−pb) > eps | |z−pb| > eps]`; the current canonical numbers
-> use the C-form above. Both are sign-based and gt-free.
+> **Note.** Eps=0 form (current canonical, 2026-05-18). Strict `>` already
+> implies `p^c ≠ pb`, so the numerator's old `pa != pb` qualifier is
+> redundant. Denominator excludes `pb_i == z_i` rows (base already matches
+> anchor) — the M2 C-form left those rows in the denominator with
+> forced-zero numerator, diluting the rate. See
+> `docs/insights/M2-metric-definition-evidence.md` migration trail.
 """))
 
 # -- 6. Imports + paths ----------------------------------------------------
@@ -174,15 +182,22 @@ cells.append(code(r"""
 from __future__ import annotations
 import json
 import math
+import subprocess
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 
-# Allow running this notebook from either repo root or notebooks/.
-THIS = Path.cwd()
-REPO = THIS if (THIS / "outputs" / "paper" / "cross_model_cross_dataset").exists() else THIS.parent
-PAPER_DIR = REPO / "outputs" / "paper" / "cross_model_cross_dataset"
+# Gitignored artifacts (outputs/, docs/insights/_data/) live in the MAIN
+# worktree even when this notebook is opened from a linked worktree.
+def _find_main_worktree() -> Path:
+    common = subprocess.check_output(
+        ["git", "rev-parse", "--git-common-dir"], cwd=Path.cwd(), text=True
+    ).strip()
+    return Path(common).resolve().parent
+
+REPO = _find_main_worktree()
+PAPER_DIR = REPO / "outputs" / "paper2" / "cross_model_cross_dataset"
 PRED_ROOT = PAPER_DIR / "predictions"
 CANON_PER_CELL = REPO / "docs" / "insights" / "_data" / "main_panel_5dataset_per_cell.csv"
 
@@ -205,8 +220,11 @@ DISPLAY = {
     "infographicvqa": "InfographicVQA",
 }
 
-# Outline-spec eligible n_b per dataset
-N_B_EXPECTED = {"tallyqa": 38245, "chartqa": 705, "mathvista": 385, "plotqa": 5000, "infographicvqa": 1147}
+# Outline-spec eligible n_b per dataset.
+# TallyQA capped at 5,000 (was 38,245 base-eligible) — deterministic paired
+# subset shared across all 6 models. See `inputs/tallyqa_5k_sids.json` for the
+# canonical sid list (pre-computed before H1 baseline re-inference).
+N_B_EXPECTED = {"tallyqa": 5000, "chartqa": 705, "mathvista": 385, "plotqa": 5000, "infographicvqa": 1147}
 
 # Outline-spec anchor scheme per dataset
 ANCHOR_SCHEME = {
@@ -620,6 +638,37 @@ for ds in DATASETS:
         cell_rows.append({"dataset": DISPLAY[ds], "model": model, **m})
 
 PER_CELL = pd.DataFrame(cell_rows)
+
+# Persist the per-cell aggregate at two canonical locations.
+# Schema-compatible with legacy `scripts/build_e5e_e7_5dataset_summary.py`
+# (long format: cond_class × stratum × base_correct=False = base-wrong
+# is the paper-canonical subset; broad metrics stay in PER_CELL display
+# only). Consumed by `build_paper_figures.py` + the §4-figures notebook
+# cross-check at the tail of this notebook.
+_canon_rows = []
+for _, r in PER_CELL.iterrows():
+    for _cond in ("a", "m"):
+        _canon_rows.append({
+            "dataset":              r["dataset"],
+            "model":                r["model"],
+            "cond_class":           _cond,
+            "stratum":              "S1",
+            "base_correct":         False,
+            "n":                    int(r[f"n_{_cond}_wb"]) if pd.notna(r.get(f"n_{_cond}_wb")) else 0,
+            "adopt_M2":             r[f"adopt_{_cond}_wb"],
+            "direction_follow_M2":  r[f"df_{_cond}_wb"],
+            "exact_match":          r[f"em_{_cond}_wb"],
+        })
+_canon_long = pd.DataFrame(_canon_rows)
+
+_SUMMARY_DIR = REPO / "outputs" / "paper2" / "cross_model_cross_dataset" / "summary"
+_SUMMARY_DIR.mkdir(parents=True, exist_ok=True)
+CANON_PER_CELL.parent.mkdir(parents=True, exist_ok=True)
+_canon_long.to_csv(_SUMMARY_DIR / "main_panel_per_cell.csv", index=False)
+_canon_long.to_csv(CANON_PER_CELL, index=False)
+print(f"wrote {_SUMMARY_DIR / 'main_panel_per_cell.csv'}  ({len(_canon_long)} rows long format)")
+print(f"wrote {CANON_PER_CELL}")
+
 PER_CELL.head(6)
 """))
 

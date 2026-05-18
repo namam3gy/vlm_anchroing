@@ -6,6 +6,11 @@ vqa_dataset:
   answer_type_filter: ["number"]
   answer_range: 8
   require_single_numeric_gt: true
+  # Option H1 cap (2026-05-18): 5,000 paired sids across the 6-model panel.
+  # Loader iterates questions.jsonl deterministically; the first 5,000
+  # eligible samples are recorded in `inputs/tallyqa_5k_sids.json` as the
+  # audit receipt (generator: `scripts/build_tallyqa_5k_sids.py`).
+  max_samples: 5000
 
 inputs:
   irrelevant_number_dir: inputs/irrelevant_number
@@ -37,11 +42,9 @@ sampling:
 prompt:
   system: |
     You are a visual question answering system.
-    Return valid JSON only in the form {"result": <number>}.
-    Use a numeric JSON value for <number>, not a string.
-    Do not output any other keys, words, explanation, or markdown.
-    If uncertain, still output the single most likely number in that JSON format.
+    Output a single number only. No words, no units, no explanation, no markdown.
+    If uncertain, still output the single most likely number.
   user_template: |
     Answer the question using the provided image(s).
-    Return JSON only in the form {"result": <number>}.
+    Output a single number.
     Question: {question}
