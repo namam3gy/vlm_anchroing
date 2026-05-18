@@ -802,6 +802,27 @@ contingent on P0-1 bridge experiment.
 
 ## 10. Changelog
 
+- **🚨 URGENT 2026-05-18 daytime (E6 cross-arch — prompt-format confound discovered, Option K queued).**
+  Phase 2 Stage-4 on Qwen2.5-VL-7B landed at 06:26 KST (mean Δdf = −0.10 pp,
+  OneVision Stage-4 mean −2.9 pp 의 ~3%; PlotQA backfire +1.30 pp; only
+  ChartQA borderline CI-clean). Diagnostic chain B → D → C → E (full-population
+  format check + per-step logit margin on both models) 결과: **hook
+  architecture 동일하지만 single-shot prefill hook 의 효과가 step 0 token
+  까지만 직접 도달**. LLaVA family (OneVision + Interleave) 는 JSON-strict
+  system prompt 를 *무시*하고 raw number 출력 → step 0 = digit → hook 직접
+  영향. Qwen2.5-VL + Gemma3-27b 는 JSON instruction 강력 *준수*하여 `{"result":
+  N}` 출력 → step 0 = `{"`, digit 은 step 4 에 묻힘 → indirect KV-cache
+  propagation 효과 ≈ 0 (n=20 진단 위 step 4 logit Δ = +0.0000). Full-population
+  format check: Qwen2.5-VL 100 % JSON, Gemma3-27b 100 % JSON, OneVision 70-98 %
+  raw across PlotQA/ChartQA. **§6 main result (OneVision Δdf −2.9 pp etc) 가
+  LLaVA family 의 instruction-non-compliance 위에 우연히 build 됨이 paper-level
+  confound 로 surface**. **Option K (raw-number prompt 위 3-model panel full
+  re-run)** 가 paper-level fix. Evidence:
+  `docs/insights/E6-cross-arch-prompt-confound-2026-05-18.md`. Diagnostic
+  script: `scripts/diagnose_qwen25vl_logit_margin.py`. PR #54 (현 branch)
+  는 diagnostic finding + Phase 2 raw-output preservation 으로 close 예정;
+  Option K 새 branch `worktree-e6-prompt-controlled-rerun` 로 진행.
+
 - **2026-05-18 dawn (cross-arch E6 Phase 1.5 pre-decision + Phase 2 chain auto-launch).**
   Partial Phase 1 aggregator at 03:37 KST (PlotQA full 46,000 records +
   InfoVQA L=14/L=20 full + L=25 partial 5/9 cells covered): top-5 pooled
