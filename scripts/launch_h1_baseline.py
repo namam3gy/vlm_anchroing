@@ -165,6 +165,9 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--gpus", type=int, default=None, help="Number of GPUs to use (default: autodetect via nvidia-smi)")
     ap.add_argument("--dry-run", action="store_true", help="Print plan, don't execute")
+    ap.add_argument("--light-first", action="store_true",
+                    help="Run smallest cells first instead of heaviest. Use when an interruption "
+                         "is imminent (pod swap, etc.) so you bank cheap marker wins before kill.")
     args = ap.parse_args()
 
     n_gpus = args.gpus if args.gpus is not None else detect_gpu_count()
@@ -172,8 +175,12 @@ def main() -> None:
     OUT_ROOT.mkdir(parents=True, exist_ok=True)
 
     all_jobs = build_jobs()
-    # Run heaviest first to fill GPU slots early so small-model GPUs are not stranded.
-    all_jobs.sort(key=lambda j: -j.weight())
+    if args.light_first:
+        # Smallest first — bank marker wins before an imminent interruption.
+        all_jobs.sort(key=lambda j: j.weight())
+    else:
+        # Heaviest first to fill GPU slots early so small-model GPUs are not stranded.
+        all_jobs.sort(key=lambda j: -j.weight())
 
     pending = [j for j in all_jobs if not cell_done(j)]
     done = [j for j in all_jobs if cell_done(j)]

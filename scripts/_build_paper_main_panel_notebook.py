@@ -631,6 +631,18 @@ for ds in DATASETS:
         cell_rows.append({"dataset": DISPLAY[ds], "model": model, **m})
 
 PER_CELL = pd.DataFrame(cell_rows)
+
+# Persist the per-cell aggregate at two canonical locations so
+# downstream non-notebook consumers (`scripts/build_paper_figures.py`)
+# and the §4-figures notebook cross-check can read it.
+_SUMMARY_DIR = REPO / "outputs" / "paper2" / "cross_model_cross_dataset" / "summary"
+_SUMMARY_DIR.mkdir(parents=True, exist_ok=True)
+CANON_PER_CELL.parent.mkdir(parents=True, exist_ok=True)
+PER_CELL.to_csv(_SUMMARY_DIR / "main_panel_per_cell.csv", index=False)
+PER_CELL.to_csv(CANON_PER_CELL, index=False)
+print(f"wrote {_SUMMARY_DIR / 'main_panel_per_cell.csv'}")
+print(f"wrote {CANON_PER_CELL}")
+
 PER_CELL.head(6)
 """))
 
