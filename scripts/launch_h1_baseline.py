@@ -150,6 +150,37 @@ def worker(gpu: int, q: "queue.Queue[Job]", stop_event: threading.Event) -> None
             q.task_done()
 
 
+def detect_in_flight_cells() -> set[tuple[str, str]]:
+    """Return {(model, dataset_slug), ...} for cells already running in
+    another launcher process. Used to avoid double-dispatching a cell
+    when a second launcher is started in parallel (e.g., to retry
+    failed cells while the original launcher's long cells finish)."""
+    try:
+        ps = subprocess.run(["ps", "-ef"], check=True, capture_output=True, text=True).stdout
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        return set()
+    in_flight: set[tuple[str, str]] = set()
+    for line in ps.splitlines():
+        if "scripts/run_experiment.py" not in line or "grep" in line:
+            continue
+        parts = line.split()
+        model = config = None
+        for i, tok in enumerate(parts):
+            if tok == "--models" and i + 1 < len(parts):
+                model = parts[i + 1]
+            elif tok == "--config" and i + 1 < len(parts):
+                config = parts[i + 1]
+        if not (model and config):
+            continue
+        # Derive dataset slug from `configs/experiment_*_full.yaml`
+        cfg_base = Path(config).stem.replace("experiment_", "").replace("_full", "")
+        for slug, _ in DATASETS:
+            if slug in cfg_base:
+                in_flight.add((model, slug))
+                break
+    return in_flight
+
+
 def detect_gpu_count() -> int:
     try:
         out = subprocess.run(
@@ -164,13 +195,21 @@ def detect_gpu_count() -> int:
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--gpus", type=int, default=None, help="Number of GPUs to use (default: autodetect via nvidia-smi)")
+    ap.add_argument("--gpus-list", type=str, default=None,
+                    help="Explicit comma-separated GPU indices to use, e.g. '1,3,6'. "
+                         "Overrides --gpus. Useful when other GPUs are already busy "
+                         "with a different launcher run.")
     ap.add_argument("--dry-run", action="store_true", help="Print plan, don't execute")
     ap.add_argument("--light-first", action="store_true",
                     help="Run smallest cells first instead of heaviest. Use when an interruption "
                          "is imminent (pod swap, etc.) so you bank cheap marker wins before kill.")
     args = ap.parse_args()
 
-    n_gpus = args.gpus if args.gpus is not None else detect_gpu_count()
+    if args.gpus_list is not None:
+        gpu_indices = [int(g.strip()) for g in args.gpus_list.split(",") if g.strip()]
+    else:
+        n_gpus = args.gpus if args.gpus is not None else detect_gpu_count()
+        gpu_indices = list(range(n_gpus))
     LOG_DIR.mkdir(parents=True, exist_ok=True)
     OUT_ROOT.mkdir(parents=True, exist_ok=True)
 
@@ -182,10 +221,19 @@ def main() -> None:
         # Heaviest first to fill GPU slots early so small-model GPUs are not stranded.
         all_jobs.sort(key=lambda j: -j.weight())
 
-    pending = [j for j in all_jobs if not cell_done(j)]
+    in_flight = detect_in_flight_cells()
+    pending = [
+        j for j in all_jobs
+        if not cell_done(j) and (j.model, j.dataset) not in in_flight
+    ]
     done = [j for j in all_jobs if cell_done(j)]
-    print(f"Plan: {len(all_jobs)} cells, {len(done)} done, {len(pending)} pending")
-    print(f"GPUs: {n_gpus}")
+    print(f"Plan: {len(all_jobs)} cells, {len(done)} done, "
+          f"{len(in_flight)} in-flight elsewhere, {len(pending)} pending")
+    if in_flight:
+        print("Skipping (already running in another launcher):")
+        for m, d in sorted(in_flight):
+            print(f"  {m}/{d}")
+    print(f"GPUs: {gpu_indices}")
     print()
     print("Queue order (heavy first):")
     for j in pending[:15]:
@@ -202,7 +250,7 @@ def main() -> None:
 
     stop_event = threading.Event()
     threads: list[threading.Thread] = []
-    for gpu in range(n_gpus):
+    for gpu in gpu_indices:
         t = threading.Thread(target=worker, args=(gpu, q, stop_event), name=f"gpu{gpu}", daemon=False)
         t.start()
         threads.append(t)
