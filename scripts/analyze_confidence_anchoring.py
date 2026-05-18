@@ -86,15 +86,19 @@ class InputSpec:
 def discover_inputs_paper2(root: Path) -> list[InputSpec]:
     """Discover inputs in the H1 `outputs/paper2/cross_model_cross_dataset/
     predictions/<dataset_slug>/<model>/predictions.jsonl` layout."""
-    DATASET_DISPLAY = {
-        "tallyqa": "TallyQA",
-        "chartqa": "ChartQA",
-        "mathvista": "MathVista",
-        "plotqa": "PlotQA",
-        "infographicvqa": "InfographicVQA",
-    }
+    # Synthetic `experiment` label preserves the legacy convention so
+    # downstream consumers (paper_section_4_figures.ipynb worked-example
+    # filter at `experiment == "experiment_e7_plotqa_full"`) continue to
+    # match without notebook-side change.
+    DATASETS = [
+        ("tallyqa",        "TallyQA",        "experiment_e5e_tallyqa_full"),
+        ("chartqa",        "ChartQA",        "experiment_e5e_chartqa_full"),
+        ("mathvista",      "MathVista",      "experiment_e5e_mathvista_full"),
+        ("plotqa",         "PlotQA",         "experiment_e7_plotqa_full"),
+        ("infographicvqa", "InfographicVQA", "experiment_e7_infographicvqa_full"),
+    ]
     specs: list[InputSpec] = []
-    for ds_slug, ds_display in DATASET_DISPLAY.items():
+    for ds_slug, ds_display, exp_label in DATASETS:
         ds_root = root / ds_slug
         if not ds_root.is_dir():
             continue
@@ -113,7 +117,7 @@ def discover_inputs_paper2(root: Path) -> list[InputSpec]:
             if "answer_token_logit" not in sample:
                 continue
             specs.append(InputSpec(
-                experiment=f"paper2/{ds_slug}",  # synthetic label for downstream group-by
+                experiment=exp_label,  # legacy-format label, matches downstream filters
                 dataset=ds_display,
                 model=model_dir.name,
                 run="h1",
