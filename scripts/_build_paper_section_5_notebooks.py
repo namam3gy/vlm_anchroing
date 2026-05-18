@@ -583,7 +583,7 @@ improvement). The 5-dataset sweep adds 5 datasets × 4 layers at K=8 +
 ONEVISION    = "llava-onevision-qwen2-7b-ov"
 ONEVISION_HF = "llava-hf/llava-onevision-qwen2-7b-ov-hf"
 
-PILOT_LAYERS = [14, 20, 22, 26]
+PILOT_LAYERS = [14, 16, 20, 26]  # H1 §5.1 peak: OneVision=14 (Main), qwen2.5-7b=16; 20/26 retained per user spec
 PILOT_ALPHAS = [0.5, 1.0, 2.0]
 PILOT_KS     = [1, 2, 4, 8]
 
@@ -595,7 +595,7 @@ CALIB_MAX_PAIRS   = 2500
 # cells). B=1 falls back to the legacy per-sample path. Prefetch workers
 # parallelise PIL.Image.open across the batch and pipeline the next chunk
 # while the current chunk runs on GPU.
-SWEEP_BATCH_SIZE     = 16
+SWEEP_BATCH_SIZE     = 1   # batched generate causes bf16 drift on OneVision AnyRes — see [[batched-generate-onevision-anyres]]
 SWEEP_PREFETCH_WORKERS = 16
 
 SWEEP_DATASETS_5D = [
@@ -605,7 +605,7 @@ SWEEP_DATASETS_5D = [
     ("chartqa",   "experiment_e5e_chartqa_full"),
     ("mathvista", "experiment_e5e_mathvista_full"),
 ]
-SWEEP_LAYERS_5D = [14, 20, 22, 26]
+SWEEP_LAYERS_5D = [14, 16, 20, 26]
 SWEEP_KS_5D     = [8, 1]   # K=8 sweep + K=1 fallback at L=26
 SWEEP_ALPHA_5D  = 1.0
 """),
