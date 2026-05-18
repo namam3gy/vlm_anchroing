@@ -83,6 +83,45 @@ class InputSpec:
     path: Path
 
 
+def discover_inputs_paper2(root: Path) -> list[InputSpec]:
+    """Discover inputs in the H1 `outputs/paper2/cross_model_cross_dataset/
+    predictions/<dataset_slug>/<model>/predictions.jsonl` layout."""
+    DATASET_DISPLAY = {
+        "tallyqa": "TallyQA",
+        "chartqa": "ChartQA",
+        "mathvista": "MathVista",
+        "plotqa": "PlotQA",
+        "infographicvqa": "InfographicVQA",
+    }
+    specs: list[InputSpec] = []
+    for ds_slug, ds_display in DATASET_DISPLAY.items():
+        ds_root = root / ds_slug
+        if not ds_root.is_dir():
+            continue
+        for model_dir in sorted(p for p in ds_root.iterdir() if p.is_dir()):
+            jsonl = model_dir / "predictions.jsonl"
+            if not jsonl.is_file():
+                continue
+            with jsonl.open() as f:
+                line = f.readline()
+            if not line:
+                continue
+            try:
+                sample = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if "answer_token_logit" not in sample:
+                continue
+            specs.append(InputSpec(
+                experiment=f"paper2/{ds_slug}",  # synthetic label for downstream group-by
+                dataset=ds_display,
+                model=model_dir.name,
+                run="h1",
+                path=jsonl,
+            ))
+    return specs
+
+
 def discover_inputs() -> list[InputSpec]:
     layouts: list[tuple[str, str]] = [
         ("experiment_distance_vqa", "VQAv2"),
@@ -382,11 +421,19 @@ def main():
                         help="Number of equal-frequency confidence bins (default 4 = quartiles).")
     parser.add_argument("--out-suffix", default="",
                         help="Suffix appended to output CSV stems (e.g. '_6bin').")
+    parser.add_argument("--paper2-root", type=Path, default=None,
+                        help="If given, discover inputs from the H1 layout at this path "
+                             "(`outputs/paper2/cross_model_cross_dataset/predictions/`) "
+                             "instead of the legacy `outputs/<experiment>/<model>/<run>/` layout.")
     args = parser.parse_args()
     args.out_dir.mkdir(parents=True, exist_ok=True)
 
-    specs = discover_inputs()
-    print(f"[discover] {len(specs)} predictions.jsonl with logit fields")
+    if args.paper2_root is not None:
+        specs = discover_inputs_paper2(args.paper2_root)
+        print(f"[discover paper2] {len(specs)} predictions.jsonl under {args.paper2_root}")
+    else:
+        specs = discover_inputs()
+        print(f"[discover legacy] {len(specs)} predictions.jsonl with logit fields")
 
     pair_rows: list[dict] = []
     for spec in specs:
