@@ -6,6 +6,11 @@ vqa_dataset:
   answer_type_filter: ["number"]
   answer_range: 8
   require_single_numeric_gt: true
+  # Option H1 cap (2026-05-18): 5,000 paired sids across the 6-model panel.
+  # Loader iterates questions.jsonl deterministically; the first 5,000
+  # eligible samples are recorded in `inputs/tallyqa_5k_sids.json` as the
+  # audit receipt (generator: `scripts/build_tallyqa_5k_sids.py`).
+  max_samples: 5000
 
 inputs:
   irrelevant_number_dir: inputs/irrelevant_number
