@@ -158,7 +158,7 @@ PDF_OUT.mkdir(parents=True, exist_ok=True)
 PNG_OUT.mkdir(parents=True, exist_ok=True)
 
 GPUS = os.environ.get("VLM_ANCHOR_GPUS", "0,1,2,3,4")  # 5 GPUs by default
-RUN_INFERENCE = False  # set True to invoke the heavy sharded drivers.
+RUN_INFERENCE = os.environ.get("VLM_ANCHOR_RUN_INFERENCE", "").lower() in ("1", "true", "yes")  # set VLM_ANCHOR_RUN_INFERENCE=1 to invoke the heavy sharded drivers.
 
 # Pick the attention + e6_steering input roots.
 # `ATT_ROOT_FRESH` (section_5_attention_n1000) holds the canonical §5.1

@@ -26,16 +26,26 @@ PY=.venv/bin/python
 MAIN=$(git rev-parse --git-common-dir | xargs realpath | xargs dirname)
 
 if [ -z "${VLM_ANCHOR_GPUS:-}" ]; then
-  # Free = memory < 1024 MiB
-  FREE_GPUS=$(nvidia-smi --query-gpu=index,memory.used --format=csv,noheader,nounits \
-              | awk -F', ' '$2 < 1024 {print $1}' | paste -sd, -)
+  # Free = no compute apps on that GPU.  --query-gpu memory threshold
+  # races with §5.1 cells in transition (model unload/load); the
+  # process-list view is the authoritative free signal.
+  BUSY_GPUS=$(nvidia-smi --query-compute-apps=gpu_uuid --format=csv,noheader \
+              | sort -u \
+              | while read uuid; do nvidia-smi --query-gpu=index,uuid --format=csv,noheader \
+                                    | awk -F', ' -v U="$uuid" '$2==U {print $1}'; done \
+              | paste -sd, -)
+  ALL_GPUS=$(nvidia-smi --query-gpu=index --format=csv,noheader | paste -sd, -)
+  FREE_GPUS=$(echo "$ALL_GPUS" | tr ',' '\n' | grep -vxFf <(echo "$BUSY_GPUS" | tr ',' '\n') | paste -sd, -)
   if [ -z "$FREE_GPUS" ]; then
-    echo "ERROR: no free GPUs detected. Set VLM_ANCHOR_GPUS to force." >&2
+    echo "ERROR: no free GPUs detected (busy: $BUSY_GPUS). Set VLM_ANCHOR_GPUS to force." >&2
     exit 1
   fi
   export VLM_ANCHOR_GPUS=$FREE_GPUS
 fi
-echo "Using GPUs: $VLM_ANCHOR_GPUS"
+echo "Using GPUs: $VLM_ANCHOR_GPUS  (busy with §5.1 or other: ${BUSY_GPUS:-none})"
+
+# RUN_INFERENCE toggle in the notebook reads this env var.
+export VLM_ANCHOR_RUN_INFERENCE=1
 
 # Pre-check: H1 subspace tensor must exist (Stage 4b.1+2 must have run)
 SUBSPACE_PATH=$MAIN/outputs/e6_steering/llava-onevision-qwen2-7b-ov/_subspace/subspace_plotqa_infovqa_pooled_h1_K16.pt
