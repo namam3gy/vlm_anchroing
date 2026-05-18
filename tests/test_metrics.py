@@ -235,5 +235,92 @@ class SummarizeConditionM2DenominatorTest(unittest.TestCase):
 
         summary = summarize_condition(records, "a")
         self.assertAlmostEqual(summary["anchor_direction_follow_rate_raw"], 3 / 5)
+        # No record has pred_b_equal_anchor=1 → eps=0 denominator equals the
+        # legacy numeric-with-anchor denominator → eps=0 rate == legacy rate.
         self.assertAlmostEqual(summary["anchor_direction_follow_rate"], 2 / 5)
+        self.assertAlmostEqual(summary["anchor_direction_follow_rate_legacy"], 2 / 5)
         self.assertEqual(summary["n_numeric_anchor_denominator"], 5)
+        self.assertEqual(summary["n_df_eps0_denominator"], 5)
+
+    def test_direction_follow_rate_eps0_excludes_pb_eq_anchor(self) -> None:
+        """Eps=0 DF denominator must drop pb==z rows; legacy denominator keeps them.
+
+        Construct 8 numeric+anchor records:
+          - 2: pb==z (pred_b_equal_anchor=1), numerator forced 0 by sign-product=0
+          - 2: pb!=z, df_moved=1   (anchor pull moved row)
+          - 4: pb!=z, df_moved=0   (no movement / wrong direction / etc)
+
+        Old M2 C-form: denominator = 8 (all numeric+anchor), rate = 2/8 = 0.25.
+        Eps=0:         denominator = 6 (drops pb==z), rate = 2/6 ≈ 0.333.
+
+        New ≥ legacy, with the gap concentrated in pb==z incidence — the
+        dilution this metric change closes. See module docstring.
+        """
+        from vlm_anchor.metrics import summarize_condition
+
+        records: list[dict] = []
+        # 2 pb==z rows (counted in legacy denominator only).
+        for _ in range(2):
+            records.append(self._record(
+                "a",
+                pred_b_equal_anchor=1,
+                anchor_value="3",
+                numeric_distance_to_anchor=0.0,
+            ))
+        # 2 anchor-pull rows (moved toward anchor).
+        for _ in range(2):
+            records.append(self._record(
+                "a",
+                anchor_direction_followed=1,
+                anchor_direction_followed_moved=1,
+                anchor_value="3",
+                numeric_distance_to_anchor=1.0,
+            ))
+        # 4 numeric+anchor rows with no movement.
+        for _ in range(4):
+            records.append(self._record(
+                "a",
+                anchor_value="3",
+                numeric_distance_to_anchor=2.0,
+            ))
+
+        summary = summarize_condition(records, "a")
+        self.assertEqual(summary["n_numeric_anchor_denominator"], 8)
+        self.assertEqual(summary["n_df_eps0_denominator"], 6)
+        self.assertAlmostEqual(summary["anchor_direction_follow_rate_legacy"], 2 / 8)
+        self.assertAlmostEqual(summary["anchor_direction_follow_rate"], 2 / 6)
+        # Eps=0 ≥ legacy, with gap = (1/legacy_denom - 1/eps0_denom) * num
+        self.assertGreater(
+            summary["anchor_direction_follow_rate"],
+            summary["anchor_direction_follow_rate_legacy"],
+        )
+
+    def test_direction_follow_rate_eps0_equals_legacy_when_no_pb_eq_anchor(self) -> None:
+        """Parity check: when no pb==z rows present, eps=0 == legacy DF."""
+        from vlm_anchor.metrics import summarize_condition
+
+        records = [
+            self._record(
+                "a",
+                anchor_direction_followed=1,
+                anchor_direction_followed_moved=1,
+                anchor_value="3",
+                numeric_distance_to_anchor=2.0,
+            )
+            for _ in range(3)
+        ] + [
+            self._record(
+                "a",
+                anchor_value="3",
+                numeric_distance_to_anchor=2.0,
+            )
+            for _ in range(7)
+        ]
+
+        summary = summarize_condition(records, "a")
+        self.assertEqual(summary["n_df_eps0_denominator"], 10)
+        self.assertEqual(summary["n_numeric_anchor_denominator"], 10)
+        self.assertAlmostEqual(
+            summary["anchor_direction_follow_rate"],
+            summary["anchor_direction_follow_rate_legacy"],
+        )
