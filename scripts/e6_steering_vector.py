@@ -170,6 +170,18 @@ def _parse_args() -> argparse.Namespace:
     # default outputs/e6_steering/<model>/<...>/ layout. The driver
     # provides one shard subdir per launched subprocess.
     ap.add_argument("--output-dir", default=None)
+    ap.add_argument("--batch-size", type=int, default=1,
+                    help="sweep-subspace only: per-shard batch size for "
+                         "model.generate. Default 1 = legacy sample-by-sample. "
+                         "B>1 dispatches HFAttentionRunner.generate_numbers_batch "
+                         "(OneVision-tested; verify smoke gate before scaling).")
+    ap.add_argument("--prefetch-workers", type=int, default=0,
+                    help="sweep-subspace only: thread-pool workers for PIL "
+                         "image loading. 0 = disabled (load on main thread). "
+                         "If >0, the next batch's images are loaded in parallel "
+                         "while the current batch runs on GPU. Numerics "
+                         "unaffected (pure CPU-side async). Recommended: 8 on "
+                         "many-vCPU hosts when --batch-size > 1.")
     return ap.parse_args()
 
 
@@ -1582,10 +1594,61 @@ def _phase_sweep_subspace(args, config) -> None:
     runner, layers = _build_runner_and_layers(args, config)
 
     from PIL import Image as _Image
+    from concurrent.futures import ThreadPoolExecutor
     total_target = len(eligible_sids) * len(target_conds) * len(cells)
     n_done = 0
     n_skipped = 0
     t0 = time.time()
+    batch_size = max(1, int(getattr(args, "batch_size", 1) or 1))
+    prefetch_workers = max(0, int(getattr(args, "prefetch_workers", 0) or 0))
+    print(f"[setup] batch_size={batch_size} prefetch_workers={prefetch_workers}")
+
+    def _load_chunk(chunk: list[tuple[str, dict]]) -> tuple[list[str], list[list]]:
+        """Load + decode PIL images for one chunk. Uses an intra-chunk thread
+        pool when `prefetch_workers > 1` so multiple PIL.Image.open + .convert
+        calls run in parallel (PIL releases GIL during JPEG decode). Returns
+        questions list and image_lists list aligned with `chunk`."""
+        def _imgs(r0):
+            paths = r0.get("input_image_paths") or []
+            return [_Image.open(p).convert("RGB") for p in paths]
+        questions = [r0["question"] for _, r0 in chunk]
+        if prefetch_workers <= 1 or len(chunk) <= 1:
+            image_lists = [_imgs(r0) for _, r0 in chunk]
+        else:
+            n_workers = min(prefetch_workers, len(chunk))
+            with ThreadPoolExecutor(max_workers=n_workers) as ex:
+                image_lists = list(ex.map(_imgs, [r0 for _, r0 in chunk]))
+        return questions, image_lists
+
+    def _build_record(cell: dict, sid: str, cond_name: str, r0: dict,
+                      out: dict, err: str | None, L: int, K: int, alpha: float) -> dict:
+        anchor_int = None
+        if r0.get("anchor_value") is not None:
+            try:
+                anchor_int = int(str(r0["anchor_value"]).strip())
+            except (ValueError, TypeError):
+                pass
+        return {
+            "model": args.model,
+            "dataset_tag": dataset_tag,
+            "subspace_scope": scope,
+            "sample_instance_id": sid,
+            "question_id": r0.get("question_id"),
+            "condition": cond_name,
+            "ground_truth": r0.get("ground_truth"),
+            "anchor_value": anchor_int,
+            "is_wrong_base": True,
+            "cell_label": cell["label"],
+            "cell_layer": L,
+            "cell_alpha": alpha,
+            "subspace_K": K,
+            "raw_text": out.get("raw_text"),
+            "parsed_number": out.get("parsed_number"),
+            "exact_match": _exact_match(
+                out.get("parsed_number"), r0.get("ground_truth")),
+            "error": err,
+        }
+
     with out_path.open("a") as fh:
         for cell in cells:
             L = cell["layer"]
@@ -1596,8 +1659,12 @@ def _phase_sweep_subspace(args, config) -> None:
                 V_K = V_all[L, :K, :]  # (K, d)
                 handles = _install_projection_hook(layers, L, V_K, alpha)
             try:
-                for sid in eligible_sids:
-                    for cond_name in target_conds:
+                for cond_name in target_conds:
+                    # Collect eligible (sid, r0) pairs for this (cell, cond).
+                    # Batching is done within a single cond so all samples share
+                    # `<image>` placeholder count → uniform multimodal layout.
+                    pending: list[tuple[str, dict]] = []
+                    for sid in eligible_sids:
                         r0 = by_sid_cond[sid].get(cond_name)
                         if r0 is None:
                             continue
@@ -1605,53 +1672,73 @@ def _phase_sweep_subspace(args, config) -> None:
                         if key in completed:
                             n_skipped += 1
                             continue
-                        try:
-                            img_paths = r0.get("input_image_paths") or []
-                            images = [_Image.open(p).convert("RGB") for p in img_paths]
-                            out = runner.generate_number(
-                                question=r0["question"], images=images,
-                                max_new_tokens=args.max_new_tokens)
-                            err = None
-                        except Exception as exc:
-                            out = {"raw_text": None, "parsed_number": None}
-                            err = str(exc)
-                        anchor_int = None
-                        if r0.get("anchor_value") is not None:
+                        pending.append((sid, r0))
+
+                    # Walk `pending` in `batch_size`-sized chunks. batch=1 falls
+                    # back to single-sample `generate_number` (legacy path, exact
+                    # numerics); batch>1 dispatches the new batched generator.
+                    #
+                    # When `prefetch_workers > 0`, a background thread loads the
+                    # *next* chunk's PIL images while the current chunk runs on
+                    # the GPU (pipeline overlap). The prefetch executor is a
+                    # single producer; `_load_chunk` itself can also fan out
+                    # PIL.Image.open calls intra-chunk via the same worker count.
+                    chunks = [pending[s:s + batch_size]
+                              for s in range(0, len(pending), batch_size)]
+                    prefetch_ex = (ThreadPoolExecutor(max_workers=1)
+                                   if prefetch_workers > 0 and len(chunks) > 1
+                                   else None)
+                    try:
+                        future_next = (prefetch_ex.submit(_load_chunk, chunks[0])
+                                       if prefetch_ex is not None and chunks
+                                       else None)
+                        for ci, chunk in enumerate(chunks):
                             try:
-                                anchor_int = int(str(r0["anchor_value"]).strip())
-                            except (ValueError, TypeError):
-                                pass
-                        rec = {
-                            "model": args.model,
-                            "dataset_tag": dataset_tag,
-                            "subspace_scope": scope,
-                            "sample_instance_id": sid,
-                            "question_id": r0.get("question_id"),
-                            "condition": cond_name,
-                            "ground_truth": r0.get("ground_truth"),
-                            "anchor_value": anchor_int,
-                            "is_wrong_base": True,
-                            "cell_label": cell["label"],
-                            "cell_layer": L,
-                            "cell_alpha": alpha,
-                            "subspace_K": K,
-                            "raw_text": out.get("raw_text"),
-                            "parsed_number": out.get("parsed_number"),
-                            "exact_match": _exact_match(
-                                out.get("parsed_number"), r0.get("ground_truth")),
-                            "error": err,
-                        }
-                        fh.write(json.dumps(rec) + "\n")
-                        fh.flush()
-                        n_done += 1
-                        if n_done % 200 == 0 or n_done == 1:
-                            elapsed = time.time() - t0
-                            rate = n_done / max(elapsed, 1)
-                            remaining = total_target - (n_done + n_skipped)
-                            eta = remaining / max(rate, 1e-6)
-                            print(f"  [progress] cell={cell['label']:28s} "
-                                  f"done={n_done} skipped={n_skipped} "
-                                  f"rate={rate:.1f}/s eta={eta/60:.1f}min")
+                                if future_next is not None:
+                                    questions, image_lists = future_next.result()
+                                    # Queue the next chunk's load before we burn
+                                    # GPU time on the current one.
+                                    if ci + 1 < len(chunks):
+                                        future_next = prefetch_ex.submit(
+                                            _load_chunk, chunks[ci + 1])
+                                    else:
+                                        future_next = None
+                                else:
+                                    questions, image_lists = _load_chunk(chunk)
+                                if batch_size == 1:
+                                    outs = [runner.generate_number(
+                                        question=questions[0], images=image_lists[0],
+                                        max_new_tokens=args.max_new_tokens)]
+                                else:
+                                    outs = runner.generate_numbers_batch(
+                                        questions=questions, image_lists=image_lists,
+                                        max_new_tokens=args.max_new_tokens)
+                                errs = [None] * len(chunk)
+                            except Exception as exc:
+                                # Whole-chunk failure: emit a per-sample error stub
+                                # so the (sid, cond, cell) key still gets written
+                                # (resume key would otherwise re-attempt forever).
+                                outs = [{"raw_text": None, "parsed_number": None}
+                                        for _ in chunk]
+                                errs = [str(exc)] * len(chunk)
+
+                            for (sid, r0), out, err in zip(chunk, outs, errs):
+                                rec = _build_record(cell, sid, cond_name, r0, out,
+                                                    err, L, K, alpha)
+                                fh.write(json.dumps(rec) + "\n")
+                                n_done += 1
+                                if n_done % 200 == 0 or n_done == 1:
+                                    elapsed = time.time() - t0
+                                    rate = n_done / max(elapsed, 1)
+                                    remaining = total_target - (n_done + n_skipped)
+                                    eta = remaining / max(rate, 1e-6)
+                                    print(f"  [progress] cell={cell['label']:28s} "
+                                          f"done={n_done} skipped={n_skipped} "
+                                          f"rate={rate:.1f}/s eta={eta/60:.1f}min")
+                            fh.flush()
+                    finally:
+                        if prefetch_ex is not None:
+                            prefetch_ex.shutdown(wait=True)
             finally:
                 for h in handles:
                     h.remove()

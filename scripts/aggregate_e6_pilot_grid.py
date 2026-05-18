@@ -249,7 +249,37 @@ def main() -> None:
              "`<model>/pilot_grid_*/predictions.jsonl` files live). "
              "Reproducer notebooks point this at an isolated tree.",
     )
+    ap.add_argument(
+        "--layers", type=str, default=None,
+        help="Comma-separated layer indices used for the heatmap rows/columns "
+             "and the selection-replay table. Defaults to the canonical "
+             "27-cell grid (25,26,27). Cells with layers outside this set "
+             "still land in the CSV.",
+    )
+    ap.add_argument(
+        "--ks", type=str, default=None,
+        help="Comma-separated K (subspace rank) values. Defaults to 2,4,8.",
+    )
+    ap.add_argument(
+        "--alphas", type=str, default=None,
+        help="Comma-separated steering magnitudes. Defaults to 0.5,1.0,2.0.",
+    )
+    ap.add_argument(
+        "--chosen", type=str, default=None,
+        help="L,K,alpha for the chosen-cell star marker (default 26,8,1.0).",
+    )
     args = ap.parse_args()
+
+    global LAYERS, KS, ALPHAS, CHOSEN
+    if args.layers:
+        LAYERS = tuple(int(x) for x in args.layers.split(",") if x.strip())
+    if args.ks:
+        KS = tuple(int(x) for x in args.ks.split(",") if x.strip())
+    if args.alphas:
+        ALPHAS = tuple(float(x) for x in args.alphas.split(",") if x.strip())
+    if args.chosen:
+        parts = [x.strip() for x in args.chosen.split(",")]
+        CHOSEN = (int(parts[0]), int(parts[1]), float(parts[2]))
     out_csv = Path(args.out_csv)
     fig_dir = Path(args.fig_dir)
     out_csv.parent.mkdir(parents=True, exist_ok=True)
