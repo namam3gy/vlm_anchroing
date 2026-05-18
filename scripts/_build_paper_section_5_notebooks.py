@@ -94,7 +94,7 @@ WORKTREE = find_worktree_root()
 SCRIPTS    = WORKTREE / "scripts"
 CONFIGS    = WORKTREE / "configs"
 DATA_DIR   = MAIN / "docs" / "insights" / "_data"
-PRED_ROOT  = MAIN / "outputs" / "paper" / "cross_model_cross_dataset" / "predictions"
+PRED_ROOT  = MAIN / "outputs" / "paper2" / "cross_model_cross_dataset" / "predictions"
 
 # §5.2 e6_steering input root selection (same toggle as §5.1 above):
 #   - RUN_INFERENCE=False: read pre-existing sweep dirs from legacy
@@ -104,7 +104,7 @@ PRED_ROOT  = MAIN / "outputs" / "paper" / "cross_model_cross_dataset" / "predict
 #   - RUN_INFERENCE=True: write new calibrate / sweep dirs to an isolated
 #     tree so this run doesn't commingle with the legacy pool.
 E6_ROOT_LEGACY = MAIN / "outputs" / "e6_steering"
-E6_ROOT_FRESH  = MAIN / "outputs" / "paper" / "section_5_e6_steering"
+E6_ROOT_FRESH  = MAIN / "outputs" / "paper2" / "section_5_e6_steering"
 
 # §5.1 attention input root selection:
 #   - RUN_INFERENCE=False: read pre-existing bbox-with runs from
@@ -118,15 +118,15 @@ ATT_ROOT_LEGACY = MAIN / "outputs" / "attention_analysis"
 # `section_5_attention` is the n=400 root (n=400 spec was the first run).
 # `section_5_attention_n1000` is the n=1000 extension. After n=1000 completes,
 # n=400 is to be retired and only the n=1000 tree kept.
-ATT_ROOT_FRESH  = MAIN / "outputs" / "paper" / "section_5_attention_n1000"
-PEAKS_CSV       = MAIN / "outputs" / "paper" / "section_5_attention_n1000" / "_data" / "cross_dataset_peaks.csv"
+ATT_ROOT_FRESH  = MAIN / "outputs" / "paper2" / "section_5_attention_n1000"
+PEAKS_CSV       = MAIN / "outputs" / "paper2" / "section_5_attention_n1000" / "_data" / "cross_dataset_peaks.csv"
 BBOX_FILE       = MAIN / "inputs" / "irrelevant_number_bboxes.json"
 
 ATT_ROOT_FRESH.mkdir(parents=True, exist_ok=True)
 PEAKS_CSV.parent.mkdir(parents=True, exist_ok=True)
 assert BBOX_FILE.exists(), f"missing digit-pixel bbox JSON: {BBOX_FILE}"
 
-PDF_OUT = MAIN     / "outputs" / "paper" / "section_5_figures"
+PDF_OUT = MAIN     / "outputs" / "paper2" / "section_5_figures"
 PNG_OUT = WORKTREE / "docs"    / "figures"
 PDF_OUT.mkdir(parents=True, exist_ok=True)
 PNG_OUT.mkdir(parents=True, exist_ok=True)
@@ -652,8 +652,8 @@ sweep_pilot()
 run_cmd(
     ["uv", "run", "python", str(SCRIPTS / "aggregate_e6_pilot_grid.py"),
      "--e6-root", str(E6_ROOT),
-     "--out-csv", str(MAIN / "outputs" / "paper" / "section_5_e6_steering" / "_data" / "E6_pilot_grid_27cells.csv"),
-     "--fig-dir", str(MAIN / "outputs" / "paper" / "section_5_figures")],
+     "--out-csv", str(MAIN / "outputs" / "paper2" / "section_5_e6_steering" / "_data" / "E6_pilot_grid_27cells.csv"),
+     "--fig-dir", str(MAIN / "outputs" / "paper2" / "section_5_figures")],
     dry=not RUN_INFERENCE,
 )
 """),
@@ -741,7 +741,7 @@ def sweep_5dataset_layer():
     run_cmd(
         ["uv", "run", "python", str(SCRIPTS / "aggregate_e6_layer_sweep_p4.py"),
          "--e6-root", str(E6_ROOT),
-         "--out-data", str(MAIN / "outputs" / "paper" / "section_5_e6_steering" / "_data")],
+         "--out-data", str(MAIN / "outputs" / "paper2" / "section_5_e6_steering" / "_data")],
         dry=not RUN_INFERENCE,
     )
 

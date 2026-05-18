@@ -1,7 +1,7 @@
 """Build notebooks/paper_section_4_figures.ipynb.
 
 A figure-drawing notebook for paper §4 (Phenomenon). Reads existing
-predictions + aggregates from outputs/paper/cross_model_cross_dataset/,
+predictions + aggregates from outputs/paper2/cross_model_cross_dataset/,
 produces 3 figures (§4.1, §4.2, §4.3). Does NOT run inference.
 """
 from __future__ import annotations
@@ -28,7 +28,7 @@ cells.append(md(r"""
 # Paper §4 figures — figure-only reproducer
 
 Re-draws the three Phenomenon-section figures (§4.1 / §4.2 / §4.3) from
-the paper-facing snapshot at `outputs/paper/cross_model_cross_dataset/`.
+the paper-facing snapshot at `outputs/paper2/cross_model_cross_dataset/`.
 
 | Figure | Outline location | What it shows |
 |---|---|---|
@@ -37,12 +37,12 @@ the paper-facing snapshot at `outputs/paper/cross_model_cross_dataset/`.
 | **F3** `paper_4_3_L1_confidence_quartile` | §4.3 confidence modulation | L1 6-bin gradient on the worked-example cell (PlotQA × OneVision × cross_entropy) |
 
 Each figure is saved twice:
-- `outputs/paper/section_4_figures/<name>.pdf` (vector, for LaTeX `\includegraphics`)
+- `outputs/paper2/section_4_figures/<name>.pdf` (vector, for LaTeX `\includegraphics`)
 - `docs/figures/<name>.png` (raster, for outline.md `<img src>` preview)
 
 **Scope.** Inference is *not* re-run — this notebook reads only:
-- `outputs/paper/cross_model_cross_dataset/predictions/{dataset}/{model}/predictions.csv` (raw per-row flags from `evaluate_sample`)
-- `outputs/paper/cross_model_cross_dataset/summary/L1_confidence_quartile_long_6bin.csv` (pre-computed L1 quartile aggregate)
+- `outputs/paper2/cross_model_cross_dataset/predictions/{dataset}/{model}/predictions.csv` (raw per-row flags from `evaluate_sample`)
+- `outputs/paper2/cross_model_cross_dataset/summary/L1_confidence_quartile_long_6bin.csv` (pre-computed L1 quartile aggregate)
 
 See `notebooks/paper_cross_model_cross_dataset.ipynb` for the spec
 (hyperparams, prompts, dataset filters, anchor schemes) and the
@@ -88,13 +88,13 @@ def find_worktree_root() -> Path:
 
 MAIN        = find_main_worktree()
 WORKTREE    = find_worktree_root()
-PAPER_DIR   = MAIN / "outputs" / "paper" / "cross_model_cross_dataset"
+PAPER_DIR   = MAIN / "outputs" / "paper2" / "cross_model_cross_dataset"
 PRED_ROOT   = PAPER_DIR / "predictions"
 SUMMARY_DIR = PAPER_DIR / "summary"
 
 # PDF lives in the gitignored paper-facing snapshot; PNG lives in
 # docs/figures/ which is git-tracked and used by outline.md `<img src>`.
-PDF_OUT = MAIN     / "outputs" / "paper" / "section_4_figures"
+PDF_OUT = MAIN     / "outputs" / "paper2" / "section_4_figures"
 PNG_OUT = WORKTREE / "docs"    / "figures"
 PDF_OUT.mkdir(parents=True, exist_ok=True)
 PNG_OUT.mkdir(parents=True, exist_ok=True)
@@ -187,6 +187,10 @@ def _aggregate(arm_rows: pd.DataFrame) -> dict:
     n             = len(arm_rows)
     n_pb_ne_anc   = int((arm_rows["pred_b_equal_anchor"] == 0).sum())
     n_num_anchor  = int(arm_rows["numeric_distance_to_anchor"].notna().sum())
+    # Eps=0 DF denominator: numeric pair AND anchor present AND pb != anchor.
+    # See src/vlm_anchor/metrics.py docstring + outline §3.3.
+    eps0_mask     = arm_rows["numeric_distance_to_anchor"].notna() & (arm_rows["pred_b_equal_anchor"] == 0)
+    n_df_eps0     = int(eps0_mask.sum())
     adopt_num     = int(arm_rows["anchor_adopted"].sum())
     df_num        = int(arm_rows["anchor_direction_followed_moved"].sum())
     em_num        = int(arm_rows["exact_match"].sum())
@@ -194,8 +198,10 @@ def _aggregate(arm_rows: pd.DataFrame) -> dict:
         "n":            n,
         "n_pb_ne_anc":  n_pb_ne_anc,
         "n_num_anchor": n_num_anchor,
+        "n_df_eps0":    n_df_eps0,
         "adopt":        adopt_num / n_pb_ne_anc  if n_pb_ne_anc  else np.nan,
-        "df":           df_num    / n_num_anchor if n_num_anchor else np.nan,
+        "df":           df_num    / n_df_eps0    if n_df_eps0    else np.nan,
+        "df_legacy":    df_num    / n_num_anchor if n_num_anchor else np.nan,
         "em":           em_num    / n            if n            else np.nan,
     }
 
@@ -288,7 +294,7 @@ n_models   = len(plot_order)
 n_datasets = len(DATASET_ORDER)
 fig.suptitle(
     f"5-dataset main matrix ({n_models} models × {n_datasets} datasets, "
-    f"{n_models * n_datasets} cells, S1, C-form). "
+    f"{n_models * n_datasets} cells, S1, eps=0 DF). "
     "All cells positive ⇒ universality (§4.1 Insight 1); "
     "Gemma 4B > 27B on 4/5 datasets, reversal on InfoVQA (Insight 2).",
     fontsize=11,
@@ -464,7 +470,7 @@ cells.append(md(r"""
 ## 6 · Cross-check vs canonical CSV
 
 The base-wrong S1 metrics aggregated above (`PER_CELL`) must match
-`outputs/paper/cross_model_cross_dataset/summary/main_panel_per_cell.csv`
+`outputs/paper2/cross_model_cross_dataset/summary/main_panel_per_cell.csv`
 (the long-format aggregator output).
 """))
 
@@ -493,16 +499,16 @@ for metric in ("adopt_pct", "df_pct"):
 cells.append(md(r"""
 ## Summary
 
-All three §4 figures rebuilt from `outputs/paper/cross_model_cross_dataset/`:
+All three §4 figures rebuilt from `outputs/paper2/cross_model_cross_dataset/`:
 
 - §4.1 `paper_4_1_cross_dataset_summary` — df(a) + adopt(a) across 6 × 5 cells
 - §4.2 `paper_4_2_digit_pixel_causality` — paired (a − m) adopt gap, two panels
 - §4.3 `paper_4_3_L1_confidence_quartile` — L1 6-bin gradient on worked-example cell
 
-Each saved as `<name>.pdf` in `outputs/paper/section_4_figures/` (vector,
+Each saved as `<name>.pdf` in `outputs/paper2/section_4_figures/` (vector,
 LaTeX) **and** `<name>.png` in `docs/figures/` (raster, outline.md preview).
 
-Figures land in `outputs/paper/section_4_figures/` (gitignored).
+Figures land in `outputs/paper2/section_4_figures/` (gitignored).
 Cross-check vs canonical CSV passes to ≤ 0.05 pp.
 """))
 
