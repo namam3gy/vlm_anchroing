@@ -48,10 +48,19 @@ cp -v "$CANON_DIR/L1_confidence_quartile_long_6bin.csv" \
       "$H1_SUMMARY_DIR/L1_confidence_quartile_long_6bin.csv"
 
 echo ""
+echo "=== Stage 3b.4 · Refresh §4 figures (Figure 4 picks up new L1 CSV) ==="
+$PY -m jupyter nbconvert \
+  --to notebook --execute --inplace \
+  --ExecutePreprocessor.timeout=600 \
+  notebooks/paper_section_4_figures.ipynb
+
+echo ""
 echo "=== Stage 3b outputs ==="
 ls -la "$CANON_DIR/L1_confidence_quartile_long_6bin.csv" \
        "$H1_SUMMARY_DIR/L1_confidence_quartile_long_6bin.csv" 2>/dev/null
+echo ""
+echo "Figures (PDF + PNG):"
+ls -la outputs/paper2/cross_model_cross_dataset/section_4_figures/ 2>/dev/null
 
 echo ""
-echo "✅  Stage 3b complete. paper_section_4_figures.ipynb Figure 4 (confidence binning)"
-echo "    now has its canonical CSV input. Re-run that notebook to refresh Figure 4."
+echo "✅  Stage 3b complete. §4 Figure 4 (confidence binning) refreshed end-to-end."
