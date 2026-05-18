@@ -254,7 +254,7 @@ Primary metric Δdf(a) (negative = anchoring 감소), secondary Δadopt(a) + Δe
 
 **Phenomenon scope.** Open-weight main panel 위 universal; §7.1 closed-API pilot 이 frontier 일부 robustness 확인 (3/5 robust). Open-weight 은 *intentional design choice* — full mechanism access + cost-sensitive production deployment 의 주요 target.
 
-**Methodological in-progress.** Direction-follow metric 은 epsilon-threshold form finalize 진행 중 (§3.3); directional 결론은 form-invariant, magnitude 만 form-dependent.
+**Direction-follow metric form.** Headline DF 는 §3.3 의 epsilon-threshold form (eps=0 canonical) 위에서 보고. Sign-based 정의 특성상 directional 결론은 alternative form 에서도 invariant, magnitude 만 form-dependent.
 
 ---
 
@@ -507,7 +507,7 @@ Table E.1 에서 K=1 이 K=8 보다 강한 cell 이 있음 (예: L=30 K=1 +0.477
 | §6.2 stage-4 paired-bootstrap CI | `docs/insights/_data/stage4_final_per_dataset_ci.{csv,md}` |
 | §6.3 per-benchmark capability | `docs/insights/_data/capability_eval_per_benchmark.{csv,md}` |
 | Appendix D.1/D.2 per-cell tables (base-wrong cohort) | 동일 `main_panel_5dataset_per_cell.csv` |
-| Appendix D.1/D.2 per-cell tables (broad cohort) | `docs/insights/_data/experiment_{e5e_tallyqa,e5e_chartqa,e5e_mathvista,e7_plotqa,e7_infographicvqa}_full_per_cell.csv` (combine `base_correct ∈ {True, False}` rows, S1, `cond_class='a'`; cell reproduction in `notebooks/paper_cross_model_cross_dataset.ipynb` §11-§13) |
+| Appendix D.1/D.2 per-cell tables (broad cohort) | `notebooks/paper_cross_model_cross_dataset.ipynb` §11–§13 (live aggregate over `outputs/paper2/cross_model_cross_dataset/predictions/*`; broad cohort 은 canonical CSV 에 별도 저장 안 됨) |
 | Appendix E γ-β bridge L×K sweep | `docs/insights/_data/gamma_beta_bridge_lk_sweep.{csv,md}` |
 | Appendix G attention peak per (model, dataset) | `docs/insights/_data/cross_dataset_peaks.csv` |
 | Appendix H LEACE rank-1 / ActAdd / K=1 SVD per-dataset | `docs/insights/_data/leace_recal_per_dataset_ci.{csv,md}`, `actadd_recal_per_dataset_ci.{csv,md}`, `p4_layer_sweep_per_cell_ci.csv` |
@@ -525,40 +525,40 @@ Table E.1 에서 K=1 이 K=8 보다 강한 cell 이 있음 (예: L=30 K=1 +0.477
 
 | Model | n_layers | Dataset | n | peak L | depth-norm | peak Δ | 95 % CI |
 |---|---:|---|---:|---:|---:|---:|---|
-| Gemma3-4b | 34 | **PlotQA** | 200 | **12** | 0.36 | +0.0781 | [+0.0713, +0.0849] |
-| Gemma3-4b | 34 | InfoVQA | 195 | 12 | 0.36 | +0.0739 | [+0.0671, +0.0807] |
-| Gemma3-4b | 34 | ChartQA | 192 | 12 | 0.36 | +0.0644 | [+0.0576, +0.0713] |
-| Gemma3-4b | 34 | MathVista | 191 | 5 | 0.15 | +0.0569 | [+0.0533, +0.0606] |
-| Gemma3-4b | 34 | TallyQA | 185 | 6 | 0.18 | +0.0742 | [+0.0697, +0.0787] |
-| Qwen2.5-VL-7b | 28 | **PlotQA** | 205 | **14** | 0.50 | +0.0096 | [+0.0085, +0.0108] |
-| Qwen2.5-VL-7b | 28 | InfoVQA | 200 | 3 | 0.11 | +0.0094 | [+0.0088, +0.0099] |
-| Qwen2.5-VL-7b | 28 | ChartQA | 200 | 3 | 0.11 | +0.0096 | [+0.0090, +0.0101] |
-| Qwen2.5-VL-7b | 28 | MathVista | 200 | 3 | 0.11 | +0.0113 | [+0.0108, +0.0119] |
-| Qwen2.5-VL-7b | 28 | TallyQA | 200 | 3 | 0.11 | +0.0137 | [+0.0131, +0.0142] |
-| Interleave-7b | 32 | **PlotQA** | 195 | **31** | 0.97 | +0.0314 | [+0.0299, +0.0328] |
-| Interleave-7b | 32 | InfoVQA | 197 | 31 | 0.97 | +0.0337 | [+0.0324, +0.0351] |
-| Interleave-7b | 32 | ChartQA | 196 | 31 | 0.97 | +0.0298 | [+0.0283, +0.0313] |
-| Interleave-7b | 32 | MathVista | 143 | 31 | 0.97 | +0.0290 | [+0.0272, +0.0308] |
-| Interleave-7b | 32 | TallyQA | 200 | 31 | 0.97 | +0.0281 | [+0.0268, +0.0294] |
-| OneVision-7b (Main) | 28 | **PlotQA** | 204 | **22** | 0.81 | +0.0102 | [+0.0079, +0.0124] |
-| OneVision-7b (Main) | 28 | InfoVQA | 200 | 14 | 0.52 | +0.0045 | [+0.0040, +0.0050] |
-| OneVision-7b (Main) | 28 | ChartQA | 200 | 14 | 0.52 | +0.0073 | [+0.0067, +0.0079] |
-| OneVision-7b (Main) | 28 | MathVista | 189 | 14 | 0.52 | +0.0144 | [+0.0124, +0.0163] |
-| OneVision-7b (Main) | 28 | TallyQA | 79 † | 14 | 0.52 | +0.0153 | [+0.0134, +0.0172] |
-| Gemma3-27b | 62 | **PlotQA** | 205 | **26** | 0.43 | +0.0283 | [+0.0257, +0.0310] |
-| Gemma3-27b | 62 | InfoVQA | 200 | 26 | 0.43 | +0.0288 | [+0.0253, +0.0322] |
-| Gemma3-27b | 62 | ChartQA | 200 | 26 | 0.43 | +0.0213 | [+0.0190, +0.0237] |
-| Gemma3-27b | 62 | MathVista | 200 | 26 | 0.43 | +0.0283 | [+0.0252, +0.0314] |
-| Gemma3-27b | 62 | TallyQA | 200 | 26 | 0.43 | +0.0207 | [+0.0179, +0.0235] |
-| Qwen2.5-VL-32b | 64 | **PlotQA** | 205 | **29** | 0.46 | +0.0156 | [+0.0139, +0.0174] |
-| Qwen2.5-VL-32b | 64 | InfoVQA | 200 | 63 | 1.00 | +0.0121 | [+0.0110, +0.0133] |
-| Qwen2.5-VL-32b | 64 | ChartQA | 200 | 63 | 1.00 | +0.0125 | [+0.0116, +0.0134] |
-| Qwen2.5-VL-32b | 64 | MathVista | 200 | 29 | 0.46 | +0.0147 | [+0.0121, +0.0174] |
-| Qwen2.5-VL-32b | 64 | TallyQA | 200 | 63 | 1.00 | +0.0101 | [+0.0093, +0.0110] |
+| Gemma3-4b | 34 | **PlotQA** | 205 | **17** | 0.52 | +0.1077 | [+0.1001, +0.1153] |
+| Gemma3-4b | 34 | InfoVQA | 200 | 17 | 0.52 | +0.1097 | [+0.1018, +0.1175] |
+| Gemma3-4b | 34 | ChartQA | 200 | 17 | 0.52 | +0.0876 | [+0.0797, +0.0955] |
+| Gemma3-4b | 34 | MathVista | 200 | 17 | 0.52 | +0.1170 | [+0.1084, +0.1257] |
+| Gemma3-4b | 34 | TallyQA | 200 | 17 | 0.52 | +0.0685 | [+0.0625, +0.0745] |
+| Qwen2.5-VL-7b | 28 | **PlotQA** | 205 | **16** | 0.59 | +0.0142 | [+0.0126, +0.0158] |
+| Qwen2.5-VL-7b | 28 | InfoVQA | 200 | 16 | 0.59 | +0.0127 | [+0.0113, +0.0142] |
+| Qwen2.5-VL-7b | 28 | ChartQA | 200 | 16 | 0.59 | +0.0099 | [+0.0088, +0.0111] |
+| Qwen2.5-VL-7b | 28 | MathVista | 199 | 16 | 0.59 | +0.0190 | [+0.0170, +0.0210] |
+| Qwen2.5-VL-7b | 28 | TallyQA | 200 | 16 | 0.59 | +0.0194 | [+0.0176, +0.0211] |
+| Interleave-7b | 32 | **PlotQA** | 188 | **31** | 1.00 | +0.0319 | [+0.0303, +0.0335] |
+| Interleave-7b | 32 | InfoVQA | 198 | 31 | 1.00 | +0.0339 | [+0.0325, +0.0354] |
+| Interleave-7b | 32 | ChartQA | 198 | 31 | 1.00 | +0.0294 | [+0.0278, +0.0311] |
+| Interleave-7b | 32 | MathVista | 151 | 31 | 1.00 | +0.0299 | [+0.0280, +0.0318] |
+| Interleave-7b | 32 | TallyQA | 199 | 31 | 1.00 | +0.0258 | [+0.0245, +0.0272] |
+| OneVision-7b (Main) | 28 | **PlotQA** | 205 | **14** | 0.52 | +0.0131 | [+0.0119, +0.0143] |
+| OneVision-7b (Main) | 28 | InfoVQA | 200 | 14 | 0.52 | +0.0050 | [+0.0044, +0.0057] |
+| OneVision-7b (Main) | 28 | ChartQA | 200 | 14 | 0.52 | +0.0096 | [+0.0087, +0.0104] |
+| OneVision-7b (Main) | 28 | MathVista | 190 | 14 | 0.52 | +0.0203 | [+0.0185, +0.0221] |
+| OneVision-7b (Main) | 28 | TallyQA | 142 † | 14 | 0.52 | +0.0227 | [+0.0207, +0.0246] |
+| Gemma3-27b | 62 | **PlotQA** | 205 | **29** | 0.48 | +0.0241 | [+0.0222, +0.0259] |
+| Gemma3-27b | 62 | InfoVQA | 200 | 28 | 0.46 | +0.0326 | [+0.0302, +0.0349] |
+| Gemma3-27b | 62 | ChartQA | 200 | 29 | 0.48 | +0.0205 | [+0.0188, +0.0222] |
+| Gemma3-27b | 62 | MathVista | 200 | 29 | 0.48 | +0.0308 | [+0.0282, +0.0334] |
+| Gemma3-27b | 62 | TallyQA | 200 | 29 | 0.48 | +0.0316 | [+0.0296, +0.0335] |
+| Qwen2.5-VL-32b | 64 | **PlotQA** | 205 | **42** | 0.67 | +0.0150 | [+0.0136, +0.0164] |
+| Qwen2.5-VL-32b | 64 | InfoVQA | 200 | 42 | 0.67 | +0.0173 | [+0.0156, +0.0190] |
+| Qwen2.5-VL-32b | 64 | ChartQA | 200 | 42 | 0.67 | +0.0143 | [+0.0128, +0.0159] |
+| Qwen2.5-VL-32b | 64 | MathVista | 200 | 42 | 0.67 | +0.0155 | [+0.0136, +0.0173] |
+| Qwen2.5-VL-32b | 64 | TallyQA | 200 | 62 | 0.98 | +0.0139 | [+0.0123, +0.0156] |
 
-**Bold** = §5.1 본문에서 reference 되는 calibration dataset 선택 (PlotQA). † = n_low (OneVision Main 의 TallyQA top/bottom-decile susceptible 풀 자체가 작음; peak L 는 다른 4 dataset 과 동일 L=14 로 일관 — magnitude 직접 비교만 주의).
+**Bold** = §5.1 본문에서 reference 되는 calibration dataset 선택 (PlotQA). † = n_low (OneVision Main 의 TallyQA susceptible 풀이 다른 4 dataset 보다 작아 cap 미달; peak L 는 5 dataset 모두 L=14 로 일관 — magnitude 직접 비교만 주의).
 
-**Observation.** Peak depth-norm 범위 = 0.11 (Qwen2.5-VL-7b, 4/5 dataset) → 1.00 (Qwen2.5-VL-32b 3/5 dataset). Two heterogeneity axis 동시 관찰: (i) **cross-model** — 6 model 의 peak depth-norm 이 early (Qwen-7b, Gemma3-4b 일부) / mid (Gemma3-27b, OneVision Main, Qwen-32b 일부) / late (Interleave-7b 5/5, Qwen-32b 3/5) 전 범위 cover; (ii) **intra-model cross-dataset** — OneVision Main (PlotQA L=22 vs 나머지 L=14), Qwen2.5-VL-32b (PlotQA/MathVista L=29 vs 나머지 L=63), Qwen2.5-VL-7b (PlotQA L=14 vs 나머지 L=3), Gemma3-4b (Plot/Info/Chart L=12 vs Math/Tally L=5–6). 나머지 2 model (Interleave-7b, Gemma3-27b) 은 5/5 dataset 동일 peak — intra-model 안정. *Single uniform causal site 부재* 는 model / dataset 별 routing pathway 변동에 의한 자연 결과 (§5.3 framework prediction).
+**Observation.** Peak depth-norm 범위 = 0.46 (Gemma3-27b InfoVQA) → 1.00 (Interleave-7b 5/5 dataset, Qwen2.5-VL-32b TallyQA 1 dataset). **Cross-model** — 6 model 의 peak depth-norm 이 mid-stack (Gemma3-27b 0.46–0.48, OneVision Main / Gemma3-4b 0.52, Qwen2.5-VL-7b 0.59, Qwen2.5-VL-32b 0.67) 과 late-stack (Interleave-7b 1.00) 두 그룹으로 분포 — architecture 별로 integration site 가 5–7 layer 단위로 이동. **Intra-model cross-dataset 안정** — 4/6 model (Gemma3-4b L=17, Qwen2.5-VL-7b L=16, Interleave-7b L=31, OneVision Main L=14) 이 5/5 dataset 동일 peak; Gemma3-27b 는 4/5 동일 (L=29) + InfoVQA 1-layer 차이 (L=28); Qwen2.5-VL-32b 는 4/5 동일 (L=42) + TallyQA 만 late-stack outlier (L=62). 즉 *Single uniform causal site 부재* 는 cross-model 축에서 두드러지며 (architecture-dependent integration site), 같은 model 안에서는 5 dataset 위 peak layer 가 stable — §5.3 routing-and-integration framework 의 *integration site 가 architecture-specific* 라는 prediction 과 일관.
 
 ---
 
