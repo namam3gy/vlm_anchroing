@@ -94,7 +94,21 @@ WORKTREE = find_worktree_root()
 SCRIPTS    = WORKTREE / "scripts"
 CONFIGS    = WORKTREE / "configs"
 DATA_DIR   = MAIN / "docs" / "insights" / "_data"
-PRED_ROOT  = MAIN / "outputs" / "paper" / "cross_model_cross_dataset" / "predictions"
+
+# §5.2 reads predictions.jsonl from canonical per-experiment legacy run dirs
+# (cross_model_cross_dataset snapshots only carry the CSV). Each tuple maps the
+# §5.2 dataset_tag to the legacy run dir for OneVision-Main.
+LEGACY_PRED_ROOTS = {
+    "plotqa":         MAIN / "outputs" / "experiment_e7_plotqa_full"         / "llava-onevision-qwen2-7b-ov" / "20260502-132624",
+    "infographicvqa": MAIN / "outputs" / "experiment_e7_infographicvqa_full" / "llava-onevision-qwen2-7b-ov" / "20260502-152105",
+    "chartqa":        MAIN / "outputs" / "experiment_e5e_chartqa_full"       / "llava-onevision-qwen2-7b-ov" / "20260502-211028",
+    "mathvista":      MAIN / "outputs" / "experiment_e5e_mathvista_full"     / "llava-onevision-qwen2-7b-ov" / "20260502-212440",
+    "tallyqa":        MAIN / "outputs" / "experiment_e5e_tallyqa_full"       / "llava-onevision-qwen2-7b-ov" / "20260502-083926",
+}
+
+
+def legacy_pred(ds_tag: str) -> Path:
+    return LEGACY_PRED_ROOTS[ds_tag] / "predictions.jsonl"
 
 # §5.2 e6_steering input root selection (same toggle as §5.1 above):
 #   - RUN_INFERENCE=False: read pre-existing sweep dirs from legacy
@@ -548,20 +562,29 @@ OneVision Main is `llava-onevision-qwen2-7b-ov`. The calibration scope
 follows outline §6.1 — PlotQA + InfoVQA pooled, wrong-base + numeric
 `(a, m)` pairs only.
 
-The pilot grid is 3 layers × 3 α × 3 K = 27 cells (PlotQA, n=250).
-The 5-dataset sweep adds 5 datasets × 5 layers at K=8 + 5 datasets ×
-L=26 at K=1, all at α=1.0.
+The pilot grid is 4 layers × 3 α × 4 K = 48 cells (PlotQA, n=250) —
+K=1 included per outline §5.2 body figure (K=1/2/4/8 monotonic
+improvement). The 5-dataset sweep adds 5 datasets × 4 layers at K=8 +
+5 datasets × 4 layers at K=1, all at α=1.0 (40 cells total).
 """),
     code(r"""
 ONEVISION    = "llava-onevision-qwen2-7b-ov"
 ONEVISION_HF = "llava-hf/llava-onevision-qwen2-7b-ov-hf"
 
-PILOT_LAYERS = [25, 26, 27]
+PILOT_LAYERS = [14, 20, 22, 26]
 PILOT_ALPHAS = [0.5, 1.0, 2.0]
-PILOT_KS     = [2, 4, 8]
+PILOT_KS     = [1, 2, 4, 8]
 
 CALIB_SCOPE       = "plotqa_infovqa_pooled_n5k"
 CALIB_MAX_PAIRS   = 2500
+
+# Batched generate. B=16 validated via _smoke_batched_vs_sequential.py
+# (parsed_number exact-match vs preserved sequential run on the same sids +
+# cells). B=1 falls back to the legacy per-sample path. Prefetch workers
+# parallelise PIL.Image.open across the batch and pipeline the next chunk
+# while the current chunk runs on GPU.
+SWEEP_BATCH_SIZE     = 16
+SWEEP_PREFETCH_WORKERS = 16
 
 SWEEP_DATASETS_5D = [
     ("plotqa",    "experiment_e7_plotqa_full"),
@@ -570,71 +593,67 @@ SWEEP_DATASETS_5D = [
     ("chartqa",   "experiment_e5e_chartqa_full"),
     ("mathvista", "experiment_e5e_mathvista_full"),
 ]
-SWEEP_LAYERS_5D = [22, 24, 26, 28, 30]
+SWEEP_LAYERS_5D = [14, 20, 22, 26]
 SWEEP_KS_5D     = [8, 1]   # K=8 sweep + K=1 fallback at L=26
 SWEEP_ALPHA_5D  = 1.0
 """),
     md(r"""
-## 3 · Calibrate (a − m) subspace — 8-GPU sharded SVD
+## 3 · Seed the (a − m) subspace into the fresh E6 root
 
-`run_calibrate_subspace_sharded.py` shards the wrong-base + 4-condition
-sids round-robin across the 8 GPUs, collects residual diffs per shard,
-concatenates D_wrong + D_all, then runs SVD once on the merged matrix.
+The §5.2 K-subspace sweep is the part being reproduced here. The
+upstream calibration step — pooled SVD over PlotQA + InfoVQA
+wrong-base + numeric (a, m) pairs (outline §6.1) — already produced
+`outputs/e6_steering/<model>/_subspace/subspace_plotqa_infovqa_pooled_n5k_K16.pt`
+(shape `[n_layers, K_max=16, d_model]`) on the canonical §4 predictions.
+We symlink that audited subspace into the isolated `E6_ROOT_FRESH`
+tree so the sweep below points at it without re-running calibration.
 
-Outline §6.1 calls for one calibration over the PlotQA + InfoVQA pool;
-we calibrate per dataset and merge to keep each shard within VRAM.
+Re-running the pooled SVD would require `merge_calibrate_subspaces.py`,
+which is not in-repo; the pooled subspace is treated here as a §4
+derived artifact (analogous to `predictions.jsonl`).
 """),
     code(r"""
-def calibrate_subspace(dataset_tag: str, config_slug: str):
-    pred = PRED_ROOT / dataset_tag / ONEVISION / "predictions.jsonl"
-    if not pred.exists() and RUN_INFERENCE:
+def seed_canonical_subspace():
+    src = E6_ROOT_LEGACY / ONEVISION / "_subspace" / f"subspace_{CALIB_SCOPE}_K16.pt"
+    dst_dir = E6_ROOT_FRESH / ONEVISION / "_subspace"
+    dst_dir.mkdir(parents=True, exist_ok=True)
+    dst = dst_dir / f"subspace_{CALIB_SCOPE}.pt"
+    if not src.exists():
         raise FileNotFoundError(
-            f"missing predictions: {pred} — run paper_cross_model_cross_dataset.ipynb first."
+            f"missing canonical pooled subspace: {src}. "
+            "Re-run E6 calibration on PlotQA + InfoVQA pool before §5.2."
         )
-    out_dir = E6_ROOT / ONEVISION / f"calibration_{dataset_tag}"
-    cmd = [
-        "uv", "run", "python", str(SCRIPTS / "run_calibrate_subspace_sharded.py"),
-        "--config", str(CONFIGS / f"{config_slug}.yaml"),
-        "--model", ONEVISION, "--hf-model", ONEVISION_HF,
-        "--predictions-path", str(pred),
-        "--dataset-tag", dataset_tag,
-        "--max-calibrate-pairs", str(CALIB_MAX_PAIRS // 2),
-        "--gpus", GPUS,
-        "--out-dir", str(out_dir),  # isolate to E6_ROOT
-    ]
-    return run_cmd(cmd, dry=not RUN_INFERENCE)
+    if dst.is_symlink() or dst.exists():
+        dst.unlink()
+    dst.symlink_to(src)
+    print(f"  symlink {dst} -> {src}")
 
 
-calibrate_subspace("plotqa",  "experiment_e7_plotqa_full")
-calibrate_subspace("infovqa", "experiment_e7_infographicvqa_full")
-
-# Merge per-dataset subspaces into the pooled basis used by all downstream sweeps.
-# `merge_calibrate_subspaces.py` reads from `outputs/e6_steering/<model>/`; the
-# call here is informational — when running with the isolated E6_ROOT_FRESH
-# tree, replicate or symlink the calibration_<tag> dirs first.
-run_cmd(
-    ["uv", "run", "python", str(SCRIPTS / "merge_calibrate_subspaces.py"),
-     "--model", ONEVISION, "--scope", CALIB_SCOPE,
-     "--inputs", "plotqa", "infovqa"],
-    dry=not RUN_INFERENCE,
-)
+seed_canonical_subspace()
 """),
     md(r"""
-## 4 · Pilot grid sweep — PlotQA × OneVision (8-GPU sharded)
+## 4 · Pilot grid sweep — PlotQA × OneVision (5-GPU sharded)
 
-27 cells of `(layer, α, K)`. Each cell shards its `(sid × cond)`
-inference across all 8 GPUs; cells run sequentially. Expected wall
-time on 8 × H200 ≈ 4–6 GPU-hours.
+`PILOT_LAYERS × PILOT_ALPHAS × PILOT_KS = 4 × 3 × 3 = 36 cells`. Each
+cell shards its `(sid × cond)` inference across the 5 GPUs configured
+via `VLM_ANCHOR_GPUS`; cells run sequentially. The chosen cell from
+the §6.2.2 selection rule (`CHOSEN = (26, 8, 1.0)`) sits inside this
+grid as the star marker after aggregation. Expected wall on 5 H200 ≈
+1–2 GPU-hours total (≈ 100–200 s per cell × 36).
 """),
     code(r"""
+PILOT_OUT_CSV = E6_ROOT_FRESH / "_data" / "E6_pilot_grid.csv"
+PILOT_OUT_CSV.parent.mkdir(parents=True, exist_ok=True)
+
+
 def sweep_pilot():
-    subspace_path = E6_ROOT / ONEVISION / "_subspace" / f"subspace_{CALIB_SCOPE}.pt"
-    out_dir = E6_ROOT / ONEVISION / "pilot_grid_plotqa_n250"
+    subspace_path = E6_ROOT_FRESH / ONEVISION / "_subspace" / f"subspace_{CALIB_SCOPE}.pt"
+    out_dir = E6_ROOT_FRESH / ONEVISION / "pilot_grid_plotqa_n250"
     cmd = [
         "uv", "run", "python", str(SCRIPTS / "run_sweep_subspace_sharded.py"),
         "--config", str(CONFIGS / "experiment_e7_plotqa_full.yaml"),
         "--model", ONEVISION, "--hf-model", ONEVISION_HF,
-        "--predictions-path", str(PRED_ROOT / "plotqa" / ONEVISION / "predictions.jsonl"),
+        "--predictions-path", str(legacy_pred("plotqa")),
         "--dataset-tag", "plotqa",
         "--subspace-path", str(subspace_path),
         "--subspace-scope", CALIB_SCOPE,
@@ -642,8 +661,10 @@ def sweep_pilot():
         "--sweep-alphas", ",".join(str(a) for a in PILOT_ALPHAS),
         "--sweep-ks",     ",".join(str(k) for k in PILOT_KS),
         "--max-samples", "250",
+        "--batch-size", str(SWEEP_BATCH_SIZE),
+        "--prefetch-workers", str(SWEEP_PREFETCH_WORKERS),
         "--gpus", GPUS,
-        "--out-dir", str(out_dir),  # isolate to E6_ROOT
+        "--out-dir", str(out_dir),  # isolate to E6_ROOT_FRESH
     ]
     return run_cmd(cmd, dry=not RUN_INFERENCE)
 
@@ -651,26 +672,31 @@ def sweep_pilot():
 sweep_pilot()
 run_cmd(
     ["uv", "run", "python", str(SCRIPTS / "aggregate_e6_pilot_grid.py"),
-     "--e6-root", str(E6_ROOT),
-     "--out-csv", str(MAIN / "outputs" / "paper" / "section_5_e6_steering" / "_data" / "E6_pilot_grid_27cells.csv"),
+     "--e6-root", str(E6_ROOT_FRESH),
+     "--layers", ",".join(str(L) for L in PILOT_LAYERS),
+     "--ks",     ",".join(str(k) for k in PILOT_KS),
+     "--alphas", ",".join(str(a) for a in PILOT_ALPHAS),
+     "--out-csv", str(PILOT_OUT_CSV),
      "--fig-dir", str(MAIN / "outputs" / "paper" / "section_5_figures")],
     dry=not RUN_INFERENCE,
 )
 """),
-    md("## 5 · Figure §5.2a — pilot grid heatmap (4 metrics × 3 K × 3 L × 3 α)"),
+    md("## 5 · Figure §5.2a — pilot grid heatmap (4 metrics × K × L × α)"),
     code(r"""
 def fig_pilot_grid() -> plt.Figure | None:
-    src = DATA_DIR / "e6_pilot_grid_plotqa.csv"
+    src = PILOT_OUT_CSV
     if not src.exists():
-        print(f"  (skipped — {src.name} missing; run §4 with RUN_INFERENCE=True first)")
+        print(f"  (skipped — {src} missing; run §4 with RUN_INFERENCE=True first)")
         return None
     grid = pd.read_csv(src)
+    grid = grid[grid["calib"] == "plotqa"]
+    chosen_L, chosen_K, chosen_alpha = 26, 8, 1.0
 
     metrics = [
-        ("delta_adopt_a", "Δ adopt(a) pp"),
-        ("delta_df_a",    "Δ df(a) pp"),
-        ("delta_em_a",    "Δ em(a) pp"),
-        ("delta_em_b",    "Δ em(b) pp"),
+        ("delta_adopt", "Δ adopt(a) pp"),
+        ("delta_df",    "Δ df(a) pp"),
+        ("delta_em_a",  "Δ em(a) pp"),
+        ("delta_em_b",  "Δ em(b) pp"),
     ]
     fig, axes = plt.subplots(len(metrics), len(PILOT_KS),
                              figsize=(11, 9.0), dpi=150,
@@ -679,8 +705,9 @@ def fig_pilot_grid() -> plt.Figure | None:
         for row, (col_metric, ylabel) in enumerate(metrics):
             ax = axes[row, col]
             sub = grid[grid["K"] == K]
-            piv = sub.pivot_table(index="L", columns="alpha", values=col_metric)
+            piv = sub.pivot_table(index="layer", columns="alpha", values=col_metric)
             piv = piv.reindex(index=PILOT_LAYERS, columns=PILOT_ALPHAS)
+            piv = piv * 100.0  # to pp
             vmax = float(piv.abs().values.max()) if piv.size else 1.0
             ax.imshow(piv.values, cmap="RdBu_r", vmin=-vmax, vmax=vmax, aspect="auto")
             for i, L in enumerate(PILOT_LAYERS):
@@ -689,6 +716,10 @@ def fig_pilot_grid() -> plt.Figure | None:
                     if pd.notna(v):
                         ax.text(j, i, f"{v:+.1f}", ha="center", va="center",
                                 fontsize=8, color="black")
+                    if (L, K, alpha) == (chosen_L, chosen_K, chosen_alpha):
+                        ax.add_patch(plt.Rectangle((j - 0.45, i - 0.45),
+                                                   0.9, 0.9, fill=False,
+                                                   edgecolor="black", linewidth=2.0))
             if row == 0:
                 ax.set_title(f"K={K}", fontsize=11)
             if col == 0:
@@ -698,7 +729,7 @@ def fig_pilot_grid() -> plt.Figure | None:
             if row == len(metrics) - 1:
                 ax.set_xlabel("α", fontsize=9)
     fig.suptitle("§5.2a — E6 pilot grid (PlotQA × OneVision, n=250)\n"
-                 "Δ vs base condition; ★ chosen cell = L=26, α=1.0, K=8",
+                 "Δ vs baseline; ▢ chosen cell = L=26, K=8, α=1.0 (§6.2.2 selection)",
                  fontsize=11)
     fig.tight_layout(rect=(0, 0, 1, 0.96))
     return fig
@@ -717,11 +748,21 @@ one sharded sweep run; cells run sequentially. Expected ≈ 6–10 GPU-hours
 on 8 × H200.
 """),
     code(r"""
+SWEEP_OUT_DATA = E6_ROOT_FRESH / "_data"
+SWEEP_OUT_DATA.mkdir(parents=True, exist_ok=True)
+
+
 def sweep_5dataset_layer():
-    subspace_path = E6_ROOT / ONEVISION / "_subspace" / f"subspace_{CALIB_SCOPE}.pt"
+    subspace_path = E6_ROOT_FRESH / ONEVISION / "_subspace" / f"subspace_{CALIB_SCOPE}.pt"
+    # Map §5.2 dataset_tag to the legacy_pred() key; tallyqa+chartqa+mathvista
+    # share names. PlotQA / InfoVQA aliases reconcile the §5 short tag with the
+    # extract-side full tag used by extract_attention_mass.py.
+    pred_key = {"plotqa": "plotqa", "infovqa": "infographicvqa",
+                "tallyqa": "tallyqa", "chartqa": "chartqa",
+                "mathvista": "mathvista"}
     for ds_tag, cfg_slug in SWEEP_DATASETS_5D:
-        pred = PRED_ROOT / ds_tag / ONEVISION / "predictions.jsonl"
-        out_dir = E6_ROOT / ONEVISION / f"sweep_subspace_{ds_tag}_{CALIB_SCOPE}_p4_layer_sweep_K1_layers_K8"
+        pred = legacy_pred(pred_key[ds_tag])
+        out_dir = E6_ROOT_FRESH / ONEVISION / f"sweep_subspace_{ds_tag}_{CALIB_SCOPE}_p4_layer_sweep_K1_layers_K8"
         cmd = [
             "uv", "run", "python", str(SCRIPTS / "run_sweep_subspace_sharded.py"),
             "--config", str(CONFIGS / f"{cfg_slug}.yaml"),
@@ -734,14 +775,15 @@ def sweep_5dataset_layer():
             "--sweep-alphas", str(SWEEP_ALPHA_5D),
             "--sweep-ks", ",".join(str(k) for k in SWEEP_KS_5D),
             "--gpus", GPUS,
-            "--out-dir", str(out_dir),  # isolate to E6_ROOT
+            "--out-dir", str(out_dir),  # isolate to E6_ROOT_FRESH
         ]
         run_cmd(cmd, dry=not RUN_INFERENCE)
 
     run_cmd(
         ["uv", "run", "python", str(SCRIPTS / "aggregate_e6_layer_sweep_p4.py"),
-         "--e6-root", str(E6_ROOT),
-         "--out-data", str(MAIN / "outputs" / "paper" / "section_5_e6_steering" / "_data")],
+         "--e6-root", str(E6_ROOT_FRESH),
+         "--out-data", str(SWEEP_OUT_DATA),
+         "--out-fig", str(MAIN / "outputs" / "paper" / "section_5_figures")],
         dry=not RUN_INFERENCE,
     )
 
@@ -751,9 +793,9 @@ sweep_5dataset_layer()
     md("## 7 · Figure §5.2b — 5-dataset Δdf(a) sweep + K=1 fallback"),
     code(r"""
 def fig_layer_sweep() -> plt.Figure | None:
-    src = DATA_DIR / "p4_layer_sweep_per_cell_ci.csv"
+    src = SWEEP_OUT_DATA / "p4_layer_sweep_per_cell_ci.csv"
     if not src.exists():
-        print(f"  (skipped — {src.name} missing; run §6 with RUN_INFERENCE=True first)")
+        print(f"  (skipped — {src} missing; run §6 with RUN_INFERENCE=True first)")
         return None
     sweep = pd.read_csv(src)
     # Canonical CSV uses `layer`, `delta_df`, and `ds_tag` for the dataset key.
@@ -762,20 +804,22 @@ def fig_layer_sweep() -> plt.Figure | None:
     color = {"plotqa": "#1F4FA8", "infovqa": "#C8102E",
              "tallyqa": "#1A7F3F", "chartqa": "#F2A900", "mathvista": "#6C7280"}
     for ds_tag, c in color.items():
-        head = sweep[(sweep["ds_tag"] == ds_tag) & (sweep["K"] == SWEEP_KS_5D[0])]
+        head = sweep[(sweep["ds_tag"] == ds_tag) & (sweep["K"] == 8)]
         if len(head):
+            head = head.sort_values("layer")
             ax.plot(head["layer"], head["delta_df"] * 100,
                     color=c, marker="o", label=f"{ds_tag} K=8")
-        fb = sweep[(sweep["ds_tag"] == ds_tag) & (sweep["K"] == 1) & (sweep["layer"] == 26)]
-        if len(fb):
-            ax.scatter([26], fb["delta_df"].values * 100,
-                       color=c, marker="s", s=110, edgecolor="black",
-                       linewidth=0.8, label=f"{ds_tag} K=1 fallback @ L=26", zorder=5)
+        k1 = sweep[(sweep["ds_tag"] == ds_tag) & (sweep["K"] == 1)]
+        if len(k1):
+            k1 = k1.sort_values("layer")
+            ax.plot(k1["layer"], k1["delta_df"] * 100,
+                    color=c, marker="s", linestyle="--", alpha=0.6,
+                    label=f"{ds_tag} K=1")
     ax.axhline(0, color="#888", linewidth=0.7, linestyle=":")
     ax.set_xlabel("layer (L)")
     ax.set_ylabel("Δ df(a)  pp  (negative ⇒ anchoring reduced)")
-    ax.set_title("§5.2b — 5-dataset Δdf(a) at α=1.0 — K=8 sweep (lines) vs K=1 fallback at L=26 (squares)\n"
-                 "K=1 weaker than K=8 ⇒ multi-direction required")
+    ax.set_title("§5.2b — 5-dataset Δdf(a) at α=1.0 — K=8 (solid) vs K=1 (dashed)\n"
+                 "K=1 sign-reversal at mid-stack supports §5.2 K-subspace argument")
     ax.legend(loc="upper right", frameon=False, fontsize=8, ncol=2)
     ax.grid(axis="y", linestyle=":", alpha=0.4)
     fig.tight_layout()

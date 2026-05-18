@@ -52,6 +52,16 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--sweep-alphas", default="1.0")
     p.add_argument("--max-samples", type=int, default=5000)
     p.add_argument("--max-new-tokens", type=int, default=8)
+    p.add_argument("--batch-size", type=int, default=1,
+                   help="Per-shard `model.generate` batch size. Forwarded to "
+                        "e6_steering_vector.py --batch-size. Default 1 = "
+                        "sample-by-sample (legacy). B>1 dispatches batched "
+                        "generate (OneVision-validated; smoke gate first).")
+    p.add_argument("--prefetch-workers", type=int, default=0,
+                   help="Per-shard prefetch thread-pool workers for PIL image "
+                        "loading. 0 = disabled. Forwarded to "
+                        "e6_steering_vector.py --prefetch-workers. Recommended "
+                        "8 on many-vCPU hosts with --batch-size > 1.")
     p.add_argument("--gpus", required=True, help="Comma-separated GPU ids.")
     p.add_argument(
         "--out-dir",
@@ -116,6 +126,8 @@ def main() -> None:
             "--sweep-alphas", args.sweep_alphas,
             "--max-samples", str(args.max_samples),
             "--max-new-tokens", str(args.max_new_tokens),
+            "--batch-size", str(args.batch_size),
+            "--prefetch-workers", str(args.prefetch_workers),
             "--config", args.config,
             "--shard-idx", str(i),
             "--num-shards", str(K),

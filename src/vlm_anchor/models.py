@@ -210,6 +210,90 @@ class HFAttentionRunner(_BaseRunner):
         inputs_cpu = self.prepare_inputs_cpu(question=question, images=images)
         return self.generate_from_cpu_inputs(inputs_cpu, max_new_tokens=max_new_tokens)
 
+    @torch.no_grad()
+    def generate_numbers_batch(
+        self,
+        questions: list[str],
+        image_lists: list[list[Any]],
+        max_new_tokens: int = 4,
+    ) -> list[dict[str, Any]]:
+        """Batched counterpart to `generate_number`. All samples in the batch
+        must share the same image count (so the chat template emits an
+        identical number of `<image>` placeholders); call this once per
+        image-count cohort if you mix conditions in a single pass.
+
+        Returns parsed-number-only dicts (no per-token logits) — sufficient
+        for the e6_steering sweep, which only records `raw_text` and
+        `parsed_number`. For pad-safe batched generation, the processor
+        tokenizer is temporarily switched to left-padding (HF's required
+        side for autoregressive `generate`).
+        """
+        if not questions:
+            return []
+        if len(questions) != len(image_lists):
+            raise ValueError("questions and image_lists must align")
+        n_imgs = {len(il) for il in image_lists}
+        if len(n_imgs) != 1:
+            raise ValueError(
+                f"batched generate requires uniform image count per batch; got {n_imgs}"
+            )
+        num_images = next(iter(n_imgs))
+
+        # OneVision (and LLaVA-family) processors expect a FLAT list of PIL
+        # images for batched calls — one image per `<image>` placeholder in
+        # the concatenated batch text, ordered as sample0_img0, sample0_img1,
+        # sample1_img0, ... Passing a nested per-sample list silently
+        # mis-aligns image features to placeholders and produces drifted
+        # outputs (smoke-validated 2026-05-18: nested form failed 4/5,
+        # flat form matched 5/5 against the single-sample path).
+        flat_images = [_to_pil(img) for il in image_lists for img in il]
+        texts = [
+            self.processor.apply_chat_template(
+                self._build_prompt(question=q, num_images=num_images),
+                tokenize=False,
+                add_generation_prompt=True,
+            )
+            for q in questions
+        ]
+
+        # HF generate requires left-padding so the trailing token is right-aligned.
+        tokenizer = getattr(self.processor, "tokenizer", None)
+        original_side = getattr(tokenizer, "padding_side", "right") if tokenizer else "right"
+        if tokenizer is not None:
+            tokenizer.padding_side = "left"
+        try:
+            inputs = self.processor(
+                images=flat_images, text=texts, return_tensors="pt", padding=True,
+            )
+        finally:
+            if tokenizer is not None:
+                tokenizer.padding_side = original_side
+        inputs = {k: (v.to(self.model.device) if hasattr(v, "to") else v) for k, v in inputs.items()}
+
+        seq_len = inputs["input_ids"].shape[-1]
+        generate_kwargs = self._build_generate_kwargs(max_new_tokens)
+        # `output_scores` and `return_dict_in_generate` are inherited from the
+        # base kwargs; we don't use scores in the batched path so drop them
+        # to save memory.
+        generate_kwargs["output_scores"] = False
+        out = self.model.generate(**inputs, **generate_kwargs)
+        generated = out.sequences[:, seq_len:]
+        decoded_list = self.processor.batch_decode(generated, skip_special_tokens=True)
+
+        out_rows: list[dict[str, Any]] = []
+        for txt in decoded_list:
+            text = txt.strip()
+            marker = self.THINKING_MARKER
+            idx = text.rfind(marker)
+            post_trace = text[idx + len(marker):] if idx >= 0 else text
+            out_rows.append({
+                "raw_text": text,
+                "parsed_number": extract_first_number(post_trace),
+                "backend": "huggingface",
+                "thinking_marker_present": idx >= 0,
+            })
+        return out_rows
+
 
 class FastVLMRunner(_BaseRunner):
     """Adapter for apple/FastVLM-7B (custom LlavaQwen2ForCausalLM via trust_remote_code)."""
