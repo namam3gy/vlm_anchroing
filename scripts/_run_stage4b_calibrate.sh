@@ -62,12 +62,41 @@ wait $PID_PLOTQA && echo "  PlotQA  done" || { echo "  PlotQA  FAILED"; exit 1; 
 wait $PID_INFOVQA && echo "  InfoVQA done" || { echo "  InfoVQA FAILED"; exit 1; }
 
 echo ""
+echo "=== Stage 4b.1b · Mirror worktree calibration dirs to MAIN ==="
+# e6_steering_vector.py uses PROJECT_ROOT=worktree → writes to
+# WORKTREE/outputs/e6_steering/. But the §5.2 notebook's E6_ROOT_LEGACY +
+# downstream compute_subspace need MAIN/outputs/e6_steering/. Move the
+# fresh H1 calibration artifacts to MAIN now.
+WT_E6=$(pwd)/outputs/e6_steering/$MODEL
+MAIN_E6=$MAIN/outputs/e6_steering/$MODEL
+mkdir -p "$MAIN_E6"
+for tag in plotqa_h1 infographicvqa_h1; do
+  if [ -d "$WT_E6/calibration_$tag" ]; then
+    rm -rf "$MAIN_E6/calibration_$tag"
+    mv "$WT_E6/calibration_$tag" "$MAIN_E6/calibration_$tag"
+    echo "  moved: $tag"
+  fi
+done
+
+echo ""
 echo "=== Stage 4b.2 · Pool + SVD → K=16 subspace ==="
 $PY scripts/e6_compute_subspace.py \
   --model "$MODEL" \
   --tags plotqa_h1,infographicvqa_h1 \
   --scope plotqa_infovqa_pooled_h1 \
   --K-max 16
+
+# compute_subspace also writes under PROJECT_ROOT=worktree by default;
+# move the produced subspace tensor + singular_values CSV to MAIN.
+WT_SUB=$(pwd)/outputs/e6_steering/$MODEL/_subspace
+MAIN_SUB=$MAIN/outputs/e6_steering/$MODEL/_subspace
+mkdir -p "$MAIN_SUB"
+for f in subspace_plotqa_infovqa_pooled_h1_K16.pt singular_values_plotqa_infovqa_pooled_h1.csv; do
+  if [ -f "$WT_SUB/$f" ]; then
+    mv "$WT_SUB/$f" "$MAIN_SUB/$f"
+    echo "  moved: $f"
+  fi
+done
 
 SUBSPACE_PATH=$MAIN/outputs/e6_steering/$MODEL/_subspace/subspace_plotqa_infovqa_pooled_h1_K16.pt
 echo ""

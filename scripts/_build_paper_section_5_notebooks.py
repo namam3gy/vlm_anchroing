@@ -95,9 +95,17 @@ SCRIPTS    = WORKTREE / "scripts"
 CONFIGS    = WORKTREE / "configs"
 DATA_DIR   = MAIN / "docs" / "insights" / "_data"
 
-# §5.2 reads predictions.jsonl from canonical per-experiment legacy run dirs
-# (cross_model_cross_dataset snapshots only carry the CSV). Each tuple maps the
-# §5.2 dataset_tag to the legacy run dir for OneVision-Main.
+# §5.2 reads predictions.jsonl. Under H1 (raw-number prompt + eps=0 DF)
+# point at the paper2 snapshot. Legacy timestamped run dirs preserved as
+# fallback for audit-trail / direct rerun-without-H1 reproduction.
+H1_PRED_ROOT = MAIN / "outputs" / "paper2" / "cross_model_cross_dataset" / "predictions"
+H1_PRED_ROOTS = {
+    "plotqa":         H1_PRED_ROOT / "plotqa"         / "llava-onevision-qwen2-7b-ov",
+    "infographicvqa": H1_PRED_ROOT / "infographicvqa" / "llava-onevision-qwen2-7b-ov",
+    "chartqa":        H1_PRED_ROOT / "chartqa"        / "llava-onevision-qwen2-7b-ov",
+    "mathvista":      H1_PRED_ROOT / "mathvista"      / "llava-onevision-qwen2-7b-ov",
+    "tallyqa":        H1_PRED_ROOT / "tallyqa"        / "llava-onevision-qwen2-7b-ov",
+}
 LEGACY_PRED_ROOTS = {
     "plotqa":         MAIN / "outputs" / "experiment_e7_plotqa_full"         / "llava-onevision-qwen2-7b-ov" / "20260502-132624",
     "infographicvqa": MAIN / "outputs" / "experiment_e7_infographicvqa_full" / "llava-onevision-qwen2-7b-ov" / "20260502-152105",
@@ -109,6 +117,10 @@ LEGACY_PRED_ROOTS = {
 
 def legacy_pred(ds_tag: str) -> Path:
     return LEGACY_PRED_ROOTS[ds_tag] / "predictions.jsonl"
+
+
+def h1_pred(ds_tag: str) -> Path:
+    return H1_PRED_ROOTS[ds_tag] / "predictions.jsonl"
 
 # §5.2 e6_steering input root selection (same toggle as §5.1 above):
 #   - RUN_INFERENCE=False: read pre-existing sweep dirs from legacy
@@ -575,7 +587,7 @@ PILOT_LAYERS = [14, 20, 22, 26]
 PILOT_ALPHAS = [0.5, 1.0, 2.0]
 PILOT_KS     = [1, 2, 4, 8]
 
-CALIB_SCOPE       = "plotqa_infovqa_pooled_n5k"
+CALIB_SCOPE       = "plotqa_infovqa_pooled_h1"
 CALIB_MAX_PAIRS   = 2500
 
 # Batched generate. B=16 validated via _smoke_batched_vs_sequential.py
@@ -653,7 +665,7 @@ def sweep_pilot():
         "uv", "run", "python", str(SCRIPTS / "run_sweep_subspace_sharded.py"),
         "--config", str(CONFIGS / "experiment_e7_plotqa_full.yaml"),
         "--model", ONEVISION, "--hf-model", ONEVISION_HF,
-        "--predictions-path", str(legacy_pred("plotqa")),
+        "--predictions-path", str(h1_pred("plotqa")),
         "--dataset-tag", "plotqa",
         "--subspace-path", str(subspace_path),
         "--subspace-scope", CALIB_SCOPE,
@@ -761,7 +773,7 @@ def sweep_5dataset_layer():
                 "tallyqa": "tallyqa", "chartqa": "chartqa",
                 "mathvista": "mathvista"}
     for ds_tag, cfg_slug in SWEEP_DATASETS_5D:
-        pred = legacy_pred(pred_key[ds_tag])
+        pred = h1_pred(pred_key[ds_tag])
         out_dir = E6_ROOT_FRESH / ONEVISION / f"sweep_subspace_{ds_tag}_{CALIB_SCOPE}_p4_layer_sweep_K1_layers_K8"
         cmd = [
             "uv", "run", "python", str(SCRIPTS / "run_sweep_subspace_sharded.py"),
