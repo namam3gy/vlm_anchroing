@@ -25,9 +25,12 @@ set -euo pipefail
 cd "$(dirname "$0")/.."   # worktree root
 
 PY=.venv/bin/python
-H1_PRED_ROOT=outputs/paper2/cross_model_cross_dataset/predictions
-H1_SUMMARY_DIR=outputs/paper2/cross_model_cross_dataset/summary
-CANON_DIR=docs/insights/_data
+# Gitignored artifacts live in the MAIN worktree (shared across linked
+# worktrees via git's `git-common-dir` convention).
+MAIN=$(git rev-parse --git-common-dir | xargs realpath | xargs dirname)
+H1_PRED_ROOT=$MAIN/outputs/paper2/cross_model_cross_dataset/predictions
+H1_SUMMARY_DIR=$MAIN/outputs/paper2/cross_model_cross_dataset/summary
+CANON_DIR=$MAIN/docs/insights/_data
 
 echo "=== Stage 3b.1 · Recompute answer_span_* fields on H1 predictions ==="
 $PY scripts/recompute_answer_span_confidence.py --root "$H1_PRED_ROOT"
@@ -36,6 +39,7 @@ echo ""
 echo "=== Stage 3b.2 · 6-bin L1 confidence-quartile analysis (H1 layout) ==="
 $PY scripts/analyze_confidence_anchoring.py \
   --paper2-root "$H1_PRED_ROOT" \
+  --out-dir "$CANON_DIR" \
   --n-bins 6 \
   --out-suffix _6bin \
   --primary-proxy cross_entropy \
